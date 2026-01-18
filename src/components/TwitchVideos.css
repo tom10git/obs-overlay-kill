@@ -1,0 +1,143 @@
+.twitch-videos {
+  padding: 1.5rem;
+  border-radius: 8px;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  margin: 1rem 0;
+}
+
+.twitch-videos.loading {
+  text-align: center;
+  color: #888;
+}
+
+.twitch-videos.error {
+  color: #ff6b6b;
+}
+
+.twitch-videos.error button {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #646cff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.twitch-videos.error button:hover {
+  background-color: #535bf2;
+}
+
+.twitch-videos h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #fff;
+}
+
+.videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.video-card {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.video-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.video-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.video-thumbnail {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 aspect ratio */
+  background-color: #1a1a1a;
+  overflow: hidden;
+}
+
+.video-thumbnail img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-duration {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.video-info {
+  padding: 1rem;
+}
+
+.video-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  color: #fff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.video-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.video-views,
+.video-date {
+  display: flex;
+  align-items: center;
+}
+
+.load-more-container {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.load-more-button {
+  padding: 0.75rem 2rem;
+  background-color: #646cff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.load-more-button:hover:not(:disabled) {
+  background-color: #535bf2;
+}
+
+.load-more-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

@@ -1,0 +1,158 @@
+.twitch-chat {
+  padding: 1.5rem;
+  border-radius: 8px;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 600px;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #333;
+}
+
+.chat-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #fff;
+}
+
+.chat-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.connection-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.connection-status.connected {
+  background-color: #00d4aa;
+  color: #000;
+}
+
+.connection-status.disconnected {
+  background-color: #666;
+  color: #fff;
+}
+
+.chat-button {
+  padding: 0.5rem 1rem;
+  background-color: #646cff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.chat-button:hover {
+  background-color: #535bf2;
+}
+
+.chat-error {
+  padding: 0.75rem;
+  background-color: #ff6b6b20;
+  border: 1px solid #ff6b6b;
+  border-radius: 4px;
+  color: #ff6b6b;
+  margin-bottom: 1rem;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: #0f0f0f;
+  border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.chat-empty {
+  text-align: center;
+  color: #888;
+  padding: 2rem;
+}
+
+.chat-message {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.message-time {
+  color: #888;
+  font-size: 0.85rem;
+  min-width: 60px;
+}
+
+.message-username {
+  font-weight: 600;
+  min-width: fit-content;
+}
+
+.message-text {
+  color: #fff;
+  flex: 1;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  margin-left: 0.25rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge.mod {
+  background-color: #00d4aa;
+  color: #000;
+}
+
+.badge.subscriber {
+  background-color: #9146ff;
+  color: #fff;
+}
+
+.badge.vip {
+  background-color: #ffd700;
+  color: #000;
+}

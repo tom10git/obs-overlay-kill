@@ -1,0 +1,119 @@
+import tmi from 'tmi.js'
+import type { TwitchChatMessage } from '../types/twitch'
+
+class TwitchChatClient {
+  private client: tmi.Client | null = null
+  private messageCallbacks: Set<(message: TwitchChatMessage) => void> = new Set()
+
+  /**
+   * チャンネルに接続してチャットメッセージを購読
+   */
+  connect(channel: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (this.client) {
+        this.disconnect()
+      }
+
+      const channelName = channel.startsWith('#') ? channel : `#${channel}`
+
+      this.client = new tmi.Client({
+        options: { debug: false },
+        channels: [channelName],
+      })
+
+      this.client.on('message', (channel, tags, message, self) => {
+        if (self) return // 自分のメッセージは無視
+
+        const chatMessage: TwitchChatMessage = {
+          id: tags.id || `${Date.now()}-${Math.random()}`,
+          user: {
+            id: tags['user-id'] || '',
+            login: tags.username || '',
+            displayName: tags['display-name'] || tags.username || '',
+            color: tags.color || '#FFFFFF',
+            badges: tags.badges || {},
+            isMod: tags.mod === true,
+            isSubscriber: tags.subscriber === true,
+            isVip: tags.vip === true,
+          },
+          message: message,
+          timestamp: tags['tmi-sent-ts'] ? parseInt(tags['tmi-sent-ts']) : Date.now(),
+          channel: channel.replace('#', ''),
+          emotes: tags.emotes
+            ? tags.emotes.map((emote) => ({
+                id: emote.id,
+                name: emote.name,
+                positions: emote.positions,
+              }))
+            : undefined,
+        }
+
+        // すべてのコールバックを呼び出し
+        this.messageCallbacks.forEach((callback) => {
+          try {
+            callback(chatMessage)
+          } catch (error) {
+            console.error('Error in chat message callback:', error)
+          }
+        })
+      })
+
+      this.client.on('connected', () => {
+        resolve()
+      })
+
+      this.client.on('disconnected', () => {
+        // 再接続は自動的に行われる
+      })
+
+      this.client.on('join', (channel, username, self) => {
+        if (self) {
+          console.log(`Joined channel: ${channel}`)
+        }
+      })
+
+      this.client.on('part', (channel, username, self) => {
+        if (self) {
+          console.log(`Left channel: ${channel}`)
+        }
+      })
+
+      this.client.connect().catch((error) => {
+        console.error('Failed to connect to Twitch chat:', error)
+        reject(error)
+      })
+    })
+  }
+
+  /**
+   * チャットメッセージのコールバックを登録
+   */
+  onMessage(callback: (message: TwitchChatMessage) => void): () => void {
+    this.messageCallbacks.add(callback)
+    // 登録解除関数を返す
+    return () => {
+      this.messageCallbacks.delete(callback)
+    }
+  }
+
+  /**
+   * チャンネルから切断
+   */
+  disconnect(): void {
+    if (this.client) {
+      this.client.disconnect()
+      this.client = null
+    }
+    this.messageCallbacks.clear()
+  }
+
+  /**
+   * 接続状態を取得
+   */
+  isConnected(): boolean {
+    return this.client?.readyState() === 'OPEN'
+  }
+}
+
+// シングルトンインスタンスをエクスポート
+export const twitchChat = new TwitchChatClient()

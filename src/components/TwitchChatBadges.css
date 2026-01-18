@@ -1,0 +1,99 @@
+.twitch-chat-badges {
+  padding: 1.5rem;
+  border-radius: 8px;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  margin: 1rem 0;
+}
+
+.twitch-chat-badges.loading {
+  text-align: center;
+  color: #888;
+}
+
+.twitch-chat-badges.error {
+  color: #ff6b6b;
+}
+
+.twitch-chat-badges.error button {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #646cff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.twitch-chat-badges.error button:hover {
+  background-color: #535bf2;
+}
+
+.twitch-chat-badges h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #fff;
+}
+
+.badges-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.badge-set {
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.badge-set-title {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #fff;
+  font-weight: 600;
+}
+
+.badge-versions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.badge-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background-color: #1a1a1a;
+  border-radius: 6px;
+  transition: transform 0.2s;
+}
+
+.badge-item:hover {
+  transform: translateY(-2px);
+}
+
+.badge-image {
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+}
+
+.badge-info {
+  text-align: center;
+  width: 100%;
+}
+
+.badge-title {
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.badge-description {
+  color: #888;
+  font-size: 0.75rem;
+}

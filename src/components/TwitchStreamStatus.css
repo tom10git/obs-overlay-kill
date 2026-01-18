@@ -1,0 +1,87 @@
+.twitch-stream-status {
+  padding: 1.5rem;
+  border-radius: 8px;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  margin: 1rem 0;
+}
+
+.twitch-stream-status.loading {
+  text-align: center;
+  color: #888;
+}
+
+.twitch-stream-status.error {
+  color: #ff6b6b;
+}
+
+.twitch-stream-status.error button {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: #646cff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.twitch-stream-status.error button:hover {
+  background-color: #535bf2;
+}
+
+.status-indicator {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.status-indicator.online {
+  background-color: #00d4aa;
+  color: #000;
+}
+
+.status-indicator.offline {
+  background-color: #666;
+  color: #fff;
+}
+
+.stream-info h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: #fff;
+}
+
+.stream-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.detail-item {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.detail-label {
+  color: #888;
+  min-width: 80px;
+}
+
+.detail-value {
+  color: #fff;
+  font-weight: 500;
+}
+
+.stream-thumbnail {
+  margin-top: 1rem;
+}
+
+.stream-thumbnail img {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 4px;
+}
