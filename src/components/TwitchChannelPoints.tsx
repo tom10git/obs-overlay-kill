@@ -17,7 +17,6 @@ export function TwitchChannelPoints({ broadcasterId }: TwitchChannelPointsProps)
     error: redemptionsError,
     hasMore,
     loadMore,
-    refetch: refetchRedemptions,
   } = useTwitchChannelPointRedemptions(
     broadcasterId,
     selectedRewardId || '',

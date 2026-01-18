@@ -66,6 +66,22 @@ const clientSecret = getTwitchClientSecret()
 
 ## 開発サーバーの起動
 
+### Windows の場合
+
+バッチファイルを使用する場合（推奨）:
+
+```batch
+dev.bat
+```
+
+または、コマンドプロンプトで:
+
+```bash
+npm run dev
+```
+
+### その他のOSの場合
+
 ```bash
 npm run dev
 ```
@@ -75,6 +91,22 @@ npm run dev
 ## ビルド
 
 本番用にビルドする場合:
+
+### Windows の場合
+
+バッチファイルを使用する場合（推奨）:
+
+```batch
+build.bat
+```
+
+または、コマンドプロンプトで:
+
+```bash
+npm run build
+```
+
+### その他のOSの場合
 
 ```bash
 npm run build
@@ -86,9 +118,38 @@ npm run build
 
 ビルドしたアプリケーションをプレビューする場合:
 
+### Windows の場合
+
+バッチファイルを使用する場合（推奨）:
+
+```batch
+preview.bat
+```
+
+または、コマンドプロンプトで:
+
 ```bash
 npm run preview
 ```
+
+### その他のOSの場合
+
+```bash
+npm run preview
+```
+
+プレビューサーバーが起動したら、ブラウザで `http://localhost:4173` にアクセスしてください。
+
+## 便利なバッチファイル（Windows）
+
+プロジェクトルートには以下のバッチファイルが用意されています：
+
+- **`dev.bat`** - 開発サーバーを起動
+- **`build.bat`** - アプリケーションをビルド
+- **`preview.bat`** - ビルド済みアプリケーションをプレビュー
+- **`install.bat`** - 依存関係をインストール
+
+これらのバッチファイルをダブルクリックするだけで、対応する操作を実行できます。
 
 ## Twitch API の使い方
 

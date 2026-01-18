@@ -1,8 +1,8 @@
-import tmi from 'tmi.js'
+import tmi, { type Client } from 'tmi.js'
 import type { TwitchChatMessage } from '../types/twitch'
 
 class TwitchChatClient {
-  private client: tmi.Client | null = null
+  private client: Client | null = null
   private messageCallbacks: Set<(message: TwitchChatMessage) => void> = new Set()
 
   /**
@@ -21,7 +21,7 @@ class TwitchChatClient {
         channels: [channelName],
       })
 
-      this.client.on('message', (channel, tags, message, self) => {
+      this.client.on('message', (channel: string, tags: any, message: string, self: boolean) => {
         if (self) return // 自分のメッセージは無視
 
         const chatMessage: TwitchChatMessage = {
@@ -40,7 +40,7 @@ class TwitchChatClient {
           timestamp: tags['tmi-sent-ts'] ? parseInt(tags['tmi-sent-ts']) : Date.now(),
           channel: channel.replace('#', ''),
           emotes: tags.emotes
-            ? tags.emotes.map((emote) => ({
+            ? tags.emotes.map((emote: any) => ({
                 id: emote.id,
                 name: emote.name,
                 positions: emote.positions,
@@ -66,19 +66,19 @@ class TwitchChatClient {
         // 再接続は自動的に行われる
       })
 
-      this.client.on('join', (channel, username, self) => {
+      this.client.on('join', (channel: string, _username: string, self: boolean) => {
         if (self) {
           console.log(`Joined channel: ${channel}`)
         }
       })
 
-      this.client.on('part', (channel, username, self) => {
+      this.client.on('part', (channel: string, _username: string, self: boolean) => {
         if (self) {
           console.log(`Left channel: ${channel}`)
         }
       })
 
-      this.client.connect().catch((error) => {
+      this.client.connect().catch((error: unknown) => {
         console.error('Failed to connect to Twitch chat:', error)
         reject(error)
       })
