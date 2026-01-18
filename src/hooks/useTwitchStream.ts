@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { twitchApi } from '../utils/twitchApi'
+import { getAutoRefreshInterval } from '../config/admin'
 import type { TwitchStream } from '../types/twitch'
 
 interface UseTwitchStreamResult {
@@ -39,8 +40,9 @@ export function useTwitchStream(userLogin: string): UseTwitchStreamResult {
 
   useEffect(() => {
     fetchStream()
-    // 30秒ごとに自動更新（オプション）
-    const interval = setInterval(fetchStream, 30000)
+    // 管理者設定から自動更新間隔を取得
+    const refreshInterval = getAutoRefreshInterval() * 1000 // ミリ秒に変換
+    const interval = setInterval(fetchStream, refreshInterval)
     return () => clearInterval(interval)
   }, [userLogin])
 

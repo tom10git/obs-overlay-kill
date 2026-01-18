@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { UserDetails } from './components/UserDetails'
-import { getTwitchUsername } from './config/auth'
+import { getAdminUsername } from './config/admin'
 import './App.css'
 
 function App() {
-  // 環境変数からデフォルトユーザー名を取得
-  const defaultUsername = getTwitchUsername() || ''
+  // 管理者設定からデフォルトユーザー名を取得
+  const defaultUsername = getAdminUsername() || ''
   const [userLogin, setUserLogin] = useState(defaultUsername)
   const [searchLogin, setSearchLogin] = useState(defaultUsername)
 

@@ -1,4 +1,5 @@
 import { useTwitchStream } from '../hooks/useTwitchStream'
+import { getAutoRefreshInterval } from '../config/admin'
 import './TwitchStreamStatus.css'
 
 interface TwitchStreamStatusProps {
@@ -6,6 +7,7 @@ interface TwitchStreamStatusProps {
 }
 
 export function TwitchStreamStatus({ userLogin }: TwitchStreamStatusProps) {
+  // 管理者設定から自動更新間隔を取得（useTwitchStream内で使用される）
   const { stream, loading, error, isLive, refetch } = useTwitchStream(userLogin)
 
   if (loading) {

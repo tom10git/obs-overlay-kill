@@ -1,39 +1,71 @@
-# 認証設定
+# 設定管理
 
-このディレクトリには、認証情報やセキュリティに関わる設定を管理するファイルが含まれています。
+このディレクトリには、アプリケーションの設定を管理するファイルが含まれています。
 
 ## ファイル構成
 
-- `auth.ts` - Twitch API認証情報の管理
+- `auth.ts` - Twitch API認証情報の管理（内部使用）
+- `admin.ts` - **管理者側の設定情報を一元管理**（推奨）
 
-## 使用方法
+## 推奨: admin.ts を使用
 
-### 認証情報とユーザー名の取得
+管理者が設定する情報は、`admin.ts` から取得することを推奨します。このファイルには、管理者が設定するすべての情報が集約されています。
+
+### 管理者設定情報の取得
 
 ```typescript
 import {
-  getTwitchClientId,
-  getTwitchClientSecret,
-  getTwitchAccessToken,
-  getTwitchUsername
-} from '../config/auth'
+  getAdminClientId,
+  getAdminClientSecret,
+  getAdminAccessToken,
+  getAdminUsername,
+  getDefaultChannel,
+  getAutoRefreshInterval,
+  getMaxChatMessages,
+  getAllAdminConfig
+} from '../config/admin'
 
-const clientId = getTwitchClientId()
-const clientSecret = getTwitchClientSecret()
-const accessToken = getTwitchAccessToken() // オプション
-const username = getTwitchUsername() // オプション: デフォルトユーザー名
+// 個別の設定を取得
+const clientId = getAdminClientId()
+const username = getAdminUsername()
+const refreshInterval = getAutoRefreshInterval() // 秒単位
+
+// すべての設定を一度に取得
+const allConfig = getAllAdminConfig()
 ```
 
-### 認証情報の検証
+## 設定項目
 
-```typescript
-import { isAuthConfigured } from '../config/auth'
+### Twitch認証情報
 
-if (isAuthConfigured()) {
-  // 認証情報が設定されている
-} else {
-  // 認証情報が設定されていない
-}
+- **Client ID** - Twitch API の Client ID（必須）
+- **Client Secret** - Twitch API の Client Secret（必須）
+- **Access Token** - 事前に取得した Access Token（オプション）
+- **Username** - デフォルトで表示する Twitch ユーザー名（オプション）
+
+### アプリケーション設定
+
+- **Default Channel** - デフォルトチャンネル名（オプション）
+- **Auto Refresh Interval** - 自動更新間隔（秒単位、デフォルト: 30秒）
+- **Max Chat Messages** - チャットメッセージの最大表示数（デフォルト: 100件）
+
+## 環境変数の設定
+
+`.env` ファイルに以下の環境変数を設定してください：
+
+```env
+# Twitch API認証情報（必須）
+VITE_TWITCH_CLIENT_ID=your_client_id_here
+VITE_TWITCH_CLIENT_SECRET=your_client_secret_here
+
+# Twitch API認証情報（オプション）
+VITE_TWITCH_ACCESS_TOKEN=your_access_token_here
+VITE_TWITCH_USERNAME=your_username_here
+
+# アプリケーション設定（オプション）
+VITE_DEFAULT_CHANNEL=your_channel_name
+VITE_AUTO_REFRESH_INTERVAL=30
+VITE_MAX_CHAT_MESSAGES=100
 ```
 
 ## セキュリティに関する注意事項
@@ -51,20 +83,26 @@ if (isAuthConfigured()) {
    - チャンネルポイントなどの一部の機能には、OAuth認証（ユーザートークン）が必要です
    - ユーザートークンは、ユーザーが明示的に認証を行う必要があります
 
-## 環境変数の設定
+## 使用方法の例
 
-`.env` ファイルに以下の環境変数を設定してください：
+### 基本的な使用
 
-```env
-VITE_TWITCH_CLIENT_ID=your_client_id_here
-VITE_TWITCH_CLIENT_SECRET=your_client_secret_here
-VITE_TWITCH_ACCESS_TOKEN=your_access_token_here  # オプション
-VITE_TWITCH_USERNAME=your_username_here  # オプション: デフォルトユーザー名
+```typescript
+import { getAdminUsername, getMaxChatMessages } from './config/admin'
+
+// デフォルトユーザー名を取得
+const username = getAdminUsername() || 'default_user'
+
+// チャットメッセージの最大数を取得
+const maxMessages = getMaxChatMessages()
 ```
 
-## 設定項目の説明
+### すべての設定を取得
 
-- **VITE_TWITCH_CLIENT_ID** (必須): Twitch API の Client ID
-- **VITE_TWITCH_CLIENT_SECRET** (必須): Twitch API の Client Secret
-- **VITE_TWITCH_ACCESS_TOKEN** (オプション): 事前に取得した Access Token
-- **VITE_TWITCH_USERNAME** (オプション): デフォルトで表示する Twitch ユーザー名。設定すると、アプリ起動時に自動的にそのユーザーの情報を表示します
+```typescript
+import { getAllAdminConfig } from './config/admin'
+
+const config = getAllAdminConfig()
+console.log(config.twitch.clientId)
+console.log(config.app.autoRefreshInterval)
+```

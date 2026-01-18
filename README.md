@@ -24,15 +24,24 @@ npm install
 プロジェクトルートに `.env` ファイルを作成し、以下の内容を記入:
 
 ```env
+# Twitch API認証情報（必須）
 VITE_TWITCH_CLIENT_ID=your_client_id_here
 VITE_TWITCH_CLIENT_SECRET=your_client_secret_here
-VITE_TWITCH_USERNAME=your_username_here  # オプション: デフォルトユーザー名
+
+# Twitch API認証情報（オプション）
+VITE_TWITCH_ACCESS_TOKEN=your_access_token_here
+VITE_TWITCH_USERNAME=your_username_here  # デフォルトユーザー名
+
+# アプリケーション設定（オプション）
+VITE_DEFAULT_CHANNEL=your_channel_name
+VITE_AUTO_REFRESH_INTERVAL=30  # 自動更新間隔（秒）
+VITE_MAX_CHAT_MESSAGES=100  # チャットメッセージの最大表示数
 ```
 
 > **注意:**
 > - `.env` ファイルは `.gitignore` に含まれているため、Git にコミットされません
 > - `.env.example` ファイルを参考にしてください
-> - 認証情報とユーザー名は `src/config/auth.ts` で一元管理されています
+> - **管理者側の設定情報は `src/config/admin.ts` で一元管理されています**
 > - `VITE_TWITCH_USERNAME` を設定すると、アプリ起動時に自動的にそのユーザーの情報を表示します
 > - セキュリティに関する詳細は `src/config/README.md` を参照してください
 
@@ -224,7 +233,8 @@ src/
 ├── types/               # TypeScript 型定義
 │   └── twitch.ts               # Twitch API 型定義
 ├── config/              # 設定ファイル
-│   ├── auth.ts                 # 認証情報管理
+│   ├── auth.ts                 # 認証情報管理（内部使用）
+│   ├── admin.ts                # 管理者設定情報の一元管理（推奨）
 │   └── README.md               # 設定に関するドキュメント
 ├── utils/               # ユーティリティ
 │   ├── twitchApi.ts            # Twitch API クライアント

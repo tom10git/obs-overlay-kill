@@ -1,4 +1,5 @@
 import { useTwitchChat } from '../hooks/useTwitchChat'
+import { getMaxChatMessages } from '../config/admin'
 import './TwitchChat.css'
 
 interface TwitchChatProps {
@@ -6,9 +7,11 @@ interface TwitchChatProps {
   maxMessages?: number
 }
 
-export function TwitchChat({ channel, maxMessages = 100 }: TwitchChatProps) {
+export function TwitchChat({ channel, maxMessages }: TwitchChatProps) {
+  // 管理者設定からデフォルト値を取得
+  const defaultMaxMessages = maxMessages ?? getMaxChatMessages()
   const { messages, isConnected, error, connect, disconnect, clearMessages } =
-    useTwitchChat(channel, maxMessages)
+    useTwitchChat(channel, defaultMaxMessages)
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)
