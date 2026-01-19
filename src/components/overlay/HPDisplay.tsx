@@ -7,14 +7,12 @@ import './HPDisplay.css'
 interface HPDisplayProps {
   current: number
   max: number
-  showMax: boolean
   fontSize: number
 }
 
 export function HPDisplay({
   current,
   max,
-  showMax,
   fontSize,
 }: HPDisplayProps) {
   // 常に最大HPを表示（現在HP / 最大HP の形式）

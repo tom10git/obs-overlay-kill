@@ -22,7 +22,7 @@ interface HPGaugeProps {
 /**
  * ゲージの色を決定
  */
-function getGaugeColor(index: number, total: number): string {
+function getGaugeColor(index: number): string {
   // 仕様:
   // - 「最後の1ゲージ（HPが最後に残る分）」が赤
   // - 2ゲージ目がオレンジ
@@ -88,7 +88,7 @@ export function HPGauge({
   const gaugeLayers = useMemo(() => {
     const layers = []
     for (let i = 0; i < gaugeCount; i++) {
-      const color = getGaugeColor(i, gaugeCount)
+      const color = getGaugeColor(i)
       // ゲージインデックス: 0が最下層（最後に残る分）、gaugeCount-1が最上層（最初に減る分）
       // z-index: 高いほど上に表示（最上層が最前面）
       const zIndex = i + 1
@@ -169,7 +169,6 @@ export function HPGauge({
           <HPDisplay
             current={currentHP}
             max={maxHP}
-            showMaxHp={config.display.showMaxHp}
             fontSize={config.display.fontSize}
           />
         </div>
