@@ -1,0 +1,133 @@
+.overlay-page {
+  width: 100vw;
+  height: 100vh;
+  background: #00ff00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.overlay-loading {
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 24px;
+}
+
+.overlay-warning {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  max-width: 520px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1.4;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.overlay-warning p {
+  margin: 0.25rem 0;
+}
+
+.overlay-miss {
+  position: fixed;
+  left: 50%;
+  top: 45%;
+  transform: translate(-50%, -50%);
+  z-index: 10001;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+  text-shadow:
+    0 2px 0 rgba(255, 80, 80, 0.55),
+    0 0 12px rgba(255, 80, 80, 0.65),
+    0 0 20px rgba(255, 80, 80, 1);
+  font-size: 72px;
+  pointer-events: none;
+  animation: overlay-miss-pop 650ms ease-out both;
+}
+
+@keyframes overlay-miss-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.70);
+  }
+
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -60%) scale(1.05);
+  }
+}
+
+.test-controls {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: rgba(0, 0, 0, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  padding: 1rem;
+  z-index: 10000;
+}
+
+.test-controls-info {
+  margin-bottom: 0.75rem;
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.test-controls-info p {
+  margin: 0.25rem 0;
+}
+
+.test-controls-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.test-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.test-button:hover {
+  opacity: 0.8;
+}
+
+.test-button.test-attack {
+  background-color: #ff4444;
+  color: white;
+}
+
+.test-button.test-heal {
+  background-color: #44ff44;
+  color: #000;
+}
+
+.test-button.test-reset {
+  background-color: #4aa3ff;
+  color: #fff;
+}

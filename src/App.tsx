@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
 import { UserDetails } from './components/UserDetails'
+import { OverlayPage } from './pages/OverlayPage'
+import { OverlaySettings } from './components/settings/OverlaySettings'
 import { getAdminUsername } from './config/admin'
 import './App.css'
 
-function App() {
+function MainApp() {
   // 管理者設定からデフォルトユーザー名を取得
   const defaultUsername = getAdminUsername() || ''
   const [userLogin, setUserLogin] = useState(defaultUsername)
@@ -33,6 +36,11 @@ function App() {
     <>
       <div>
         <h1>OBS Overlay Kill</h1>
+        <nav className="main-nav">
+          <Link to="/">ホーム</Link>
+          <Link to="/overlay">オーバーレイ</Link>
+          <Link to="/settings">設定</Link>
+        </nav>
         <div className="card">
           <div className="search-section">
             <h2>Twitchユーザー検索</h2>
@@ -81,6 +89,37 @@ function App() {
               </ol>
             </div>
           )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MainApp />} />
+        <Route path="/overlay" element={<OverlayPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
+function SettingsPage() {
+  return (
+    <>
+      <div>
+        <h1>OBS Overlay Kill - 設定</h1>
+        <nav className="main-nav">
+          <Link to="/">ホーム</Link>
+          <Link to="/overlay">オーバーレイ</Link>
+          <Link to="/settings">設定</Link>
+        </nav>
+        <div className="card">
+          <OverlaySettings />
         </div>
       </div>
     </>

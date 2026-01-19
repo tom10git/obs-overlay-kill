@@ -1,0 +1,46 @@
+{
+  "hp": {
+    "max": 100,
+    "current": 100,
+    "gaugeCount": 3
+  },
+  "attack": {
+    "rewardId": "",
+    "enabled": true,
+    "damage": 10,
+    "missEnabled": false,
+    "missProbability": 0
+  },
+  "heal": {
+    "rewardId": "",
+    "enabled": true,
+    "healType": "fixed",
+    "healAmount": 20,
+    "healMin": 10,
+    "healMax": 30
+  },
+  "retry": {
+    "command": "!retry",
+    "enabled": true
+  },
+  "animation": {
+    "duration": 500,
+    "easing": "ease-out"
+  },
+  "display": {
+    "showMaxHp": true,
+    "fontSize": 24
+  },
+  "zeroHpImage": {
+    "enabled": true,
+    "imageUrl": ""
+  },
+  "zeroHpSound": {
+    "enabled": true,
+    "soundUrl": "",
+    "volume": 0.7
+  },
+  "test": {
+    "enabled": false
+  }
+}
