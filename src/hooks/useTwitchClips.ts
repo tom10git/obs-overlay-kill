@@ -42,7 +42,12 @@ export function useTwitchClips(
       if (reset) {
         setClips(result.data)
       } else {
-        setClips((prev) => [...prev, ...result.data])
+        setClips((prev) => {
+          // メモリ最適化: クリップ配列のサイズを制限（最大200件）
+          const MAX_CLIPS = 200
+          const updated = [...prev, ...result.data]
+          return updated.slice(0, MAX_CLIPS)
+        })
       }
 
       setCursor(result.pagination?.cursor)

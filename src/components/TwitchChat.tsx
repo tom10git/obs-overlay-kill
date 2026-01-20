@@ -1,5 +1,6 @@
 import { useTwitchChat } from '../hooks/useTwitchChat'
 import { getMaxChatMessages } from '../config/admin'
+import { escapeHtml } from '../utils/security'
 import './TwitchChat.css'
 
 interface TwitchChatProps {
@@ -58,14 +59,14 @@ export function TwitchChat({ channel, maxMessages }: TwitchChatProps) {
                 className="message-username"
                 style={{ color: message.user.color }}
               >
-                {message.user.displayName}
+                {escapeHtml(message.user.displayName)}
                 {message.user.isMod && <span className="badge mod">MOD</span>}
                 {message.user.isSubscriber && (
                   <span className="badge subscriber">SUB</span>
                 )}
                 {message.user.isVip && <span className="badge vip">VIP</span>}
               </span>
-              <span className="message-text">: {message.message}</span>
+              <span className="message-text">: {escapeHtml(message.message)}</span>
             </div>
           ))
         )}

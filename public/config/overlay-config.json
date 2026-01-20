@@ -42,7 +42,7 @@
   },
   "zeroHpEffect": {
     "enabled": true,
-    "gifUrl": "src/images/bakuhatsu.gif",
+    "videoUrl": "src/images/bakuhatsu.webm",
     "loop": false,
     "duration": 2000
   },

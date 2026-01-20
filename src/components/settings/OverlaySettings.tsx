@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import { loadOverlayConfig, saveOverlayConfig, getDefaultConfig } from '../../utils/overlayConfig'
+import { isValidUrl } from '../../utils/security'
 import type { OverlayConfig } from '../../types/overlay'
 import './OverlaySettings.css'
 
@@ -463,12 +464,18 @@ export function OverlaySettings() {
             <input
               type="text"
               value={config.zeroHpImage.imageUrl}
-              onChange={(e) =>
-                setConfig({
-                  ...config,
-                  zeroHpImage: { ...config.zeroHpImage, imageUrl: e.target.value },
-                })
-              }
+              onChange={(e) => {
+                const url = e.target.value
+                if (isValidUrl(url)) {
+                  setConfig({
+                    ...config,
+                    zeroHpImage: { ...config.zeroHpImage, imageUrl: url },
+                  })
+                } else {
+                  setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                  setTimeout(() => setMessage(null), 3000)
+                }
+              }}
               placeholder="空欄の場合は otsu.png を使用"
             />
           </label>
@@ -502,12 +509,18 @@ export function OverlaySettings() {
             <input
               type="text"
               value={config.zeroHpSound.soundUrl}
-              onChange={(e) =>
-                setConfig({
-                  ...config,
-                  zeroHpSound: { ...config.zeroHpSound, soundUrl: e.target.value },
-                })
-              }
+              onChange={(e) => {
+                const url = e.target.value
+                if (isValidUrl(url)) {
+                  setConfig({
+                    ...config,
+                    zeroHpSound: { ...config.zeroHpSound, soundUrl: url },
+                  })
+                } else {
+                  setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                  setTimeout(() => setMessage(null), 3000)
+                }
+              }}
               placeholder="空欄の場合は 爆発1.mp3 を使用"
             />
           </label>
@@ -553,22 +566,28 @@ export function OverlaySettings() {
                 })
               }
             />
-            HPが0になったらGIFエフェクトを表示
+            HPが0になったら動画エフェクトを表示
           </label>
         </div>
         <div className="settings-row">
           <label>
-            GIF URL:
+            動画 URL（透過WebM推奨）:
             <input
               type="text"
-              value={config.zeroHpEffect.gifUrl}
-              onChange={(e) =>
-                setConfig({
-                  ...config,
-                  zeroHpEffect: { ...config.zeroHpEffect, gifUrl: e.target.value },
-                })
-              }
-              placeholder="空欄の場合は src/images/bakuhatsu.gif を使用"
+              value={config.zeroHpEffect.videoUrl}
+              onChange={(e) => {
+                const url = e.target.value
+                if (isValidUrl(url)) {
+                  setConfig({
+                    ...config,
+                    zeroHpEffect: { ...config.zeroHpEffect, videoUrl: url },
+                  })
+                } else {
+                  setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                  setTimeout(() => setMessage(null), 3000)
+                }
+              }}
+              placeholder="空欄の場合は src/images/bakuhatsu.webm を使用"
             />
           </label>
         </div>
@@ -584,7 +603,7 @@ export function OverlaySettings() {
                 })
               }
             />
-            GIFアニメーションをループさせる
+            動画をループさせる
           </label>
         </div>
         {!config.zeroHpEffect.loop && (

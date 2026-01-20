@@ -53,7 +53,7 @@ export interface ZeroHpSoundConfig {
 
 export interface ZeroHpEffectConfig {
   enabled: boolean
-  gifUrl: string
+  videoUrl: string // 透過WebM動画のURL（GIFの代わり）
   loop: boolean
   duration: number // ミリ秒（ループしない場合の表示時間）
 }

@@ -3,6 +3,7 @@
  */
 
 import type { OverlayConfig } from '../types/overlay'
+import { isValidUrl, isInRange, isValidLength, validateConfigStructure } from './security'
 
 const DEFAULT_CONFIG: OverlayConfig = {
   hp: {
@@ -48,7 +49,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
   },
   zeroHpEffect: {
     enabled: true,
-    gifUrl: 'images/bakuhatsu.gif',
+    videoUrl: 'src/images/bakuhatsu.webm', // 透過WebM動画
     loop: false,
     duration: 2000, // 2秒
   },
@@ -91,19 +92,22 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       return DEFAULT_CONFIG
     }
     const config = await response.json()
+    // 設定値を検証・サニタイズ
+    const validated = validateAndSanitizeConfig(config)
     // デフォルト値でマージ（不足している項目を補完）
     return {
       ...DEFAULT_CONFIG,
-      ...config,
-      hp: { ...DEFAULT_CONFIG.hp, ...config.hp },
-      attack: { ...DEFAULT_CONFIG.attack, ...config.attack },
-      heal: { ...DEFAULT_CONFIG.heal, ...config.heal },
-      retry: { ...DEFAULT_CONFIG.retry, ...config.retry },
-      animation: { ...DEFAULT_CONFIG.animation, ...config.animation },
-      display: { ...DEFAULT_CONFIG.display, ...config.display },
-      zeroHpImage: { ...DEFAULT_CONFIG.zeroHpImage, ...config.zeroHpImage },
-      zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...config.zeroHpSound },
-      test: { ...DEFAULT_CONFIG.test, ...config.test },
+      ...validated,
+      hp: { ...DEFAULT_CONFIG.hp, ...validated.hp },
+      attack: { ...DEFAULT_CONFIG.attack, ...validated.attack },
+      heal: { ...DEFAULT_CONFIG.heal, ...validated.heal },
+      retry: { ...DEFAULT_CONFIG.retry, ...validated.retry },
+      animation: { ...DEFAULT_CONFIG.animation, ...validated.animation },
+      display: { ...DEFAULT_CONFIG.display, ...validated.display },
+      zeroHpImage: { ...DEFAULT_CONFIG.zeroHpImage, ...validated.zeroHpImage },
+      zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...validated.zeroHpSound },
+      zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...validated.zeroHpEffect },
+      test: { ...DEFAULT_CONFIG.test, ...validated.test },
     }
   } catch (error) {
     console.error('設定ファイルの読み込みに失敗しました:', error)
@@ -141,10 +145,161 @@ export function loadOverlayConfigFromStorage(): OverlayConfig | null {
   try {
     const stored = localStorage.getItem('overlay-config')
     if (!stored) return null
-    return JSON.parse(stored) as OverlayConfig
+
+    // JSONパース
+    const parsed = JSON.parse(stored)
+
+    // 基本的な構造検証
+    if (!validateConfigStructure(parsed)) {
+      console.warn('設定の構造が不正です。デフォルト設定を使用します。')
+      return null
+    }
+
+    // 設定値の検証とサニタイズ
+    const validated = validateAndSanitizeConfig(parsed)
+    return validated
   } catch (error) {
     console.error('ローカルストレージからの設定読み込みに失敗しました:', error)
     return null
+  }
+}
+
+/**
+ * 設定値を検証・サニタイズ
+ */
+function validateAndSanitizeConfig(config: unknown): OverlayConfig {
+  // 型ガード
+  if (!config || typeof config !== 'object') {
+    return DEFAULT_CONFIG
+  }
+
+  const c = config as Record<string, unknown>
+  // HP設定の検証
+  const hpConfig = (c.hp as Record<string, unknown> | undefined) || {}
+  const hpMax = Number(hpConfig.max) || DEFAULT_CONFIG.hp.max
+  const hp = {
+    max: isInRange(hpMax, 1, 10000) ? hpMax : DEFAULT_CONFIG.hp.max,
+    current: isInRange(Number(hpConfig.current), 0, hpMax)
+      ? Math.max(0, Math.min(Number(hpConfig.current) || 0, hpMax))
+      : DEFAULT_CONFIG.hp.current,
+    gaugeCount: isInRange(Number(hpConfig.gaugeCount), 1, 10)
+      ? Number(hpConfig.gaugeCount) || DEFAULT_CONFIG.hp.gaugeCount
+      : DEFAULT_CONFIG.hp.gaugeCount,
+  }
+
+  // 攻撃設定の検証
+  const attackConfig = (c.attack as Record<string, unknown> | undefined) || {}
+  const attack = {
+    rewardId: typeof attackConfig.rewardId === 'string' ? attackConfig.rewardId : '',
+    enabled: typeof attackConfig.enabled === 'boolean' ? attackConfig.enabled : true,
+    damage: isInRange(Number(attackConfig.damage), 1, 1000)
+      ? Number(attackConfig.damage) || 10
+      : 10,
+    missEnabled: typeof attackConfig.missEnabled === 'boolean' ? attackConfig.missEnabled : false,
+    missProbability: isInRange(Number(attackConfig.missProbability), 0, 100)
+      ? Number(attackConfig.missProbability) || 0
+      : 0,
+  }
+
+  // 回復設定の検証
+  const healConfig = (c.heal as Record<string, unknown> | undefined) || {}
+  const heal = {
+    rewardId: typeof healConfig.rewardId === 'string' ? healConfig.rewardId : '',
+    enabled: typeof healConfig.enabled === 'boolean' ? healConfig.enabled : true,
+    healType: (healConfig.healType === 'random' ? 'random' : 'fixed') as 'fixed' | 'random',
+    healAmount: isInRange(Number(healConfig.healAmount), 1, 1000)
+      ? Number(healConfig.healAmount) || 20
+      : 20,
+    healMin: isInRange(Number(healConfig.healMin), 1, 1000)
+      ? Number(healConfig.healMin) || 10
+      : 10,
+    healMax: isInRange(Number(healConfig.healMax), 1, 1000)
+      ? Number(healConfig.healMax) || 30
+      : 30,
+  }
+
+  // リトライ設定の検証
+  const retryConfig = (c.retry as Record<string, unknown> | undefined) || {}
+  const retry = {
+    command:
+      typeof retryConfig.command === 'string' && isValidLength(retryConfig.command, 1, 50)
+        ? retryConfig.command.replace(/[<>"']/g, '') // 危険な文字を削除
+        : '!retry',
+    enabled: typeof retryConfig.enabled === 'boolean' ? retryConfig.enabled : true,
+  }
+
+  // アニメーション設定の検証
+  const animationConfig = (c.animation as Record<string, unknown> | undefined) || {}
+  const animation = {
+    duration: isInRange(Number(animationConfig.duration), 0, 10000)
+      ? Number(animationConfig.duration) || 500
+      : 500,
+    easing: typeof animationConfig.easing === 'string' ? animationConfig.easing : 'ease-out',
+  }
+
+  // 表示設定の検証
+  const displayConfig = (c.display as Record<string, unknown> | undefined) || {}
+  const display = {
+    showMaxHp: typeof displayConfig.showMaxHp === 'boolean' ? displayConfig.showMaxHp : true,
+    fontSize: isInRange(Number(displayConfig.fontSize), 8, 200)
+      ? Number(displayConfig.fontSize) || 24
+      : 24,
+  }
+
+  // 画像URLの検証
+  const zeroHpImageConfig = (c.zeroHpImage as Record<string, unknown> | undefined) || {}
+  const zeroHpImage = {
+    enabled: typeof zeroHpImageConfig.enabled === 'boolean' ? zeroHpImageConfig.enabled : true,
+    imageUrl:
+      typeof zeroHpImageConfig.imageUrl === 'string' && isValidUrl(zeroHpImageConfig.imageUrl)
+        ? zeroHpImageConfig.imageUrl
+        : '',
+  }
+
+  // 音声URLの検証
+  const zeroHpSoundConfig = (c.zeroHpSound as Record<string, unknown> | undefined) || {}
+  const zeroHpSound = {
+    enabled: typeof zeroHpSoundConfig.enabled === 'boolean' ? zeroHpSoundConfig.enabled : true,
+    soundUrl:
+      typeof zeroHpSoundConfig.soundUrl === 'string' && isValidUrl(zeroHpSoundConfig.soundUrl)
+        ? zeroHpSoundConfig.soundUrl
+        : '',
+    volume: isInRange(Number(zeroHpSoundConfig.volume), 0, 1)
+      ? Number(zeroHpSoundConfig.volume) || 0.7
+      : 0.7,
+  }
+
+  // 動画URLの検証
+  const zeroHpEffectConfig = (c.zeroHpEffect as Record<string, unknown> | undefined) || {}
+  const zeroHpEffect = {
+    enabled: typeof zeroHpEffectConfig.enabled === 'boolean' ? zeroHpEffectConfig.enabled : true,
+    videoUrl:
+      typeof zeroHpEffectConfig.videoUrl === 'string' && isValidUrl(zeroHpEffectConfig.videoUrl)
+        ? zeroHpEffectConfig.videoUrl
+        : DEFAULT_CONFIG.zeroHpEffect.videoUrl,
+    loop: typeof zeroHpEffectConfig.loop === 'boolean' ? zeroHpEffectConfig.loop : false,
+    duration: isInRange(Number(zeroHpEffectConfig.duration), 100, 60000)
+      ? Number(zeroHpEffectConfig.duration) || 2000
+      : 2000,
+  }
+
+  // テスト設定の検証
+  const testConfig = (c.test as Record<string, unknown> | undefined) || {}
+  const test = {
+    enabled: typeof testConfig.enabled === 'boolean' ? testConfig.enabled : false,
+  }
+
+  return {
+    hp,
+    attack,
+    heal,
+    retry,
+    animation,
+    display,
+    zeroHpImage,
+    zeroHpSound,
+    zeroHpEffect,
+    test,
   }
 }
 

@@ -49,7 +49,13 @@ function MainApp() {
                 type="text"
                 placeholder="Twitchユーザー名を入力 (例: ninja)"
                 value={userLogin}
-                onChange={(e) => setUserLogin(e.target.value)}
+                onChange={(e) => {
+                  // ユーザー名の検証（英数字とアンダースコアのみ、4-25文字）
+                  const value = e.target.value.trim()
+                  if (value === '' || /^[a-zA-Z0-9_]{0,25}$/.test(value)) {
+                    setUserLogin(value)
+                  }
+                }}
                 onKeyPress={handleKeyPress}
                 className="search-input"
               />

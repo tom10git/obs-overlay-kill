@@ -29,14 +29,16 @@ if not exist "package.json" (
     exit /b 1
 )
 
-REM 依存関係をインストール
+REM 依存関係をインストール（package.jsonに記載されているもののみ）
 echo [情報] 依存関係をインストールしています...
-call npm install
+echo [情報] package.jsonに記載されている依存関係のみをインストールします...
+call npm install --no-optional --legacy-peer-deps
 
 if errorlevel 1 (
     echo [エラー] 依存関係のインストールに失敗しました。
     echo [情報] ネットワーク接続を確認するか、npm のキャッシュをクリアしてください。
     echo [情報] キャッシュクリア: npm cache clean --force
+    echo [情報] 再試行: npm install --no-optional --legacy-peer-deps
     pause
     exit /b 1
 )

@@ -31,6 +31,9 @@ export function useRetryCommand({
   const [lastRetryUser, setLastRetryUser] = useState<string | null>(null)
   const processedMessagesRef = useRef<Set<string>>(new Set())
 
+  // メモリ最適化: processedMessagesRefのサイズを制限（最大500件）
+  const MAX_PROCESSED_MESSAGES = 500
+
   const { messages } = useTwitchChat(channel, 100)
 
   useEffect(() => {
@@ -48,6 +51,14 @@ export function useRetryCommand({
 
       if (messageText === commandLower || messageText.startsWith(`${commandLower} `)) {
         processedMessagesRef.current.add(message.id)
+
+        // メモリ最適化: 処理済みメッセージのセットが大きくなりすぎないように制限
+        if (processedMessagesRef.current.size > MAX_PROCESSED_MESSAGES) {
+          // 古いIDを削除（最初の250件を削除）
+          const idsArray = Array.from(processedMessagesRef.current)
+          idsArray.slice(0, 250).forEach((id) => processedMessagesRef.current.delete(id))
+        }
+
         setRetryCount((prev) => prev + 1)
         setLastRetryUser(message.user.displayName)
 
@@ -58,6 +69,13 @@ export function useRetryCommand({
       }
     })
   }, [messages, command, enabled, onRetry])
+
+  // メモリ最適化: クリーンアップ時に処理済みメッセージをクリア
+  useEffect(() => {
+    return () => {
+      processedMessagesRef.current.clear()
+    }
+  }, [])
 
   return {
     retryCount,

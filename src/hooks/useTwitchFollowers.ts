@@ -44,7 +44,12 @@ export function useTwitchFollowers(
       if (reset) {
         setFollowers(result.data)
       } else {
-        setFollowers((prev) => [...prev, ...result.data])
+        setFollowers((prev) => {
+          // メモリ最適化: フォロワー配列のサイズを制限（最大500件）
+          const MAX_FOLLOWERS = 500
+          const updated = [...prev, ...result.data]
+          return updated.slice(0, MAX_FOLLOWERS)
+        })
       }
 
       setTotal(result.total)

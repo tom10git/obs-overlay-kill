@@ -42,7 +42,12 @@ export function useTwitchVideos(
       if (reset) {
         setVideos(result.data)
       } else {
-        setVideos((prev) => [...prev, ...result.data])
+        setVideos((prev) => {
+          // メモリ最適化: ビデオ配列のサイズを制限（最大200件）
+          const MAX_VIDEOS = 200
+          const updated = [...prev, ...result.data]
+          return updated.slice(0, MAX_VIDEOS)
+        })
       }
 
       setCursor(result.pagination?.cursor)

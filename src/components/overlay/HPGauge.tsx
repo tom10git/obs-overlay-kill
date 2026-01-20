@@ -110,15 +110,22 @@ export function HPGauge({
     return layers
   }, [currentHP, maxHP, gaugeCount])
 
-  const easing = getCssEasing(config.animation.easing)
-  const zeroHpImageUrl =
-    config.zeroHpImage.imageUrl.trim().length > 0
-      ? config.zeroHpImage.imageUrl
-      : defaultOtsuImage
-  const zeroHpSoundUrl =
-    config.zeroHpSound.soundUrl.trim().length > 0
-      ? config.zeroHpSound.soundUrl
-      : defaultExplosionSound
+  // メモ化: アニメーション設定とURLは頻繁に変わらないためメモ化
+  const easing = useMemo(() => getCssEasing(config.animation.easing), [config.animation.easing])
+  const zeroHpImageUrl = useMemo(
+    () =>
+      config.zeroHpImage.imageUrl.trim().length > 0
+        ? config.zeroHpImage.imageUrl
+        : defaultOtsuImage,
+    [config.zeroHpImage.imageUrl]
+  )
+  const zeroHpSoundUrl = useMemo(
+    () =>
+      config.zeroHpSound.soundUrl.trim().length > 0
+        ? config.zeroHpSound.soundUrl
+        : defaultExplosionSound,
+    [config.zeroHpSound.soundUrl]
+  )
 
   const { play: playZeroHpSound } = useSound({
     src: zeroHpSoundUrl,
@@ -131,14 +138,16 @@ export function HPGauge({
   const [showZeroHpEffect, setShowZeroHpEffect] = useState(false)
   const effectTimerRef = useRef<number | null>(null)
   const imageTimerRef = useRef<number | null>(null)
-  const effectInstanceRef = useRef(0)
-  const [effectInstance, setEffectInstance] = useState(0)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
 
-  // ベースURLを取得（タイムスタンプは動的に追加）
-  const zeroHpEffectBaseUrl =
-    config.zeroHpEffect.gifUrl.trim().length > 0
-      ? config.zeroHpEffect.gifUrl
-      : 'src/images/bakuhatsu.gif'
+  // 動画URLを取得（メモ化）
+  const zeroHpEffectVideoUrl = useMemo(
+    () =>
+      config.zeroHpEffect.videoUrl.trim().length > 0
+        ? config.zeroHpEffect.videoUrl
+        : 'src/images/bakuhatsu.webm',
+    [config.zeroHpEffect.videoUrl]
+  )
 
   // HPが0になった瞬間を検出して画像とエフェクトを表示（連打中でも確実に検出）
   useEffect(() => {
@@ -155,6 +164,11 @@ export function HPGauge({
       // 全回復時は画像とエフェクトを非表示にする
       setShowZeroHpImage(false)
       setShowZeroHpEffect(false)
+      // 動画を停止
+      if (videoRef.current) {
+        videoRef.current.pause()
+        videoRef.current.currentTime = 0
+      }
       // タイマーをクリア
       if (effectTimerRef.current) {
         window.clearTimeout(effectTimerRef.current)
@@ -171,25 +185,34 @@ export function HPGauge({
     // 連続攻撃でも確実に検出するため、prevHP > 0 の条件を厳密にチェック
     // 全回復後も確実に検出できるように、prevHPが0より大きいことを確認
     if (prevHP > 0 && isZeroNow) {
-      // エフェクト（bakuhatsu.gif）を先に表示
+      // エフェクト（透過WebM動画）を先に表示
       if (config.zeroHpEffect.enabled) {
         // 既存のタイマーをクリア（連続攻撃時の重複を防ぐ）
         if (effectTimerRef.current) {
           window.clearTimeout(effectTimerRef.current)
           effectTimerRef.current = null
         }
-        // keyを更新してGIFを強制的に再マウント（毎回最初から再生される）
-        effectInstanceRef.current += 1
-        setEffectInstance(effectInstanceRef.current)
-        // エフェクトを表示（要素は常にDOMに存在するため、display: flexに変更するだけ）
+        // 動画を確実に最初から再生
         setShowZeroHpEffect(true)
-        // ループしない場合、表示後にタイマーを設定
-        if (!config.zeroHpEffect.loop) {
-          effectTimerRef.current = window.setTimeout(() => {
-            setShowZeroHpEffect(false)
-            effectTimerRef.current = null
-          }, Math.max(100, config.zeroHpEffect.duration))
-        }
+        // 次のフレームで動画をリセットして再生（DOM更新を待つ）
+        requestAnimationFrame(() => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = 0 // 確実に最初に戻す
+            videoRef.current.play().catch((error) => {
+              console.warn('動画の再生に失敗しました:', error)
+            })
+          }
+          // ループしない場合、表示後にタイマーを設定
+          if (!config.zeroHpEffect.loop) {
+            effectTimerRef.current = window.setTimeout(() => {
+              setShowZeroHpEffect(false)
+              if (videoRef.current) {
+                videoRef.current.pause()
+              }
+              effectTimerRef.current = null
+            }, Math.max(100, config.zeroHpEffect.duration))
+          }
+        })
       }
       // 画像（otsu.png）を少し遅延させて表示（エフェクトより後に表示）
       if (config.zeroHpImage.enabled) {
@@ -212,6 +235,11 @@ export function HPGauge({
     else if (wasZeroBefore && !isZeroNow) {
       setShowZeroHpImage(false)
       setShowZeroHpEffect(false)
+      // 動画を停止
+      if (videoRef.current) {
+        videoRef.current.pause()
+        videoRef.current.currentTime = 0
+      }
       // タイマーをクリア
       if (effectTimerRef.current) {
         window.clearTimeout(effectTimerRef.current)
@@ -241,11 +269,21 @@ export function HPGauge({
   // クリーンアップ
   useEffect(() => {
     return () => {
+      // タイマーをクリア
       if (effectTimerRef.current) {
         window.clearTimeout(effectTimerRef.current)
+        effectTimerRef.current = null
       }
       if (imageTimerRef.current) {
         window.clearTimeout(imageTimerRef.current)
+        imageTimerRef.current = null
+      }
+      // 動画を停止してメモリを解放
+      if (videoRef.current) {
+        videoRef.current.pause()
+        videoRef.current.currentTime = 0
+        videoRef.current.src = ''
+        videoRef.current.load() // メモリを解放
       }
     }
   }, [])
@@ -281,10 +319,13 @@ export function HPGauge({
         className="hp-gauge-zero-effect"
         style={{ display: config.zeroHpEffect.enabled && showZeroHpEffect ? 'flex' : 'none' }}
       >
-        <img
-          key={effectInstance}
-          src={zeroHpEffectBaseUrl}
-          alt="Effect"
+        <video
+          ref={videoRef}
+          src={zeroHpEffectVideoUrl}
+          loop={config.zeroHpEffect.loop}
+          muted
+          playsInline
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         />
       </div>
     </div>

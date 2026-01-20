@@ -37,6 +37,9 @@ export function useChannelPointEvents({
   const processedIdsRef = useRef<Set<string>>(new Set())
   const lastPollTimeRef = useRef<number>(0)
 
+  // メモリ最適化: processedIdsRefのサイズを制限（最大1000件）
+  const MAX_PROCESSED_IDS = 1000
+
   const {
     redemptions,
     loading,
@@ -83,6 +86,13 @@ export function useChannelPointEvents({
           newEvents.push(event)
           processedIdsRef.current.add(redemption.id)
 
+          // メモリ最適化: 処理済みIDのセットが大きくなりすぎないように制限
+          if (processedIdsRef.current.size > MAX_PROCESSED_IDS) {
+            // 古いIDを削除（最初の500件を削除）
+            const idsArray = Array.from(processedIdsRef.current)
+            idsArray.slice(0, 500).forEach((id) => processedIdsRef.current.delete(id))
+          }
+
           // コールバックを呼び出し
           if (onEvent) {
             onEvent(event)
@@ -91,7 +101,12 @@ export function useChannelPointEvents({
       })
 
       if (newEvents.length > 0) {
-        setEvents((prev) => [...newEvents, ...prev])
+        setEvents((prev) => {
+          // メモリ最適化: イベント配列のサイズを制限（最大100件）
+          const MAX_EVENTS = 100
+          const updated = [...newEvents, ...prev]
+          return updated.slice(0, MAX_EVENTS)
+        })
       }
 
       lastPollTimeRef.current = now
@@ -110,6 +125,8 @@ export function useChannelPointEvents({
     return () => {
       clearInterval(intervalId)
       setIsPolling(false)
+      // メモリ最適化: クリーンアップ時に処理済みIDをクリア
+      processedIdsRef.current.clear()
     }
   }, [
     enabled,

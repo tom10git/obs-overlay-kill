@@ -14,7 +14,20 @@ class TwitchChatClient {
         this.disconnect()
       }
 
-      const channelName = channel.startsWith('#') ? channel : `#${channel}`
+      // チャンネル名の検証
+      const cleanChannel = channel.trim()
+      if (!cleanChannel || cleanChannel.length === 0) {
+        reject(new Error('チャンネル名が空です'))
+        return
+      }
+
+      // 危険な文字列をチェック
+      if (cleanChannel.includes('<') || cleanChannel.includes('>') || cleanChannel.includes('"')) {
+        reject(new Error('無効なチャンネル名です'))
+        return
+      }
+
+      const channelName = cleanChannel.startsWith('#') ? cleanChannel : `#${cleanChannel}`
 
       this.client = new tmi.Client({
         options: { debug: false },
