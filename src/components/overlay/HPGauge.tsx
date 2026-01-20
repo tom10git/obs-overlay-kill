@@ -266,7 +266,7 @@ export function HPGauge({
     playZeroHpSound,
   ])
 
-  // クリーンアップ
+  // クリーンアップ（コンポーネントのアンマウント時のみ実行）
   useEffect(() => {
     return () => {
       // タイマーをクリア
@@ -278,12 +278,12 @@ export function HPGauge({
         window.clearTimeout(imageTimerRef.current)
         imageTimerRef.current = null
       }
-      // 動画を停止してメモリを解放
+      // 動画を停止（srcを削除しない - ブラウザが自動的にメモリを管理する）
       if (videoRef.current) {
         videoRef.current.pause()
         videoRef.current.currentTime = 0
-        videoRef.current.src = ''
-        videoRef.current.load() // メモリを解放
+        // 注意: video.src = '' と video.load() は実行しない
+        // これらを実行すると動画が削除され、再生できなくなる
       }
     }
   }, [])
