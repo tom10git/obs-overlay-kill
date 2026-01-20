@@ -540,6 +540,87 @@ export function OverlaySettings() {
       </div>
 
       <div className="settings-section">
+        <h3>HP0エフェクト設定（GIF）</h3>
+        <div className="settings-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.zeroHpEffect.enabled}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  zeroHpEffect: { ...config.zeroHpEffect, enabled: e.target.checked },
+                })
+              }
+            />
+            HPが0になったらGIFエフェクトを表示
+          </label>
+        </div>
+        <div className="settings-row">
+          <label>
+            GIF URL:
+            <input
+              type="text"
+              value={config.zeroHpEffect.gifUrl}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  zeroHpEffect: { ...config.zeroHpEffect, gifUrl: e.target.value },
+                })
+              }
+              placeholder="空欄の場合は src/images/bakuhatsu.gif を使用"
+            />
+          </label>
+        </div>
+        <div className="settings-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.zeroHpEffect.loop}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  zeroHpEffect: { ...config.zeroHpEffect, loop: e.target.checked },
+                })
+              }
+            />
+            GIFアニメーションをループさせる
+          </label>
+        </div>
+        {!config.zeroHpEffect.loop && (
+          <div className="settings-row">
+            <label>
+              表示時間（ミリ秒）:
+              <input
+                type="number"
+                min="100"
+                step="100"
+                value={config.zeroHpEffect.duration}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    zeroHpEffect: {
+                      ...config.zeroHpEffect,
+                      duration: Math.max(100, parseInt(e.target.value) || 2000),
+                    },
+                  })
+                }
+              />
+            </label>
+          </div>
+        )}
+        <p className="settings-hint">
+          例: <code>src/images/bakuhatsu.gif</code>（public/images に配置）または{' '}
+          <code>https://...</code>
+        </p>
+        {!config.zeroHpEffect.loop && (
+          <p className="settings-hint">
+            ループしない場合、指定した時間（{config.zeroHpEffect.duration}ms）経過後にエフェクトが非表示になります。
+          </p>
+        )}
+      </div>
+
+      <div className="settings-section">
         <h3>テストモード設定</h3>
         <div className="settings-row">
           <label>

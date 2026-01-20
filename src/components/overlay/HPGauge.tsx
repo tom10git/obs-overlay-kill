@@ -128,29 +128,127 @@ export function HPGauge({
 
   const prevHPRef = useRef(currentHP)
   const [showZeroHpImage, setShowZeroHpImage] = useState(false)
+  const [showZeroHpEffect, setShowZeroHpEffect] = useState(false)
+  const effectTimerRef = useRef<number | null>(null)
+  const imageTimerRef = useRef<number | null>(null)
+  const effectInstanceRef = useRef(0)
+  const [effectInstance, setEffectInstance] = useState(0)
 
-  // HPが0になった瞬間を検出して画像を表示（連打中でも確実に検出）
+  // ベースURLを取得（タイムスタンプは動的に追加）
+  const zeroHpEffectBaseUrl =
+    config.zeroHpEffect.gifUrl.trim().length > 0
+      ? config.zeroHpEffect.gifUrl
+      : 'src/images/bakuhatsu.gif'
+
+  // HPが0になった瞬間を検出して画像とエフェクトを表示（連打中でも確実に検出）
   useEffect(() => {
+    // 検出ロジックの前に前回のHP値を保存
     const prevHP = prevHPRef.current
     const isZeroNow = currentHP <= 0
     const wasZeroBefore = prevHP <= 0
+    const isFullRecovery = prevHP <= 0 && currentHP > 0 // 全回復時を検出
 
-    // HPが0になった瞬間（前回 > 0 で今回 <= 0）
-    if (!wasZeroBefore && isZeroNow) {
+    // 全回復時（0から最大HPに変化）にprevHPRefを確実に更新
+    // これにより、その後の攻撃でHPが0になったときに確実に検出できる
+    if (isFullRecovery) {
+      prevHPRef.current = currentHP
+      // 全回復時は画像とエフェクトを非表示にする
+      setShowZeroHpImage(false)
+      setShowZeroHpEffect(false)
+      // タイマーをクリア
+      if (effectTimerRef.current) {
+        window.clearTimeout(effectTimerRef.current)
+        effectTimerRef.current = null
+      }
+      if (imageTimerRef.current) {
+        window.clearTimeout(imageTimerRef.current)
+        imageTimerRef.current = null
+      }
+      return // 早期リターンで、下の検出ロジックをスキップ
+    }
+
+    // HPが0になった瞬間を厳密に検出（前回 > 0 かつ 今回 <= 0）
+    // 連続攻撃でも確実に検出するため、prevHP > 0 の条件を厳密にチェック
+    // 全回復後も確実に検出できるように、prevHPが0より大きいことを確認
+    if (prevHP > 0 && isZeroNow) {
+      // エフェクト（bakuhatsu.gif）を先に表示
+      if (config.zeroHpEffect.enabled) {
+        // 既存のタイマーをクリア（連続攻撃時の重複を防ぐ）
+        if (effectTimerRef.current) {
+          window.clearTimeout(effectTimerRef.current)
+          effectTimerRef.current = null
+        }
+        // keyを更新してGIFを強制的に再マウント（毎回最初から再生される）
+        effectInstanceRef.current += 1
+        setEffectInstance(effectInstanceRef.current)
+        // エフェクトを表示（要素は常にDOMに存在するため、display: flexに変更するだけ）
+        setShowZeroHpEffect(true)
+        // ループしない場合、表示後にタイマーを設定
+        if (!config.zeroHpEffect.loop) {
+          effectTimerRef.current = window.setTimeout(() => {
+            setShowZeroHpEffect(false)
+            effectTimerRef.current = null
+          }, Math.max(100, config.zeroHpEffect.duration))
+        }
+      }
+      // 画像（otsu.png）を少し遅延させて表示（エフェクトより後に表示）
       if (config.zeroHpImage.enabled) {
-        setShowZeroHpImage(true)
+        // 既存のタイマーをクリア
+        if (imageTimerRef.current) {
+          window.clearTimeout(imageTimerRef.current)
+          imageTimerRef.current = null
+        }
+        // エフェクトを先に表示するため、画像の表示を少し遅延させる
+        imageTimerRef.current = window.setTimeout(() => {
+          setShowZeroHpImage(true)
+          imageTimerRef.current = null
+        }, 300) // 300ms遅延
       }
       if (config.zeroHpSound.enabled) {
         playZeroHpSound()
       }
     }
-    // HPが0より大きくなったら画像を非表示
+    // HPが0より大きくなったら画像とエフェクトを非表示
     else if (wasZeroBefore && !isZeroNow) {
       setShowZeroHpImage(false)
+      setShowZeroHpEffect(false)
+      // タイマーをクリア
+      if (effectTimerRef.current) {
+        window.clearTimeout(effectTimerRef.current)
+        effectTimerRef.current = null
+      }
+      if (imageTimerRef.current) {
+        window.clearTimeout(imageTimerRef.current)
+        imageTimerRef.current = null
+      }
     }
 
+    // prevHPRefを更新（検出ロジックの後に更新することで、次のレンダリングサイクルで正しく検出できる）
+    // 全回復時（0から最大HPに変化）も確実に更新される
+    // 全回復時は、wasZeroBefore && !isZeroNow の条件で処理されるが、
+    // その後に確実にprevHPRefを更新することで、その後の攻撃でHPが0になったときに検出できる
     prevHPRef.current = currentHP
-  }, [currentHP, config.zeroHpImage.enabled, config.zeroHpSound.enabled, playZeroHpSound])
+  }, [
+    currentHP,
+    config.zeroHpImage.enabled,
+    config.zeroHpEffect.enabled,
+    config.zeroHpEffect.loop,
+    config.zeroHpEffect.duration,
+    config.zeroHpSound.enabled,
+    playZeroHpSound,
+  ])
+
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (effectTimerRef.current) {
+        window.clearTimeout(effectTimerRef.current)
+      }
+      if (imageTimerRef.current) {
+        window.clearTimeout(imageTimerRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className="hp-gauge-container">
@@ -172,11 +270,22 @@ export function HPGauge({
             fontSize={config.display.fontSize}
           />
         </div>
-        {config.zeroHpImage.enabled && showZeroHpImage && (
-          <div className="hp-gauge-zero-image">
-            <img src={zeroHpImageUrl} alt="KO" />
-          </div>
-        )}
+        <div
+          className="hp-gauge-zero-image"
+          style={{ display: config.zeroHpImage.enabled && showZeroHpImage ? 'flex' : 'none' }}
+        >
+          <img src={zeroHpImageUrl} alt="KO" />
+        </div>
+      </div>
+      <div
+        className="hp-gauge-zero-effect"
+        style={{ display: config.zeroHpEffect.enabled && showZeroHpEffect ? 'flex' : 'none' }}
+      >
+        <img
+          key={effectInstance}
+          src={zeroHpEffectBaseUrl}
+          alt="Effect"
+        />
       </div>
     </div>
   )

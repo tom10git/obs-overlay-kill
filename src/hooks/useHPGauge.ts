@@ -130,6 +130,8 @@ export function useHPGauge({
         animation: { ...config.animation, ...newConfig.animation },
         display: { ...config.display, ...newConfig.display },
         zeroHpImage: { ...config.zeroHpImage, ...newConfig.zeroHpImage },
+        zeroHpSound: { ...config.zeroHpSound, ...newConfig.zeroHpSound },
+        zeroHpEffect: { ...config.zeroHpEffect, ...newConfig.zeroHpEffect },
         test: { ...config.test, ...newConfig.test },
       }
 
@@ -139,14 +141,8 @@ export function useHPGauge({
     [config]
   )
 
-  // 設定変更時に自動保存
-  useEffect(() => {
-    if (config && !loading) {
-      saveOverlayConfig(config).catch((err) => {
-        console.error('Failed to save config:', err)
-      })
-    }
-  }, [config, loading])
+  // 注意: HPの変更（攻撃、回復、全回復）では自動保存しない
+  // 設定画面からの明示的な保存（updateConfig）のみが保存される
 
   return {
     currentHP: config?.hp.current ?? 0,

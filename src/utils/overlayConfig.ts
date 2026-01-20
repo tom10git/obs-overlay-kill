@@ -46,6 +46,12 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundUrl: '',
     volume: 0.7,
   },
+  zeroHpEffect: {
+    enabled: true,
+    gifUrl: 'images/bakuhatsu.gif',
+    loop: false,
+    duration: 2000, // 2秒
+  },
   test: {
     enabled: false,
   },
@@ -72,6 +78,7 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       display: { ...DEFAULT_CONFIG.display, ...storedConfig.display },
       zeroHpImage: { ...DEFAULT_CONFIG.zeroHpImage, ...storedConfig.zeroHpImage },
       zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...storedConfig.zeroHpSound },
+      zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...storedConfig.zeroHpEffect },
       test: { ...DEFAULT_CONFIG.test, ...storedConfig.test },
     }
   }

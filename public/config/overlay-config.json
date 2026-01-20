@@ -40,6 +40,12 @@
     "soundUrl": "",
     "volume": 0.7
   },
+  "zeroHpEffect": {
+    "enabled": true,
+    "gifUrl": "src/images/bakuhatsu.gif",
+    "loop": false,
+    "duration": 2000
+  },
   "test": {
     "enabled": false
   }

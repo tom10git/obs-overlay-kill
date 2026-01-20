@@ -41,10 +41,10 @@ class TwitchChatClient {
           channel: channel.replace('#', ''),
           emotes: tags.emotes
             ? tags.emotes.map((emote: any) => ({
-                id: emote.id,
-                name: emote.name,
-                positions: emote.positions,
-              }))
+              id: emote.id,
+              name: emote.name,
+              positions: emote.positions,
+            }))
             : undefined,
         }
 

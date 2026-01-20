@@ -51,6 +51,13 @@ export interface ZeroHpSoundConfig {
   volume: number
 }
 
+export interface ZeroHpEffectConfig {
+  enabled: boolean
+  gifUrl: string
+  loop: boolean
+  duration: number // ミリ秒（ループしない場合の表示時間）
+}
+
 export interface TestConfig {
   enabled: boolean
 }
@@ -64,6 +71,7 @@ export interface OverlayConfig {
   display: DisplayConfig
   zeroHpImage: ZeroHpImageConfig
   zeroHpSound: ZeroHpSoundConfig
+  zeroHpEffect: ZeroHpEffectConfig
   test: TestConfig
 }
 
