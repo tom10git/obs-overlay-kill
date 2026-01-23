@@ -202,16 +202,14 @@ export function HPGauge({
               console.warn('動画の再生に失敗しました:', error)
             })
           }
-          // ループしない場合、表示後にタイマーを設定
-          if (!config.zeroHpEffect.loop) {
-            effectTimerRef.current = window.setTimeout(() => {
-              setShowZeroHpEffect(false)
-              if (videoRef.current) {
-                videoRef.current.pause()
-              }
-              effectTimerRef.current = null
-            }, Math.max(100, config.zeroHpEffect.duration))
-          }
+          // 表示後にタイマーを設定（指定時間後に非表示）
+          effectTimerRef.current = window.setTimeout(() => {
+            setShowZeroHpEffect(false)
+            if (videoRef.current) {
+              videoRef.current.pause()
+            }
+            effectTimerRef.current = null
+          }, Math.max(100, config.zeroHpEffect.duration))
         })
       }
       // 画像（otsu.png）を少し遅延させて表示（エフェクトより後に表示）
@@ -260,7 +258,6 @@ export function HPGauge({
     currentHP,
     config.zeroHpImage.enabled,
     config.zeroHpEffect.enabled,
-    config.zeroHpEffect.loop,
     config.zeroHpEffect.duration,
     config.zeroHpSound.enabled,
     playZeroHpSound,
@@ -322,7 +319,7 @@ export function HPGauge({
         <video
           ref={videoRef}
           src={zeroHpEffectVideoUrl}
-          loop={config.zeroHpEffect.loop}
+          loop={false}
           muted
           playsInline
           style={{ width: '100%', height: '100%', objectFit: 'contain' }}

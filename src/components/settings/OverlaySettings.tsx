@@ -297,6 +297,57 @@ export function OverlaySettings() {
                 </label>
               )}
             </div>
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.attack.criticalEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      attack: { ...config.attack, criticalEnabled: e.target.checked },
+                    })
+                  }
+                />
+                クリティカル判定を有効にする
+              </label>
+              {config.attack.criticalEnabled && (
+                <>
+                  <label>
+                    クリティカル確率 (%):
+                    <input
+                      type="text"
+                      value={config.attack.criticalProbability}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            criticalProbability: parseFloat(e.target.value) || 0,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    クリティカル倍率:
+                    <input
+                      type="text"
+                      value={config.attack.criticalMultiplier}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            criticalMultiplier: parseFloat(e.target.value) || 2.0,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -455,6 +506,21 @@ export function OverlaySettings() {
                   </label>
                 </>
               )}
+            </div>
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.heal.effectEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      heal: { ...config.heal, effectEnabled: e.target.checked },
+                    })
+                  }
+                />
+                回復エフェクトを表示
+              </label>
             </div>
           </div>
         )}
@@ -639,7 +705,7 @@ export function OverlaySettings() {
               </label>
             </div>
             <p className="settings-hint">
-              例: <code>/images/custom.png</code>（public/images に配置）または{' '}
+              例: <code>src/images/custom.png</code>（public/images に配置）または{' '}
               <code>https://...</code>
             </p>
           </div>
@@ -709,7 +775,7 @@ export function OverlaySettings() {
               </label>
             </div>
             <p className="settings-hint">
-              例: <code>/sounds/custom.mp3</code>（public/sounds に配置）または{' '}
+              例: <code>src/sounds/custom.mp3</code>（public/sounds に配置）または{' '}
               <code>https://...</code>
             </p>
           </div>
@@ -762,48 +828,26 @@ export function OverlaySettings() {
             </div>
             <div className="settings-row">
               <label>
+                表示時間（ミリ秒）:
                 <input
-                  type="checkbox"
-                  checked={config.zeroHpEffect.loop}
+                  type="text"
+                  value={config.zeroHpEffect.duration}
                   onChange={(e) =>
                     setConfig({
                       ...config,
-                      zeroHpEffect: { ...config.zeroHpEffect, loop: e.target.checked },
+                      zeroHpEffect: {
+                        ...config.zeroHpEffect,
+                        duration: Math.max(100, parseInt(e.target.value) || 2000),
+                      },
                     })
                   }
                 />
-                動画をループさせる
               </label>
             </div>
-            {!config.zeroHpEffect.loop && (
-              <div className="settings-row">
-                <label>
-                  表示時間（ミリ秒）:
-                  <input
-                    type="text"
-                    value={config.zeroHpEffect.duration}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        zeroHpEffect: {
-                          ...config.zeroHpEffect,
-                          duration: Math.max(100, parseInt(e.target.value) || 2000),
-                        },
-                      })
-                    }
-                  />
-                </label>
-              </div>
-            )}
             <p className="settings-hint">
               例: <code>src/images/bakuhatsu.gif</code>（public/images に配置）または{' '}
               <code>https://...</code>
             </p>
-            {!config.zeroHpEffect.loop && (
-              <p className="settings-hint">
-                ループしない場合、指定した時間（{config.zeroHpEffect.duration}ms）経過後にエフェクトが非表示になります。
-              </p>
-            )}
           </div>
         )}
       </div>

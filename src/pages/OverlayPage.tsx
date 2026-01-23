@@ -24,6 +24,15 @@ export function OverlayPage() {
   const [missVisible, setMissVisible] = useState(false)
   const missTimerRef = useRef<number | null>(null)
 
+  // クリティカル表示（短時間だけ表示してCSSアニメーションさせる）
+  const [criticalVisible, setCriticalVisible] = useState(false)
+  const criticalTimerRef = useRef<number | null>(null)
+
+  // 回復エフェクト（キラキラパーティクル）
+  const [healParticles, setHealParticles] = useState<Array<{ id: number; angle: number; delay: number; distance: number; createdAt: number; size: number; color: string }>>([])
+  const particleIdRef = useRef(0)
+  const particleTimersRef = useRef<Map<number, number>>(new Map())
+
   // 背景色の管理
   const [backgroundColor, setBackgroundColor] = useState<'green' | 'dark-gray'>('green')
   const showMiss = useCallback(
@@ -43,9 +52,90 @@ export function OverlayPage() {
     []
   )
 
+  const showCritical = useCallback(
+    (durationMs: number) => {
+      setCriticalVisible(false) // 連続発火でもアニメーションをリスタートさせる
+      // 次フレームでtrueに戻す
+      requestAnimationFrame(() => setCriticalVisible(true))
+
+      if (criticalTimerRef.current) {
+        window.clearTimeout(criticalTimerRef.current)
+      }
+      criticalTimerRef.current = window.setTimeout(() => {
+        setCriticalVisible(false)
+        criticalTimerRef.current = null
+      }, Math.max(200, durationMs))
+    },
+    []
+  )
+
+  const showHealEffect = useCallback(() => {
+    // パーティクルを生成（60-80個のキラキラ - より派手に）
+    const particleCount = 60 + Math.floor(Math.random() * 20)
+    const newParticles: Array<{ id: number; angle: number; delay: number; distance: number; createdAt: number; size: number; color: string }> = []
+    const now = Date.now()
+
+    // 明るい青色のパレット
+    const brightBlueColors = [
+      '#00ffff', // シアン
+      '#00ccff', // 明るい水色
+      '#0099ff', // 明るい青
+      '#00bfff', // 明るい青
+      '#33ccff', // 明るい水色
+      '#66ccff', // 明るい水色
+      '#00d4ff', // 明るい水色
+      '#00e5ff', // 明るい水色
+      '#1ad1ff', // 明るい水色
+      '#4dd0ff', // 明るい水色
+      '#5ce1ff', // 明るい水色
+      '#7deeff', // 明るい水色
+    ]
+
+    // ゲージ中央から放射状に配置（360度を均等に分割）
+    for (let i = 0; i < particleCount; i++) {
+      particleIdRef.current += 1
+      const particleId = particleIdRef.current
+      // 角度をランダムに少しずらして自然な見た目に
+      const baseAngle = (360 / particleCount) * i
+      const angle = baseAngle + (Math.random() - 0.5) * 10 // ±5度のランダム
+      // 距離も少しランダムに（80-130px - ウィンドウ内に収まる範囲）
+      const distance = 80 + Math.random() * 50
+      // サイズもランダムに（20-36px - 大小様々に）
+      const size = 20 + Math.random() * 16
+      // ランダムな明るい青色を選択
+      const color = brightBlueColors[Math.floor(Math.random() * brightBlueColors.length)]
+      newParticles.push({
+        id: particleId,
+        angle: angle,
+        delay: Math.random() * 200, // 0-80msの遅延
+        distance: distance,
+        createdAt: now,
+        size: size,
+        color: color,
+      })
+
+      // 各パーティクルに個別のタイマーを設定（1秒後に削除）
+      const timerId = window.setTimeout(() => {
+        setHealParticles((prev) => prev.filter((p) => p.id !== particleId))
+        particleTimersRef.current.delete(particleId)
+      }, 2000)
+
+      particleTimersRef.current.set(particleId, timerId)
+    }
+
+    // 既存のパーティクルに新しいパーティクルを追加（重ねる）
+    setHealParticles((prev) => [...prev, ...newParticles])
+  }, [])
+
   useEffect(() => {
     return () => {
       if (missTimerRef.current) window.clearTimeout(missTimerRef.current)
+      if (criticalTimerRef.current) window.clearTimeout(criticalTimerRef.current)
+      // すべてのパーティクルタイマーをクリア
+      particleTimersRef.current.forEach((timerId) => {
+        window.clearTimeout(timerId)
+      })
+      particleTimersRef.current.clear()
     }
   }, [])
 
@@ -84,7 +174,21 @@ export function OverlayPage() {
         }
 
         if (shouldDamage) {
-          reduceHP(config.attack.damage)
+          // クリティカル判定
+          let finalDamage = config.attack.damage
+          let isCritical = false
+          if (config.attack.criticalEnabled) {
+            const criticalRoll = Math.random() * 100
+            if (criticalRoll < config.attack.criticalProbability) {
+              finalDamage = Math.floor(config.attack.damage * config.attack.criticalMultiplier)
+              isCritical = true
+            }
+          }
+          reduceHP(finalDamage)
+          // クリティカルアニメーション表示
+          if (isCritical) {
+            showCritical(config.animation.duration)
+          }
         } else {
           // MISSアニメーション表示
           showMiss(config.animation.duration)
@@ -115,9 +219,13 @@ export function OverlayPage() {
         }
 
         increaseHP(healAmount)
+        // 回復エフェクトを表示（設定で有効な場合のみ）
+        if (config.heal.effectEnabled) {
+          showHealEffect()
+        }
       }
     },
-    [config, increaseHP]
+    [config, increaseHP, showHealEffect]
   )
 
   // テストモードかどうか
@@ -206,7 +314,7 @@ export function OverlayPage() {
 
   // テストモード用の専用ハンドラ（チャンネルポイントイベントとは別処理）
   // useTestEventsからChannelPointEventを受け取るが、テストモードでは無視して直接処理
-  const handleTestAttack = useCallback((_event: { rewardId: string }) => {
+  const handleTestAttack = useCallback(() => {
     if (!config || !isTestMode) return
 
     // ミス判定
@@ -219,14 +327,28 @@ export function OverlayPage() {
     }
 
     if (shouldDamage) {
-      reduceHP(config.attack.damage)
+      // クリティカル判定
+      let finalDamage = config.attack.damage
+      let isCritical = false
+      if (config.attack.criticalEnabled) {
+        const criticalRoll = Math.random() * 100
+        if (criticalRoll < config.attack.criticalProbability) {
+          finalDamage = Math.floor(config.attack.damage * config.attack.criticalMultiplier)
+          isCritical = true
+        }
+      }
+      reduceHP(finalDamage)
+      // クリティカルアニメーション表示
+      if (isCritical) {
+        showCritical(config.animation.duration)
+      }
     } else {
       // MISSアニメーション表示
       showMiss(config.animation.duration)
     }
-  }, [config, isTestMode, reduceHP, showMiss])
+  }, [config, isTestMode, reduceHP, showMiss, showCritical])
 
-  const handleTestHeal = useCallback((_event: { rewardId: string }) => {
+  const handleTestHeal = useCallback(() => {
     if (!config || !isTestMode) return
 
     let healAmount = 0
@@ -240,7 +362,11 @@ export function OverlayPage() {
     }
 
     increaseHP(healAmount)
-  }, [config, isTestMode, increaseHP])
+    // 回復エフェクトを表示（設定で有効な場合のみ）
+    if (config.heal.effectEnabled) {
+      showHealEffect()
+    }
+  }, [config, isTestMode, increaseHP, showHealEffect])
 
   const handleTestReset = useCallback(() => {
     if (!isTestMode) return
@@ -387,9 +513,13 @@ export function OverlayPage() {
           // リトライコマンドを実行（回復コマンドと同じロジックで最大HPまで回復）
           // 現在のHPと最大HPの差分を計算して回復
           const healAmount = maxHP - currentHP
-          
+
           if (healAmount > 0) {
             increaseHP(healAmount)
+            // 回復エフェクトを表示（設定で有効な場合のみ）
+            if (config.heal.effectEnabled) {
+              showHealEffect()
+            }
           }
         }
       }
@@ -400,7 +530,7 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, username, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP])
+  }, [chatMessages, config, isTestMode, username, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP, maxHP, increaseHP, showHealEffect])
 
   // NOTE:
   // - OBS側では `.env` / `VITE_TWITCH_USERNAME` が未設定のまま表示されるケースがある
@@ -450,6 +580,60 @@ export function OverlayPage() {
 
       {/* MISS表示（ミス判定が発生したときのみ） */}
       {missVisible && <div className="overlay-miss">MISS</div>}
+      {/* クリティカル表示（クリティカル判定が発生したときのみ） */}
+      {criticalVisible && <div className="overlay-critical">CRITICAL!</div>}
+      {/* 回復エフェクト（キラキラパーティクル - ゲージ中央から放射状） */}
+      {healParticles.map((particle) => {
+        // 角度からx, y座標を計算（ラジアンに変換）
+        const angleRad = (particle.angle * Math.PI) / 180
+        // 移動距離を1.7倍に調整（ウィンドウ内に収まるように）
+        const endX = Math.cos(angleRad) * particle.distance * 1.7
+        const endY = Math.sin(angleRad) * particle.distance * 1.7
+
+        return (
+          <div
+            key={particle.id}
+            className="heal-particle"
+            style={{
+              '--end-x': `${endX}px`,
+              '--end-y': `${endY}px`,
+              '--particle-size': `${particle.size}px`,
+              '--particle-color': particle.color,
+              animationDelay: `${particle.delay}ms`,
+            } as React.CSSProperties & { '--end-x': string; '--end-y': string; '--particle-size': string; '--particle-color': string }}
+          >
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="heal-particle-svg"
+            >
+              {/* メインのアスタリスク（ランダムな明るい青色） */}
+              <path
+                d="M16 4L16 12M16 20L16 28M4 16L12 16M20 16L28 16M6.343 6.343L11.314 11.314M20.686 20.686L25.657 25.657M25.657 6.343L20.686 11.314M11.314 20.686L6.343 25.657"
+                stroke={particle.color}
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* 中央の円（ランダムな明るい青色） */}
+              <circle cx="16" cy="16" r="3.5" fill={particle.color} />
+              {/* 外側の小さなキラキラ（4方向 - 同じ色） */}
+              <circle cx="16" cy="4" r="2.5" fill={particle.color} />
+              <circle cx="16" cy="28" r="2.5" fill={particle.color} />
+              <circle cx="4" cy="16" r="2.5" fill={particle.color} />
+              <circle cx="28" cy="16" r="2.5" fill={particle.color} />
+              {/* 対角線の小さなキラキラ（同じ色） */}
+              <circle cx="8" cy="8" r="2" fill={particle.color} />
+              <circle cx="24" cy="8" r="2" fill={particle.color} />
+              <circle cx="8" cy="24" r="2" fill={particle.color} />
+              <circle cx="24" cy="24" r="2" fill={particle.color} />
+            </svg>
+          </div>
+        )
+      })}
       <HPGauge
         currentHP={currentHP}
         maxHP={maxHP}

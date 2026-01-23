@@ -16,9 +16,6 @@ interface UseTestEventsOptions {
   healEnabled?: boolean
 }
 
-// テストモード用の簡易イベント型（実際のイベントデータは不要）
-type TestEvent = () => void
-
 interface UseTestEventsResult {
   triggerAttack: () => void
   triggerHeal: () => void

@@ -10,12 +10,16 @@
     "enabled": true,
     "damage": 200,
     "missEnabled": true,
-    "missProbability": 10
+    "missProbability": 10,
+    "criticalEnabled": true,
+    "criticalProbability": 10,
+    "criticalMultiplier": 3
   },
   "heal": {
     "rewardId": "",
     "customText": "!heal",
     "enabled": true,
+    "effectEnabled": true,
     "healType": "random",
     "healAmount": 500,
     "healMin": 100,
@@ -45,7 +49,6 @@
   "zeroHpEffect": {
     "enabled": true,
     "videoUrl": "src/images/bakuhatsu.webm",
-    "loop": false,
     "duration": 1000
   },
   "test": {

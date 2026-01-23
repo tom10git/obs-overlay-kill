@@ -18,11 +18,15 @@ const DEFAULT_CONFIG: OverlayConfig = {
     damage: 10,
     missEnabled: false,
     missProbability: 0,
+    criticalEnabled: false,
+    criticalProbability: 0,
+    criticalMultiplier: 2.0,
   },
   heal: {
     rewardId: '',
     customText: '',
     enabled: true,
+    effectEnabled: true,
     healType: 'fixed',
     healAmount: 20,
     healMin: 10,
@@ -52,7 +56,6 @@ const DEFAULT_CONFIG: OverlayConfig = {
   zeroHpEffect: {
     enabled: true,
     videoUrl: 'src/images/bakuhatsu.webm', // 透過WebM動画
-    loop: false,
     duration: 2000, // 2秒
   },
   test: {
@@ -247,6 +250,13 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     missProbability: isInRange(Number(attackConfig.missProbability), 0, 100)
       ? Number(attackConfig.missProbability) || 0
       : 0,
+    criticalEnabled: typeof attackConfig.criticalEnabled === 'boolean' ? attackConfig.criticalEnabled : false,
+    criticalProbability: isInRange(Number(attackConfig.criticalProbability), 0, 100)
+      ? Number(attackConfig.criticalProbability) || 0
+      : 0,
+    criticalMultiplier: isInRange(Number(attackConfig.criticalMultiplier), 1.0, 10.0)
+      ? Number(attackConfig.criticalMultiplier) || 2.0
+      : 2.0,
   }
 
   // 回復設定の検証
@@ -255,6 +265,7 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     rewardId: typeof healConfig.rewardId === 'string' ? healConfig.rewardId : '',
     customText: typeof healConfig.customText === 'string' ? healConfig.customText : '',
     enabled: typeof healConfig.enabled === 'boolean' ? healConfig.enabled : true,
+    effectEnabled: typeof healConfig.effectEnabled === 'boolean' ? healConfig.effectEnabled : true,
     healType: (healConfig.healType === 'random' ? 'random' : 'fixed') as 'fixed' | 'random',
     healAmount: isInRange(Number(healConfig.healAmount), 1, 1000)
       ? Number(healConfig.healAmount) || 20
@@ -326,7 +337,6 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       typeof zeroHpEffectConfig.videoUrl === 'string' && isValidUrl(zeroHpEffectConfig.videoUrl)
         ? zeroHpEffectConfig.videoUrl
         : DEFAULT_CONFIG.zeroHpEffect.videoUrl,
-    loop: typeof zeroHpEffectConfig.loop === 'boolean' ? zeroHpEffectConfig.loop : false,
     duration: isInRange(Number(zeroHpEffectConfig.duration), 100, 60000)
       ? Number(zeroHpEffectConfig.duration) || 2000
       : 2000,
