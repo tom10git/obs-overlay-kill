@@ -57,7 +57,7 @@ VITE_MAX_CHAT_MESSAGES=100  # チャットメッセージの最大表示数
 
 1. **Twitch Developer ConsoleでリダイレクトURIを登録**
    - [Twitch Developer Console](https://dev.twitch.tv/console/apps) にアクセス
-   - 自分のアプリ（Client ID: `4wqoed7znkwujn9q08yeev0m5vh2wq`）を選択
+   - 自分のアプリを選択
    - 「OAuth Redirect URLs」セクションに以下を追加:
      ```
      http://localhost:5173
@@ -66,9 +66,9 @@ VITE_MAX_CHAT_MESSAGES=100  # チャットメッセージの最大表示数
    - **注意**: 変更が反映されるまで数分かかる場合があります
 
 2. **OAuth認証URLを構築**
-   - 以下のURLをブラウザで開きます:
+   - 以下のURLをブラウザで開きます（`YOUR_CLIENT_ID`を自分のClient IDに置き換えてください）:
    ```
-   https://id.twitch.tv/oauth2/authorize?client_id=4wqoed7znkwujn9q08yeev0m5vh2wq&redirect_uri=http://localhost:5173&response_type=code&scope=channel:read:redemptions+channel:manage:redemptions
+   https://id.twitch.tv/oauth2/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost:5173&response_type=code&scope=channel:read:redemptions+channel:manage:redemptions
    ```
 
 3. **Twitchで認証**
@@ -84,8 +84,8 @@ VITE_MAX_CHAT_MESSAGES=100  # チャットメッセージの最大表示数
    ```powershell
    $code = "ここにCODEを貼り付け"
    $body = @{
-       client_id = "4wqoed7znkwujn9q08yeev0m5vh2wq"
-       client_secret = "rddvw9t1loasp02yif7ib3b14dxpv1"
+       client_id = "YOUR_CLIENT_ID"
+       client_secret = "YOUR_CLIENT_SECRET"
        code = $code
        grant_type = "authorization_code"
        redirect_uri = "http://localhost:5173"
@@ -98,12 +98,14 @@ VITE_MAX_CHAT_MESSAGES=100  # チャットメッセージの最大表示数
    ```bash
    curl -X POST https://id.twitch.tv/oauth2/token ^
      -H "Content-Type: application/x-www-form-urlencoded" ^
-     -d "client_id=4wqoed7znkwujn9q08yeev0m5vh2wq" ^
-     -d "client_secret=rddvw9t1loasp02yif7ib3b14dxpv1" ^
+     -d "client_id=YOUR_CLIENT_ID" ^
+     -d "client_secret=YOUR_CLIENT_SECRET" ^
      -d "code=CODE" ^
      -d "grant_type=authorization_code" ^
      -d "redirect_uri=http://localhost:5173"
    ```
+   
+   > **注意:** `YOUR_CLIENT_ID`と`YOUR_CLIENT_SECRET`を自分の`.env`ファイルに設定した値に置き換えてください。
 
 5. **レスポンスからトークンを取得**
    - レスポンスのJSONから`access_token`と`refresh_token`をコピーします
