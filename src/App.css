@@ -42,23 +42,31 @@
   padding: 1rem;
   background-color: #1a1a1a;
   border-radius: 8px;
+  border: 1px solid #333333;
 }
 
 .main-nav a {
   padding: 0.5rem 1.5rem;
   background-color: #2a2a2a;
-  color: #fff;
+  color: #ffffff;
   text-decoration: none;
   border-radius: 4px;
-  transition: background-color 0.2s;
+  border: 1px solid #555555;
+  transition: all 0.2s;
+  font-weight: 400;
 }
 
 .main-nav a:hover {
-  background-color: #646cff;
+  background-color: #333333;
+  border-color: #ffffff;
 }
 
 .main-nav a.active {
-  background-color: #646cff;
+  background-color: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.3);
 }
 
 .card {
@@ -85,30 +93,32 @@
   flex: 1;
   padding: 0.75rem;
   font-size: 1rem;
-  border: 1px solid #333;
+  border: 1px solid #555555;
   border-radius: 4px;
   background-color: #1a1a1a;
-  color: #fff;
+  color: #ffffff;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #646cff;
+  border-color: #ffffff;
 }
 
 .search-button {
   padding: 0.75rem 1.5rem;
-  background-color: #646cff;
-  color: white;
-  border: none;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #555555;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
+  transition: all 0.2s;
 }
 
 .search-button:hover {
-  background-color: #535bf2;
+  background-color: #333333;
+  border-color: #ffffff;
 }
 
 .search-hint {
@@ -126,20 +136,24 @@
   padding: 1.5rem;
   background-color: #1a1a1a;
   border-radius: 8px;
-  border: 1px solid #333;
+  border: 1px solid #333333;
+  color: #ffffff;
 }
 
 .info-section p {
   margin-bottom: 1rem;
+  color: #ffffff;
 }
 
 .info-section ol {
   margin-left: 1.5rem;
   line-height: 1.8;
+  color: #ffffff;
 }
 
 .info-section li {
   margin-bottom: 0.5rem;
+  color: #ffffff;
 }
 
 .info-section code {
@@ -147,15 +161,17 @@
   padding: 0.2rem 0.4rem;
   border-radius: 3px;
   font-size: 0.9em;
+  color: #ffffff;
+  border: 1px solid #555555;
 }
 
 .info-section a {
-  color: #646cff;
-  text-decoration: none;
+  color: #ffffff;
+  text-decoration: underline;
 }
 
 .info-section a:hover {
-  text-decoration: underline;
+  color: #cccccc;
 }
 
 .read-the-docs {

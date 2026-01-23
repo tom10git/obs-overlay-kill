@@ -66,7 +66,7 @@ class TwitchChatClient {
           try {
             callback(chatMessage)
           } catch (error) {
-            console.error('Error in chat message callback:', error)
+            console.error('❌ Twitchチャット: メッセージコールバックでエラーが発生しました', error)
           }
         })
       })
@@ -81,23 +81,27 @@ class TwitchChatClient {
 
       this.client.on('join', (channel: string, _username: string, self: boolean) => {
         if (self) {
-          console.log(`Joined channel: ${channel}`)
+          if (import.meta.env.DEV) {
+            console.log(`💬 Twitchチャット: チャンネルに参加しました: ${channel}`)
+          }
         }
       })
 
       this.client.on('part', (channel: string, _username: string, self: boolean) => {
         if (self) {
-          console.log(`Left channel: ${channel}`)
+          if (import.meta.env.DEV) {
+            console.log(`💬 Twitchチャット: チャンネルから退出しました: ${channel}`)
+          }
         }
       })
 
       this.client.connect().catch((error: unknown) => {
         const errorMessage = error instanceof Error ? error.message : String(error)
         console.error(
-          '❌ Failed to connect to Twitch chat:\n' +
-          `Error: ${errorMessage}\n` +
-          'Note: Twitch chat connection does not require OAuth credentials.\n' +
-          'This error is usually due to network issues or Twitch service problems.'
+          '❌ Twitchチャットへの接続に失敗しました\n' +
+          `エラー: ${errorMessage}\n` +
+          '注意: Twitchチャット接続にはOAuth認証は不要です。\n' +
+          'このエラーは通常、ネットワークの問題やTwitchサービスの問題が原因です。'
         )
         reject(error)
       })

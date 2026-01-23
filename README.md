@@ -45,6 +45,90 @@ VITE_MAX_CHAT_MESSAGES=100  # チャットメッセージの最大表示数
 > - `VITE_TWITCH_USERNAME` を設定すると、アプリ起動時に自動的にそのユーザーの情報を表示します
 > - セキュリティに関する詳細は `src/config/README.md` を参照してください
 
+### 4. OAuth認証トークンの取得（チャンネルポイント機能を使用する場合）
+
+チャンネルポイントのリワード取得や引き換え履歴を取得するには、**OAuth認証（ユーザートークン）**が必要です。
+
+> **重要:** TwitchTokenGenerator.comなどの外部ツールで生成したトークンは、そのツールのClient IDに紐づいています。`.env`の`VITE_TWITCH_CLIENT_ID`と一致しない場合、401エラーが発生します。**必ず自分のTwitch Dev Consoleアプリで生成したトークンを使用してください。**
+
+#### 方法1: OAuth認証URLを使用（推奨）
+
+**重要**: この方法を使用する前に、Twitch Developer ConsoleでリダイレクトURIを登録する必要があります。
+
+1. **Twitch Developer ConsoleでリダイレクトURIを登録**
+   - [Twitch Developer Console](https://dev.twitch.tv/console/apps) にアクセス
+   - 自分のアプリ（Client ID: `4wqoed7znkwujn9q08yeev0m5vh2wq`）を選択
+   - 「OAuth Redirect URLs」セクションに以下を追加:
+     ```
+     http://localhost:5173
+     ```
+   - 「Update」または「Save Changes」をクリック
+   - **注意**: 変更が反映されるまで数分かかる場合があります
+
+2. **OAuth認証URLを構築**
+   - 以下のURLをブラウザで開きます:
+   ```
+   https://id.twitch.tv/oauth2/authorize?client_id=4wqoed7znkwujn9q08yeev0m5vh2wq&redirect_uri=http://localhost:5173&response_type=code&scope=channel:read:redemptions+channel:manage:redemptions
+   ```
+
+3. **Twitchで認証**
+   - ブラウザで認証画面が開きます
+   - 「承認」をクリックして認証を完了します
+   - リダイレクト先のURLに`code`パラメータが含まれます（例: `http://localhost:5173?code=xxxxx`）
+
+4. **アクセストークンとリフレッシュトークンを取得**
+   - リダイレクトURLから`code`パラメータをコピーします
+   - 以下のコマンドを実行します（`CODE`を実際のコードに置き換えてください）:
+   
+   **PowerShellの場合:**
+   ```powershell
+   $code = "ここにCODEを貼り付け"
+   $body = @{
+       client_id = "4wqoed7znkwujn9q08yeev0m5vh2wq"
+       client_secret = "rddvw9t1loasp02yif7ib3b14dxpv1"
+       code = $code
+       grant_type = "authorization_code"
+       redirect_uri = "http://localhost:5173"
+   }
+   $response = Invoke-RestMethod -Uri "https://id.twitch.tv/oauth2/token" -Method Post -Body $body -ContentType "application/x-www-form-urlencoded"
+   $response | ConvertTo-Json
+   ```
+   
+   **または、curlコマンドの場合:**
+   ```bash
+   curl -X POST https://id.twitch.tv/oauth2/token ^
+     -H "Content-Type: application/x-www-form-urlencoded" ^
+     -d "client_id=4wqoed7znkwujn9q08yeev0m5vh2wq" ^
+     -d "client_secret=rddvw9t1loasp02yif7ib3b14dxpv1" ^
+     -d "code=CODE" ^
+     -d "grant_type=authorization_code" ^
+     -d "redirect_uri=http://localhost:5173"
+   ```
+
+5. **レスポンスからトークンを取得**
+   - レスポンスのJSONから`access_token`と`refresh_token`をコピーします
+   - `.env`ファイルの`VITE_TWITCH_ACCESS_TOKEN`と`VITE_TWITCH_REFRESH_TOKEN`に設定します
+   - 開発サーバーを再起動してください
+
+#### 方法2: TwitchTokenGenerator.comを使用する場合
+
+TwitchTokenGenerator.comを使用する場合は、**必ず自分のClient ID/Secretを設定**してください:
+
+1. [TwitchTokenGenerator.com](https://twitchtokengenerator.com/) にアクセス
+2. ページ下部の「**Use My Client Secret and Client ID Optional NEW**」セクションを探す
+3. 自分の`VITE_TWITCH_CLIENT_ID`と`VITE_TWITCH_CLIENT_SECRET`を入力
+4. **重要:** Twitch Dev Consoleで、アプリの「OAuth Redirect URLs」に`https://twitchtokengenerator.com`を追加する必要があります
+5. 必要なスコープ（`channel:read:redemptions`など）を選択して「Generate Token!」をクリック
+6. 生成された`ACCESS TOKEN`と`REFRESH TOKEN`を`.env`に設定
+
+> **注意:** TwitchTokenGenerator.comは開発用ツールです。本番環境では必ず自分のTwitch Dev Consoleアプリで生成したトークンを使用してください。
+
+#### 必要なスコープ
+
+チャンネルポイント機能を使用するには、以下のスコープが必要です:
+- `channel:read:redemptions` - チャンネルポイントの引き換え履歴を取得
+- `channel:manage:redemptions` - チャンネルポイントの引き換えを管理（オプション）
+
 ## セキュリティと認証情報の管理
 
 認証情報は `src/config/auth.ts` で一元管理されています。このモジュールは以下の機能を提供します：
@@ -95,21 +179,34 @@ npm run dev
 - オーバーレイ表示: `http://localhost:5173/overlay`
 - 設定画面: `http://localhost:5173/settings`
 
-### OBS（ブラウザソース）設定の例
+### ブラウザウィンドウキャプチャーの設定例
 
-- **URL**: `http://localhost:5173/overlay`
-- **幅/高さ**: 1920 x 1080（任意）
+1. **ブラウザでURLを開く**: `http://localhost:5173/overlay` をブラウザで開く
+2. **OBSでウィンドウキャプチャーを追加**:
+   - OBSで「ウィンドウキャプチャー」ソースを追加
+   - キャプチャーするウィンドウ: 上記URLを開いたブラウザウィンドウを選択
+   - **幅/高さ**: 1920 x 1080（任意）
 
 ### HPゲージの機能
 
 - **HPゲージ表示**: 最大HPと現在のHPを表示（複数のレイヤーで重ねて表示可能）
-- **攻撃イベント**: チャンネルポイントの「攻撃」リワードでHPを減少
-- **回復イベント**: チャンネルポイントの「回復」リワードでHPを回復
+- **攻撃イベント**: 
+  - チャンネルポイントの「攻撃」リワードでHPを減少
+  - **カスタムテキスト対応**: チャットメッセージで設定したカスタムテキスト（例: `!attack`）でも攻撃を実行可能（App Access Tokenでも使用可能）
+  - **ミス判定**: 設定した確率で攻撃がミスになる機能
+- **回復イベント**: 
+  - チャンネルポイントの「回復」リワードでHPを回復
+  - **カスタムテキスト対応**: チャットメッセージで設定したカスタムテキスト（例: `!heal`）でも回復を実行可能（App Access Tokenでも使用可能）
+  - **回復量**: 固定値またはランダム値（設定可能）
 - **HPが0になったときのエフェクト**:
   - **動画エフェクト**: 透過WebM動画を再生（確実に最初から再生）
   - **画像表示**: HPが0になったときに画像を表示
   - **効果音**: HPが0になったときに効果音を再生
 - **リトライ機能**: チャットコマンド（`!retry`）でHPを全回復
+  - HPが最大値未満の場合に実行可能（HPが0でなくても使用可能）
+- **リアルタイム監視**: 
+  - **EventSub WebSocket**: チャンネルポイント引き換えイベントをリアルタイムで監視（推奨）
+  - **ポーリング方式**: EventSubが使用できない場合のフォールバック（5秒間隔でポーリング）
 
 ### エフェクト動画の設定
 
@@ -134,6 +231,21 @@ ffmpeg -i bakuhatsu.gif -c:v libvpx-vp9 -pix_fmt yuva420p bakuhatsu.webm
 
 > **注意:** 透過WebM動画を使用することで、`video.currentTime = 0`で確実に最初から再生できます。GIFアニメーションでは再生タイミングのズレが発生する可能性があるため、透過WebM動画の使用を推奨します。
 
+### カスタムテキスト機能（App Access Tokenでも使用可能）
+
+OAuth認証（ユーザートークン）がなくても、チャットメッセージで攻撃・回復を実行できる機能です。
+
+- **設定方法**:
+  - `http://localhost:5173/settings` を開く
+  - 「攻撃設定」セクションの「カスタムテキスト（App Access Token用）」にテキストを入力（例: `!attack`）
+  - 「回復設定」セクションの「カスタムテキスト（App Access Token用）」にテキストを入力（例: `!heal`）
+  - 「設定を保存」を押す
+- **動作**:
+  - チャットメッセージで設定したカスタムテキストが投稿されると、攻撃または回復が実行されます
+  - リワードIDとカスタムテキストのどちらかが一致すれば実行されます
+  - カスタムテキストは大文字小文字を区別しません
+  - 1つのメッセージで1つのコマンドのみが実行されます（攻撃が優先されます）
+
 ### テストモード（チャンネルポイント無しで動作確認）
 
 Twitchの仕様上、**アフィリエイト未参加**などでチャンネルポイントが使えない場合があります。
@@ -146,9 +258,11 @@ Twitchの仕様上、**アフィリエイト未参加**などでチャンネル�
 - **挙動**:
   - テストモード有効時は、チャンネルポイントAPIの監視を行いません
   - 開発環境（`npm run dev`）では、`/overlay` 右下にテスト操作ボタンが表示されます
+  - テストモードでもカスタムテキスト（チャットコマンド）は動作します
 - **操作**:
   - テストボタンは長押しで連打できます（攻撃・回復）
   - 「全回復」ボタンでHPを最大値にリセット
+  - テストボタンとカスタムテキストは独立して動作します（競合しません）
 
 > **補足:** 設定は開発環境ではローカルストレージに保存されます。初期値は `public/config/overlay-config.json` です。
 
@@ -219,7 +333,11 @@ npm run preview
 
 このプロジェクトには以下の Twitch API 機能が実装されています:
 
-> **注意:** チャンネルポイント関連の機能（リワード取得、引き換え履歴）は、OAuth認証（ユーザートークン）が必要です。App Access Tokenでは使用できません。チャットメッセージはWebSocketを使用してリアルタイムで取得できます。
+> **注意:** 
+> - チャンネルポイント関連の機能（リワード取得、引き換え履歴）は、OAuth認証（ユーザートークン）が必要です。App Access Tokenでは使用できません。
+> - **カスタムテキスト機能**を使用すれば、App Access Tokenでもチャットメッセージで攻撃・回復を実行できます。
+> - チャットメッセージはWebSocketを使用してリアルタイムで取得できます。
+> - チャンネルポイント引き換えイベントは、**EventSub WebSocket**を使用してリアルタイムで監視します（推奨）。EventSubが使用できない場合は、ポーリング方式（5秒間隔）にフォールバックします。
 
 ### カスタムフック
 

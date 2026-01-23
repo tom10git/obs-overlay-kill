@@ -10,6 +10,7 @@ export interface HPConfig {
 
 export interface AttackConfig {
   rewardId: string
+  customText: string // チャットメッセージで判定するカスタムテキスト（App Access Token用）
   enabled: boolean
   damage: number
   missEnabled: boolean
@@ -18,6 +19,7 @@ export interface AttackConfig {
 
 export interface HealConfig {
   rewardId: string
+  customText: string // チャットメッセージで判定するカスタムテキスト（App Access Token用）
   enabled: boolean
   healType: 'fixed' | 'random'
   healAmount: number // fixed の場合

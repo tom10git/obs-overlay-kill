@@ -1,23 +1,25 @@
 {
   "hp": {
-    "max": 100,
-    "current": 100,
-    "gaugeCount": 3
+    "max": 10000,
+    "current": 10000,
+    "gaugeCount": 6
   },
   "attack": {
     "rewardId": "",
+    "customText": "!attack",
     "enabled": true,
-    "damage": 10,
-    "missEnabled": false,
-    "missProbability": 0
+    "damage": 200,
+    "missEnabled": true,
+    "missProbability": 10
   },
   "heal": {
     "rewardId": "",
+    "customText": "!heal",
     "enabled": true,
-    "healType": "fixed",
-    "healAmount": 20,
-    "healMin": 10,
-    "healMax": 30
+    "healType": "random",
+    "healAmount": 500,
+    "healMin": 100,
+    "healMax": 500
   },
   "retry": {
     "command": "!retry",
@@ -29,7 +31,7 @@
   },
   "display": {
     "showMaxHp": true,
-    "fontSize": 24
+    "fontSize": 40
   },
   "zeroHpImage": {
     "enabled": true,
@@ -44,9 +46,9 @@
     "enabled": true,
     "videoUrl": "src/images/bakuhatsu.webm",
     "loop": false,
-    "duration": 2000
+    "duration": 1000
   },
   "test": {
-    "enabled": false
+    "enabled": true
   }
 }

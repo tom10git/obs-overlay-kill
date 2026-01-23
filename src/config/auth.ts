@@ -7,6 +7,7 @@ export interface TwitchAuthConfig {
   clientId: string
   clientSecret: string
   accessToken?: string
+  refreshToken?: string
   username?: string
 }
 
@@ -32,6 +33,7 @@ class AuthConfigManager {
     const twitchClientId = import.meta.env.VITE_TWITCH_CLIENT_ID?.trim()
     const twitchClientSecret = import.meta.env.VITE_TWITCH_CLIENT_SECRET?.trim()
     const twitchAccessToken = import.meta.env.VITE_TWITCH_ACCESS_TOKEN?.trim()
+    const twitchRefreshToken = import.meta.env.VITE_TWITCH_REFRESH_TOKEN?.trim()
     const twitchUsername = import.meta.env.VITE_TWITCH_USERNAME?.trim()
 
     // 必須項目の検証
@@ -70,11 +72,30 @@ class AuthConfigManager {
       )
     }
 
+    // リフレッシュトークンの形式検証（通常30文字以上の英数字）
+    if (twitchRefreshToken && twitchRefreshToken.length < 20) {
+      console.warn(
+        `⚠️ Warning: VITE_TWITCH_REFRESH_TOKEN looks invalid.\n` +
+        `Twitch Refresh Tokens are typically 30+ character alphanumeric strings.\n` +
+        `Please check your .env file.`
+      )
+    }
+
+    // リフレッシュトークンに "oauth:" プレフィックスが含まれている場合の警告
+    if (twitchRefreshToken && /^oauth:/i.test(twitchRefreshToken)) {
+      console.warn(
+        `⚠️ Warning: VITE_TWITCH_REFRESH_TOKEN contains "oauth:" prefix.\n` +
+        `Twitch API does not require "oauth:" prefix. Please remove it from your .env file.\n` +
+        `Example: oauth:xxxxx → xxxxx`
+      )
+    }
+
     this.config = {
       twitch: {
         clientId: twitchClientId,
         clientSecret: twitchClientSecret,
         accessToken: twitchAccessToken,
+        refreshToken: twitchRefreshToken,
         username: twitchUsername,
       },
     }
@@ -115,6 +136,13 @@ class AuthConfigManager {
   }
 
   /**
+   * Refresh Tokenを取得（オプション）
+   */
+  getRefreshToken(): string | undefined {
+    return this.getTwitchConfig().refreshToken
+  }
+
+  /**
    * ユーザー名を取得（オプション）
    */
   getUsername(): string | undefined {
@@ -149,5 +177,6 @@ export const authConfig = new AuthConfigManager()
 export const getTwitchClientId = () => authConfig.getClientId()
 export const getTwitchClientSecret = () => authConfig.getClientSecret()
 export const getTwitchAccessToken = () => authConfig.getAccessToken()
+export const getTwitchRefreshToken = () => authConfig.getRefreshToken()
 export const getTwitchUsername = () => authConfig.getUsername()
 export const isAuthConfigured = () => authConfig.isConfigured()

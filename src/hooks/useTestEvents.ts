@@ -16,6 +16,9 @@ interface UseTestEventsOptions {
   healEnabled?: boolean
 }
 
+// テストモード用の簡易イベント型（実際のイベントデータは不要）
+type TestEvent = () => void
+
 interface UseTestEventsResult {
   triggerAttack: () => void
   triggerHeal: () => void
@@ -39,6 +42,8 @@ export function useTestEvents({
   const triggerAttack = useCallback(() => {
     if (!enabled || !attackEnabled || !onAttackEvent) return
 
+    // テストモードでは、ダミーイベントを作成してハンドラを呼び出す
+    // ハンドラ側でテストモード専用の処理を行う
     const testEvent: ChannelPointEvent = {
       id: `test-attack-${Date.now()}`,
       rewardId: attackRewardId,
@@ -48,7 +53,9 @@ export function useTestEvents({
       status: 'UNFULFILLED',
     }
 
-    console.log('[test] triggerAttack', testEvent)
+    if (import.meta.env.DEV) {
+      console.log('🧪 テストモード: 攻撃イベントをトリガー', testEvent)
+    }
     onAttackEvent(testEvent)
   }, [enabled, attackEnabled, attackRewardId, onAttackEvent])
 
@@ -56,6 +63,8 @@ export function useTestEvents({
   const triggerHeal = useCallback(() => {
     if (!enabled || !healEnabled || !onHealEvent) return
 
+    // テストモードでは、ダミーイベントを作成してハンドラを呼び出す
+    // ハンドラ側でテストモード専用の処理を行う
     const testEvent: ChannelPointEvent = {
       id: `test-heal-${Date.now()}`,
       rewardId: healRewardId,
@@ -65,14 +74,18 @@ export function useTestEvents({
       status: 'UNFULFILLED',
     }
 
-    console.log('[test] triggerHeal', testEvent)
+    if (import.meta.env.DEV) {
+      console.log('🧪 テストモード: 回復イベントをトリガー', testEvent)
+    }
     onHealEvent(testEvent)
   }, [enabled, healEnabled, healRewardId, onHealEvent])
 
   // 全回復（リセット）をトリガー
   const triggerReset = useCallback(() => {
     if (!enabled || !onReset) return
-    console.log('[test] triggerReset')
+    if (import.meta.env.DEV) {
+      console.log('🧪 テストモード: 全回復（リセット）をトリガー')
+    }
     onReset()
   }, [enabled, onReset])
 

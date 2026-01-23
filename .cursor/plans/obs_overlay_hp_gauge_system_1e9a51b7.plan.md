@@ -49,6 +49,7 @@ todos:
     dependencies:
       - "1"
       - "8"
+isProject: false
 ---
 
 # OBS Overlay HP Gauge System 仕様書

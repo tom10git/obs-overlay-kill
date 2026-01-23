@@ -67,12 +67,21 @@ interface UseTwitchChannelPointRedemptionsResult {
 /**
  * Twitchチャンネルポイントリワードの引き換え履歴を取得するカスタムフック
  * 注意: OAuth認証（ユーザートークン）が必要です
+ * 
+ * 公式API仕様: https://dev.twitch.tv/docs/api/reference#get-custom-reward-redemption
+ * 
+ * @param broadcasterId - ブロードキャスターのID
+ * @param rewardId - カスタムリワードのID
+ * @param status - リデンプションのステータス（idパラメータが指定されていない場合は必須）
+ * @param limit - 1ページあたりの最大アイテム数（1-50、デフォルト20）
+ * @param sort - ソート順（OLDEST, NEWEST） - デフォルトはNEWEST（最新の引き換えを先に取得）
  */
 export function useTwitchChannelPointRedemptions(
   broadcasterId: string,
   rewardId: string,
   status?: 'UNFULFILLED' | 'FULFILLED' | 'CANCELED',
-  limit: number = 20
+  limit: number = 20,
+  sort: 'OLDEST' | 'NEWEST' = 'NEWEST'
 ): UseTwitchChannelPointRedemptionsResult {
   const [redemptions, setRedemptions] = useState<TwitchChannelPointRedemption[]>([])
   const [loading, setLoading] = useState(true)
@@ -94,7 +103,8 @@ export function useTwitchChannelPointRedemptions(
         rewardId,
         status,
         limit,
-        reset ? undefined : cursor
+        reset ? undefined : cursor,
+        sort
       )
 
       if (reset) {
@@ -114,7 +124,7 @@ export function useTwitchChannelPointRedemptions(
 
   useEffect(() => {
     fetchRedemptions(true)
-  }, [broadcasterId, rewardId, status])
+  }, [broadcasterId, rewardId, status, sort, limit])
 
   const loadMore = async () => {
     if (!loading && hasMore) {

@@ -1,16 +1,19 @@
 /**
  * OBS Overlay ページ
- * OBSブラウザソースとして使用するHPゲージ表示ページ
+ * ブラウザウィンドウをキャプチャーして使用するHPゲージ表示ページ
  */
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { useHPGauge } from '../hooks/useHPGauge'
 import { useChannelPointEvents } from '../hooks/useChannelPointEvents'
-import { useRetryCommand } from '../hooks/useRetryCommand'
+import { useEventSubRedemptions } from '../hooks/useEventSubRedemptions'
+// import { useRetryCommand } from '../hooks/useRetryCommand' // リトライコマンドはメインのチャット監視処理に統合
 import { useTestEvents } from '../hooks/useTestEvents'
+import { useTwitchChat } from '../hooks/useTwitchChat'
 import { HPGauge } from '../components/overlay/HPGauge'
 import { getAdminUsername } from '../config/admin'
 import { useTwitchUser } from '../hooks/useTwitchUser'
+import type { TwitchChatMessage } from '../types/twitch'
 import './OverlayPage.css'
 
 export function OverlayPage() {
@@ -57,13 +60,17 @@ export function OverlayPage() {
     channel: username,
   })
 
+
   // 攻撃イベントハンドラ
   const handleAttackEvent = useCallback(
     (event: { rewardId: string }) => {
       if (!config) return
 
-      // 条件チェック（シンプルな実装：リワードIDが一致すれば実行）
-      if (event.rewardId === config.attack.rewardId) {
+      // 条件チェック（リワードIDが一致するか、カスタムテキストで判定された場合）
+      const isRewardIdMatch = event.rewardId === config.attack.rewardId && config.attack.rewardId.length > 0
+      const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.attack.customText && config.attack.customText.length > 0
+
+      if (isRewardIdMatch || isCustomTextMatch) {
         // ミス判定
         let shouldDamage = true
         if (config.attack.missEnabled) {
@@ -89,8 +96,11 @@ export function OverlayPage() {
     (event: { rewardId: string }) => {
       if (!config) return
 
-      // 条件チェック
-      if (event.rewardId === config.heal.rewardId) {
+      // 条件チェック（リワードIDが一致するか、カスタムテキストで判定された場合）
+      const isRewardIdMatch = event.rewardId === config.heal.rewardId && config.heal.rewardId.length > 0
+      const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.heal.customText && config.heal.customText.length > 0
+
+      if (isRewardIdMatch || isCustomTextMatch) {
         let healAmount = 0
         if (config.heal.healType === 'fixed') {
           healAmount = config.heal.healAmount
@@ -110,40 +120,138 @@ export function OverlayPage() {
   // テストモードかどうか
   const isTestMode = config?.test.enabled ?? false
 
-  // 攻撃イベントを監視（テストモードでない場合のみ）
-  useChannelPointEvents({
+  // EventSubを使用するかどうか（推奨: リアルタイムで効率的）
+  // フォールバックとしてポーリング方式も使用可能
+  const useEventSub = !isTestMode && !!user?.id
+
+  // EventSubを使用してすべての引き換えイベントを監視
+  const { isConnected: eventSubConnected, error: eventSubError } = useEventSubRedemptions({
+    broadcasterId: user?.id || '',
+    enabled: useEventSub,
+    onEvent: (event) => {
+      // リワードIDでフィルタリング
+      if (config?.attack.enabled && event.rewardId === config.attack.rewardId && config.attack.rewardId.length > 0) {
+        handleAttackEvent(event)
+      } else if (config?.heal.enabled && event.rewardId === config.heal.rewardId && config.heal.rewardId.length > 0) {
+        handleHealEvent(event)
+      }
+    },
+  })
+
+  // フォールバック: EventSubが使用できない場合や接続に失敗した場合はポーリング方式を使用
+  const usePolling = !isTestMode && (!useEventSub || !eventSubConnected)
+
+  // 攻撃イベントを監視（ポーリング方式 - フォールバック）
+  const attackEventsEnabled =
+    usePolling &&
+    (config?.attack.enabled ?? false) &&
+    !!user?.id &&
+    !!config?.attack.rewardId
+
+  const { error: attackError } = useChannelPointEvents({
     broadcasterId: user?.id || '',
     rewardId: config?.attack.rewardId || '',
-    enabled:
-      !isTestMode &&
-      (config?.attack.enabled ?? false) &&
-      !!user?.id &&
-      !!config?.attack.rewardId,
+    enabled: attackEventsEnabled,
     pollingInterval: 5000,
-    onEvent: handleAttackEvent,
+    onEvent: (event) => {
+      handleAttackEvent(event)
+    },
   })
 
-  // 回復イベントを監視（テストモードでない場合のみ）
-  useChannelPointEvents({
+  // 回復イベントを監視（ポーリング方式 - フォールバック）
+  const healEventsEnabled =
+    usePolling &&
+    (config?.heal.enabled ?? false) &&
+    !!user?.id &&
+    !!config?.heal.rewardId
+
+  const { error: healError } = useChannelPointEvents({
     broadcasterId: user?.id || '',
     rewardId: config?.heal.rewardId || '',
-    enabled:
-      !isTestMode &&
-      (config?.heal.enabled ?? false) &&
-      !!user?.id &&
-      !!config?.heal.rewardId,
+    enabled: healEventsEnabled,
     pollingInterval: 5000,
-    onEvent: handleHealEvent,
+    onEvent: (event) => {
+      handleHealEvent(event)
+    },
   })
 
-  // テストモード用のイベントシミュレーション
+  // エラー表示
+  useEffect(() => {
+    if (eventSubError) {
+      console.error(
+        '❌ EventSub接続エラー\n' +
+        'EventSub WebSocketへの接続に失敗しました。\n' +
+        'ポーリング方式にフォールバックしますが、イベント検出に遅延が発生する可能性があります。\n' +
+        'エラー詳細:', eventSubError
+      )
+    }
+    if (attackError) {
+      console.error(
+        '❌ 攻撃イベント取得エラー（ポーリング方式）\n' +
+        'チャンネルポイントの攻撃イベントを取得できませんでした。\n' +
+        'エラー詳細:', attackError
+      )
+    }
+    if (healError) {
+      console.error(
+        '❌ 回復イベント取得エラー（ポーリング方式）\n' +
+        'チャンネルポイントの回復イベントを取得できませんでした。\n' +
+        'エラー詳細:', healError
+      )
+    }
+  }, [eventSubError, attackError, healError])
+
+  // テストモード用の専用ハンドラ（チャンネルポイントイベントとは別処理）
+  // useTestEventsからChannelPointEventを受け取るが、テストモードでは無視して直接処理
+  const handleTestAttack = useCallback((_event: { rewardId: string }) => {
+    if (!config || !isTestMode) return
+
+    // ミス判定
+    let shouldDamage = true
+    if (config.attack.missEnabled) {
+      const missRoll = Math.random() * 100
+      if (missRoll < config.attack.missProbability) {
+        shouldDamage = false
+      }
+    }
+
+    if (shouldDamage) {
+      reduceHP(config.attack.damage)
+    } else {
+      // MISSアニメーション表示
+      showMiss(config.animation.duration)
+    }
+  }, [config, isTestMode, reduceHP, showMiss])
+
+  const handleTestHeal = useCallback((_event: { rewardId: string }) => {
+    if (!config || !isTestMode) return
+
+    let healAmount = 0
+    if (config.heal.healType === 'fixed') {
+      healAmount = config.heal.healAmount
+    } else {
+      // ランダム回復
+      const min = config.heal.healMin
+      const max = config.heal.healMax
+      healAmount = Math.floor(Math.random() * (max - min + 1)) + min
+    }
+
+    increaseHP(healAmount)
+  }, [config, isTestMode, increaseHP])
+
+  const handleTestReset = useCallback(() => {
+    if (!isTestMode) return
+    resetHP()
+  }, [isTestMode, resetHP])
+
+  // テストモード用のイベントシミュレーション（専用ハンドラを使用）
   const { triggerAttack, triggerHeal, triggerReset } = useTestEvents({
     enabled: isTestMode,
     attackRewardId: config?.attack.rewardId || '',
     healRewardId: config?.heal.rewardId || '',
-    onAttackEvent: handleAttackEvent,
-    onHealEvent: handleHealEvent,
-    onReset: () => resetHP(),
+    onAttackEvent: handleTestAttack,
+    onHealEvent: handleTestHeal,
+    onReset: handleTestReset,
     attackEnabled: currentHP > 0,
   })
 
@@ -167,15 +275,129 @@ export function OverlayPage() {
     return () => stopRepeat()
   }, [stopRepeat])
 
-  // リトライコマンドを監視
-  useRetryCommand({
-    channel: username,
-    command: config?.retry.command || '!retry',
-    enabled: (config?.retry.enabled ?? false) && currentHP === 0 && !!username,
-    onRetry: () => {
-      resetHP()
-    },
-  })
+  // リトライコマンドはメインのチャット監視処理に統合されているため、useRetryCommandは使用しない
+  // （重複処理を避けるため）
+
+  // チャットメッセージを監視してカスタムテキストで判定（App Access Token用）
+  const { messages: chatMessages, isConnected: chatConnected } = useTwitchChat(username, 100)
+  const processedChatMessagesRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    // カスタムテキストのチャット監視（テストモードでも有効）
+    if (!config || !username) {
+      return
+    }
+
+    chatMessages.forEach((message: TwitchChatMessage) => {
+      // 既に処理済みのメッセージはスキップ
+      if (processedChatMessagesRef.current.has(message.id)) {
+        return
+      }
+
+      const messageText = message.message.trim()
+      const attackCustomText = config.attack.customText?.trim()
+      const healCustomText = config.heal.customText?.trim()
+
+      // 1つのメッセージで1つのコマンドのみを実行する（攻撃を優先）
+      let commandMatched = false
+
+      // 攻撃カスタムテキストの判定（大文字小文字を区別しない）
+      if (
+        !commandMatched &&
+        config.attack.enabled &&
+        attackCustomText &&
+        attackCustomText.length > 0
+      ) {
+        const messageLower = messageText.toLowerCase()
+        const attackTextLower = attackCustomText.toLowerCase()
+
+        // 完全一致、またはメッセージの開始、または単語として一致
+        const isMatch =
+          messageLower === attackTextLower ||
+          messageLower.startsWith(attackTextLower + ' ') ||
+          messageLower.startsWith(attackTextLower + '\n') ||
+          messageLower.startsWith(attackTextLower + '\t') ||
+          messageLower.endsWith(' ' + attackTextLower) ||
+          messageLower.includes(' ' + attackTextLower + ' ') ||
+          messageLower.includes('\n' + attackTextLower + ' ') ||
+          messageLower.includes(' ' + attackTextLower + '\n')
+
+        if (isMatch) {
+          processedChatMessagesRef.current.add(message.id)
+          commandMatched = true
+          // ダミーイベントを作成して攻撃イベントを発火
+          handleAttackEvent({ rewardId: 'custom-text' })
+        }
+      }
+
+      // 回復カスタムテキストの判定（大文字小文字を区別しない）
+      // 攻撃がマッチしなかった場合のみチェック
+      if (
+        !commandMatched &&
+        config.heal.enabled &&
+        healCustomText &&
+        healCustomText.length > 0
+      ) {
+        const messageLower = messageText.toLowerCase()
+        const healTextLower = healCustomText.toLowerCase()
+
+        // 完全一致、またはメッセージの開始、または単語として一致
+        const isMatch =
+          messageLower === healTextLower ||
+          messageLower.startsWith(healTextLower + ' ') ||
+          messageLower.startsWith(healTextLower + '\n') ||
+          messageLower.startsWith(healTextLower + '\t') ||
+          messageLower.endsWith(' ' + healTextLower) ||
+          messageLower.includes(' ' + healTextLower + ' ') ||
+          messageLower.includes('\n' + healTextLower + ' ') ||
+          messageLower.includes(' ' + healTextLower + '\n')
+
+        if (isMatch) {
+          processedChatMessagesRef.current.add(message.id)
+          commandMatched = true
+          // ダミーイベントを作成して回復イベントを発火
+          handleHealEvent({ rewardId: 'custom-text' })
+        }
+      }
+
+      // リトライコマンドの判定（HPが最大値未満の場合）
+      if (
+        !commandMatched &&
+        config.retry.enabled &&
+        currentHP < maxHP &&
+        config.retry.command &&
+        config.retry.command.length > 0
+      ) {
+        const messageLower = messageText.toLowerCase()
+        const retryCommandLower = config.retry.command.toLowerCase()
+
+        // 完全一致、またはメッセージの開始
+        const isRetryMatch =
+          messageLower === retryCommandLower ||
+          messageLower.startsWith(retryCommandLower + ' ') ||
+          messageLower.startsWith(retryCommandLower + '\n') ||
+          messageLower.startsWith(retryCommandLower + '\t')
+
+        if (isRetryMatch) {
+          processedChatMessagesRef.current.add(message.id)
+          commandMatched = true
+          // リトライコマンドを実行（回復コマンドと同じロジックで最大HPまで回復）
+          // 現在のHPと最大HPの差分を計算して回復
+          const healAmount = maxHP - currentHP
+          
+          if (healAmount > 0) {
+            increaseHP(healAmount)
+          }
+        }
+      }
+
+      // メモリ最適化: 処理済みメッセージのセットが大きくなりすぎないように制限
+      if (processedChatMessagesRef.current.size > 500) {
+        const idsArray = Array.from(processedChatMessagesRef.current)
+        idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
+      }
+    })
+  }, [chatMessages, config, isTestMode, username, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP])
 
   // NOTE:
   // - OBS側では `.env` / `VITE_TWITCH_USERNAME` が未設定のまま表示されるケースがある

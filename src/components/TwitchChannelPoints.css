@@ -2,31 +2,35 @@
   padding: 1.5rem;
   border-radius: 8px;
   background-color: #1a1a1a;
-  border: 1px solid #333;
+  border: 1px solid #333333;
   margin: 1rem 0;
+  color: #ffffff;
 }
 
 .twitch-channel-points.loading {
   text-align: center;
-  color: #888;
+  color: #888888;
 }
 
 .twitch-channel-points.error {
-  color: #ff6b6b;
+  color: #ffffff;
+  border-color: #ffffff;
 }
 
 .twitch-channel-points.error button {
   margin-top: 0.5rem;
   padding: 0.5rem 1rem;
-  background-color: #646cff;
-  color: white;
-  border: none;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #555555;
   border-radius: 4px;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 .twitch-channel-points.error button:hover {
-  background-color: #535bf2;
+  background-color: #333333;
+  border-color: #ffffff;
 }
 
 .error-note {
@@ -63,8 +67,8 @@
 }
 
 .reward-item.selected {
-  border-color: #646cff;
-  background-color: #2a2a3a;
+  border-color: #ffffff;
+  background-color: #333333;
 }
 
 .reward-header {
@@ -81,12 +85,13 @@
 }
 
 .reward-cost {
-  background-color: #9146ff;
-  color: #fff;
+  background-color: #2a2a2a;
+  color: #ffffff;
   padding: 0.25rem 0.75rem;
   border-radius: 12px;
   font-size: 0.9rem;
   font-weight: 600;
+  border: 1px solid #555555;
 }
 
 .reward-prompt {
@@ -110,23 +115,24 @@
 }
 
 .status-badge.enabled {
-  background-color: #00d4aa;
-  color: #000;
+  background-color: #ffffff;
+  color: #000000;
 }
 
 .status-badge.disabled {
-  background-color: #666;
-  color: #fff;
+  background-color: #666666;
+  color: #ffffff;
 }
 
 .status-badge.paused {
-  background-color: #ffa500;
-  color: #000;
+  background-color: #888888;
+  color: #000000;
 }
 
 .status-badge.out-of-stock {
-  background-color: #ff6b6b;
-  color: #fff;
+  background-color: #333333;
+  color: #ffffff;
+  border: 1px solid #ffffff;
 }
 
 .redemptions-section {
@@ -171,16 +177,16 @@
 }
 
 .filter-button.active {
-  background-color: #646cff;
-  border-color: #646cff;
+  background-color: #333333;
+  border-color: #ffffff;
 }
 
 .redemptions-error {
   padding: 1rem;
-  background-color: #ff6b6b20;
-  border: 1px solid #ff6b6b;
+  background-color: #2a2a2a;
+  border: 1px solid #ffffff;
   border-radius: 4px;
-  color: #ff6b6b;
+  color: #ffffff;
   margin-bottom: 1rem;
 }
 
@@ -223,18 +229,18 @@
 }
 
 .redemption-status.unfulfilled {
-  background-color: #ffa500;
-  color: #000;
+  background-color: #888888;
+  color: #000000;
 }
 
 .redemption-status.fulfilled {
-  background-color: #00d4aa;
-  color: #000;
+  background-color: #ffffff;
+  color: #000000;
 }
 
 .redemption-status.canceled {
-  background-color: #666;
-  color: #fff;
+  background-color: #666666;
+  color: #ffffff;
 }
 
 .redemption-input {
@@ -257,18 +263,19 @@
 
 .load-more-button {
   padding: 0.75rem 2rem;
-  background-color: #646cff;
-  color: white;
-  border: none;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #555555;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .load-more-button:hover:not(:disabled) {
-  background-color: #535bf2;
+  background-color: #333333;
+  border-color: #ffffff;
 }
 
 .load-more-button:disabled {

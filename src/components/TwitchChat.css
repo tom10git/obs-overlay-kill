@@ -2,11 +2,12 @@
   padding: 1.5rem;
   border-radius: 8px;
   background-color: #1a1a1a;
-  border: 1px solid #333;
+  border: 1px solid #333333;
   margin: 1rem 0;
   display: flex;
   flex-direction: column;
   max-height: 600px;
+  color: #ffffff;
 }
 
 .chat-header {
@@ -38,37 +39,38 @@
 }
 
 .connection-status.connected {
-  background-color: #00d4aa;
-  color: #000;
+  background-color: #ffffff;
+  color: #000000;
 }
 
 .connection-status.disconnected {
-  background-color: #666;
-  color: #fff;
+  background-color: #666666;
+  color: #ffffff;
 }
 
 .chat-button {
   padding: 0.5rem 1rem;
-  background-color: #646cff;
-  color: white;
-  border: none;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #555555;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.85rem;
   font-weight: 500;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .chat-button:hover {
-  background-color: #535bf2;
+  background-color: #333333;
+  border-color: #ffffff;
 }
 
 .chat-error {
   padding: 0.75rem;
-  background-color: #ff6b6b20;
-  border: 1px solid #ff6b6b;
+  background-color: #2a2a2a;
+  border: 1px solid #ffffff;
   border-radius: 4px;
-  color: #ff6b6b;
+  color: #ffffff;
   margin-bottom: 1rem;
 }
 
@@ -143,16 +145,16 @@
 }
 
 .badge.mod {
-  background-color: #00d4aa;
-  color: #000;
+  background-color: #ffffff;
+  color: #000000;
 }
 
 .badge.subscriber {
-  background-color: #9146ff;
-  color: #fff;
+  background-color: #888888;
+  color: #ffffff;
 }
 
 .badge.vip {
-  background-color: #ffd700;
-  color: #000;
+  background-color: #cccccc;
+  color: #000000;
 }

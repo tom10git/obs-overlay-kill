@@ -13,6 +13,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
   },
   attack: {
     rewardId: '',
+    customText: '',
     enabled: true,
     damage: 10,
     missEnabled: false,
@@ -20,6 +21,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
   },
   heal: {
     rewardId: '',
+    customText: '',
     enabled: true,
     healType: 'fixed',
     healAmount: 20,
@@ -116,24 +118,69 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
 }
 
 /**
- * 設定ファイルを保存する（開発環境のみ）
- * 注意: 本番環境では別の方法（API経由など）を推奨
+ * 設定ファイルをJSONファイルとして保存する
+ * 開発環境ではAPI経由でファイルに保存、本番環境ではダウンロード
  */
 export async function saveOverlayConfig(config: OverlayConfig): Promise<boolean> {
   try {
-    // 開発環境でのみ動作（本番環境ではAPI経由で保存することを推奨）
-    if (import.meta.env.PROD) {
-      console.warn('本番環境では設定ファイルの直接保存はできません。')
-      return false
+    // 設定値を検証・サニタイズ
+    const validated = validateAndSanitizeConfig(config)
+
+    // 開発環境ではAPI経由でファイルに保存
+    if (import.meta.env.DEV) {
+      try {
+        const response = await fetch('/api/config/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(validated, null, 2),
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || '設定の保存に失敗しました')
+        }
+
+        const result = await response.json()
+        console.log('✅ 設定をJSONファイルに保存しました:', result.message)
+        // ローカルストレージにも保存（フォールバック用）
+        localStorage.setItem('overlay-config', JSON.stringify(validated))
+        return true
+      } catch (apiError) {
+        console.warn('API経由での保存に失敗しました。ダウンロード方式にフォールバックします:', apiError)
+        // APIが失敗した場合はダウンロード方式にフォールバック
+        return downloadConfigAsJson(validated)
+      }
     }
 
-    // 実際のファイル保存はサーバー側で行う必要があるため、
-    // ここではローカルストレージに保存する代替手段を提供
-    localStorage.setItem('overlay-config', JSON.stringify(config))
-    console.log('設定をローカルストレージに保存しました。')
-    return true
+    // 本番環境ではダウンロード方式
+    return downloadConfigAsJson(validated)
   } catch (error) {
     console.error('設定の保存に失敗しました:', error)
+    return false
+  }
+}
+
+/**
+ * 設定をJSONファイルとしてダウンロード
+ */
+function downloadConfigAsJson(config: OverlayConfig): boolean {
+  try {
+    const jsonString = JSON.stringify(config, null, 2)
+    const blob = new Blob([jsonString], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'overlay-config.json'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    console.log('✅ 設定をJSONファイルとしてダウンロードしました')
+    return true
+  } catch (error) {
+    console.error('JSONファイルのダウンロードに失敗しました:', error)
     return false
   }
 }
@@ -191,6 +238,7 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   const attackConfig = (c.attack as Record<string, unknown> | undefined) || {}
   const attack = {
     rewardId: typeof attackConfig.rewardId === 'string' ? attackConfig.rewardId : '',
+    customText: typeof attackConfig.customText === 'string' ? attackConfig.customText : '',
     enabled: typeof attackConfig.enabled === 'boolean' ? attackConfig.enabled : true,
     damage: isInRange(Number(attackConfig.damage), 1, 1000)
       ? Number(attackConfig.damage) || 10
@@ -205,6 +253,7 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   const healConfig = (c.heal as Record<string, unknown> | undefined) || {}
   const heal = {
     rewardId: typeof healConfig.rewardId === 'string' ? healConfig.rewardId : '',
+    customText: typeof healConfig.customText === 'string' ? healConfig.customText : '',
     enabled: typeof healConfig.enabled === 'boolean' ? healConfig.enabled : true,
     healType: (healConfig.healType === 'random' ? 'random' : 'fixed') as 'fixed' | 'random',
     healAmount: isInRange(Number(healConfig.healAmount), 1, 1000)
