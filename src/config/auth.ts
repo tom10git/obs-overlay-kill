@@ -29,21 +29,44 @@ class AuthConfigManager {
       return this.config
     }
 
-    const twitchClientId = import.meta.env.VITE_TWITCH_CLIENT_ID
-    const twitchClientSecret = import.meta.env.VITE_TWITCH_CLIENT_SECRET
-    const twitchAccessToken = import.meta.env.VITE_TWITCH_ACCESS_TOKEN
-    const twitchUsername = import.meta.env.VITE_TWITCH_USERNAME
+    const twitchClientId = import.meta.env.VITE_TWITCH_CLIENT_ID?.trim()
+    const twitchClientSecret = import.meta.env.VITE_TWITCH_CLIENT_SECRET?.trim()
+    const twitchAccessToken = import.meta.env.VITE_TWITCH_ACCESS_TOKEN?.trim()
+    const twitchUsername = import.meta.env.VITE_TWITCH_USERNAME?.trim()
 
     // 必須項目の検証
     if (!twitchClientId) {
       throw new Error(
-        'VITE_TWITCH_CLIENT_ID is not set. Please set it in your .env file.'
+        'VITE_TWITCH_CLIENT_ID is not set. Please set it in your .env file.\n' +
+        'Get your Client ID from: https://dev.twitch.tv/console/apps'
       )
     }
 
     if (!twitchClientSecret) {
       throw new Error(
-        'VITE_TWITCH_CLIENT_SECRET is not set. Please set it in your .env file.'
+        'VITE_TWITCH_CLIENT_SECRET is not set. Please set it in your .env file.\n' +
+        'Get your Client Secret from: https://dev.twitch.tv/console/apps'
+      )
+    }
+
+    // Client IDの形式検証（Twitch Client IDは通常30文字以上の英数字）
+    // ユーザー名のような短い文字列や、アンダースコアのみの文字列を検出
+    if (twitchClientId.length < 20 || /^[a-z_]+$/.test(twitchClientId)) {
+      console.warn(
+        `⚠️ Warning: VITE_TWITCH_CLIENT_ID="${twitchClientId}" looks invalid.\n` +
+        `Twitch Client IDs are typically 30+ character alphanumeric strings.\n` +
+        `This looks like a username. Please check your .env file.\n` +
+        `Get your Client ID from: https://dev.twitch.tv/console/apps`
+      )
+    }
+
+    // Client Secretの形式検証（通常30文字以上の英数字）
+    if (twitchClientSecret.length < 20) {
+      console.warn(
+        `⚠️ Warning: VITE_TWITCH_CLIENT_SECRET looks invalid.\n` +
+        `Twitch Client Secrets are typically 30+ character alphanumeric strings.\n` +
+        `Please check your .env file.\n` +
+        `Get your Client Secret from: https://dev.twitch.tv/console/apps`
       )
     }
 

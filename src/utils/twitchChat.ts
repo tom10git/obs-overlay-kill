@@ -92,7 +92,13 @@ class TwitchChatClient {
       })
 
       this.client.connect().catch((error: unknown) => {
-        console.error('Failed to connect to Twitch chat:', error)
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        console.error(
+          '❌ Failed to connect to Twitch chat:\n' +
+          `Error: ${errorMessage}\n` +
+          'Note: Twitch chat connection does not require OAuth credentials.\n' +
+          'This error is usually due to network issues or Twitch service problems.'
+        )
         reject(error)
       })
     })

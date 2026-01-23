@@ -70,7 +70,37 @@ class TwitchApiClient {
 
       return this.accessToken
     } catch (error) {
-      console.error('Failed to get Twitch access token:', error)
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status
+        const errorData = error.response?.data
+
+        if (status === 400) {
+          const errorMessage = errorData?.message || 'Invalid client credentials'
+          console.error(
+            '❌ Failed to get Twitch access token: Invalid credentials\n' +
+            `Error: ${errorMessage}\n` +
+            `Client ID: ${clientId.substring(0, 10)}... (length: ${clientId.length})\n` +
+            'Please check your .env file:\n' +
+            '1. VITE_TWITCH_CLIENT_ID should be your Twitch Application Client ID (30+ characters)\n' +
+            '2. VITE_TWITCH_CLIENT_SECRET should be your Twitch Application Client Secret (30+ characters)\n' +
+            '3. Get these from: https://dev.twitch.tv/console/apps\n' +
+            '4. Make sure you are using the correct credentials for your Twitch application'
+          )
+        } else if (status === 401) {
+          console.error(
+            '❌ Failed to get Twitch access token: Unauthorized\n' +
+            'Your Client ID or Client Secret may be incorrect.\n' +
+            'Please verify your credentials at: https://dev.twitch.tv/console/apps'
+          )
+        } else {
+          console.error(
+            `❌ Failed to get Twitch access token: HTTP ${status}\n`,
+            errorData || error.message
+          )
+        }
+      } else {
+        console.error('Failed to get Twitch access token:', error)
+      }
       throw error
     }
   }
