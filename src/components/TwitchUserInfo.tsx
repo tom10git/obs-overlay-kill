@@ -1,4 +1,6 @@
 import { useTwitchUser } from '../hooks/useTwitchUser'
+import { useTwitchVideos } from '../hooks/useTwitchVideos'
+import { useTwitchClips } from '../hooks/useTwitchClips'
 import './TwitchUserInfo.css'
 
 interface TwitchUserInfoProps {
@@ -7,6 +9,9 @@ interface TwitchUserInfoProps {
 
 export function TwitchUserInfo({ login }: TwitchUserInfoProps) {
   const { user, loading, error, refetch } = useTwitchUser(login)
+  const { videos, loading: videosLoading } = useTwitchVideos(user?.id || '', 1)
+  // クリップ数は最大100件まで取得（総数はAPIで直接取得できないため）
+  const { clips, loading: clipsLoading } = useTwitchClips(user?.id || '', 100)
 
   if (loading) {
     return <div className="twitch-user-info loading">読み込み中...</div>
@@ -54,6 +59,30 @@ export function TwitchUserInfo({ login }: TwitchUserInfoProps) {
           <span className="stat-label">作成日:</span>
           <span className="stat-value">
             {new Date(user.created_at).toLocaleDateString('ja-JP')}
+          </span>
+        </div>
+        <div className="stat">
+          <span className="stat-label">最終配信日:</span>
+          <span className="stat-value">
+            {videosLoading ? (
+              '読み込み中...'
+            ) : videos.length > 0 ? (
+              new Date(videos[0].created_at).toLocaleDateString('ja-JP')
+            ) : (
+              'なし'
+            )}
+          </span>
+        </div>
+        <div className="stat">
+          <span className="stat-label">総クリップ数:</span>
+          <span className="stat-value">
+            {clipsLoading ? (
+              '読み込み中...'
+            ) : clips.length > 0 ? (
+              clips.length >= 100 ? `${clips.length}+` : clips.length.toString()
+            ) : (
+              '0'
+            )}
           </span>
         </div>
       </div>

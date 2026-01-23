@@ -23,6 +23,9 @@ export function OverlayPage() {
   // MISS表示（短時間だけ表示してCSSアニメーションさせる）
   const [missVisible, setMissVisible] = useState(false)
   const missTimerRef = useRef<number | null>(null)
+
+  // 背景色の管理
+  const [backgroundColor, setBackgroundColor] = useState<'green' | 'dark-gray'>('green')
   const showMiss = useCallback(
     (durationMs: number) => {
       setMissVisible(false) // 連続発火でもアニメーションをリスタートさせる
@@ -411,8 +414,30 @@ export function OverlayPage() {
     )
   }
 
+  const backgroundStyle = backgroundColor === 'green' ? '#00ff00' : '#1a1a1a'
+
   return (
-    <div className="overlay-page">
+    <div className="overlay-page" style={{ background: backgroundStyle }}>
+      {/* 背景色切り替えボタン */}
+      <div className="background-controls">
+        <button
+          className={`bg-button ${backgroundColor === 'green' ? 'active' : ''}`}
+          onClick={() => setBackgroundColor('green')}
+          title="グリーンバック（クロマキー用）"
+        >
+          <span className="bg-button-icon">🎬</span>
+          <span className="bg-button-label">グリーン</span>
+        </button>
+        <button
+          className={`bg-button ${backgroundColor === 'dark-gray' ? 'active' : ''}`}
+          onClick={() => setBackgroundColor('dark-gray')}
+          title="濃いグレー"
+        >
+          <span className="bg-button-icon">◼</span>
+          <span className="bg-button-label">グレー</span>
+        </button>
+      </div>
+
       {/* Twitchユーザーが取得できない場合のヒント（表示は継続する） */}
       {!isTestMode && (!username || !user) && (
         <div className="overlay-warning">
