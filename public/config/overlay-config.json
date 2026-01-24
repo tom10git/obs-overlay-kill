@@ -6,7 +6,7 @@
   },
   "attack": {
     "rewardId": "",
-    "customText": "Kill?!",
+    "customText": "!attack",
     "enabled": true,
     "damage": 200,
     "missEnabled": true,
@@ -17,7 +17,7 @@
   },
   "heal": {
     "rewardId": "",
-    "customText": "Heal!!",
+    "customText": "!heal",
     "enabled": true,
     "effectEnabled": true,
     "healType": "random",
