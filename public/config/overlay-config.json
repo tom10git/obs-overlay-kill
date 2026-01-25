@@ -4,7 +4,9 @@
     "current": 10000,
     "gaugeCount": 10,
     "x": 0,
-    "y": 25
+    "y": 25,
+    "width": 500,
+    "height": 60
   },
   "attack": {
     "rewardId": "",
@@ -84,5 +86,16 @@
     "height": 1000,
     "opacity": 1,
     "zIndex": 1
+  },
+  "webmLoop": {
+    "enabled": false,
+    "x": 0,
+    "y": 0,
+    "width": 800,
+    "height": 600,
+    "opacity": 1,
+    "zIndex": 1,
+    "videoUrl": "",
+    "loop": true
   }
 }
