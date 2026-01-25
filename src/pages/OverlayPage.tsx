@@ -64,6 +64,15 @@ export function OverlayPage() {
   const externalVideoRef = useRef<HTMLVideoElement>(null)
   const externalStreamRef = useRef<MediaStream | null>(null)
 
+  // ダメージエフェクト管理（WebMループ画像と外部ウィンドウキャプチャ用）
+  const [damageEffectActive, setDamageEffectActive] = useState(false)
+  const [healEffectActive, setHealEffectActive] = useState(false)
+  const prevHPRef = useRef<number | null>(null)
+  const damageEffectStartTimerRef = useRef<number | null>(null)
+  const damageEffectEndTimerRef = useRef<number | null>(null)
+  const healEffectStartTimerRef = useRef<number | null>(null)
+  const healEffectEndTimerRef = useRef<number | null>(null)
+
   // 外部ウィンドウの再キャプチャ
   const recaptureExternalWindow = useCallback(async () => {
     // 既存のストリームを停止
@@ -226,6 +235,84 @@ export function OverlayPage() {
     reduceHPRef.current = reduceHP
     console.log('[reduceHPRef更新] reduceHP関数を更新しました', reduceHP)
   }, [reduceHP])
+
+  // HPが変化したときにエフェクトを適用
+  useEffect(() => {
+    if (prevHPRef.current === null) {
+      prevHPRef.current = currentHP
+      return
+    }
+
+    // 既存のタイマーをクリア（ダメージエフェクト）
+    if (damageEffectStartTimerRef.current !== null) {
+      window.clearTimeout(damageEffectStartTimerRef.current)
+      damageEffectStartTimerRef.current = null
+    }
+    if (damageEffectEndTimerRef.current !== null) {
+      window.clearTimeout(damageEffectEndTimerRef.current)
+      damageEffectEndTimerRef.current = null
+    }
+    // 既存のタイマーをクリア（回復エフェクト）
+    if (healEffectStartTimerRef.current !== null) {
+      window.clearTimeout(healEffectStartTimerRef.current)
+      healEffectStartTimerRef.current = null
+    }
+    if (healEffectEndTimerRef.current !== null) {
+      window.clearTimeout(healEffectEndTimerRef.current)
+      healEffectEndTimerRef.current = null
+    }
+
+    if (currentHP < prevHPRef.current) {
+      // HPが減った場合、ダメージエフェクトを有効化
+      // 既存の回復エフェクトを即座にクリア
+      setHealEffectActive(false)
+      // 短い遅延後にダメージエフェクトを開始（回復エフェクトが完全にクリアされるまで待つ）
+      damageEffectStartTimerRef.current = window.setTimeout(() => {
+        setDamageEffectActive(true)
+        damageEffectEndTimerRef.current = window.setTimeout(() => {
+          setDamageEffectActive(false)
+          damageEffectEndTimerRef.current = null
+        }, 500)
+        damageEffectStartTimerRef.current = null
+      }, 10)
+    } else if (currentHP > prevHPRef.current) {
+      // HPが増えた場合、回復エフェクトを有効化
+      // 既存のダメージエフェクトを即座にクリア
+      setDamageEffectActive(false)
+      // 短い遅延後に回復エフェクトを開始（ダメージエフェクトが完全にクリアされるまで待つ）
+      healEffectStartTimerRef.current = window.setTimeout(() => {
+        setHealEffectActive(true)
+        healEffectEndTimerRef.current = window.setTimeout(() => {
+          setHealEffectActive(false)
+          healEffectEndTimerRef.current = null
+        }, 500)
+        healEffectStartTimerRef.current = null
+      }, 10)
+    }
+
+    prevHPRef.current = currentHP
+
+    return () => {
+      // クリーンアップ：ダメージエフェクトタイマー
+      if (damageEffectStartTimerRef.current !== null) {
+        window.clearTimeout(damageEffectStartTimerRef.current)
+        damageEffectStartTimerRef.current = null
+      }
+      if (damageEffectEndTimerRef.current !== null) {
+        window.clearTimeout(damageEffectEndTimerRef.current)
+        damageEffectEndTimerRef.current = null
+      }
+      // クリーンアップ：回復エフェクトタイマー
+      if (healEffectStartTimerRef.current !== null) {
+        window.clearTimeout(healEffectStartTimerRef.current)
+        healEffectStartTimerRef.current = null
+      }
+      if (healEffectEndTimerRef.current !== null) {
+        window.clearTimeout(healEffectEndTimerRef.current)
+        healEffectEndTimerRef.current = null
+      }
+    }
+  }, [currentHP])
 
   // テストモード用の連打タイマー管理
   const repeatTimerRef = useRef<number | null>(null)
@@ -1071,7 +1158,7 @@ export function OverlayPage() {
       {/* 外部ウィンドウキャプチャ（HPゲージの後ろに配置） */}
       {config.externalWindow.enabled && (
         <div
-          className="external-window-container"
+          className={`external-window-container ${damageEffectActive ? 'damage-effect' : ''} ${healEffectActive ? 'heal-effect' : ''}`}
           style={{
             position: 'fixed',
             left: `calc(50% + ${config.externalWindow.x}px)`,
@@ -1119,7 +1206,7 @@ export function OverlayPage() {
       {/* WebMループ画像 */}
       {config.webmLoop.enabled && config.webmLoop.videoUrl && (
         <div
-          className="webm-loop-container"
+          className={`webm-loop-container ${damageEffectActive ? 'damage-effect' : ''} ${healEffectActive ? 'heal-effect' : ''}`}
           style={{
             position: 'fixed',
             left: `calc(50% + ${config.webmLoop.x}px)`,
