@@ -62,11 +62,14 @@ export function useHPGauge({
   // HPを減らす
   const reduceHP = useCallback(
     (amount: number) => {
-      if (!config) return
-
+      console.log(`[reduceHP呼び出し] ダメージ: ${amount}`)
       setConfig((prev) => {
-        if (!prev) return prev
+        if (!prev) {
+          console.warn('[reduceHP] configがnullです')
+          return prev
+        }
         const newHP = Math.max(0, prev.hp.current - amount)
+        console.log(`[reduceHP] HP更新: ${prev.hp.current} -> ${newHP}`)
         return {
           ...prev,
           hp: {
@@ -76,14 +79,12 @@ export function useHPGauge({
         }
       })
     },
-    [config]
+    [] // configへの依存を削除（setConfigの関数形式を使うため）
   )
 
   // HPを増やす
   const increaseHP = useCallback(
     (amount: number) => {
-      if (!config) return
-
       setConfig((prev) => {
         if (!prev) return prev
         const newHP = Math.min(prev.hp.max, prev.hp.current + amount)
@@ -96,13 +97,11 @@ export function useHPGauge({
         }
       })
     },
-    [config]
+    [] // configへの依存を削除（setConfigの関数形式を使うため）
   )
 
   // HPをリセット
   const resetHP = useCallback(() => {
-    if (!config) return
-
     setConfig((prev) => {
       if (!prev) return prev
       return {
@@ -113,7 +112,7 @@ export function useHPGauge({
         },
       }
     })
-  }, [config])
+  }, []) // configへの依存を削除（setConfigの関数形式を使うため）
 
   // 設定を更新
   const updateConfig = useCallback(

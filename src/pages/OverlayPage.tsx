@@ -3,7 +3,7 @@
  * ブラウザウィンドウをキャプチャーして使用するHPゲージ表示ページ
  */
 
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useCallback, useRef, useState, useMemo } from 'react'
 import { useHPGauge } from '../hooks/useHPGauge'
 import { useChannelPointEvents } from '../hooks/useChannelPointEvents'
 import { useEventSubRedemptions } from '../hooks/useEventSubRedemptions'
@@ -11,6 +11,8 @@ import { useEventSubRedemptions } from '../hooks/useEventSubRedemptions'
 import { useTestEvents } from '../hooks/useTestEvents'
 import { useTwitchChat } from '../hooks/useTwitchChat'
 import { HPGauge } from '../components/overlay/HPGauge'
+import { DamageNumber } from '../components/overlay/DamageNumber'
+import { useSound } from '../hooks/useSound'
 import { getAdminUsername } from '../config/admin'
 import { useTwitchUser } from '../hooks/useTwitchUser'
 import type { TwitchChatMessage } from '../types/twitch'
@@ -33,8 +35,28 @@ export function OverlayPage() {
   const particleIdRef = useRef(0)
   const particleTimersRef = useRef<Map<number, number>>(new Map())
 
+  // 出血ダメージ管理（別枠として計算）
+  const bleedIdRef = useRef(0)
+  const bleedTimersRef = useRef<Map<number, { intervalTimer: number; durationTimer: number }>>(new Map())
+  const reduceHPRef = useRef<(amount: number) => void>(() => { })
+
+  // ダメージ表示管理（HPゲージの外側に表示）
+  const [damageNumbers, setDamageNumbers] = useState<Array<{
+    id: number
+    amount: number
+    isCritical: boolean
+    isBleed?: boolean
+    angle?: number
+    distance?: number
+  }>>([])
+  const damageIdRef = useRef(0)
+
   // 背景色の管理
   const [backgroundColor, setBackgroundColor] = useState<'green' | 'dark-gray'>('green')
+
+  // UI表示の管理
+  const [showBackgroundControls, setShowBackgroundControls] = useState(true)
+  const [showTestControls, setShowTestControls] = useState(true)
   const showMiss = useCallback(
     (durationMs: number) => {
       setMissVisible(false) // 連続発火でもアニメーションをリスタートさせる
@@ -136,6 +158,12 @@ export function OverlayPage() {
         window.clearTimeout(timerId)
       })
       particleTimersRef.current.clear()
+      // すべての出血ダメージタイマーをクリア
+      bleedTimersRef.current.forEach((timers) => {
+        window.clearInterval(timers.intervalTimer)
+        window.clearTimeout(timers.durationTimer)
+      })
+      bleedTimersRef.current.clear()
     }
   }, [])
 
@@ -152,6 +180,76 @@ export function OverlayPage() {
     broadcasterId: user?.id || '',
     channel: username,
   })
+
+  // reduceHPを常に最新の状態で参照できるようにする
+  useEffect(() => {
+    reduceHPRef.current = reduceHP
+    console.log('[reduceHPRef更新] reduceHP関数を更新しました', reduceHP)
+  }, [reduceHP])
+
+  // 効果音の設定（攻撃、ミス、出血ダメージ、回復、蘇生）
+  const attackSoundUrl = useMemo(
+    () => (config?.attack.soundUrl?.trim() || ''),
+    [config?.attack.soundUrl]
+  )
+  const missSoundUrl = useMemo(
+    () => (config?.attack.missSoundUrl?.trim() || ''),
+    [config?.attack.missSoundUrl]
+  )
+  const bleedSoundUrl = useMemo(
+    () => (config?.attack.bleedSoundUrl?.trim() || ''),
+    [config?.attack.bleedSoundUrl]
+  )
+  const healSoundUrl = useMemo(
+    () => (config?.heal.soundUrl?.trim() || ''),
+    [config?.heal.soundUrl]
+  )
+  const retrySoundUrl = useMemo(
+    () => (config?.retry.soundUrl?.trim() || ''),
+    [config?.retry.soundUrl]
+  )
+
+  const { play: playAttackSound } = useSound({
+    src: attackSoundUrl,
+    enabled: config?.attack.soundEnabled && !!attackSoundUrl,
+    volume: config?.attack.soundVolume || 0.7,
+  })
+
+  const { play: playMissSound } = useSound({
+    src: missSoundUrl,
+    enabled: config?.attack.missSoundEnabled && !!missSoundUrl,
+    volume: config?.attack.missSoundVolume || 0.7,
+  })
+
+  const { play: playBleedSound } = useSound({
+    src: bleedSoundUrl,
+    enabled: config?.attack.bleedSoundEnabled && !!bleedSoundUrl,
+    volume: config?.attack.bleedSoundVolume || 0.7,
+  })
+
+  const { play: playHealSound } = useSound({
+    src: healSoundUrl,
+    enabled: config?.heal.soundEnabled && !!healSoundUrl,
+    volume: config?.heal.soundVolume || 0.7,
+  })
+
+  const { play: playRetrySound } = useSound({
+    src: retrySoundUrl,
+    enabled: config?.retry.soundEnabled && !!retrySoundUrl,
+    volume: config?.retry.soundVolume || 0.7,
+  })
+
+  // HPが0になったときにすべての出血ダメージタイマーを停止
+  useEffect(() => {
+    if (currentHP <= 0) {
+      console.log('[出血ダメージ停止] HPが0になったため、すべての出血ダメージタイマーを停止します')
+      bleedTimersRef.current.forEach((timers) => {
+        window.clearInterval(timers.intervalTimer)
+        window.clearTimeout(timers.durationTimer)
+      })
+      bleedTimersRef.current.clear()
+    }
+  }, [currentHP])
 
 
   // 攻撃イベントハンドラ
@@ -185,17 +283,128 @@ export function OverlayPage() {
             }
           }
           reduceHP(finalDamage)
+          // ダメージ数値を表示
+          damageIdRef.current += 1
+          const damageId = damageIdRef.current
+          setDamageNumbers((prev) => [...prev, { id: damageId, amount: finalDamage, isCritical }])
+          // 1.5秒後に削除（アニメーション終了後）
+          setTimeout(() => {
+            setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
+          }, isCritical ? 1800 : 1500)
           // クリティカルアニメーション表示
           if (isCritical) {
             showCritical(config.animation.duration)
           }
+          // 攻撃効果音を再生
+          if (config.attack.soundEnabled) {
+            playAttackSound()
+          }
+
+          // 出血ダメージ判定（別枠として計算）
+          if (config.attack.bleedEnabled) {
+            console.log(`[出血ダメージ判定] bleedEnabled: true, bleedProbability: ${config.attack.bleedProbability}`)
+            const bleedRoll = Math.random() * 100
+            console.log(`[出血ダメージ判定] ダイスロール: ${bleedRoll.toFixed(2)}`)
+            if (bleedRoll < config.attack.bleedProbability) {
+              // 出血ダメージを開始
+              bleedIdRef.current += 1
+              const bleedId = bleedIdRef.current
+              const bleedDamage = config.attack.bleedDamage
+              const bleedInterval = config.attack.bleedInterval * 1000 // ミリ秒に変換
+              const bleedDuration = config.attack.bleedDuration * 1000 // ミリ秒に変換
+
+              console.log(`[出血ダメージ開始] ID: ${bleedId}, ダメージ: ${bleedDamage}, 間隔: ${bleedInterval}ms, 持続時間: ${bleedDuration}ms`)
+              console.log(`[出血ダメージ開始] reduceHPRef.current:`, reduceHPRef.current)
+              console.log(`[出血ダメージ開始] reduceHP:`, reduceHP)
+
+              // 一定間隔でダメージを与えるタイマー
+              // reduceHPはuseCallbackで[]依存配列なので、関数自体は変わらない
+              // また、setConfig((prev) => ...)を使っているので、常に最新の状態を参照できる
+              const intervalTimer = window.setInterval(() => {
+                console.log(`[出血ダメージ適用] ID: ${bleedId}, ダメージ: ${bleedDamage}`)
+                console.log(`[出血ダメージ適用] reduceHPRef.current:`, reduceHPRef.current)
+                const currentReduceHP = reduceHPRef.current
+                if (currentReduceHP && typeof currentReduceHP === 'function') {
+                  console.log(`[出血ダメージ適用] reduceHPRef.currentを呼び出します`)
+                  currentReduceHP(bleedDamage)
+                  // 出血ダメージ効果音を再生
+                  if (config.attack.bleedSoundEnabled) {
+                    playBleedSound()
+                  }
+                  // 出血ダメージも表示（ランダムな方向に放射状に）
+                  damageIdRef.current += 1
+                  const bleedDamageId = damageIdRef.current
+                  const bleedAngle = Math.random() * 360 // 0-360度のランダムな角度
+                  const bleedDistance = 80 + Math.random() * 60 // 80-140pxのランダムな距離
+                  setDamageNumbers((prev) => [...prev, {
+                    id: bleedDamageId,
+                    amount: bleedDamage,
+                    isCritical: false,
+                    isBleed: true,
+                    angle: bleedAngle,
+                    distance: bleedDistance,
+                  }])
+                  setTimeout(() => {
+                    setDamageNumbers((prev) => prev.filter((d) => d.id !== bleedDamageId))
+                  }, 1200)
+                } else {
+                  console.error('[出血ダメージエラー] reduceHPRef.currentが関数ではありません', currentReduceHP)
+                  // フォールバック: reduceHPを直接使用
+                  if (reduceHP && typeof reduceHP === 'function') {
+                    console.log('[出血ダメージ] フォールバック: reduceHPを直接使用')
+                    reduceHP(bleedDamage)
+                    // 出血ダメージ効果音を再生
+                    if (config.attack.bleedSoundEnabled) {
+                      playBleedSound()
+                    }
+                    // 出血ダメージも表示（ランダムな方向に放射状に）
+                    damageIdRef.current += 1
+                    const bleedDamageId2 = damageIdRef.current
+                    const bleedAngle2 = Math.random() * 360
+                    const bleedDistance2 = 80 + Math.random() * 60
+                    setDamageNumbers((prev) => [...prev, {
+                      id: bleedDamageId2,
+                      amount: bleedDamage,
+                      isCritical: false,
+                      isBleed: true,
+                      angle: bleedAngle2,
+                      distance: bleedDistance2,
+                    }])
+                    setTimeout(() => {
+                      setDamageNumbers((prev) => prev.filter((d) => d.id !== bleedDamageId2))
+                    }, 1200)
+                  } else {
+                    console.error('[出血ダメージエラー] reduceHPも関数ではありません', reduceHP)
+                  }
+                }
+              }, bleedInterval)
+
+              // 持続時間が終了したらタイマーをクリア
+              const durationTimer = window.setTimeout(() => {
+                console.log(`[出血ダメージ終了] ID: ${bleedId}`)
+                window.clearInterval(intervalTimer)
+                bleedTimersRef.current.delete(bleedId)
+              }, bleedDuration)
+
+              bleedTimersRef.current.set(bleedId, { intervalTimer, durationTimer })
+              console.log(`[出血ダメージ開始] タイマーを設定しました。intervalTimer: ${intervalTimer}, durationTimer: ${durationTimer}`)
+            } else {
+              console.log(`[出血ダメージ判定] 失敗: ${bleedRoll.toFixed(2)} >= ${config.attack.bleedProbability}`)
+            }
+          } else {
+            console.log(`[出血ダメージ判定] bleedEnabled: false`)
+          }
         } else {
           // MISSアニメーション表示
           showMiss(config.animation.duration)
+          // ミス効果音を再生
+          if (config.attack.missSoundEnabled) {
+            playMissSound()
+          }
         }
       }
     },
-    [config, reduceHP, showMiss]
+    [config, reduceHP, showMiss, playMissSound]
   )
 
   // 回復イベントハンドラ
@@ -223,9 +432,13 @@ export function OverlayPage() {
         if (config.heal.effectEnabled) {
           showHealEffect()
         }
+        // 回復効果音を再生
+        if (config.heal.soundEnabled) {
+          playHealSound()
+        }
       }
     },
-    [config, increaseHP, showHealEffect]
+    [config, increaseHP, showHealEffect, playHealSound]
   )
 
   // テストモードかどうか
@@ -338,15 +551,124 @@ export function OverlayPage() {
         }
       }
       reduceHP(finalDamage)
+      // ダメージ数値を表示
+      damageIdRef.current += 1
+      const damageId = damageIdRef.current
+      setDamageNumbers((prev) => [...prev, { id: damageId, amount: finalDamage, isCritical }])
+      // 1.5秒後に削除（アニメーション終了後）
+      setTimeout(() => {
+        setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
+      }, isCritical ? 1800 : 1500)
       // クリティカルアニメーション表示
       if (isCritical) {
         showCritical(config.animation.duration)
       }
+      // 攻撃効果音を再生
+      if (config.attack.soundEnabled) {
+        playAttackSound()
+      }
+
+      // 出血ダメージ判定（別枠として計算）
+      if (config.attack.bleedEnabled) {
+        console.log(`[テストモード 出血ダメージ判定] bleedEnabled: true, bleedProbability: ${config.attack.bleedProbability}`)
+        const bleedRoll = Math.random() * 100
+        console.log(`[テストモード 出血ダメージ判定] ダイスロール: ${bleedRoll.toFixed(2)}`)
+        if (bleedRoll < config.attack.bleedProbability) {
+          // 出血ダメージを開始
+          bleedIdRef.current += 1
+          const bleedId = bleedIdRef.current
+          const bleedDamage = config.attack.bleedDamage
+          const bleedInterval = config.attack.bleedInterval * 1000 // ミリ秒に変換
+          const bleedDuration = config.attack.bleedDuration * 1000 // ミリ秒に変換
+
+          console.log(`[テストモード 出血ダメージ開始] ID: ${bleedId}, ダメージ: ${bleedDamage}, 間隔: ${bleedInterval}ms, 持続時間: ${bleedDuration}ms`)
+          console.log(`[テストモード 出血ダメージ開始] reduceHPRef.current:`, reduceHPRef.current)
+          console.log(`[テストモード 出血ダメージ開始] reduceHP:`, reduceHP)
+
+          // 一定間隔でダメージを与えるタイマー
+          const intervalTimer = window.setInterval(() => {
+            console.log(`[テストモード 出血ダメージ適用] ID: ${bleedId}, ダメージ: ${bleedDamage}`)
+            console.log(`[テストモード 出血ダメージ適用] reduceHPRef.current:`, reduceHPRef.current)
+            const currentReduceHP = reduceHPRef.current
+            if (currentReduceHP && typeof currentReduceHP === 'function') {
+              console.log(`[テストモード 出血ダメージ適用] reduceHPRef.currentを呼び出します`)
+              currentReduceHP(bleedDamage)
+              // 出血ダメージ効果音を再生
+              if (config.attack.bleedSoundEnabled) {
+                playBleedSound()
+              }
+              // 出血ダメージも表示（ランダムな方向に放射状に）
+              damageIdRef.current += 1
+              const testBleedDamageId = damageIdRef.current
+              const testBleedAngle = Math.random() * 360
+              const testBleedDistance = 80 + Math.random() * 60
+              setDamageNumbers((prev) => [...prev, {
+                id: testBleedDamageId,
+                amount: bleedDamage,
+                isCritical: false,
+                isBleed: true,
+                angle: testBleedAngle,
+                distance: testBleedDistance,
+              }])
+              setTimeout(() => {
+                setDamageNumbers((prev) => prev.filter((d) => d.id !== testBleedDamageId))
+              }, 1200)
+            } else {
+              console.error('[テストモード 出血ダメージエラー] reduceHPRef.currentが関数ではありません', currentReduceHP)
+              // フォールバック: reduceHPを直接使用
+              if (reduceHP && typeof reduceHP === 'function') {
+                console.log('[テストモード 出血ダメージ] フォールバック: reduceHPを直接使用')
+                reduceHP(bleedDamage)
+                // 出血ダメージ効果音を再生
+                if (config.attack.bleedSoundEnabled) {
+                  playBleedSound()
+                }
+                // 出血ダメージも表示（ランダムな方向に放射状に）
+                damageIdRef.current += 1
+                const testBleedDamageId2 = damageIdRef.current
+                const testBleedAngle2 = Math.random() * 360
+                const testBleedDistance2 = 80 + Math.random() * 60
+                setDamageNumbers((prev) => [...prev, {
+                  id: testBleedDamageId2,
+                  amount: bleedDamage,
+                  isCritical: false,
+                  isBleed: true,
+                  angle: testBleedAngle2,
+                  distance: testBleedDistance2,
+                }])
+                setTimeout(() => {
+                  setDamageNumbers((prev) => prev.filter((d) => d.id !== testBleedDamageId2))
+                }, 1200)
+              } else {
+                console.error('[テストモード 出血ダメージエラー] reduceHPも関数ではありません', reduceHP)
+              }
+            }
+          }, bleedInterval)
+
+          // 持続時間が終了したらタイマーをクリア
+          const durationTimer = window.setTimeout(() => {
+            console.log(`[テストモード 出血ダメージ終了] ID: ${bleedId}`)
+            window.clearInterval(intervalTimer)
+            bleedTimersRef.current.delete(bleedId)
+          }, bleedDuration)
+
+          bleedTimersRef.current.set(bleedId, { intervalTimer, durationTimer })
+          console.log(`[テストモード 出血ダメージ開始] タイマーを設定しました。intervalTimer: ${intervalTimer}, durationTimer: ${durationTimer}`)
+        } else {
+          console.log(`[テストモード 出血ダメージ判定] 失敗: ${bleedRoll.toFixed(2)} >= ${config.attack.bleedProbability}`)
+        }
+      } else {
+        console.log(`[テストモード 出血ダメージ判定] bleedEnabled: false`)
+      }
     } else {
-      // MISSアニメーション表示
+      // ミス時
       showMiss(config.animation.duration)
+      // ミス効果音を再生
+      if (config.attack.missSoundEnabled) {
+        playMissSound()
+      }
     }
-  }, [config, isTestMode, reduceHP, showMiss, showCritical])
+  }, [config, isTestMode, reduceHP, showMiss, showCritical, playMissSound, playAttackSound, playBleedSound])
 
   const handleTestHeal = useCallback(() => {
     if (!config || !isTestMode) return
@@ -366,12 +688,22 @@ export function OverlayPage() {
     if (config.heal.effectEnabled) {
       showHealEffect()
     }
-  }, [config, isTestMode, increaseHP, showHealEffect])
+    // 回復効果音を再生
+    if (config.heal.soundEnabled) {
+      playHealSound()
+    }
+  }, [config, isTestMode, increaseHP, showHealEffect, playHealSound, playAttackSound, playMissSound, playBleedSound, reduceHP, showCritical, showMiss])
 
   const handleTestReset = useCallback(() => {
-    if (!isTestMode) return
+    if (!isTestMode || !config) return
+    // 現在のHPが最大HPの場合は何もしない
+    if (currentHP >= maxHP) return
     resetHP()
-  }, [isTestMode, resetHP])
+    // 蘇生効果音を再生
+    if (config.retry.soundEnabled) {
+      playRetrySound()
+    }
+  }, [isTestMode, config, currentHP, maxHP, resetHP, playRetrySound])
 
   // テストモード用のイベントシミュレーション（専用ハンドラを使用）
   const { triggerAttack, triggerHeal, triggerReset } = useTestEvents({
@@ -520,6 +852,10 @@ export function OverlayPage() {
             if (config.heal.effectEnabled) {
               showHealEffect()
             }
+            // 蘇生効果音を再生
+            if (config.retry.soundEnabled) {
+              playRetrySound()
+            }
           }
         }
       }
@@ -530,7 +866,7 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, username, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP, maxHP, increaseHP, showHealEffect])
+  }, [chatMessages, config, isTestMode, username, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP, maxHP, increaseHP, showHealEffect, playRetrySound])
 
   // NOTE:
   // - OBS側では `.env` / `VITE_TWITCH_USERNAME` が未設定のまま表示されるケースがある
@@ -549,22 +885,31 @@ export function OverlayPage() {
   return (
     <div className="overlay-page" style={{ background: backgroundStyle }}>
       {/* 背景色切り替えボタン */}
-      <div className="background-controls">
+      <div className={`background-controls-wrapper ${showBackgroundControls ? 'visible' : 'hidden'}`}>
+        <div className="background-controls">
+          <button
+            className={`bg-button ${backgroundColor === 'green' ? 'active' : ''}`}
+            onClick={() => setBackgroundColor('green')}
+            title="グリーンバック（クロマキー用）"
+          >
+            <span className="bg-button-icon">🎬</span>
+            <span className="bg-button-label">グリーン</span>
+          </button>
+          <button
+            className={`bg-button ${backgroundColor === 'dark-gray' ? 'active' : ''}`}
+            onClick={() => setBackgroundColor('dark-gray')}
+            title="濃いグレー"
+          >
+            <span className="bg-button-icon">◼</span>
+            <span className="bg-button-label">グレー</span>
+          </button>
+        </div>
         <button
-          className={`bg-button ${backgroundColor === 'green' ? 'active' : ''}`}
-          onClick={() => setBackgroundColor('green')}
-          title="グリーンバック（クロマキー用）"
+          className="control-tab control-tab-bottom-left"
+          onClick={() => setShowBackgroundControls(!showBackgroundControls)}
+          title={showBackgroundControls ? '背景色変更ボタンを隠す' : '背景色変更ボタンを表示'}
         >
-          <span className="bg-button-icon">🎬</span>
-          <span className="bg-button-label">グリーン</span>
-        </button>
-        <button
-          className={`bg-button ${backgroundColor === 'dark-gray' ? 'active' : ''}`}
-          onClick={() => setBackgroundColor('dark-gray')}
-          title="濃いグレー"
-        >
-          <span className="bg-button-icon">◼</span>
-          <span className="bg-button-label">グレー</span>
+          背景色
         </button>
       </div>
 
@@ -640,41 +985,66 @@ export function OverlayPage() {
         gaugeCount={gaugeCount}
         config={config}
       />
+      {/* ダメージ数値表示（HPゲージの外側に表示） */}
+      {damageNumbers.map((damage) => (
+        <DamageNumber
+          key={damage.id}
+          id={damage.id}
+          amount={damage.amount}
+          isCritical={damage.isCritical}
+          isBleed={damage.isBleed}
+          angle={damage.angle}
+          distance={damage.distance}
+        />
+      ))}
       {/* テストモード時のみテストボタンを表示（開発環境） */}
       {isTestMode && import.meta.env.DEV && (
-        <div className="test-controls">
-          <div className="test-controls-info">
-            <p>テストモード: ボタン長押しで連打</p>
-          </div>
-          <div className="test-controls-buttons">
+        <div className={`test-controls-wrapper ${showTestControls ? 'visible' : 'hidden'}`}>
+          <button
+            className="control-tab control-tab-top-left"
+            onClick={() => setShowTestControls(!showTestControls)}
+            title={showTestControls ? 'テストモードボタンを隠す' : 'テストモードボタンを表示'}
+          >
+            テスト
+          </button>
+          <div className="test-controls">
+            <div className="test-controls-info">
+              <p>テストモード: ボタン長押しで連打</p>
+            </div>
+            <div className="test-controls-buttons">
+              <button
+                className="test-button test-attack"
+                disabled={currentHP <= 0}
+                onPointerDown={(e) => {
+                  e.preventDefault()
+                  if (currentHP > 0) startRepeat(triggerAttack, 200)
+                }}
+                onPointerUp={stopRepeat}
+                onPointerLeave={stopRepeat}
+                onPointerCancel={stopRepeat}
+              >
+                攻撃テスト
+              </button>
+              <button
+                className="test-button test-heal"
+                onPointerDown={(e) => {
+                  e.preventDefault()
+                  startRepeat(triggerHeal, 200)
+                }}
+                onPointerUp={stopRepeat}
+                onPointerLeave={stopRepeat}
+                onPointerCancel={stopRepeat}
+              >
+                回復テスト
+              </button>
             <button
-              className="test-button test-attack"
-              disabled={currentHP <= 0}
-              onPointerDown={(e) => {
-                e.preventDefault()
-                if (currentHP > 0) startRepeat(triggerAttack, 200)
-              }}
-              onPointerUp={stopRepeat}
-              onPointerLeave={stopRepeat}
-              onPointerCancel={stopRepeat}
+              onClick={triggerReset}
+              className="test-button test-reset"
+              disabled={currentHP >= maxHP}
             >
-              攻撃テスト
-            </button>
-            <button
-              className="test-button test-heal"
-              onPointerDown={(e) => {
-                e.preventDefault()
-                startRepeat(triggerHeal, 200)
-              }}
-              onPointerUp={stopRepeat}
-              onPointerLeave={stopRepeat}
-              onPointerCancel={stopRepeat}
-            >
-              回復テスト
-            </button>
-            <button onClick={triggerReset} className="test-button test-reset">
               全回復
             </button>
+            </div>
           </div>
         </div>
       )}

@@ -2,18 +2,32 @@
   "hp": {
     "max": 10000,
     "current": 10000,
-    "gaugeCount": 6
+    "gaugeCount": 7
   },
   "attack": {
     "rewardId": "",
     "customText": "!attack",
     "enabled": true,
-    "damage": 200,
+    "damage": 350,
     "missEnabled": true,
-    "missProbability": 10,
+    "missProbability": 5,
+    "missSoundEnabled": true,
+    "missSoundUrl": "src/sounds/踏み込む.mp3",
+    "missSoundVolume": 0.7,
     "criticalEnabled": true,
-    "criticalProbability": 10,
-    "criticalMultiplier": 3
+    "criticalProbability": 12,
+    "criticalMultiplier": 4,
+    "bleedEnabled": true,
+    "bleedProbability": 7,
+    "bleedDamage": 100,
+    "bleedDuration": 10,
+    "bleedInterval": 1,
+    "bleedSoundEnabled": true,
+    "bleedSoundUrl": "src/sounds/血がたれる1.mp3",
+    "bleedSoundVolume": 0.7,
+    "soundEnabled": true,
+    "soundUrl": "src/sounds/刀で斬る5.mp3",
+    "soundVolume": 0.7
   },
   "heal": {
     "rewardId": "",
@@ -23,11 +37,17 @@
     "healType": "random",
     "healAmount": 500,
     "healMin": 100,
-    "healMax": 500
+    "healMax": 500,
+    "soundEnabled": true,
+    "soundUrl": "src/sounds/回復魔法1.mp3",
+    "soundVolume": 0.7
   },
   "retry": {
     "command": "!retry",
-    "enabled": true
+    "enabled": true,
+    "soundEnabled": true,
+    "soundUrl": "src/sounds/回復魔法4.mp3",
+    "soundVolume": 0.7
   },
   "animation": {
     "duration": 500,
@@ -39,11 +59,11 @@
   },
   "zeroHpImage": {
     "enabled": true,
-    "imageUrl": ""
+    "imageUrl": "src/images/adelaide_otsu.png"
   },
   "zeroHpSound": {
     "enabled": true,
-    "soundUrl": "",
+    "soundUrl": "src/sounds/爆発1.mp3",
     "volume": 0.7
   },
   "zeroHpEffect": {

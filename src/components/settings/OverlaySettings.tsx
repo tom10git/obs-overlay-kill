@@ -27,6 +27,8 @@ export function OverlaySettings() {
   })
   const [showAttackRewardId, setShowAttackRewardId] = useState(false)
   const [showHealRewardId, setShowHealRewardId] = useState(false)
+  // 入力中の値を文字列として保持（空文字列を許可するため）
+  const [inputValues, setInputValues] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -34,9 +36,12 @@ export function OverlaySettings() {
         setLoading(true)
         const loadedConfig = await loadOverlayConfig()
         setConfig(loadedConfig)
+        // 設定が読み込まれたら、入力値を初期化
+        setInputValues({})
       } catch (error) {
         console.error('❌ 設定の読み込みに失敗しました', error)
         setConfig(getDefaultConfig())
+        setInputValues({})
       } finally {
         setLoading(false)
       }
@@ -117,48 +122,117 @@ export function OverlaySettings() {
                 最大HP:
                 <input
                   type="text"
-                  value={config.hp.max}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      hp: { ...config.hp, max: parseInt(e.target.value) || 100 },
-                    })
-                  }
+                  value={inputValues['hp.max'] ?? String(config.hp.max)}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setInputValues((prev) => ({ ...prev, 'hp.max': value }))
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value === '' || isNaN(parseInt(value))) {
+                      setConfig({
+                        ...config,
+                        hp: { ...config.hp, max: 100 },
+                      })
+                      setInputValues((prev) => {
+                        const next = { ...prev }
+                        delete next['hp.max']
+                        return next
+                      })
+                    } else {
+                      const num = parseInt(value)
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          hp: { ...config.hp, max: num },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['hp.max']
+                          return next
+                        })
+                      }
+                    }
+                  }}
                 />
               </label>
               <label>
                 現在のHP:
                 <input
                   type="text"
-                  value={config.hp.current}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      hp: {
-                        ...config.hp,
-                        current: Math.min(
-                          parseInt(e.target.value) || 0,
-                          config.hp.max
-                        ),
-                      },
-                    })
-                  }
+                  value={inputValues['hp.current'] ?? String(config.hp.current)}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setInputValues((prev) => ({ ...prev, 'hp.current': value }))
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value === '' || isNaN(parseInt(value))) {
+                      setConfig({
+                        ...config,
+                        hp: { ...config.hp, current: 0 },
+                      })
+                      setInputValues((prev) => {
+                        const next = { ...prev }
+                        delete next['hp.current']
+                        return next
+                      })
+                    } else {
+                      const num = parseInt(value)
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          hp: {
+                            ...config.hp,
+                            current: Math.min(num, config.hp.max),
+                          },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['hp.current']
+                          return next
+                        })
+                      }
+                    }
+                  }}
                 />
               </label>
               <label>
                 ゲージ数:
                 <input
                   type="text"
-                  value={config.hp.gaugeCount}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      hp: {
-                        ...config.hp,
-                        gaugeCount: parseInt(e.target.value) || 3,
-                      },
-                    })
-                  }
+                  value={inputValues['hp.gaugeCount'] ?? String(config.hp.gaugeCount)}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setInputValues((prev) => ({ ...prev, 'hp.gaugeCount': value }))
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value === '' || isNaN(parseInt(value))) {
+                      setConfig({
+                        ...config,
+                        hp: { ...config.hp, gaugeCount: 3 },
+                      })
+                      setInputValues((prev) => {
+                        const next = { ...prev }
+                        delete next['hp.gaugeCount']
+                        return next
+                      })
+                    } else {
+                      const num = parseInt(value)
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          hp: { ...config.hp, gaugeCount: num },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['hp.gaugeCount']
+                          return next
+                        })
+                      }
+                    }
+                  }}
                 />
               </label>
             </div>
@@ -253,16 +327,37 @@ export function OverlaySettings() {
                 ダメージ:
                 <input
                   type="text"
-                  value={config.attack.damage}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      attack: {
-                        ...config.attack,
-                        damage: parseInt(e.target.value) || 10,
-                      },
-                    })
-                  }
+                  value={inputValues['attack.damage'] ?? String(config.attack.damage)}
+                  onChange={(e) => {
+                    setInputValues((prev) => ({ ...prev, 'attack.damage': e.target.value }))
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value === '' || isNaN(parseInt(value))) {
+                      setConfig({
+                        ...config,
+                        attack: { ...config.attack, damage: 10 },
+                      })
+                      setInputValues((prev) => {
+                        const next = { ...prev }
+                        delete next['attack.damage']
+                        return next
+                      })
+                    } else {
+                      const num = parseInt(value)
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, damage: num },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['attack.damage']
+                          return next
+                        })
+                      }
+                    }
+                  }}
                 />
               </label>
               <label>
@@ -279,24 +374,129 @@ export function OverlaySettings() {
                 ミス判定を有効にする
               </label>
               {config.attack.missEnabled && (
-                <label>
+                  <label>
                   ミス確率 (%):
                   <input
                     type="text"
-                    value={config.attack.missProbability}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        attack: {
-                          ...config.attack,
-                          missProbability: parseFloat(e.target.value) || 0,
-                        },
-                      })
-                    }
+                    value={inputValues['attack.missProbability'] ?? String(config.attack.missProbability)}
+                    onChange={(e) => {
+                      setInputValues((prev) => ({ ...prev, 'attack.missProbability': e.target.value }))
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value === '' || isNaN(parseFloat(value))) {
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, missProbability: 0 },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['attack.missProbability']
+                          return next
+                        })
+                      } else {
+                        const num = parseFloat(value)
+                        if (!isNaN(num)) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, missProbability: num },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.missProbability']
+                            return next
+                          })
+                        }
+                      }
+                    }}
                   />
                 </label>
               )}
             </div>
+            {config.attack.missEnabled && (
+              <div className="settings-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={config.attack.missSoundEnabled}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        attack: { ...config.attack, missSoundEnabled: e.target.checked },
+                      })
+                    }
+                  />
+                  ミス効果音を有効にする
+                </label>
+              </div>
+            )}
+            {config.attack.missEnabled && config.attack.missSoundEnabled && (
+              <div className="settings-row">
+                <label>
+                  効果音URL:
+                  <input
+                    type="text"
+                    value={config.attack.missSoundUrl}
+                    onChange={(e) => {
+                      const url = e.target.value
+                      if (isValidUrl(url)) {
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, missSoundUrl: url },
+                        })
+                      } else {
+                        setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                        setTimeout(() => setMessage(null), 3000)
+                      }
+                    }}
+                    placeholder="空欄の場合は効果音なし"
+                  />
+                </label>
+                <label>
+                  音量:
+                  <input
+                    type="text"
+                    value={inputValues['attack.missSoundVolume'] ?? String(config.attack.missSoundVolume)}
+                    onChange={(e) => {
+                      setInputValues((prev) => ({ ...prev, 'attack.missSoundVolume': e.target.value }))
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value === '' || isNaN(parseFloat(value))) {
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, missSoundVolume: 0.7 },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['attack.missSoundVolume']
+                          return next
+                        })
+                      } else {
+                        const num = parseFloat(value)
+                        if (!isNaN(num)) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, missSoundVolume: Math.min(1, Math.max(0, num)) },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.missSoundVolume']
+                            return next
+                          })
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+            {config.attack.missEnabled && config.attack.missSoundEnabled && (
+              <p className="settings-hint">
+                例: <code>src/sounds/miss.mp3</code>（public/sounds に配置）または{' '}
+                <code>https://...</code>
+              </p>
+            )}
             <div className="settings-row">
               <label>
                 <input
@@ -317,37 +517,412 @@ export function OverlaySettings() {
                     クリティカル確率 (%):
                     <input
                       type="text"
-                      value={config.attack.criticalProbability}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          attack: {
-                            ...config.attack,
-                            criticalProbability: parseFloat(e.target.value) || 0,
-                          },
-                        })
-                      }
+                      value={inputValues['attack.criticalProbability'] ?? String(config.attack.criticalProbability)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'attack.criticalProbability': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseFloat(value))) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, criticalProbability: 0 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.criticalProbability']
+                            return next
+                          })
+                        } else {
+                          const num = parseFloat(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, criticalProbability: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.criticalProbability']
+                              return next
+                            })
+                          }
+                        }
+                      }}
                     />
                   </label>
                   <label>
                     クリティカル倍率:
                     <input
                       type="text"
-                      value={config.attack.criticalMultiplier}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          attack: {
-                            ...config.attack,
-                            criticalMultiplier: parseFloat(e.target.value) || 2.0,
-                          },
-                        })
-                      }
+                      value={inputValues['attack.criticalMultiplier'] ?? String(config.attack.criticalMultiplier)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'attack.criticalMultiplier': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseFloat(value))) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, criticalMultiplier: 2.0 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.criticalMultiplier']
+                            return next
+                          })
+                        } else {
+                          const num = parseFloat(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, criticalMultiplier: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.criticalMultiplier']
+                              return next
+                            })
+                          }
+                        }
+                      }}
                     />
                   </label>
                 </>
               )}
             </div>
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.attack.bleedEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      attack: { ...config.attack, bleedEnabled: e.target.checked },
+                    })
+                  }
+                />
+                出血ダメージを有効にする
+              </label>
+              {config.attack.bleedEnabled && (
+                <>
+                  <label>
+                    出血確率 (%):
+                    <input
+                      type="text"
+                      value={inputValues['attack.bleedProbability'] ?? String(config.attack.bleedProbability)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'attack.bleedProbability': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseFloat(value))) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, bleedProbability: 0 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.bleedProbability']
+                            return next
+                          })
+                        } else {
+                          const num = parseFloat(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, bleedProbability: Math.min(100, Math.max(0, num)) },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.bleedProbability']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    出血ダメージ:
+                    <input
+                      type="text"
+                      value={inputValues['attack.bleedDamage'] ?? String(config.attack.bleedDamage)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'attack.bleedDamage': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, bleedDamage: 5 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.bleedDamage']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, bleedDamage: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.bleedDamage']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    持続時間 (秒):
+                    <input
+                      type="text"
+                      value={inputValues['attack.bleedDuration'] ?? String(config.attack.bleedDuration)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'attack.bleedDuration': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, bleedDuration: 10 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.bleedDuration']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, bleedDuration: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.bleedDuration']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    間隔 (秒):
+                    <input
+                      type="text"
+                      value={inputValues['attack.bleedInterval'] ?? String(config.attack.bleedInterval)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'attack.bleedInterval': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseFloat(value))) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, bleedInterval: 1 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.bleedInterval']
+                            return next
+                          })
+                        } else {
+                          const num = parseFloat(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, bleedInterval: Math.max(0.1, num) },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.bleedInterval']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+            {config.attack.bleedEnabled && (
+              <div className="settings-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={config.attack.bleedSoundEnabled}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        attack: { ...config.attack, bleedSoundEnabled: e.target.checked },
+                      })
+                    }
+                  />
+                  出血ダメージ効果音を有効にする
+                </label>
+              </div>
+            )}
+            {config.attack.bleedEnabled && config.attack.bleedSoundEnabled && (
+              <div className="settings-row">
+                <label>
+                  効果音URL:
+                  <input
+                    type="text"
+                    value={config.attack.bleedSoundUrl}
+                    onChange={(e) => {
+                      const url = e.target.value
+                      if (isValidUrl(url)) {
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, bleedSoundUrl: url },
+                        })
+                      } else {
+                        setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                        setTimeout(() => setMessage(null), 3000)
+                      }
+                    }}
+                    placeholder="空欄の場合は効果音なし"
+                  />
+                </label>
+                <label>
+                  音量:
+                  <input
+                    type="text"
+                    value={inputValues['attack.bleedSoundVolume'] ?? String(config.attack.bleedSoundVolume)}
+                    onChange={(e) => {
+                      setInputValues((prev) => ({ ...prev, 'attack.bleedSoundVolume': e.target.value }))
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value === '' || isNaN(parseFloat(value))) {
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, bleedSoundVolume: 0.7 },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['attack.bleedSoundVolume']
+                          return next
+                        })
+                      } else {
+                        const num = parseFloat(value)
+                        if (!isNaN(num)) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, bleedSoundVolume: Math.min(1, Math.max(0, num)) },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.bleedSoundVolume']
+                            return next
+                          })
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+            {config.attack.bleedEnabled && config.attack.bleedSoundEnabled && (
+              <p className="settings-hint">
+                例: <code>src/sounds/bleed.mp3</code>（public/sounds に配置）または{' '}
+                <code>https://...</code>
+              </p>
+            )}
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.attack.soundEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      attack: { ...config.attack, soundEnabled: e.target.checked },
+                    })
+                  }
+                />
+                攻撃効果音を有効にする
+              </label>
+            </div>
+            {config.attack.soundEnabled && (
+              <div className="settings-row">
+                <label>
+                  効果音URL:
+                  <input
+                    type="text"
+                    value={config.attack.soundUrl}
+                    onChange={(e) => {
+                      const url = e.target.value
+                      if (isValidUrl(url)) {
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, soundUrl: url },
+                        })
+                      } else {
+                        setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                        setTimeout(() => setMessage(null), 3000)
+                      }
+                    }}
+                    placeholder="空欄の場合は効果音なし"
+                  />
+                </label>
+                <label>
+                  音量:
+                  <input
+                    type="text"
+                    value={inputValues['attack.soundVolume'] ?? String(config.attack.soundVolume)}
+                    onChange={(e) => {
+                      setInputValues((prev) => ({ ...prev, 'attack.soundVolume': e.target.value }))
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value === '' || isNaN(parseFloat(value))) {
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, soundVolume: 0.7 },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['attack.soundVolume']
+                          return next
+                        })
+                      } else {
+                        const num = parseFloat(value)
+                        if (!isNaN(num)) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, soundVolume: Math.min(1, Math.max(0, num)) },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.soundVolume']
+                            return next
+                          })
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+            {config.attack.soundEnabled && (
+              <p className="settings-hint">
+                例: <code>src/sounds/attack.mp3</code>（public/sounds に配置）または{' '}
+                <code>https://...</code>
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -458,16 +1033,37 @@ export function OverlaySettings() {
                   回復量:
                   <input
                     type="text"
-                    value={config.heal.healAmount}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        heal: {
-                          ...config.heal,
-                          healAmount: parseInt(e.target.value) || 20,
-                        },
-                      })
-                    }
+                    value={inputValues['heal.healAmount'] ?? String(config.heal.healAmount)}
+                    onChange={(e) => {
+                      setInputValues((prev) => ({ ...prev, 'heal.healAmount': e.target.value }))
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value === '' || isNaN(parseInt(value))) {
+                        setConfig({
+                          ...config,
+                          heal: { ...config.heal, healAmount: 20 },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['heal.healAmount']
+                          return next
+                        })
+                      } else {
+                        const num = parseInt(value)
+                        if (!isNaN(num)) {
+                          setConfig({
+                            ...config,
+                            heal: { ...config.heal, healAmount: num },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['heal.healAmount']
+                            return next
+                          })
+                        }
+                      }
+                    }}
                   />
                 </label>
               ) : (
@@ -476,32 +1072,74 @@ export function OverlaySettings() {
                     最小回復量:
                     <input
                       type="text"
-                      value={config.heal.healMin}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          heal: {
-                            ...config.heal,
-                            healMin: parseInt(e.target.value) || 10,
-                          },
-                        })
-                      }
+                      value={inputValues['heal.healMin'] ?? String(config.heal.healMin)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'heal.healMin': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            heal: { ...config.heal, healMin: 10 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['heal.healMin']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              heal: { ...config.heal, healMin: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['heal.healMin']
+                              return next
+                            })
+                          }
+                        }
+                      }}
                     />
                   </label>
                   <label>
                     最大回復量:
                     <input
                       type="text"
-                      value={config.heal.healMax}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          heal: {
-                            ...config.heal,
-                            healMax: parseInt(e.target.value) || 30,
-                          },
-                        })
-                      }
+                      value={inputValues['heal.healMax'] ?? String(config.heal.healMax)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'heal.healMax': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            heal: { ...config.heal, healMax: 30 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['heal.healMax']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              heal: { ...config.heal, healMax: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['heal.healMax']
+                              return next
+                            })
+                          }
+                        }
+                      }}
                     />
                   </label>
                 </>
@@ -522,6 +1160,88 @@ export function OverlaySettings() {
                 回復エフェクトを表示
               </label>
             </div>
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.heal.soundEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      heal: { ...config.heal, soundEnabled: e.target.checked },
+                    })
+                  }
+                />
+                回復効果音を有効にする
+              </label>
+            </div>
+            {config.heal.soundEnabled && (
+              <div className="settings-row">
+                <label>
+                  効果音URL:
+                  <input
+                    type="text"
+                    value={config.heal.soundUrl}
+                    onChange={(e) => {
+                      const url = e.target.value
+                      if (isValidUrl(url)) {
+                        setConfig({
+                          ...config,
+                          heal: { ...config.heal, soundUrl: url },
+                        })
+                      } else {
+                        setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                        setTimeout(() => setMessage(null), 3000)
+                      }
+                    }}
+                    placeholder="空欄の場合は効果音なし"
+                  />
+                </label>
+                <label>
+                  音量:
+                  <input
+                    type="text"
+                    value={inputValues['heal.soundVolume'] ?? String(config.heal.soundVolume)}
+                    onChange={(e) => {
+                      setInputValues((prev) => ({ ...prev, 'heal.soundVolume': e.target.value }))
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value === '' || isNaN(parseFloat(value))) {
+                        setConfig({
+                          ...config,
+                          heal: { ...config.heal, soundVolume: 0.7 },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['heal.soundVolume']
+                          return next
+                        })
+                      } else {
+                        const num = parseFloat(value)
+                        if (!isNaN(num)) {
+                          setConfig({
+                            ...config,
+                            heal: { ...config.heal, soundVolume: Math.min(1, Math.max(0, num)) },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['heal.soundVolume']
+                            return next
+                          })
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+            {config.heal.soundEnabled && (
+              <p className="settings-hint">
+                例: <code>src/sounds/heal.mp3</code>（public/sounds に配置）または{' '}
+                <code>https://...</code>
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -561,6 +1281,88 @@ export function OverlaySettings() {
                 有効
               </label>
             </div>
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.retry.soundEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      retry: { ...config.retry, soundEnabled: e.target.checked },
+                    })
+                  }
+                />
+                蘇生効果音を有効にする
+              </label>
+            </div>
+            {config.retry.soundEnabled && (
+              <div className="settings-row">
+                <label>
+                  効果音URL:
+                  <input
+                    type="text"
+                    value={config.retry.soundUrl}
+                    onChange={(e) => {
+                      const url = e.target.value
+                      if (isValidUrl(url)) {
+                        setConfig({
+                          ...config,
+                          retry: { ...config.retry, soundUrl: url },
+                        })
+                      } else {
+                        setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                        setTimeout(() => setMessage(null), 3000)
+                      }
+                    }}
+                    placeholder="空欄の場合は効果音なし"
+                  />
+                </label>
+                <label>
+                  音量:
+                  <input
+                    type="text"
+                    value={inputValues['retry.soundVolume'] ?? String(config.retry.soundVolume)}
+                    onChange={(e) => {
+                      setInputValues((prev) => ({ ...prev, 'retry.soundVolume': e.target.value }))
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value === '' || isNaN(parseFloat(value))) {
+                        setConfig({
+                          ...config,
+                          retry: { ...config.retry, soundVolume: 0.7 },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['retry.soundVolume']
+                          return next
+                        })
+                      } else {
+                        const num = parseFloat(value)
+                        if (!isNaN(num)) {
+                          setConfig({
+                            ...config,
+                            retry: { ...config.retry, soundVolume: Math.min(1, Math.max(0, num)) },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['retry.soundVolume']
+                            return next
+                          })
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+            {config.retry.soundEnabled && (
+              <p className="settings-hint">
+                例: <code>src/sounds/revive.mp3</code>（public/sounds に配置）または{' '}
+                <code>https://...</code>
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -577,16 +1379,37 @@ export function OverlaySettings() {
                 アニメーション時間 (ms):
                 <input
                   type="text"
-                  value={config.animation.duration}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      animation: {
-                        ...config.animation,
-                        duration: parseInt(e.target.value) || 500,
-                      },
-                    })
-                  }
+                  value={inputValues['animation.duration'] ?? String(config.animation.duration)}
+                  onChange={(e) => {
+                    setInputValues((prev) => ({ ...prev, 'animation.duration': e.target.value }))
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value === '' || isNaN(parseInt(value))) {
+                      setConfig({
+                        ...config,
+                        animation: { ...config.animation, duration: 500 },
+                      })
+                      setInputValues((prev) => {
+                        const next = { ...prev }
+                        delete next['animation.duration']
+                        return next
+                      })
+                    } else {
+                      const num = parseInt(value)
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          animation: { ...config.animation, duration: num },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['animation.duration']
+                          return next
+                        })
+                      }
+                    }
+                  }}
                 />
               </label>
               <label>
@@ -643,16 +1466,37 @@ export function OverlaySettings() {
                 フォントサイズ:
                 <input
                   type="text"
-                  value={config.display.fontSize}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      display: {
-                        ...config.display,
-                        fontSize: parseInt(e.target.value) || 24,
-                      },
-                    })
-                  }
+                  value={inputValues['display.fontSize'] ?? String(config.display.fontSize)}
+                  onChange={(e) => {
+                    setInputValues((prev) => ({ ...prev, 'display.fontSize': e.target.value }))
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value === '' || isNaN(parseInt(value))) {
+                      setConfig({
+                        ...config,
+                        display: { ...config.display, fontSize: 24 },
+                      })
+                      setInputValues((prev) => {
+                        const next = { ...prev }
+                        delete next['display.fontSize']
+                        return next
+                      })
+                    } else {
+                      const num = parseInt(value)
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          display: { ...config.display, fontSize: num },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['display.fontSize']
+                          return next
+                        })
+                      }
+                    }
+                  }}
                 />
               </label>
             </div>
@@ -761,16 +1605,40 @@ export function OverlaySettings() {
                 音量:
                 <input
                   type="text"
-                  value={config.zeroHpSound.volume}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      zeroHpSound: {
-                        ...config.zeroHpSound,
-                        volume: Math.min(1, Math.max(0, parseFloat(e.target.value) || 0)),
-                      },
-                    })
-                  }
+                  value={inputValues['zeroHpSound.volume'] ?? String(config.zeroHpSound.volume)}
+                  onChange={(e) => {
+                    setInputValues((prev) => ({ ...prev, 'zeroHpSound.volume': e.target.value }))
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value === '' || isNaN(parseFloat(value))) {
+                      setConfig({
+                        ...config,
+                        zeroHpSound: { ...config.zeroHpSound, volume: 0.7 },
+                      })
+                      setInputValues((prev) => {
+                        const next = { ...prev }
+                        delete next['zeroHpSound.volume']
+                        return next
+                      })
+                    } else {
+                      const num = parseFloat(value)
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          zeroHpSound: {
+                            ...config.zeroHpSound,
+                            volume: Math.min(1, Math.max(0, num)),
+                          },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['zeroHpSound.volume']
+                          return next
+                        })
+                      }
+                    }
+                  }}
                 />
               </label>
             </div>
@@ -831,16 +1699,40 @@ export function OverlaySettings() {
                 表示時間（ミリ秒）:
                 <input
                   type="text"
-                  value={config.zeroHpEffect.duration}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      zeroHpEffect: {
-                        ...config.zeroHpEffect,
-                        duration: Math.max(100, parseInt(e.target.value) || 2000),
-                      },
-                    })
-                  }
+                  value={inputValues['zeroHpEffect.duration'] ?? String(config.zeroHpEffect.duration)}
+                  onChange={(e) => {
+                    setInputValues((prev) => ({ ...prev, 'zeroHpEffect.duration': e.target.value }))
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim()
+                    if (value === '' || isNaN(parseInt(value))) {
+                      setConfig({
+                        ...config,
+                        zeroHpEffect: { ...config.zeroHpEffect, duration: 2000 },
+                      })
+                      setInputValues((prev) => {
+                        const next = { ...prev }
+                        delete next['zeroHpEffect.duration']
+                        return next
+                      })
+                    } else {
+                      const num = parseInt(value)
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          zeroHpEffect: {
+                            ...config.zeroHpEffect,
+                            duration: Math.max(100, num),
+                          },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['zeroHpEffect.duration']
+                          return next
+                        })
+                      }
+                    }
+                  }}
                 />
               </label>
             </div>

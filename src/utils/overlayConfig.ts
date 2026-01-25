@@ -18,9 +18,23 @@ const DEFAULT_CONFIG: OverlayConfig = {
     damage: 10,
     missEnabled: false,
     missProbability: 0,
+    missSoundEnabled: false,
+    missSoundUrl: '',
+    missSoundVolume: 0.7,
     criticalEnabled: false,
     criticalProbability: 0,
     criticalMultiplier: 2.0,
+    bleedEnabled: false,
+    bleedProbability: 0,
+    bleedDamage: 5,
+    bleedDuration: 10,
+    bleedInterval: 1,
+    bleedSoundEnabled: false,
+    bleedSoundUrl: '',
+    bleedSoundVolume: 0.7,
+    soundEnabled: false,
+    soundUrl: '',
+    soundVolume: 0.7,
   },
   heal: {
     rewardId: '',
@@ -31,10 +45,16 @@ const DEFAULT_CONFIG: OverlayConfig = {
     healAmount: 20,
     healMin: 10,
     healMax: 30,
+    soundEnabled: false,
+    soundUrl: '',
+    soundVolume: 0.7,
   },
   retry: {
     command: '!retry',
     enabled: true,
+    soundEnabled: false,
+    soundUrl: '',
+    soundVolume: 0.7,
   },
   animation: {
     duration: 500,
@@ -250,6 +270,14 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     missProbability: isInRange(Number(attackConfig.missProbability), 0, 100)
       ? Number(attackConfig.missProbability) || 0
       : 0,
+    missSoundEnabled: typeof attackConfig.missSoundEnabled === 'boolean' ? attackConfig.missSoundEnabled : false,
+    missSoundUrl:
+      typeof attackConfig.missSoundUrl === 'string' && isValidUrl(attackConfig.missSoundUrl)
+        ? attackConfig.missSoundUrl
+        : '',
+    missSoundVolume: isInRange(Number(attackConfig.missSoundVolume), 0, 1)
+      ? Number(attackConfig.missSoundVolume) || 0.7
+      : 0.7,
     criticalEnabled: typeof attackConfig.criticalEnabled === 'boolean' ? attackConfig.criticalEnabled : false,
     criticalProbability: isInRange(Number(attackConfig.criticalProbability), 0, 100)
       ? Number(attackConfig.criticalProbability) || 0
@@ -257,6 +285,35 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     criticalMultiplier: isInRange(Number(attackConfig.criticalMultiplier), 1.0, 10.0)
       ? Number(attackConfig.criticalMultiplier) || 2.0
       : 2.0,
+    bleedEnabled: typeof attackConfig.bleedEnabled === 'boolean' ? attackConfig.bleedEnabled : false,
+    bleedProbability: isInRange(Number(attackConfig.bleedProbability), 0, 100)
+      ? Number(attackConfig.bleedProbability) || 0
+      : 0,
+    bleedDamage: isInRange(Number(attackConfig.bleedDamage), 1, 1000)
+      ? Number(attackConfig.bleedDamage) || 5
+      : 5,
+    bleedDuration: isInRange(Number(attackConfig.bleedDuration), 1, 300)
+      ? Number(attackConfig.bleedDuration) || 10
+      : 10,
+    bleedInterval: isInRange(Number(attackConfig.bleedInterval), 0.1, 60)
+      ? Number(attackConfig.bleedInterval) || 1
+      : 1,
+    bleedSoundEnabled: typeof attackConfig.bleedSoundEnabled === 'boolean' ? attackConfig.bleedSoundEnabled : false,
+    bleedSoundUrl:
+      typeof attackConfig.bleedSoundUrl === 'string' && isValidUrl(attackConfig.bleedSoundUrl)
+        ? attackConfig.bleedSoundUrl
+        : '',
+    bleedSoundVolume: isInRange(Number(attackConfig.bleedSoundVolume), 0, 1)
+      ? Number(attackConfig.bleedSoundVolume) || 0.7
+      : 0.7,
+    soundEnabled: typeof attackConfig.soundEnabled === 'boolean' ? attackConfig.soundEnabled : false,
+    soundUrl:
+      typeof attackConfig.soundUrl === 'string' && isValidUrl(attackConfig.soundUrl)
+        ? attackConfig.soundUrl
+        : '',
+    soundVolume: isInRange(Number(attackConfig.soundVolume), 0, 1)
+      ? Number(attackConfig.soundVolume) || 0.7
+      : 0.7,
   }
 
   // 回復設定の検証
@@ -276,6 +333,14 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     healMax: isInRange(Number(healConfig.healMax), 1, 1000)
       ? Number(healConfig.healMax) || 30
       : 30,
+    soundEnabled: typeof healConfig.soundEnabled === 'boolean' ? healConfig.soundEnabled : false,
+    soundUrl:
+      typeof healConfig.soundUrl === 'string' && isValidUrl(healConfig.soundUrl)
+        ? healConfig.soundUrl
+        : '',
+    soundVolume: isInRange(Number(healConfig.soundVolume), 0, 1)
+      ? Number(healConfig.soundVolume) || 0.7
+      : 0.7,
   }
 
   // リトライ設定の検証
@@ -286,6 +351,14 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
         ? retryConfig.command.replace(/[<>"']/g, '') // 危険な文字を削除
         : '!retry',
     enabled: typeof retryConfig.enabled === 'boolean' ? retryConfig.enabled : true,
+    soundEnabled: typeof retryConfig.soundEnabled === 'boolean' ? retryConfig.soundEnabled : false,
+    soundUrl:
+      typeof retryConfig.soundUrl === 'string' && isValidUrl(retryConfig.soundUrl)
+        ? retryConfig.soundUrl
+        : '',
+    soundVolume: isInRange(Number(retryConfig.soundVolume), 0, 1)
+      ? Number(retryConfig.soundVolume) || 0.7
+      : 0.7,
   }
 
   // アニメーション設定の検証
