@@ -23,6 +23,8 @@ interface UseHPGaugeResult {
   increaseHP: (amount: number) => void
   resetHP: () => void
   updateConfig: (newConfig: Partial<OverlayConfig>) => Promise<void>
+  updateConfigLocal: (newConfig: Partial<OverlayConfig>) => void
+  saveConfig: () => Promise<void>
 }
 
 /**
@@ -114,30 +116,63 @@ export function useHPGauge({
     })
   }, []) // configへの依存を削除（setConfigの関数形式を使うため）
 
-  // 設定を更新
+  // 設定を更新（リアルタイム反映用、保存は行わない）
+  const updateConfigLocal = useCallback(
+    (newConfig: Partial<OverlayConfig>) => {
+      setConfig((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          ...newConfig,
+          hp: { ...prev.hp, ...newConfig.hp },
+          attack: { ...prev.attack, ...newConfig.attack },
+          heal: { ...prev.heal, ...newConfig.heal },
+          retry: { ...prev.retry, ...newConfig.retry },
+          animation: { ...prev.animation, ...newConfig.animation },
+          display: { ...prev.display, ...newConfig.display },
+          zeroHpImage: { ...prev.zeroHpImage, ...newConfig.zeroHpImage },
+          zeroHpSound: { ...prev.zeroHpSound, ...newConfig.zeroHpSound },
+          zeroHpEffect: { ...prev.zeroHpEffect, ...newConfig.zeroHpEffect },
+          test: { ...prev.test, ...newConfig.test },
+          externalWindow: { ...prev.externalWindow, ...newConfig.externalWindow },
+          webmLoop: { ...prev.webmLoop, ...newConfig.webmLoop },
+        }
+      })
+    },
+    []
+  )
+
+  // 設定を保存
+  const saveConfig = useCallback(
+    async () => {
+      setConfig((prev) => {
+        if (!prev) return prev
+        saveOverlayConfig(prev)
+          .then(() => {
+            console.log('✅ 設定を保存しました')
+          })
+          .catch((error) => {
+            console.error('❌ 設定の保存に失敗しました:', error)
+          })
+        return prev
+      })
+    },
+    []
+  )
+
+  // 設定を更新（後方互換性のため残す）
   const updateConfig = useCallback(
     async (newConfig: Partial<OverlayConfig>) => {
-      if (!config) return
-
-      const updatedConfig = {
-        ...config,
-        ...newConfig,
-        hp: { ...config.hp, ...newConfig.hp },
-        attack: { ...config.attack, ...newConfig.attack },
-        heal: { ...config.heal, ...newConfig.heal },
-        retry: { ...config.retry, ...newConfig.retry },
-        animation: { ...config.animation, ...newConfig.animation },
-        display: { ...config.display, ...newConfig.display },
-        zeroHpImage: { ...config.zeroHpImage, ...newConfig.zeroHpImage },
-        zeroHpSound: { ...config.zeroHpSound, ...newConfig.zeroHpSound },
-        zeroHpEffect: { ...config.zeroHpEffect, ...newConfig.zeroHpEffect },
-        test: { ...config.test, ...newConfig.test },
-      }
-
-      setConfig(updatedConfig)
-      await saveOverlayConfig(updatedConfig)
+      updateConfigLocal(newConfig)
+      setConfig((prev) => {
+        if (!prev) return
+        saveOverlayConfig(prev).catch((error) => {
+          console.error('設定の保存に失敗しました:', error)
+        })
+        return prev
+      })
     },
-    [config]
+    [updateConfigLocal]
   )
 
   // 注意: HPの変更（攻撃、回復、全回復）では自動保存しない
@@ -154,5 +189,7 @@ export function useHPGauge({
     increaseHP,
     resetHP,
     updateConfig,
+    updateConfigLocal,
+    saveConfig,
   }
 }

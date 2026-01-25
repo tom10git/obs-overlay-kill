@@ -24,6 +24,7 @@ export function OverlaySettings() {
     zeroHpSound: true,
     zeroHpEffect: true,
     test: true,
+    externalWindow: true,
   })
   const [showAttackRewardId, setShowAttackRewardId] = useState(false)
   const [showHealRewardId, setShowHealRewardId] = useState(false)
@@ -1789,6 +1790,182 @@ export function OverlaySettings() {
                   </li>
                 </ul>
               </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 外部ウィンドウ設定 */}
+      <div className="settings-section">
+        <h3 onClick={() => toggleSection('externalWindow')}>
+          {expandedSections.externalWindow ? '▼' : '▶'} 外部ウィンドウキャプチャ
+        </h3>
+        {expandedSections.externalWindow && (
+          <div className="settings-section-content">
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.externalWindow.enabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      externalWindow: { ...config.externalWindow, enabled: e.target.checked },
+                    })
+                  }
+                />
+                外部ウィンドウキャプチャを有効化
+              </label>
+            </div>
+            {config.externalWindow.enabled && (
+              <>
+                <div className="settings-row">
+                  <label>位置 X (px)</label>
+                  <input
+                    type="number"
+                    value={inputValues.externalWindowX ?? config.externalWindow.x}
+                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowX: e.target.value }))}
+                    onBlur={(e) => {
+                      const value = Number(e.target.value)
+                      if (!isNaN(value)) {
+                        setConfig({
+                          ...config,
+                          externalWindow: { ...config.externalWindow, x: value },
+                        })
+                      }
+                      setInputValues((prev) => {
+                        const newValues = { ...prev }
+                        delete newValues.externalWindowX
+                        return newValues
+                      })
+                    }}
+                  />
+                </div>
+                <div className="settings-row">
+                  <label>位置 Y (px)</label>
+                  <input
+                    type="number"
+                    value={inputValues.externalWindowY ?? config.externalWindow.y}
+                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowY: e.target.value }))}
+                    onBlur={(e) => {
+                      const value = Number(e.target.value)
+                      if (!isNaN(value)) {
+                        setConfig({
+                          ...config,
+                          externalWindow: { ...config.externalWindow, y: value },
+                        })
+                      }
+                      setInputValues((prev) => {
+                        const newValues = { ...prev }
+                        delete newValues.externalWindowY
+                        return newValues
+                      })
+                    }}
+                  />
+                </div>
+                <div className="settings-row">
+                  <label>幅 (px)</label>
+                  <input
+                    type="number"
+                    value={inputValues.externalWindowWidth ?? config.externalWindow.width}
+                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowWidth: e.target.value }))}
+                    onBlur={(e) => {
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value > 0) {
+                        setConfig({
+                          ...config,
+                          externalWindow: { ...config.externalWindow, width: value },
+                        })
+                      }
+                      setInputValues((prev) => {
+                        const newValues = { ...prev }
+                        delete newValues.externalWindowWidth
+                        return newValues
+                      })
+                    }}
+                  />
+                </div>
+                <div className="settings-row">
+                  <label>高さ (px)</label>
+                  <input
+                    type="number"
+                    value={inputValues.externalWindowHeight ?? config.externalWindow.height}
+                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowHeight: e.target.value }))}
+                    onBlur={(e) => {
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value > 0) {
+                        setConfig({
+                          ...config,
+                          externalWindow: { ...config.externalWindow, height: value },
+                        })
+                      }
+                      setInputValues((prev) => {
+                        const newValues = { ...prev }
+                        delete newValues.externalWindowHeight
+                        return newValues
+                      })
+                    }}
+                  />
+                </div>
+                <div className="settings-row">
+                  <label>透明度 (0-1)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="1"
+                    value={inputValues.externalWindowOpacity ?? config.externalWindow.opacity}
+                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowOpacity: e.target.value }))}
+                    onBlur={(e) => {
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 0 && value <= 1) {
+                        setConfig({
+                          ...config,
+                          externalWindow: { ...config.externalWindow, opacity: value },
+                        })
+                      }
+                      setInputValues((prev) => {
+                        const newValues = { ...prev }
+                        delete newValues.externalWindowOpacity
+                        return newValues
+                      })
+                    }}
+                  />
+                </div>
+                <div className="settings-row">
+                  <label>Z-Index (HPゲージより後ろに配置するため低めの値)</label>
+                  <input
+                    type="number"
+                    value={inputValues.externalWindowZIndex ?? config.externalWindow.zIndex}
+                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowZIndex: e.target.value }))}
+                    onBlur={(e) => {
+                      const value = Number(e.target.value)
+                      if (!isNaN(value)) {
+                        setConfig({
+                          ...config,
+                          externalWindow: { ...config.externalWindow, zIndex: value },
+                        })
+                      }
+                      setInputValues((prev) => {
+                        const newValues = { ...prev }
+                        delete newValues.externalWindowZIndex
+                        return newValues
+                      })
+                    }}
+                  />
+                </div>
+                <div className="settings-hint">
+                  <p>
+                    <strong>使用方法:</strong>
+                  </p>
+                  <ul>
+                    <li>外部ウィンドウキャプチャを有効化すると、ブラウザがウィンドウ選択画面を表示します</li>
+                    <li>キャプチャしたいアプリケーションウィンドウを選択してください</li>
+                    <li>位置、サイズ、透明度、Z-Indexを調整してHPゲージの後ろに配置できます</li>
+                    <li>Z-Indexは低い値（例: 1）に設定すると、HPゲージ（通常はz-index: 10以上）の後ろに表示されます</li>
+                  </ul>
+                </div>
+              </>
             )}
           </div>
         )}

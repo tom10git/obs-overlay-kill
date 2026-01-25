@@ -2,7 +2,9 @@
   "hp": {
     "max": 10000,
     "current": 10000,
-    "gaugeCount": 7
+    "gaugeCount": 10,
+    "x": 0,
+    "y": 25
   },
   "attack": {
     "rewardId": "",
@@ -73,5 +75,14 @@
   },
   "test": {
     "enabled": true
+  },
+  "externalWindow": {
+    "enabled": true,
+    "x": 23,
+    "y": 0,
+    "width": 1400,
+    "height": 1000,
+    "opacity": 1,
+    "zIndex": 1
   }
 }

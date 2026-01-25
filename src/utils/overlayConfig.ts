@@ -10,6 +10,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
     max: 100,
     current: 100,
     gaugeCount: 3,
+    x: 0,
+    y: 0,
   },
   attack: {
     rewardId: '',
@@ -81,6 +83,26 @@ const DEFAULT_CONFIG: OverlayConfig = {
   test: {
     enabled: false,
   },
+  externalWindow: {
+    enabled: false,
+    x: 0,
+    y: 0,
+    width: 800,
+    height: 600,
+    opacity: 1.0,
+    zIndex: 1, // HPゲージより後ろに配置
+  },
+  webmLoop: {
+    enabled: false,
+    x: 0,
+    y: 0,
+    width: 800,
+    height: 600,
+    opacity: 1.0,
+    zIndex: 1, // 外部ウィンドウと同じz-index
+    videoUrl: '',
+    loop: true,
+  },
 }
 
 /**
@@ -106,6 +128,8 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...storedConfig.zeroHpSound },
       zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...storedConfig.zeroHpEffect },
       test: { ...DEFAULT_CONFIG.test, ...storedConfig.test },
+      externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...storedConfig.externalWindow },
+      webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...storedConfig.webmLoop },
     }
   }
 
@@ -133,6 +157,8 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...validated.zeroHpSound },
       zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...validated.zeroHpEffect },
       test: { ...DEFAULT_CONFIG.test, ...validated.test },
+      externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...validated.externalWindow },
+      webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
     }
   } catch (error) {
     console.error('設定ファイルの読み込みに失敗しました:', error)
@@ -255,6 +281,12 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     gaugeCount: isInRange(Number(hpConfig.gaugeCount), 1, 10)
       ? Number(hpConfig.gaugeCount) || DEFAULT_CONFIG.hp.gaugeCount
       : DEFAULT_CONFIG.hp.gaugeCount,
+    x: isInRange(Number(hpConfig.x), -10000, 10000)
+      ? Number(hpConfig.x) || 0
+      : 0,
+    y: isInRange(Number(hpConfig.y), -10000, 10000)
+      ? Number(hpConfig.y) || 0
+      : 0,
   }
 
   // 攻撃設定の検証
@@ -421,6 +453,59 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     enabled: typeof testConfig.enabled === 'boolean' ? testConfig.enabled : false,
   }
 
+  // 外部ウィンドウ設定の検証
+  const externalWindowConfig = (c.externalWindow as Record<string, unknown> | undefined) || {}
+  const externalWindow = {
+    enabled: typeof externalWindowConfig.enabled === 'boolean' ? externalWindowConfig.enabled : false,
+    x: isInRange(Number(externalWindowConfig.x), -10000, 10000)
+      ? Number(externalWindowConfig.x) || 0
+      : 0,
+    y: isInRange(Number(externalWindowConfig.y), -10000, 10000)
+      ? Number(externalWindowConfig.y) || 0
+      : 0,
+    width: isInRange(Number(externalWindowConfig.width), 1, 10000)
+      ? Number(externalWindowConfig.width) || 800
+      : 800,
+    height: isInRange(Number(externalWindowConfig.height), 1, 10000)
+      ? Number(externalWindowConfig.height) || 600
+      : 600,
+    opacity: isInRange(Number(externalWindowConfig.opacity), 0, 1)
+      ? Number(externalWindowConfig.opacity) || 1.0
+      : 1.0,
+    zIndex: isInRange(Number(externalWindowConfig.zIndex), -100, 100)
+      ? Number(externalWindowConfig.zIndex) || 1
+      : 1,
+  }
+
+  // WebMループ設定の検証
+  const webmLoopConfig = (c.webmLoop as Record<string, unknown> | undefined) || {}
+  const webmLoop = {
+    enabled: typeof webmLoopConfig.enabled === 'boolean' ? webmLoopConfig.enabled : false,
+    x: isInRange(Number(webmLoopConfig.x), -10000, 10000)
+      ? Number(webmLoopConfig.x) || 0
+      : 0,
+    y: isInRange(Number(webmLoopConfig.y), -10000, 10000)
+      ? Number(webmLoopConfig.y) || 0
+      : 0,
+    width: isInRange(Number(webmLoopConfig.width), 1, 10000)
+      ? Number(webmLoopConfig.width) || 800
+      : 800,
+    height: isInRange(Number(webmLoopConfig.height), 1, 10000)
+      ? Number(webmLoopConfig.height) || 600
+      : 600,
+    opacity: isInRange(Number(webmLoopConfig.opacity), 0, 1)
+      ? Number(webmLoopConfig.opacity) || 1.0
+      : 1.0,
+    zIndex: isInRange(Number(webmLoopConfig.zIndex), -100, 100)
+      ? Number(webmLoopConfig.zIndex) || 1
+      : 1,
+    videoUrl:
+      typeof webmLoopConfig.videoUrl === 'string' && isValidUrl(webmLoopConfig.videoUrl)
+        ? webmLoopConfig.videoUrl
+        : '',
+    loop: typeof webmLoopConfig.loop === 'boolean' ? webmLoopConfig.loop : true,
+  }
+
   return {
     hp,
     attack,
@@ -432,6 +517,8 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     zeroHpSound,
     zeroHpEffect,
     test,
+    externalWindow,
+    webmLoop,
   }
 }
 

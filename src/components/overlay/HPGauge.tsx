@@ -286,7 +286,15 @@ export function HPGauge({
   }, [])
 
   return (
-    <div className="hp-gauge-container">
+    <div
+      className="hp-gauge-container"
+      style={{
+        position: 'fixed',
+        left: `calc(50% + ${config.hp.x}px)`,
+        top: `calc(50% + ${config.hp.y}px)`,
+        transform: 'translate(-50%, -50%)',
+      }}
+    >
       <div className="hp-gauge-frame">
         <div className="hp-gauge-wrapper">
           {gaugeLayers.map((layer) => (

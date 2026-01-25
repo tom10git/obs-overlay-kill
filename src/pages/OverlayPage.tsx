@@ -55,8 +55,46 @@ export function OverlayPage() {
   const [backgroundColor, setBackgroundColor] = useState<'green' | 'dark-gray'>('green')
 
   // UI表示の管理
-  const [showBackgroundControls, setShowBackgroundControls] = useState(true)
   const [showTestControls, setShowTestControls] = useState(true)
+  const [showTestSettings, setShowTestSettings] = useState(false) // 設定パネルの表示/非表示
+  const [testInputValues, setTestInputValues] = useState<Record<string, string>>({}) // 入力中の値を保持
+
+  // 外部ウィンドウキャプチャの管理
+  const [externalStream, setExternalStream] = useState<MediaStream | null>(null)
+  const externalVideoRef = useRef<HTMLVideoElement>(null)
+  const externalStreamRef = useRef<MediaStream | null>(null)
+
+  // 外部ウィンドウの再キャプチャ
+  const recaptureExternalWindow = useCallback(async () => {
+    // 既存のストリームを停止
+    if (externalStreamRef.current) {
+      externalStreamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+      externalStreamRef.current = null
+      setExternalStream(null)
+    }
+
+    // 少し待ってから新しいキャプチャを開始
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          displaySurface: 'window',
+        } as MediaTrackConstraints,
+        audio: false,
+      })
+
+      externalStreamRef.current = stream
+      setExternalStream(stream)
+
+      stream.getVideoTracks()[0].addEventListener('ended', () => {
+        externalStreamRef.current = null
+        setExternalStream(null)
+      })
+    } catch (error) {
+      console.error('外部ウィンドウキャプチャの開始に失敗しました:', error)
+    }
+  }, [])
   const showMiss = useCallback(
     (durationMs: number) => {
       setMissVisible(false) // 連続発火でもアニメーションをリスタートさせる
@@ -176,6 +214,8 @@ export function OverlayPage() {
     reduceHP,
     increaseHP,
     resetHP,
+    updateConfigLocal,
+    saveConfig,
   } = useHPGauge({
     broadcasterId: user?.id || '',
     channel: username,
@@ -876,6 +916,75 @@ export function OverlayPage() {
     })
   }, [chatMessages, config, isTestMode, username, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP, maxHP, increaseHP, showHealEffect, playRetrySound])
 
+  // body要素にoverflow:hiddenを適用
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [])
+
+  // 外部ウィンドウキャプチャの初期化
+  useEffect(() => {
+    if (!config?.externalWindow.enabled) {
+      // 無効な場合はストリームを停止
+      if (externalStreamRef.current) {
+        externalStreamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+        externalStreamRef.current = null
+        setExternalStream(null)
+      }
+      return
+    }
+
+    // 既にストリームがある場合は何もしない（手動で再キャプチャする場合はrecaptureExternalWindowを使用）
+    if (externalStreamRef.current) {
+      return
+    }
+
+    // WebRTC Screen Capture APIを使用してウィンドウをキャプチャ
+    const startCapture = async () => {
+      try {
+        // getDisplayMediaを使用（ウィンドウ、画面、タブを選択可能）
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            displaySurface: 'window', // ウィンドウのみを選択可能にする
+          } as MediaTrackConstraints,
+          audio: false,
+        })
+
+        externalStreamRef.current = stream
+        setExternalStream(stream)
+
+        // ストリームが終了したときの処理
+        stream.getVideoTracks()[0].addEventListener('ended', () => {
+          externalStreamRef.current = null
+          setExternalStream(null)
+        })
+      } catch (error) {
+        console.error('外部ウィンドウキャプチャの開始に失敗しました:', error)
+      }
+    }
+
+    startCapture()
+
+    return () => {
+      // クリーンアップ（設定が無効になった場合のみ）
+      if (externalStreamRef.current && !config?.externalWindow.enabled) {
+        externalStreamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop())
+        externalStreamRef.current = null
+        setExternalStream(null)
+      }
+    }
+  }, [config?.externalWindow.enabled])
+
+  // 外部ウィンドウのvideo要素にストリームを設定
+  useEffect(() => {
+    if (externalVideoRef.current && externalStream) {
+      externalVideoRef.current.srcObject = externalStream
+    }
+  }, [externalStream])
+
   // NOTE:
   // - OBS側では `.env` / `VITE_TWITCH_USERNAME` が未設定のまま表示されるケースがある
   // - Twitchユーザー取得に失敗しても、HPゲージ自体は表示できる（特にテストモード）
@@ -892,34 +1001,6 @@ export function OverlayPage() {
 
   return (
     <div className="overlay-page" style={{ background: backgroundStyle }}>
-      {/* 背景色切り替えボタン */}
-      <div className={`background-controls-wrapper ${showBackgroundControls ? 'visible' : 'hidden'}`}>
-        <div className="background-controls">
-          <button
-            className={`bg-button ${backgroundColor === 'green' ? 'active' : ''}`}
-            onClick={() => setBackgroundColor('green')}
-            title="グリーンバック（クロマキー用）"
-          >
-            <span className="bg-button-icon">🎬</span>
-            <span className="bg-button-label">グリーン</span>
-          </button>
-          <button
-            className={`bg-button ${backgroundColor === 'dark-gray' ? 'active' : ''}`}
-            onClick={() => setBackgroundColor('dark-gray')}
-            title="濃いグレー"
-          >
-            <span className="bg-button-icon">◼</span>
-            <span className="bg-button-label">グレー</span>
-          </button>
-        </div>
-        <button
-          className="control-tab control-tab-bottom-left"
-          onClick={() => setShowBackgroundControls(!showBackgroundControls)}
-          title={showBackgroundControls ? '背景色変更ボタンを隠す' : '背景色変更ボタンを表示'}
-        >
-          背景色
-        </button>
-      </div>
 
       {/* Twitchユーザーが取得できない場合のヒント（表示は継続する） */}
       {!isTestMode && (!username || !user) && (
@@ -987,6 +1068,85 @@ export function OverlayPage() {
           </div>
         )
       })}
+      {/* 外部ウィンドウキャプチャ（HPゲージの後ろに配置） */}
+      {config.externalWindow.enabled && (
+        <div
+          className="external-window-container"
+          style={{
+            position: 'fixed',
+            left: `calc(50% + ${config.externalWindow.x}px)`,
+            top: `calc(50% + ${config.externalWindow.y}px)`,
+            width: `${config.externalWindow.width}px`,
+            height: `${config.externalWindow.height}px`,
+            opacity: config.externalWindow.opacity,
+            pointerEvents: 'none',
+            overflow: 'hidden',
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          {externalStream ? (
+            <video
+              ref={externalVideoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                background: 'rgba(0, 0, 0, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                fontSize: '14px',
+                textAlign: 'center',
+                padding: '10px',
+              }}
+            >
+              ウィンドウを選択してください
+            </div>
+          )}
+        </div>
+      )}
+      {/* WebMループ画像 */}
+      {config.webmLoop.enabled && config.webmLoop.videoUrl && (
+        <div
+          className="webm-loop-container"
+          style={{
+            position: 'fixed',
+            left: `calc(50% + ${config.webmLoop.x}px)`,
+            top: `calc(50% + ${config.webmLoop.y}px)`,
+            width: `${config.webmLoop.width}px`,
+            height: `${config.webmLoop.height}px`,
+            opacity: config.webmLoop.opacity,
+            zIndex: config.webmLoop.zIndex,
+            pointerEvents: 'none',
+            overflow: 'hidden',
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <video
+            src={config.webmLoop.videoUrl}
+            autoPlay
+            playsInline
+            muted
+            loop={config.webmLoop.loop}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+            }}
+          />
+        </div>
+      )}
       <HPGauge
         currentHP={currentHP}
         maxHP={maxHP}
@@ -1016,6 +1176,704 @@ export function OverlayPage() {
             テスト
           </button>
           <div className="test-controls">
+            <div className="test-controls-header">
+              <button
+                className="test-settings-toggle"
+                onClick={() => setShowTestSettings(!showTestSettings)}
+                title={showTestSettings ? '設定を隠す' : '設定を表示'}
+              >
+                {showTestSettings ? '▼' : '▶'} 設定
+              </button>
+            </div>
+            {showTestSettings && config && (
+              <div className="test-settings-panel">
+                <div className="test-settings-section">
+                  <label className="test-settings-label">背景色</label>
+                  <select
+                    className="test-settings-select"
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value as 'green' | 'dark-gray')}
+                  >
+                    <option value="green">グリーン（クロマキー用）</option>
+                    <option value="dark-gray">濃いグレー</option>
+                  </select>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">最大HP</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    value={testInputValues.maxHP ?? config.hp.max}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, maxHP: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value > 0) {
+                        updateConfigLocal({ hp: { ...config.hp, max: value, current: Math.min(config.hp.current, value) } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.maxHP
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">現在のHP</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    value={testInputValues.currentHP ?? config.hp.current}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, currentHP: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 0 && value <= config.hp.max) {
+                        updateConfigLocal({ hp: { ...config.hp, current: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.currentHP
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">ゲージ数</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    min="1"
+                    max="10"
+                    value={testInputValues.gaugeCount ?? config.hp.gaugeCount}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, gaugeCount: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 1 && value <= 10) {
+                        updateConfigLocal({ hp: { ...config.hp, gaugeCount: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.gaugeCount
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">HPゲージ位置 X (px)</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    value={testInputValues.hpGaugeX ?? config.hp.x}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, hpGaugeX: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value)) {
+                        updateConfigLocal({ hp: { ...config.hp, x: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.hpGaugeX
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">HPゲージ位置 Y (px)</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    value={testInputValues.hpGaugeY ?? config.hp.y}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, hpGaugeY: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value)) {
+                        updateConfigLocal({ hp: { ...config.hp, y: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.hpGaugeY
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">攻撃ダメージ</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    value={testInputValues.attackDamage ?? config.attack.damage}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, attackDamage: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value > 0) {
+                        updateConfigLocal({ attack: { ...config.attack, damage: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.attackDamage
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">ミス確率 (%)</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    min="0"
+                    max="100"
+                    value={testInputValues.missProbability ?? config.attack.missProbability}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, missProbability: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 0 && value <= 100) {
+                        updateConfigLocal({ attack: { ...config.attack, missProbability: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.missProbability
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">クリティカル確率 (%)</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    min="0"
+                    max="100"
+                    value={testInputValues.criticalProbability ?? config.attack.criticalProbability}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, criticalProbability: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 0 && value <= 100) {
+                        updateConfigLocal({ attack: { ...config.attack, criticalProbability: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.criticalProbability
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">クリティカル倍率</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    step="0.1"
+                    min="1"
+                    value={testInputValues.criticalMultiplier ?? config.attack.criticalMultiplier}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, criticalMultiplier: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 1) {
+                        updateConfigLocal({ attack: { ...config.attack, criticalMultiplier: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.criticalMultiplier
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">出血確率 (%)</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    min="0"
+                    max="100"
+                    value={testInputValues.bleedProbability ?? config.attack.bleedProbability}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, bleedProbability: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 0 && value <= 100) {
+                        updateConfigLocal({ attack: { ...config.attack, bleedProbability: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.bleedProbability
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">出血ダメージ</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    value={testInputValues.bleedDamage ?? config.attack.bleedDamage}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, bleedDamage: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value > 0) {
+                        updateConfigLocal({ attack: { ...config.attack, bleedDamage: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.bleedDamage
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                {config.heal.healType === 'fixed' ? (
+                  <div className="test-settings-section">
+                    <label className="test-settings-label">回復量 (固定)</label>
+                    <input
+                      type="number"
+                      className="test-settings-input"
+                      value={testInputValues.healAmount ?? config.heal.healAmount}
+                      onChange={(e) => {
+                        setTestInputValues((prev) => ({ ...prev, healAmount: e.target.value }))
+                        const value = Number(e.target.value)
+                        if (!isNaN(value) && value > 0) {
+                          updateConfigLocal({ heal: { ...config.heal, healAmount: value } })
+                        }
+                      }}
+                      onBlur={() => {
+                        setTestInputValues((prev => {
+                          const newValues = { ...prev }
+                          delete newValues.healAmount
+                          return newValues
+                        }))
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">回復量 (最小)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.healMin ?? config.heal.healMin}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, healMin: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value > 0) {
+                            updateConfigLocal({ heal: { ...config.heal, healMin: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.healMin
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">回復量 (最大)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.healMax ?? config.heal.healMax}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, healMax: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value > 0) {
+                            updateConfigLocal({ heal: { ...config.heal, healMax: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.healMax
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="test-settings-section">
+                  <label className="test-settings-label">フォントサイズ</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    min="8"
+                    max="200"
+                    value={testInputValues.fontSize ?? config.display.fontSize}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, fontSize: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 8 && value <= 200) {
+                        updateConfigLocal({ display: { ...config.display, fontSize: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.fontSize
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">WebMループ画像</label>
+                  <input
+                    type="checkbox"
+                    checked={config.webmLoop.enabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ webmLoop: { ...config.webmLoop, enabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                {config.webmLoop.enabled && (
+                  <>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">動画URL</label>
+                      <input
+                        type="text"
+                        className="test-settings-input"
+                        value={testInputValues.webmLoopVideoUrl ?? config.webmLoop.videoUrl}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, webmLoopVideoUrl: e.target.value }))
+                          updateConfigLocal({ webmLoop: { ...config.webmLoop, videoUrl: e.target.value } })
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.webmLoopVideoUrl
+                            return newValues
+                          }))
+                        }}
+                        placeholder="WebM動画のURL"
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">ループ再生</label>
+                      <input
+                        type="checkbox"
+                        checked={config.webmLoop.loop}
+                        onChange={(e) => {
+                          updateConfigLocal({ webmLoop: { ...config.webmLoop, loop: e.target.checked } })
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">位置 X (px)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.webmLoopX ?? config.webmLoop.x}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, webmLoopX: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value)) {
+                            updateConfigLocal({ webmLoop: { ...config.webmLoop, x: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.webmLoopX
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">位置 Y (px)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.webmLoopY ?? config.webmLoop.y}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, webmLoopY: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value)) {
+                            updateConfigLocal({ webmLoop: { ...config.webmLoop, y: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.webmLoopY
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">幅 (px)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.webmLoopWidth ?? config.webmLoop.width}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, webmLoopWidth: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value > 0) {
+                            updateConfigLocal({ webmLoop: { ...config.webmLoop, width: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.webmLoopWidth
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">高さ (px)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.webmLoopHeight ?? config.webmLoop.height}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, webmLoopHeight: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value > 0) {
+                            updateConfigLocal({ webmLoop: { ...config.webmLoop, height: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.webmLoopHeight
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">透明度 (0-1)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        step="0.1"
+                        min="0"
+                        max="1"
+                        value={testInputValues.webmLoopOpacity ?? config.webmLoop.opacity}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, webmLoopOpacity: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value >= 0 && value <= 1) {
+                            updateConfigLocal({ webmLoop: { ...config.webmLoop, opacity: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.webmLoopOpacity
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">外部ウィンドウキャプチャ</label>
+                  <input
+                    type="checkbox"
+                    checked={config.externalWindow.enabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ externalWindow: { ...config.externalWindow, enabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                {config.externalWindow.enabled && (
+                  <>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">位置 X (px)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.externalWindowX ?? config.externalWindow.x}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, externalWindowX: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value)) {
+                            updateConfigLocal({ externalWindow: { ...config.externalWindow, x: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowX
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">位置 Y (px)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.externalWindowY ?? config.externalWindow.y}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, externalWindowY: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value)) {
+                            updateConfigLocal({ externalWindow: { ...config.externalWindow, y: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowY
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">幅 (px)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.externalWindowWidth ?? config.externalWindow.width}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, externalWindowWidth: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value > 0) {
+                            updateConfigLocal({ externalWindow: { ...config.externalWindow, width: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowWidth
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">高さ (px)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.externalWindowHeight ?? config.externalWindow.height}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, externalWindowHeight: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value > 0) {
+                            updateConfigLocal({ externalWindow: { ...config.externalWindow, height: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowHeight
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">透明度 (0-1)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        step="0.1"
+                        min="0"
+                        max="1"
+                        value={testInputValues.externalWindowOpacity ?? config.externalWindow.opacity}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, externalWindowOpacity: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value >= 0 && value <= 1) {
+                            updateConfigLocal({ externalWindow: { ...config.externalWindow, opacity: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowOpacity
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">Z-Index</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        value={testInputValues.externalWindowZIndex ?? config.externalWindow.zIndex}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, externalWindowZIndex: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value)) {
+                            updateConfigLocal({ externalWindow: { ...config.externalWindow, zIndex: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowZIndex
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <button
+                        className="test-button test-recapture"
+                        onClick={recaptureExternalWindow}
+                        title="外部ウィンドウを再キャプチャ"
+                      >
+                        再キャプチャ
+                      </button>
+                    </div>
+                  </>
+                )}
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <button
+                    className="test-button test-save"
+                    onClick={saveConfig}
+                    title="設定を保存"
+                  >
+                    設定を保存
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="test-controls-info">
               <p>テストモード: ボタン長押しで連打</p>
             </div>
@@ -1045,13 +1903,13 @@ export function OverlayPage() {
               >
                 回復テスト
               </button>
-            <button
-              onClick={triggerReset}
-              className="test-button test-reset"
-              disabled={currentHP >= maxHP}
-            >
-              全回復
-            </button>
+              <button
+                onClick={triggerReset}
+                className="test-button test-reset"
+                disabled={currentHP >= maxHP}
+              >
+                全回復
+              </button>
             </div>
           </div>
         </div>

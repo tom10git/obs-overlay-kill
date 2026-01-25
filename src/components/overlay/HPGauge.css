@@ -5,6 +5,7 @@
   align-items: center;
   justify-content: center;
   background: transparent;
+  z-index: 2;
 }
 
 .hp-gauge-frame {

@@ -6,6 +6,8 @@ export interface HPConfig {
   max: number
   current: number
   gaugeCount: number
+  x: number // 位置X（px、中央からのオフセット）
+  y: number // 位置Y（px、中央からのオフセット）
 }
 
 export interface AttackConfig {
@@ -87,6 +89,28 @@ export interface TestConfig {
   enabled: boolean
 }
 
+export interface ExternalWindowConfig {
+  enabled: boolean
+  x: number // 位置X（px）
+  y: number // 位置Y（px）
+  width: number // 幅（px）
+  height: number // 高さ（px）
+  opacity: number // 透明度（0-1）
+  zIndex: number // z-index（HPゲージより後ろに配置するため低めの値）
+}
+
+export interface WebMLoopConfig {
+  enabled: boolean
+  x: number // 位置X（px、中央からのオフセット）
+  y: number // 位置Y（px、中央からのオフセット）
+  width: number // 幅（px）
+  height: number // 高さ（px）
+  opacity: number // 透明度（0-1）
+  zIndex: number // z-index（外部ウィンドウと同じ値）
+  videoUrl: string // WebM動画のURL
+  loop: boolean // ループ再生するか
+}
+
 export interface OverlayConfig {
   hp: HPConfig
   attack: AttackConfig
@@ -98,6 +122,8 @@ export interface OverlayConfig {
   zeroHpSound: ZeroHpSoundConfig
   zeroHpEffect: ZeroHpEffectConfig
   test: TestConfig
+  externalWindow: ExternalWindowConfig
+  webmLoop: WebMLoopConfig
 }
 
 export interface ChannelPointEvent {
