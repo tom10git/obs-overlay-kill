@@ -295,7 +295,13 @@ export function HPGauge({
         transform: 'translate(-50%, -50%)',
       }}
     >
-      <div className="hp-gauge-frame">
+      <div
+        className="hp-gauge-frame"
+        style={{
+          maxWidth: `${config.hp.width}px`,
+          height: `${config.hp.height}px`,
+        }}
+      >
         <div className="hp-gauge-wrapper">
           {gaugeLayers.map((layer) => (
             <HPGaugeLayer

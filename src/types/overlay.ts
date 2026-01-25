@@ -8,6 +8,8 @@ export interface HPConfig {
   gaugeCount: number
   x: number // 位置X（px、中央からのオフセット）
   y: number // 位置Y（px、中央からのオフセット）
+  width: number // ゲージの幅（px）
+  height: number // ゲージの高さ（px）
 }
 
 export interface AttackConfig {
@@ -111,6 +113,14 @@ export interface WebMLoopConfig {
   loop: boolean // ループ再生するか
 }
 
+export interface EffectFilterConfig {
+  sepia: number // 0-1
+  hueRotate: number // 0-360度
+  saturate: number // 0-2
+  brightness: number // 0-2
+  contrast: number // 0-2
+}
+
 export interface OverlayConfig {
   hp: HPConfig
   attack: AttackConfig
@@ -124,6 +134,8 @@ export interface OverlayConfig {
   test: TestConfig
   externalWindow: ExternalWindowConfig
   webmLoop: WebMLoopConfig
+  damageEffectFilter: EffectFilterConfig // ダメージエフェクトのフィルター設定
+  healEffectFilter: EffectFilterConfig // 回復エフェクトのフィルター設定
 }
 
 export interface ChannelPointEvent {

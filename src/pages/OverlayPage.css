@@ -221,8 +221,6 @@
   bottom: 20px;
   right: 20px;
   background-color: rgba(0, 0, 0, 0.8);
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  border-radius: 8px;
   padding: 1rem;
   z-index: 10000;
   max-width: 400px;
@@ -310,6 +308,53 @@
   color: #ffffff;
 }
 
+.test-settings-range {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.test-settings-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.test-settings-range::-webkit-slider-thumb:hover {
+  background: #cccccc;
+}
+
+.test-settings-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s;
+}
+
+.test-settings-range::-moz-range-thumb:hover {
+  background: #cccccc;
+}
+
+.test-settings-range-value {
+  color: #ffffff;
+  font-size: 0.7rem;
+  min-width: 50px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 .test-controls-info {
   margin-bottom: 0.75rem;
   color: #fff;
@@ -374,6 +419,19 @@
   font-weight: 600;
 }
 
+.test-button.test-reload {
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #ffaa00;
+  width: 100%;
+  font-weight: 600;
+}
+
+.test-button.test-reload:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .test-settings-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.2);
@@ -424,7 +482,7 @@
 .control-tab {
   padding: 0.5rem 0.75rem;
   background: rgba(0, 0, 0, 0.7);
-  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border: none;
   color: #ffffff;
   font-size: 0.75rem;
   font-weight: 500;
@@ -478,7 +536,6 @@
   top: 0;
   left: 0;
   margin: 0;
-  border-radius: 0 8px 8px 0;
 }
 
 /* 外部ウィンドウコンテナ */
@@ -501,24 +558,17 @@
   display: block;
 }
 
-/* ダメージエフェクト（赤フィルター + 揺れ） */
+/* ダメージエフェクト（揺れアニメーション） */
 .external-window-container.damage-effect {
   animation: damage-shake 0.5s ease-out;
-  filter: sepia(0.3) hue-rotate(-10deg) saturate(1.2) brightness(0.95) contrast(1.1);
 }
 
-.external-window-container.damage-effect video {
-  filter: sepia(0.3) hue-rotate(-10deg) saturate(1.2) brightness(0.95) contrast(1.1);
-}
-
-/* 回復エフェクト（青/シアン系フィルター + 残像） */
+/* 回復エフェクト（残像アニメーション） */
 .external-window-container.heal-effect {
   animation: heal-afterimage 0.5s ease-out;
-  filter: sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1);
 }
 
 .external-window-container.heal-effect video {
-  filter: sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1);
   animation: heal-afterimage 0.5s ease-out;
 }
 
@@ -541,79 +591,88 @@
   display: block;
 }
 
-/* ダメージエフェクト（赤フィルター + 揺れ） */
+/* ダメージエフェクト（揺れアニメーション） */
 .webm-loop-container.damage-effect {
   animation: damage-shake 0.5s ease-out;
-  filter: sepia(0.3) hue-rotate(-10deg) saturate(1.2) brightness(0.95) contrast(1.1);
 }
 
-.webm-loop-container.damage-effect video {
-  filter: sepia(0.3) hue-rotate(-10deg) saturate(1.2) brightness(0.95) contrast(1.1);
-}
-
-/* 回復エフェクト（青/シアン系フィルター + 残像） */
+/* 回復エフェクト（残像アニメーション） */
 .webm-loop-container.heal-effect {
   animation: heal-afterimage 0.5s ease-out;
-  filter: sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1);
 }
 
 .webm-loop-container.heal-effect video {
-  filter: sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1);
   animation: heal-afterimage 0.5s ease-out;
 }
 
 /* ダメージ時の揺れアニメーション */
 @keyframes damage-shake {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translate(-50%, -50%) translateX(0) translateY(0);
   }
+
   10% {
     transform: translate(-50%, -50%) translateX(-2px) translateY(-1px);
   }
+
   20% {
     transform: translate(-50%, -50%) translateX(2px) translateY(1px);
   }
+
   30% {
     transform: translate(-50%, -50%) translateX(-1px) translateY(2px);
   }
+
   40% {
     transform: translate(-50%, -50%) translateX(1px) translateY(-2px);
   }
+
   50% {
     transform: translate(-50%, -50%) translateX(-1px) translateY(1px);
   }
+
   60% {
     transform: translate(-50%, -50%) translateX(1px) translateY(-1px);
   }
+
   70% {
     transform: translate(-50%, -50%) translateX(-1px) translateY(0);
   }
+
   80% {
     transform: translate(-50%, -50%) translateX(1px) translateY(0);
   }
+
   90% {
     transform: translate(-50%, -50%) translateX(0) translateY(-1px);
   }
 }
 
-/* 回復時の残像アニメーション（青/シアン系） */
+/* 回復時の残像アニメーション（ベースフィルター + drop-shadow） */
 @keyframes heal-afterimage {
   0% {
-    filter: sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1) drop-shadow(0 0 0 rgba(0, 200, 255, 0)) drop-shadow(0 0 0 rgba(100, 220, 255, 0)) drop-shadow(0 0 0 rgba(150, 240, 255, 0)) drop-shadow(0 0 0 rgba(200, 250, 255, 0)) drop-shadow(0 0 0 rgba(0, 255, 255, 0));
+    filter: var(--heal-base-filter, sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1)) drop-shadow(0 0 0 rgba(0, 200, 255, 0)) drop-shadow(0 0 0 rgba(100, 220, 255, 0)) drop-shadow(0 0 0 rgba(150, 240, 255, 0)) drop-shadow(0 0 0 rgba(200, 250, 255, 0)) drop-shadow(0 0 0 rgba(0, 255, 255, 0));
   }
+
   20% {
-    filter: sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1) drop-shadow(0 -2px 4px rgba(0, 200, 255, 0.7)) drop-shadow(0 -4px 8px rgba(100, 220, 255, 0.5)) drop-shadow(0 -6px 12px rgba(150, 240, 255, 0.3)) drop-shadow(0 -8px 16px rgba(200, 250, 255, 0.2)) drop-shadow(0 -10px 20px rgba(0, 255, 255, 0.15));
+    filter: var(--heal-base-filter, sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1)) drop-shadow(0 -2px 4px rgba(0, 200, 255, 0.7)) drop-shadow(0 -4px 8px rgba(100, 220, 255, 0.5)) drop-shadow(0 -6px 12px rgba(150, 240, 255, 0.3)) drop-shadow(0 -8px 16px rgba(200, 250, 255, 0.2)) drop-shadow(0 -10px 20px rgba(0, 255, 255, 0.15));
   }
+
   40% {
-    filter: sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1) drop-shadow(0 -3px 6px rgba(0, 200, 255, 0.6)) drop-shadow(0 -6px 12px rgba(100, 220, 255, 0.4)) drop-shadow(0 -9px 18px rgba(150, 240, 255, 0.25)) drop-shadow(0 -12px 24px rgba(200, 250, 255, 0.15)) drop-shadow(0 -15px 30px rgba(0, 255, 255, 0.1));
+    filter: var(--heal-base-filter, sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1)) drop-shadow(0 -3px 6px rgba(0, 200, 255, 0.6)) drop-shadow(0 -6px 12px rgba(100, 220, 255, 0.4)) drop-shadow(0 -9px 18px rgba(150, 240, 255, 0.25)) drop-shadow(0 -12px 24px rgba(200, 250, 255, 0.15)) drop-shadow(0 -15px 30px rgba(0, 255, 255, 0.1));
   }
+
   60% {
-    filter: sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1) drop-shadow(0 -2px 4px rgba(0, 200, 255, 0.5)) drop-shadow(0 -4px 8px rgba(100, 220, 255, 0.35)) drop-shadow(0 -6px 12px rgba(150, 240, 255, 0.2)) drop-shadow(0 -8px 16px rgba(200, 250, 255, 0.12)) drop-shadow(0 -10px 20px rgba(0, 255, 255, 0.08));
+    filter: var(--heal-base-filter, sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1)) drop-shadow(0 -2px 4px rgba(0, 200, 255, 0.5)) drop-shadow(0 -4px 8px rgba(100, 220, 255, 0.35)) drop-shadow(0 -6px 12px rgba(150, 240, 255, 0.2)) drop-shadow(0 -8px 16px rgba(200, 250, 255, 0.12)) drop-shadow(0 -10px 20px rgba(0, 255, 255, 0.08));
   }
+
   80% {
-    filter: sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1) drop-shadow(0 -1px 2px rgba(0, 200, 255, 0.3)) drop-shadow(0 -2px 4px rgba(100, 220, 255, 0.2)) drop-shadow(0 -3px 6px rgba(150, 240, 255, 0.12)) drop-shadow(0 -4px 8px rgba(200, 250, 255, 0.08)) drop-shadow(0 -5px 10px rgba(0, 255, 255, 0.05));
+    filter: var(--heal-base-filter, sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1)) drop-shadow(0 -1px 2px rgba(0, 200, 255, 0.3)) drop-shadow(0 -2px 4px rgba(100, 220, 255, 0.2)) drop-shadow(0 -3px 6px rgba(150, 240, 255, 0.12)) drop-shadow(0 -4px 8px rgba(200, 250, 255, 0.08)) drop-shadow(0 -5px 10px rgba(0, 255, 255, 0.05));
   }
+
   100% {
-    filter: sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1) drop-shadow(0 0 0 rgba(0, 200, 255, 0)) drop-shadow(0 0 0 rgba(100, 220, 255, 0)) drop-shadow(0 0 0 rgba(150, 240, 255, 0)) drop-shadow(0 0 0 rgba(200, 250, 255, 0)) drop-shadow(0 0 0 rgba(0, 255, 255, 0));
+    filter: var(--heal-base-filter, sepia(0.1) hue-rotate(180deg) saturate(1.2) brightness(1.15) contrast(1.1)) drop-shadow(0 0 0 rgba(0, 200, 255, 0)) drop-shadow(0 0 0 rgba(100, 220, 255, 0)) drop-shadow(0 0 0 rgba(150, 240, 255, 0)) drop-shadow(0 0 0 rgba(200, 250, 255, 0)) drop-shadow(0 0 0 rgba(0, 255, 255, 0));
   }
 }

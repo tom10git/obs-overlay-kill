@@ -25,6 +25,7 @@ interface UseHPGaugeResult {
   updateConfig: (newConfig: Partial<OverlayConfig>) => Promise<void>
   updateConfigLocal: (newConfig: Partial<OverlayConfig>) => void
   saveConfig: () => Promise<void>
+  reloadConfig: () => Promise<void>
 }
 
 /**
@@ -136,6 +137,8 @@ export function useHPGauge({
           test: { ...prev.test, ...newConfig.test },
           externalWindow: { ...prev.externalWindow, ...newConfig.externalWindow },
           webmLoop: { ...prev.webmLoop, ...newConfig.webmLoop },
+          damageEffectFilter: { ...prev.damageEffectFilter, ...newConfig.damageEffectFilter },
+          healEffectFilter: { ...prev.healEffectFilter, ...newConfig.healEffectFilter },
         }
       })
     },
@@ -165,7 +168,7 @@ export function useHPGauge({
     async (newConfig: Partial<OverlayConfig>) => {
       updateConfigLocal(newConfig)
       setConfig((prev) => {
-        if (!prev) return
+        if (!prev) return prev
         saveOverlayConfig(prev).catch((error) => {
           console.error('設定の保存に失敗しました:', error)
         })
@@ -174,6 +177,34 @@ export function useHPGauge({
     },
     [updateConfigLocal]
   )
+
+  // 設定を再読み込み
+  const reloadConfig = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      // ローカルストレージをクリアしてJSONファイルから読み込む
+      localStorage.removeItem('overlay-config')
+      const loadedConfig = await loadOverlayConfig()
+      setConfig(loadedConfig)
+      // 読み込んだ設定をローカルストレージにも保存
+      if (loadedConfig) {
+        try {
+          localStorage.setItem('overlay-config', JSON.stringify(loadedConfig))
+          console.log('✅ 設定を再読み込みし、ローカルストレージにも保存しました')
+        } catch (storageError) {
+          console.warn('⚠️ ローカルストレージへの保存に失敗しました:', storageError)
+          console.log('✅ 設定を再読み込みしました（ローカルストレージへの保存はスキップ）')
+        }
+      }
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to reload config')
+      setError(error)
+      console.error('❌ 設定の再読み込みに失敗しました:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   // 注意: HPの変更（攻撃、回復、全回復）では自動保存しない
   // 設定画面からの明示的な保存（updateConfig）のみが保存される
@@ -191,5 +222,6 @@ export function useHPGauge({
     updateConfig,
     updateConfigLocal,
     saveConfig,
+    reloadConfig,
   }
 }

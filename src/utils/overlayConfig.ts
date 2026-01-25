@@ -12,6 +12,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
     gaugeCount: 3,
     x: 0,
     y: 0,
+    width: 800,
+    height: 60,
   },
   attack: {
     rewardId: '',
@@ -103,6 +105,20 @@ const DEFAULT_CONFIG: OverlayConfig = {
     videoUrl: '',
     loop: true,
   },
+  damageEffectFilter: {
+    sepia: 0.3,
+    hueRotate: -10,
+    saturate: 1.2,
+    brightness: 0.95,
+    contrast: 1.1,
+  },
+  healEffectFilter: {
+    sepia: 0.1,
+    hueRotate: 180,
+    saturate: 1.2,
+    brightness: 1.15,
+    contrast: 1.1,
+  },
 }
 
 /**
@@ -130,6 +146,8 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       test: { ...DEFAULT_CONFIG.test, ...storedConfig.test },
       externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...storedConfig.externalWindow },
       webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...storedConfig.webmLoop },
+      damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...storedConfig.damageEffectFilter },
+      healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...storedConfig.healEffectFilter },
     }
   }
 
@@ -159,6 +177,8 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       test: { ...DEFAULT_CONFIG.test, ...validated.test },
       externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...validated.externalWindow },
       webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
+      damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...validated.damageEffectFilter },
+      healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...validated.healEffectFilter },
     }
   } catch (error) {
     console.error('設定ファイルの読み込みに失敗しました:', error)
@@ -287,6 +307,12 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     y: isInRange(Number(hpConfig.y), -10000, 10000)
       ? Number(hpConfig.y) || 0
       : 0,
+    width: isInRange(Number(hpConfig.width), 100, 5000)
+      ? Number(hpConfig.width) || DEFAULT_CONFIG.hp.width
+      : DEFAULT_CONFIG.hp.width,
+    height: isInRange(Number(hpConfig.height), 20, 500)
+      ? Number(hpConfig.height) || DEFAULT_CONFIG.hp.height
+      : DEFAULT_CONFIG.hp.height,
   }
 
   // 攻撃設定の検証
@@ -506,6 +532,46 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     loop: typeof webmLoopConfig.loop === 'boolean' ? webmLoopConfig.loop : true,
   }
 
+  // ダメージエフェクトフィルター設定の検証
+  const damageEffectFilterConfig = (c.damageEffectFilter as Record<string, unknown> | undefined) || {}
+  const damageEffectFilter = {
+    sepia: isInRange(Number(damageEffectFilterConfig.sepia), 0, 1)
+      ? Number(damageEffectFilterConfig.sepia) || DEFAULT_CONFIG.damageEffectFilter.sepia
+      : DEFAULT_CONFIG.damageEffectFilter.sepia,
+    hueRotate: isInRange(Number(damageEffectFilterConfig.hueRotate), -360, 360)
+      ? Number(damageEffectFilterConfig.hueRotate) || DEFAULT_CONFIG.damageEffectFilter.hueRotate
+      : DEFAULT_CONFIG.damageEffectFilter.hueRotate,
+    saturate: isInRange(Number(damageEffectFilterConfig.saturate), 0, 2)
+      ? Number(damageEffectFilterConfig.saturate) || DEFAULT_CONFIG.damageEffectFilter.saturate
+      : DEFAULT_CONFIG.damageEffectFilter.saturate,
+    brightness: isInRange(Number(damageEffectFilterConfig.brightness), 0, 2)
+      ? Number(damageEffectFilterConfig.brightness) || DEFAULT_CONFIG.damageEffectFilter.brightness
+      : DEFAULT_CONFIG.damageEffectFilter.brightness,
+    contrast: isInRange(Number(damageEffectFilterConfig.contrast), 0, 2)
+      ? Number(damageEffectFilterConfig.contrast) || DEFAULT_CONFIG.damageEffectFilter.contrast
+      : DEFAULT_CONFIG.damageEffectFilter.contrast,
+  }
+
+  // 回復エフェクトフィルター設定の検証
+  const healEffectFilterConfig = (c.healEffectFilter as Record<string, unknown> | undefined) || {}
+  const healEffectFilter = {
+    sepia: isInRange(Number(healEffectFilterConfig.sepia), 0, 1)
+      ? Number(healEffectFilterConfig.sepia) || DEFAULT_CONFIG.healEffectFilter.sepia
+      : DEFAULT_CONFIG.healEffectFilter.sepia,
+    hueRotate: isInRange(Number(healEffectFilterConfig.hueRotate), -360, 360)
+      ? Number(healEffectFilterConfig.hueRotate) || DEFAULT_CONFIG.healEffectFilter.hueRotate
+      : DEFAULT_CONFIG.healEffectFilter.hueRotate,
+    saturate: isInRange(Number(healEffectFilterConfig.saturate), 0, 2)
+      ? Number(healEffectFilterConfig.saturate) || DEFAULT_CONFIG.healEffectFilter.saturate
+      : DEFAULT_CONFIG.healEffectFilter.saturate,
+    brightness: isInRange(Number(healEffectFilterConfig.brightness), 0, 2)
+      ? Number(healEffectFilterConfig.brightness) || DEFAULT_CONFIG.healEffectFilter.brightness
+      : DEFAULT_CONFIG.healEffectFilter.brightness,
+    contrast: isInRange(Number(healEffectFilterConfig.contrast), 0, 2)
+      ? Number(healEffectFilterConfig.contrast) || DEFAULT_CONFIG.healEffectFilter.contrast
+      : DEFAULT_CONFIG.healEffectFilter.contrast,
+  }
+
   return {
     hp,
     attack,
@@ -519,6 +585,8 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     test,
     externalWindow,
     webmLoop,
+    damageEffectFilter,
+    healEffectFilter,
   }
 }
 

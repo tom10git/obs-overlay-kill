@@ -225,6 +225,7 @@ export function OverlayPage() {
     resetHP,
     updateConfigLocal,
     saveConfig,
+    reloadConfig,
   } = useHPGauge({
     broadcasterId: user?.id || '',
     channel: username,
@@ -1169,6 +1170,14 @@ export function OverlayPage() {
             pointerEvents: 'none',
             overflow: 'hidden',
             transform: 'translate(-50%, -50%)',
+            filter: damageEffectActive
+              ? `sepia(${config.damageEffectFilter.sepia}) hue-rotate(${config.damageEffectFilter.hueRotate}deg) saturate(${config.damageEffectFilter.saturate}) brightness(${config.damageEffectFilter.brightness}) contrast(${config.damageEffectFilter.contrast})`
+              : healEffectActive
+                ? `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`
+                : undefined,
+            ...(healEffectActive ? {
+              '--heal-base-filter': `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`,
+            } as React.CSSProperties : {}),
           }}
         >
           {externalStream ? (
@@ -1181,6 +1190,14 @@ export function OverlayPage() {
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
+                filter: damageEffectActive
+                  ? `sepia(${config.damageEffectFilter.sepia}) hue-rotate(${config.damageEffectFilter.hueRotate}deg) saturate(${config.damageEffectFilter.saturate}) brightness(${config.damageEffectFilter.brightness}) contrast(${config.damageEffectFilter.contrast})`
+                  : healEffectActive
+                    ? `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`
+                    : undefined,
+                ...(healEffectActive ? {
+                  '--heal-base-filter': `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`,
+                } as React.CSSProperties : {}),
               }}
             />
           ) : (
@@ -1218,6 +1235,14 @@ export function OverlayPage() {
             pointerEvents: 'none',
             overflow: 'hidden',
             transform: 'translate(-50%, -50%)',
+            filter: damageEffectActive
+              ? `sepia(${config.damageEffectFilter.sepia}) hue-rotate(${config.damageEffectFilter.hueRotate}deg) saturate(${config.damageEffectFilter.saturate}) brightness(${config.damageEffectFilter.brightness}) contrast(${config.damageEffectFilter.contrast})`
+              : healEffectActive
+                ? `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`
+                : undefined,
+            ...(healEffectActive ? {
+              '--heal-base-filter': `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`,
+            } as React.CSSProperties : {}),
           }}
         >
           <video
@@ -1230,6 +1255,14 @@ export function OverlayPage() {
               width: '100%',
               height: '100%',
               objectFit: 'contain',
+              filter: damageEffectActive
+                ? `sepia(${config.damageEffectFilter.sepia}) hue-rotate(${config.damageEffectFilter.hueRotate}deg) saturate(${config.damageEffectFilter.saturate}) brightness(${config.damageEffectFilter.brightness}) contrast(${config.damageEffectFilter.contrast})`
+                : healEffectActive
+                  ? `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`
+                  : undefined,
+              ...(healEffectActive ? {
+                '--heal-base-filter': `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`,
+              } as React.CSSProperties : {}),
             }}
           />
         </div>
@@ -1392,6 +1425,54 @@ export function OverlayPage() {
                       setTestInputValues((prev => {
                         const newValues = { ...prev }
                         delete newValues.hpGaugeY
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">HPゲージ幅 (px)</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    min="100"
+                    max="5000"
+                    value={testInputValues.hpGaugeWidth ?? config.hp.width}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, hpGaugeWidth: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 100 && value <= 5000) {
+                        updateConfigLocal({ hp: { ...config.hp, width: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.hpGaugeWidth
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">HPゲージ高さ (px)</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    min="20"
+                    max="500"
+                    value={testInputValues.hpGaugeHeight ?? config.hp.height}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, hpGaugeHeight: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 20 && value <= 500) {
+                        updateConfigLocal({ hp: { ...config.hp, height: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.hpGaugeHeight
                         return newValues
                       }))
                     }}
@@ -1951,12 +2032,210 @@ export function OverlayPage() {
                 )}
                 <div className="test-settings-divider"></div>
                 <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>ダメージエフェクトフィルター</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">セピア (0-1)</label>
+                  <input
+                    type="range"
+                    className="test-settings-range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={config.damageEffectFilter.sepia}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      updateConfigLocal({
+                        damageEffectFilter: { ...config.damageEffectFilter, sepia: value },
+                      })
+                    }}
+                  />
+                  <span className="test-settings-range-value">{config.damageEffectFilter.sepia.toFixed(2)}</span>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">色相 (-360-360)</label>
+                  <input
+                    type="range"
+                    className="test-settings-range"
+                    min="-360"
+                    max="360"
+                    step="1"
+                    value={config.damageEffectFilter.hueRotate}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      updateConfigLocal({
+                        damageEffectFilter: { ...config.damageEffectFilter, hueRotate: value },
+                      })
+                    }}
+                  />
+                  <span className="test-settings-range-value">{config.damageEffectFilter.hueRotate}°</span>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">彩度 (0-2)</label>
+                  <input
+                    type="range"
+                    className="test-settings-range"
+                    min="0"
+                    max="2"
+                    step="0.01"
+                    value={config.damageEffectFilter.saturate}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      updateConfigLocal({
+                        damageEffectFilter: { ...config.damageEffectFilter, saturate: value },
+                      })
+                    }}
+                  />
+                  <span className="test-settings-range-value">{config.damageEffectFilter.saturate.toFixed(2)}</span>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">明度 (0-2)</label>
+                  <input
+                    type="range"
+                    className="test-settings-range"
+                    min="0"
+                    max="2"
+                    step="0.01"
+                    value={config.damageEffectFilter.brightness}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      updateConfigLocal({
+                        damageEffectFilter: { ...config.damageEffectFilter, brightness: value },
+                      })
+                    }}
+                  />
+                  <span className="test-settings-range-value">{config.damageEffectFilter.brightness.toFixed(2)}</span>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">コントラスト (0-2)</label>
+                  <input
+                    type="range"
+                    className="test-settings-range"
+                    min="0"
+                    max="2"
+                    step="0.01"
+                    value={config.damageEffectFilter.contrast}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      updateConfigLocal({
+                        damageEffectFilter: { ...config.damageEffectFilter, contrast: value },
+                      })
+                    }}
+                  />
+                  <span className="test-settings-range-value">{config.damageEffectFilter.contrast.toFixed(2)}</span>
+                </div>
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>回復エフェクトフィルター</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">セピア (0-1)</label>
+                  <input
+                    type="range"
+                    className="test-settings-range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={config.healEffectFilter.sepia}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      updateConfigLocal({
+                        healEffectFilter: { ...config.healEffectFilter, sepia: value },
+                      })
+                    }}
+                  />
+                  <span className="test-settings-range-value">{config.healEffectFilter.sepia.toFixed(2)}</span>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">色相 (-360-360)</label>
+                  <input
+                    type="range"
+                    className="test-settings-range"
+                    min="-360"
+                    max="360"
+                    step="1"
+                    value={config.healEffectFilter.hueRotate}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      updateConfigLocal({
+                        healEffectFilter: { ...config.healEffectFilter, hueRotate: value },
+                      })
+                    }}
+                  />
+                  <span className="test-settings-range-value">{config.healEffectFilter.hueRotate}°</span>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">彩度 (0-2)</label>
+                  <input
+                    type="range"
+                    className="test-settings-range"
+                    min="0"
+                    max="2"
+                    step="0.01"
+                    value={config.healEffectFilter.saturate}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      updateConfigLocal({
+                        healEffectFilter: { ...config.healEffectFilter, saturate: value },
+                      })
+                    }}
+                  />
+                  <span className="test-settings-range-value">{config.healEffectFilter.saturate.toFixed(2)}</span>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">明度 (0-2)</label>
+                  <input
+                    type="range"
+                    className="test-settings-range"
+                    min="0"
+                    max="2"
+                    step="0.01"
+                    value={config.healEffectFilter.brightness}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      updateConfigLocal({
+                        healEffectFilter: { ...config.healEffectFilter, brightness: value },
+                      })
+                    }}
+                  />
+                  <span className="test-settings-range-value">{config.healEffectFilter.brightness.toFixed(2)}</span>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">コントラスト (0-2)</label>
+                  <input
+                    type="range"
+                    className="test-settings-range"
+                    min="0"
+                    max="2"
+                    step="0.01"
+                    value={config.healEffectFilter.contrast}
+                    onChange={(e) => {
+                      const value = Number(e.target.value)
+                      updateConfigLocal({
+                        healEffectFilter: { ...config.healEffectFilter, contrast: value },
+                      })
+                    }}
+                  />
+                  <span className="test-settings-range-value">{config.healEffectFilter.contrast.toFixed(2)}</span>
+                </div>
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
                   <button
                     className="test-button test-save"
                     onClick={saveConfig}
                     title="設定を保存"
                   >
                     設定を保存
+                  </button>
+                </div>
+                <div className="test-settings-section">
+                  <button
+                    className="test-button test-reload"
+                    onClick={reloadConfig}
+                    title="overlay-config.jsonから設定を再読み込み"
+                    disabled={configLoading}
+                  >
+                    {configLoading ? '読み込み中...' : '設定を再読み込み'}
                   </button>
                 </div>
               </div>
