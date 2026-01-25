@@ -187,6 +187,27 @@ export function OverlayPage() {
     console.log('[reduceHPRef更新] reduceHP関数を更新しました', reduceHP)
   }, [reduceHP])
 
+  // テストモード用の連打タイマー管理
+  const repeatTimerRef = useRef<number | null>(null)
+  const stopRepeat = useCallback(() => {
+    if (repeatTimerRef.current) {
+      window.clearInterval(repeatTimerRef.current)
+      repeatTimerRef.current = null
+    }
+  }, [])
+
+  const startRepeat = useCallback((action: () => void, intervalMs: number) => {
+    action()
+    if (repeatTimerRef.current) {
+      window.clearInterval(repeatTimerRef.current)
+    }
+    repeatTimerRef.current = window.setInterval(action, intervalMs)
+  }, [])
+
+  useEffect(() => {
+    return () => stopRepeat()
+  }, [stopRepeat])
+
   // 効果音の設定（攻撃、ミス、出血ダメージ、回復、蘇生）
   const attackSoundUrl = useMemo(
     () => (config?.attack.soundUrl?.trim() || ''),
@@ -248,8 +269,10 @@ export function OverlayPage() {
         window.clearTimeout(timers.durationTimer)
       })
       bleedTimersRef.current.clear()
+      // テストモードの連打も停止
+      stopRepeat()
     }
-  }, [currentHP])
+  }, [currentHP, stopRepeat])
 
 
   // 攻撃イベントハンドラ
@@ -529,6 +552,11 @@ export function OverlayPage() {
   // useTestEventsからChannelPointEventを受け取るが、テストモードでは無視して直接処理
   const handleTestAttack = useCallback(() => {
     if (!config || !isTestMode) return
+    // HPが0以下の場合は何もしない
+    if (currentHP <= 0) {
+      stopRepeat()
+      return
+    }
 
     // ミス判定
     let shouldDamage = true
@@ -668,7 +696,7 @@ export function OverlayPage() {
         playMissSound()
       }
     }
-  }, [config, isTestMode, reduceHP, showMiss, showCritical, playMissSound, playAttackSound, playBleedSound])
+  }, [config, isTestMode, currentHP, reduceHP, showMiss, showCritical, playMissSound, playAttackSound, playBleedSound, stopRepeat])
 
   const handleTestHeal = useCallback(() => {
     if (!config || !isTestMode) return
@@ -715,26 +743,6 @@ export function OverlayPage() {
     onReset: handleTestReset,
     attackEnabled: currentHP > 0,
   })
-
-  const repeatTimerRef = useRef<number | null>(null)
-  const startRepeat = useCallback((action: () => void, intervalMs: number) => {
-    action()
-    if (repeatTimerRef.current) {
-      window.clearInterval(repeatTimerRef.current)
-    }
-    repeatTimerRef.current = window.setInterval(action, intervalMs)
-  }, [])
-
-  const stopRepeat = useCallback(() => {
-    if (repeatTimerRef.current) {
-      window.clearInterval(repeatTimerRef.current)
-      repeatTimerRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    return () => stopRepeat()
-  }, [stopRepeat])
 
   // リトライコマンドはメインのチャット監視処理に統合されているため、useRetryCommandは使用しない
   // （重複処理を避けるため）
