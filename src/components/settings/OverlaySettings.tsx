@@ -2,8 +2,8 @@
  * オーバーレイ設定UIコンポーネント
  */
 
-import { useState, useEffect } from 'react'
-import { loadOverlayConfig, saveOverlayConfig, getDefaultConfig } from '../../utils/overlayConfig'
+import { useState, useEffect, useRef } from 'react'
+import { loadOverlayConfig, saveOverlayConfig, getDefaultConfig, validateAndSanitizeConfig } from '../../utils/overlayConfig'
 import { isValidUrl } from '../../utils/security'
 import type { OverlayConfig } from '../../types/overlay'
 import './OverlaySettings.css'
@@ -32,6 +32,7 @@ export function OverlaySettings() {
   const [showHealRewardId, setShowHealRewardId] = useState(false)
   // 入力中の値を文字列として保持（空文字列を許可するため）
   const [inputValues, setInputValues] = useState<Record<string, string>>({})
+  const fileInputRef = useRef<HTMLInputElement>(null) // ファイル選択用のinput要素の参照
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -2220,8 +2221,53 @@ export function OverlaySettings() {
       </div>
 
       <div className="settings-actions">
+        <input
+          type="file"
+          ref={fileInputRef}
+          accept=".json"
+          style={{ display: 'none' }}
+          onChange={async (e) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+
+            try {
+              const text = await file.text()
+              const jsonConfig = JSON.parse(text)
+              const validated = validateAndSanitizeConfig(jsonConfig)
+              
+              // 設定を更新
+              setConfig(validated)
+              // 入力値を初期化
+              setInputValues({})
+              // ローカルストレージにも保存
+              localStorage.setItem('overlay-config', JSON.stringify(validated))
+              setMessage('✅ 設定ファイルを読み込みました')
+              setTimeout(() => setMessage(null), 3000)
+              console.log('✅ 設定ファイルを読み込みました')
+            } catch (error) {
+              console.error('❌ 設定ファイルの読み込みに失敗しました:', error)
+              setMessage('❌ 設定ファイルの読み込みに失敗しました。JSON形式が正しいか確認してください。')
+              setTimeout(() => setMessage(null), 5000)
+            } finally {
+              // ファイル入力をリセット（同じファイルを再度選択できるように）
+              if (fileInputRef.current) {
+                fileInputRef.current.value = ''
+              }
+            }
+          }}
+        />
         <button onClick={handleSave} disabled={saving}>
           {saving ? '保存中...' : '設定を保存'}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            fileInputRef.current?.click()
+          }}
+        >
+          設定を再読み込み
         </button>
         <button onClick={handleReset}>リセット</button>
       </div>

@@ -139,6 +139,8 @@ export function useHPGauge({
           webmLoop: { ...prev.webmLoop, ...newConfig.webmLoop },
           damageEffectFilter: { ...prev.damageEffectFilter, ...newConfig.damageEffectFilter },
           healEffectFilter: { ...prev.healEffectFilter, ...newConfig.healEffectFilter },
+          gaugeColors: { ...prev.gaugeColors, ...newConfig.gaugeColors },
+          damageColors: { ...prev.damageColors, ...newConfig.damageColors },
         }
       })
     },
