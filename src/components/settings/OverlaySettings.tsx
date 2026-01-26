@@ -25,6 +25,8 @@ export function OverlaySettings() {
     zeroHpEffect: true,
     test: true,
     externalWindow: true,
+    gaugeColors: true,
+    damageColors: true,
   })
   const [showAttackRewardId, setShowAttackRewardId] = useState(false)
   const [showHealRewardId, setShowHealRewardId] = useState(false)
@@ -375,7 +377,7 @@ export function OverlaySettings() {
                 ミス判定を有効にする
               </label>
               {config.attack.missEnabled && (
-                  <label>
+                <label>
                   ミス確率 (%):
                   <input
                     type="text"
@@ -924,6 +926,21 @@ export function OverlaySettings() {
                 <code>https://...</code>
               </p>
             )}
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.attack.filterEffectEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      attack: { ...config.attack, filterEffectEnabled: e.target.checked },
+                    })
+                  }
+                />
+                攻撃時のフィルターエフェクトを有効にする
+              </label>
+            </div>
           </div>
         )}
       </div>
@@ -1243,6 +1260,21 @@ export function OverlaySettings() {
                 <code>https://...</code>
               </p>
             )}
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.heal.filterEffectEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      heal: { ...config.heal, filterEffectEnabled: e.target.checked },
+                    })
+                  }
+                />
+                回復時のフィルターエフェクトを有効にする
+              </label>
+            </div>
           </div>
         )}
       </div>
@@ -1545,7 +1577,7 @@ export function OverlaySettings() {
                       setTimeout(() => setMessage(null), 3000)
                     }
                   }}
-                  placeholder="空欄の場合は otsu.png を使用"
+                  placeholder="画像のURLを入力"
                 />
               </label>
             </div>
@@ -1597,7 +1629,7 @@ export function OverlaySettings() {
                       setTimeout(() => setMessage(null), 3000)
                     }
                   }}
-                  placeholder="空欄の場合は 爆発1.mp3 を使用"
+                  placeholder="効果音のURLを入力"
                 />
               </label>
             </div>
@@ -1691,7 +1723,7 @@ export function OverlaySettings() {
                       setTimeout(() => setMessage(null), 3000)
                     }
                   }}
-                  placeholder="空欄の場合は src/images/bakuhatsu.webm を使用"
+                  placeholder="動画のURLを入力"
                 />
               </label>
             </div>
@@ -1741,6 +1773,222 @@ export function OverlaySettings() {
               例: <code>src/images/bakuhatsu.gif</code>（public/images に配置）または{' '}
               <code>https://...</code>
             </p>
+          </div>
+        )}
+      </div>
+
+      <div className="settings-section">
+        <h3 className="settings-section-header" onClick={() => toggleSection('gaugeColors')}>
+          <span className="accordion-icon">{expandedSections.gaugeColors ? '▼' : '▶'}</span>
+          HPゲージ色設定
+        </h3>
+        {expandedSections.gaugeColors && (
+          <div className="settings-section-content">
+            <div className="settings-row">
+              <label>
+                最後の1ゲージ（HPが最後に残る分）:
+                <input
+                  type="color"
+                  value={config.gaugeColors.lastGauge}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
+                    })
+                  }
+                />
+                <input
+                  type="text"
+                  value={config.gaugeColors.lastGauge}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
+                    })
+                  }
+                  placeholder="#FF0000"
+                  style={{ width: '100px', marginLeft: '0.5rem' }}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                2ゲージ目:
+                <input
+                  type="color"
+                  value={config.gaugeColors.secondGauge}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
+                    })
+                  }
+                />
+                <input
+                  type="text"
+                  value={config.gaugeColors.secondGauge}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
+                    })
+                  }
+                  placeholder="#FFA500"
+                  style={{ width: '100px', marginLeft: '0.5rem' }}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                3ゲージ目以降の交互パターン1（3, 5, 7, 9...ゲージ目）:
+                <input
+                  type="color"
+                  value={config.gaugeColors.patternColor1}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
+                    })
+                  }
+                />
+                <input
+                  type="text"
+                  value={config.gaugeColors.patternColor1}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
+                    })
+                  }
+                  placeholder="#8000FF"
+                  style={{ width: '100px', marginLeft: '0.5rem' }}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                3ゲージ目以降の交互パターン2（4, 6, 8, 10...ゲージ目）:
+                <input
+                  type="color"
+                  value={config.gaugeColors.patternColor2}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
+                    })
+                  }
+                />
+                <input
+                  type="text"
+                  value={config.gaugeColors.patternColor2}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
+                    })
+                  }
+                  placeholder="#4aa3ff"
+                  style={{ width: '100px', marginLeft: '0.5rem' }}
+                />
+              </label>
+            </div>
+            <div className="settings-hint">
+              <p>
+                <strong>注意:</strong> 3ゲージ目以降は、設定した2色を交互に使用します。ゲージ数が10を超えても、この2色が繰り返し適用されます。
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="settings-section">
+        <h3 className="settings-section-header" onClick={() => toggleSection('damageColors')}>
+          <span className="accordion-icon">{expandedSections.damageColors ? '▼' : '▶'}</span>
+          ダメージ値色設定
+        </h3>
+        {expandedSections.damageColors && (
+          <div className="settings-section-content">
+            <div className="settings-row">
+              <label>
+                通常ダメージの色:
+                <input
+                  type="color"
+                  value={config.damageColors.normal}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      damageColors: { ...config.damageColors, normal: e.target.value },
+                    })
+                  }
+                />
+                <input
+                  type="text"
+                  value={config.damageColors.normal}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      damageColors: { ...config.damageColors, normal: e.target.value },
+                    })
+                  }
+                  placeholder="#cc0000"
+                  style={{ width: '100px', marginLeft: '0.5rem' }}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                クリティカルダメージの色:
+                <input
+                  type="color"
+                  value={config.damageColors.critical}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      damageColors: { ...config.damageColors, critical: e.target.value },
+                    })
+                  }
+                />
+                <input
+                  type="text"
+                  value={config.damageColors.critical}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      damageColors: { ...config.damageColors, critical: e.target.value },
+                    })
+                  }
+                  placeholder="#cc8800"
+                  style={{ width: '100px', marginLeft: '0.5rem' }}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                出血ダメージの色:
+                <input
+                  type="color"
+                  value={config.damageColors.bleed}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      damageColors: { ...config.damageColors, bleed: e.target.value },
+                    })
+                  }
+                />
+                <input
+                  type="text"
+                  value={config.damageColors.bleed}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      damageColors: { ...config.damageColors, bleed: e.target.value },
+                    })
+                  }
+                  placeholder="#ff6666"
+                  style={{ width: '100px', marginLeft: '0.5rem' }}
+                />
+              </label>
+            </div>
           </div>
         )}
       </div>

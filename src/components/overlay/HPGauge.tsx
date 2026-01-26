@@ -8,8 +8,6 @@ import { HPDisplay } from './HPDisplay'
 import { getCssEasing } from '../../utils/animation'
 import type { OverlayConfig } from '../../types/overlay'
 import './HPGauge.css'
-import defaultOtsuImage from '../../images/otsu.png'
-import defaultExplosionSound from '../../sounds/爆発1.mp3'
 import { useSound } from '../../hooks/useSound'
 
 interface HPGaugeProps {
@@ -22,17 +20,19 @@ interface HPGaugeProps {
 /**
  * ゲージの色を決定
  */
-function getGaugeColor(index: number): string {
+function getGaugeColor(index: number, gaugeColors: OverlayConfig['gaugeColors']): string {
   // 仕様:
-  // - 「最後の1ゲージ（HPが最後に残る分）」が赤
-  // - 2ゲージ目がオレンジ
-  // - 3ゲージ目以降は緑/水色を交互（3ゲージ目=緑）
+  // - 「最後の1ゲージ（HPが最後に残る分）」がlastGauge
+  // - 2ゲージ目がsecondGauge
+  // - 3ゲージ目以降はpatternColor1とpatternColor2を交互に使用
   //
   // index: 0が最下層（最後に残る分）, total-1が最上層（最初に減る分）
-  if (index === 0) return '#FF0000' // 最後に残る1ゲージ = 赤
-  if (index === 1) return '#FFA500' // 2ゲージ目 = オレンジ
-  // 3ゲージ目以降（緑→紫、青は全回復ボタンの色に合わせる）
-  return (index - 2) % 2 === 0 ? '#8000FF' : '#4aa3ff'
+  if (index === 0) return gaugeColors.lastGauge // 最後に残る1ゲージ
+  if (index === 1) return gaugeColors.secondGauge // 2ゲージ目
+  // 3ゲージ目以降（index 2以上）は交互に色を設定
+  // index 2, 4, 6, 8... → patternColor1
+  // index 3, 5, 7, 9... → patternColor2
+  return (index - 2) % 2 === 0 ? gaugeColors.patternColor1 : gaugeColors.patternColor2
 }
 
 /**
@@ -88,7 +88,7 @@ export function HPGauge({
   const gaugeLayers = useMemo(() => {
     const layers = []
     for (let i = 0; i < gaugeCount; i++) {
-      const color = getGaugeColor(i)
+      const color = getGaugeColor(i, config.gaugeColors)
       // ゲージインデックス: 0が最下層（最後に残る分）、gaugeCount-1が最上層（最初に減る分）
       // z-index: 高いほど上に表示（最上層が最前面）
       const zIndex = i + 1
@@ -108,22 +108,16 @@ export function HPGauge({
       })
     }
     return layers
-  }, [currentHP, maxHP, gaugeCount])
+  }, [currentHP, maxHP, gaugeCount, config.gaugeColors])
 
   // メモ化: アニメーション設定とURLは頻繁に変わらないためメモ化
   const easing = useMemo(() => getCssEasing(config.animation.easing), [config.animation.easing])
   const zeroHpImageUrl = useMemo(
-    () =>
-      config.zeroHpImage.imageUrl.trim().length > 0
-        ? config.zeroHpImage.imageUrl
-        : defaultOtsuImage,
+    () => config.zeroHpImage.imageUrl.trim(),
     [config.zeroHpImage.imageUrl]
   )
   const zeroHpSoundUrl = useMemo(
-    () =>
-      config.zeroHpSound.soundUrl.trim().length > 0
-        ? config.zeroHpSound.soundUrl
-        : defaultExplosionSound,
+    () => config.zeroHpSound.soundUrl.trim(),
     [config.zeroHpSound.soundUrl]
   )
 
@@ -142,10 +136,7 @@ export function HPGauge({
 
   // 動画URLを取得（メモ化）
   const zeroHpEffectVideoUrl = useMemo(
-    () =>
-      config.zeroHpEffect.videoUrl.trim().length > 0
-        ? config.zeroHpEffect.videoUrl
-        : 'src/images/bakuhatsu.webm',
+    () => config.zeroHpEffect.videoUrl.trim(),
     [config.zeroHpEffect.videoUrl]
   )
 
@@ -186,7 +177,7 @@ export function HPGauge({
     // 全回復後も確実に検出できるように、prevHPが0より大きいことを確認
     if (prevHP > 0 && isZeroNow) {
       // エフェクト（透過WebM動画）を先に表示
-      if (config.zeroHpEffect.enabled) {
+      if (config.zeroHpEffect.enabled && zeroHpEffectVideoUrl.length > 0) {
         // 既存のタイマーをクリア（連続攻撃時の重複を防ぐ）
         if (effectTimerRef.current) {
           window.clearTimeout(effectTimerRef.current)
@@ -212,8 +203,8 @@ export function HPGauge({
           }, Math.max(100, config.zeroHpEffect.duration))
         })
       }
-      // 画像（otsu.png）を少し遅延させて表示（エフェクトより後に表示）
-      if (config.zeroHpImage.enabled) {
+      // 画像を少し遅延させて表示（エフェクトより後に表示）
+      if (config.zeroHpImage.enabled && zeroHpImageUrl.length > 0) {
         // 既存のタイマーをクリア
         if (imageTimerRef.current) {
           window.clearTimeout(imageTimerRef.current)
@@ -261,6 +252,8 @@ export function HPGauge({
     config.zeroHpEffect.duration,
     config.zeroHpSound.enabled,
     playZeroHpSound,
+    zeroHpImageUrl,
+    zeroHpEffectVideoUrl,
   ])
 
   // クリーンアップ（コンポーネントのアンマウント時のみ実行）
@@ -317,18 +310,19 @@ export function HPGauge({
             current={currentHP}
             max={maxHP}
             fontSize={config.display.fontSize}
+            showMaxHp={config.display.showMaxHp}
           />
         </div>
         <div
           className="hp-gauge-zero-image"
-          style={{ display: config.zeroHpImage.enabled && showZeroHpImage ? 'flex' : 'none' }}
+          style={{ display: config.zeroHpImage.enabled && showZeroHpImage && zeroHpImageUrl.length > 0 ? 'flex' : 'none' }}
         >
           <img src={zeroHpImageUrl} alt="KO" />
         </div>
       </div>
       <div
         className="hp-gauge-zero-effect"
-        style={{ display: config.zeroHpEffect.enabled && showZeroHpEffect ? 'flex' : 'none' }}
+        style={{ display: config.zeroHpEffect.enabled && showZeroHpEffect && zeroHpEffectVideoUrl.length > 0 ? 'flex' : 'none' }}
       >
         <video
           ref={videoRef}
