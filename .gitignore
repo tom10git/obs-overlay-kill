@@ -8,8 +8,7 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Config
-public/config/oauth-token.json
-public/config/overlay-config.json
+public/config/*
 
 # Sound files
 src/sounds/
