@@ -36,6 +36,7 @@ export interface AttackConfig {
   soundEnabled: boolean // 攻撃効果音の有効/無効
   soundUrl: string // 攻撃効果音のURL
   soundVolume: number // 攻撃効果音の音量（0-1）
+  filterEffectEnabled: boolean // 攻撃時のフィルターエフェクトの有効/無効
 }
 
 export interface HealConfig {
@@ -50,6 +51,7 @@ export interface HealConfig {
   soundEnabled: boolean // 回復効果音の有効/無効
   soundUrl: string // 回復効果音のURL
   soundVolume: number // 回復効果音の音量（0-1）
+  filterEffectEnabled: boolean // 回復時のフィルターエフェクトの有効/無効
 }
 
 export interface RetryConfig {
@@ -68,6 +70,19 @@ export interface AnimationConfig {
 export interface DisplayConfig {
   showMaxHp: boolean
   fontSize: number
+}
+
+export interface GaugeColorConfig {
+  lastGauge: string // 最後の1ゲージ（HPが最後に残る分）の色
+  secondGauge: string // 2ゲージ目の色
+  patternColor1: string // 3ゲージ目以降の交互パターン1（3, 5, 7, 9...ゲージ目）
+  patternColor2: string // 3ゲージ目以降の交互パターン2（4, 6, 8, 10...ゲージ目）
+}
+
+export interface DamageColorConfig {
+  normal: string // 通常ダメージの色
+  critical: string // クリティカルダメージの色
+  bleed: string // 出血ダメージの色
 }
 
 export interface ZeroHpImageConfig {
@@ -136,6 +151,8 @@ export interface OverlayConfig {
   webmLoop: WebMLoopConfig
   damageEffectFilter: EffectFilterConfig // ダメージエフェクトのフィルター設定
   healEffectFilter: EffectFilterConfig // 回復エフェクトのフィルター設定
+  gaugeColors: GaugeColorConfig // HPゲージの色設定
+  damageColors: DamageColorConfig // ダメージ値の色設定
 }
 
 export interface ChannelPointEvent {

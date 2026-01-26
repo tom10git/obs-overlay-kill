@@ -39,6 +39,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundEnabled: false,
     soundUrl: '',
     soundVolume: 0.7,
+    filterEffectEnabled: true,
   },
   heal: {
     rewardId: '',
@@ -52,6 +53,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundEnabled: false,
     soundUrl: '',
     soundVolume: 0.7,
+    filterEffectEnabled: true,
   },
   retry: {
     command: '!retry',
@@ -79,7 +81,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
   },
   zeroHpEffect: {
     enabled: true,
-    videoUrl: 'src/images/bakuhatsu.webm', // 透過WebM動画
+    videoUrl: '', // 透過WebM動画
     duration: 2000, // 2秒
   },
   test: {
@@ -119,6 +121,17 @@ const DEFAULT_CONFIG: OverlayConfig = {
     brightness: 1.15,
     contrast: 1.1,
   },
+  gaugeColors: {
+    lastGauge: '#FF0000', // 最後の1ゲージ = 赤
+    secondGauge: '#FFA500', // 2ゲージ目 = オレンジ
+    patternColor1: '#8000FF', // 3ゲージ目以降の交互パターン1（3, 5, 7, 9...ゲージ目）= 紫
+    patternColor2: '#4aa3ff', // 3ゲージ目以降の交互パターン2（4, 6, 8, 10...ゲージ目）= 青
+  },
+  damageColors: {
+    normal: '#cc0000', // 通常ダメージの色
+    critical: '#cc8800', // クリティカルダメージの色
+    bleed: '#ff6666', // 出血ダメージの色
+  },
 }
 
 /**
@@ -148,6 +161,8 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...storedConfig.webmLoop },
       damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...storedConfig.damageEffectFilter },
       healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...storedConfig.healEffectFilter },
+      gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...storedConfig.gaugeColors },
+      damageColors: { ...DEFAULT_CONFIG.damageColors, ...storedConfig.damageColors },
     }
   }
 
@@ -179,6 +194,8 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
       damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...validated.damageEffectFilter },
       healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...validated.healEffectFilter },
+      gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...validated.gaugeColors },
+      damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
     }
   } catch (error) {
     console.error('設定ファイルの読み込みに失敗しました:', error)
@@ -298,7 +315,7 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     current: isInRange(Number(hpConfig.current), 0, hpMax)
       ? Math.max(0, Math.min(Number(hpConfig.current) || 0, hpMax))
       : DEFAULT_CONFIG.hp.current,
-    gaugeCount: isInRange(Number(hpConfig.gaugeCount), 1, 10)
+    gaugeCount: isInRange(Number(hpConfig.gaugeCount), 1, 100)
       ? Number(hpConfig.gaugeCount) || DEFAULT_CONFIG.hp.gaugeCount
       : DEFAULT_CONFIG.hp.gaugeCount,
     x: isInRange(Number(hpConfig.x), -10000, 10000)
@@ -372,6 +389,7 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundVolume: isInRange(Number(attackConfig.soundVolume), 0, 1)
       ? Number(attackConfig.soundVolume) || 0.7
       : 0.7,
+    filterEffectEnabled: typeof attackConfig.filterEffectEnabled === 'boolean' ? attackConfig.filterEffectEnabled : true,
   }
 
   // 回復設定の検証
@@ -399,6 +417,7 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundVolume: isInRange(Number(healConfig.soundVolume), 0, 1)
       ? Number(healConfig.soundVolume) || 0.7
       : 0.7,
+    filterEffectEnabled: typeof healConfig.filterEffectEnabled === 'boolean' ? healConfig.filterEffectEnabled : true,
   }
 
   // リトライ設定の検証
@@ -572,6 +591,30 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       : DEFAULT_CONFIG.healEffectFilter.contrast,
   }
 
+  // 色の検証関数（16進数カラーコード形式をチェック）
+  const isValidColor = (color: unknown): boolean => {
+    if (typeof color !== 'string') return false
+    // #RRGGBB または #RGB 形式をチェック
+    return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color)
+  }
+
+  // HPゲージ色設定の検証
+  const gaugeColorsConfig = (c.gaugeColors as Record<string, unknown> | undefined) || {}
+  const gaugeColors = {
+    lastGauge: isValidColor(gaugeColorsConfig.lastGauge) ? (gaugeColorsConfig.lastGauge as string) : DEFAULT_CONFIG.gaugeColors.lastGauge,
+    secondGauge: isValidColor(gaugeColorsConfig.secondGauge) ? (gaugeColorsConfig.secondGauge as string) : DEFAULT_CONFIG.gaugeColors.secondGauge,
+    patternColor1: isValidColor(gaugeColorsConfig.patternColor1) ? (gaugeColorsConfig.patternColor1 as string) : (isValidColor(gaugeColorsConfig.thirdGauge) ? (gaugeColorsConfig.thirdGauge as string) : DEFAULT_CONFIG.gaugeColors.patternColor1), // 後方互換性: thirdGaugeもチェック
+    patternColor2: isValidColor(gaugeColorsConfig.patternColor2) ? (gaugeColorsConfig.patternColor2 as string) : (isValidColor(gaugeColorsConfig.fourthGauge) ? (gaugeColorsConfig.fourthGauge as string) : DEFAULT_CONFIG.gaugeColors.patternColor2), // 後方互換性: fourthGaugeもチェック
+  }
+
+  // ダメージ値色設定の検証
+  const damageColorsConfig = (c.damageColors as Record<string, unknown> | undefined) || {}
+  const damageColors = {
+    normal: isValidColor(damageColorsConfig.normal) ? (damageColorsConfig.normal as string) : DEFAULT_CONFIG.damageColors.normal,
+    critical: isValidColor(damageColorsConfig.critical) ? (damageColorsConfig.critical as string) : DEFAULT_CONFIG.damageColors.critical,
+    bleed: isValidColor(damageColorsConfig.bleed) ? (damageColorsConfig.bleed as string) : DEFAULT_CONFIG.damageColors.bleed,
+  }
+
   return {
     hp,
     attack,
@@ -587,6 +630,8 @@ function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     webmLoop,
     damageEffectFilter,
     healEffectFilter,
+    gaugeColors,
+    damageColors,
   }
 }
 

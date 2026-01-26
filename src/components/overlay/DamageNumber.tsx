@@ -3,6 +3,7 @@
  */
 
 import './DamageNumber.css'
+import type { DamageColorConfig } from '../../types/overlay'
 
 interface DamageNumberProps {
   amount: number
@@ -11,6 +12,7 @@ interface DamageNumberProps {
   angle?: number // 放射状の角度（度）
   distance?: number // 放射状の距離（px）
   id: number
+  damageColors: DamageColorConfig
 }
 
 export function DamageNumber({ 
@@ -19,8 +21,12 @@ export function DamageNumber({
   isBleed = false,
   angle = 0,
   distance = 0,
-  id 
+  id,
+  damageColors
 }: DamageNumberProps) {
+  // 色を決定
+  const color = isBleed ? damageColors.bleed : (isCritical ? damageColors.critical : damageColors.normal)
+  
   // 出血ダメージの場合は角度と距離からx, y座標を計算
   let bleedStyle: React.CSSProperties | undefined = undefined
   if (isBleed) {
@@ -43,12 +49,37 @@ export function DamageNumber({
     }
   }
 
+  // 色をRGBに変換してtext-shadowを生成
+  const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null
+  }
+
+  const rgb = hexToRgb(color)
+  const textShadowStyle = rgb ? {
+    color: color,
+    textShadow: isBleed
+      ? `2px 2px 4px rgba(0, 0, 0, 0.8), 0 0 8px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6), 0 0 15px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.4)`
+      : isCritical
+        ? `0 0 6px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.9), 0 0 12px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.85), 0 0 20px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.8), 0 0 30px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.7), 0 0 40px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6), 2px 2px 10px rgba(0, 0, 0, 0.9)`
+        : `0 0 4px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.9), 0 0 8px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.8), 0 0 16px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.7), 0 0 24px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.6), 0 0 32px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.5), 0 0 48px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.4), 0 0 64px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3), 2px 2px 8px rgba(0, 0, 0, 0.9)`,
+    filter: isBleed
+      ? undefined
+      : isCritical
+        ? `drop-shadow(0 0 15px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.45)) drop-shadow(0 0 25px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3))`
+        : `drop-shadow(0 0 12px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.5))`
+  } : { color: color }
+
   return (
     <div
       className={`damage-number ${isCritical ? 'critical' : ''} ${isBleed ? 'bleed' : ''}`}
       key={id}
       data-damage={amount}
-      style={bleedStyle}
+      style={{ ...bleedStyle, ...textShadowStyle }}
     >
       {isCritical ? '💥 ' : ''}
       {amount}

@@ -8,7 +8,10 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Config
-public/config/oauth-token.json
+public/config/*
+
+# Sound files
+src/sounds/
 
 node_modules
 dist

@@ -16,6 +16,7 @@ import { useSound } from '../hooks/useSound'
 import { getAdminUsername } from '../config/admin'
 import { useTwitchUser } from '../hooks/useTwitchUser'
 import type { TwitchChatMessage } from '../types/twitch'
+import { saveOverlayConfig } from '../utils/overlayConfig'
 import './OverlayPage.css'
 
 export function OverlayPage() {
@@ -58,6 +59,7 @@ export function OverlayPage() {
   const [showTestControls, setShowTestControls] = useState(true)
   const [showTestSettings, setShowTestSettings] = useState(false) // 設定パネルの表示/非表示
   const [testInputValues, setTestInputValues] = useState<Record<string, string>>({}) // 入力中の値を保持
+  const [showSaveDialog, setShowSaveDialog] = useState(false) // 保存成功ダイアログの表示/非表示
 
   // 外部ウィンドウキャプチャの管理
   const [externalStream, setExternalStream] = useState<MediaStream | null>(null)
@@ -224,7 +226,6 @@ export function OverlayPage() {
     increaseHP,
     resetHP,
     updateConfigLocal,
-    saveConfig,
     reloadConfig,
   } = useHPGauge({
     broadcasterId: user?.id || '',
@@ -1088,7 +1089,7 @@ export function OverlayPage() {
   const backgroundStyle = backgroundColor === 'green' ? '#00ff00' : '#1a1a1a'
 
   return (
-    <div className="overlay-page" style={{ background: backgroundStyle }}>
+    <div className="overlay-page" style={{ background: backgroundStyle, backgroundColor: backgroundStyle }}>
 
       {/* Twitchユーザーが取得できない場合のヒント（表示は継続する） */}
       {!isTestMode && (!username || !user) && (
@@ -1159,7 +1160,7 @@ export function OverlayPage() {
       {/* 外部ウィンドウキャプチャ（HPゲージの後ろに配置） */}
       {config.externalWindow.enabled && (
         <div
-          className={`external-window-container ${damageEffectActive ? 'damage-effect' : ''} ${healEffectActive ? 'heal-effect' : ''}`}
+          className={`external-window-container ${damageEffectActive && config.attack.filterEffectEnabled ? 'damage-effect' : ''} ${healEffectActive && config.heal.filterEffectEnabled ? 'heal-effect' : ''}`}
           style={{
             position: 'fixed',
             left: `calc(50% + ${config.externalWindow.x}px)`,
@@ -1170,12 +1171,12 @@ export function OverlayPage() {
             pointerEvents: 'none',
             overflow: 'hidden',
             transform: 'translate(-50%, -50%)',
-            filter: damageEffectActive
+            filter: damageEffectActive && config.attack.filterEffectEnabled
               ? `sepia(${config.damageEffectFilter.sepia}) hue-rotate(${config.damageEffectFilter.hueRotate}deg) saturate(${config.damageEffectFilter.saturate}) brightness(${config.damageEffectFilter.brightness}) contrast(${config.damageEffectFilter.contrast})`
-              : healEffectActive
+              : healEffectActive && config.heal.filterEffectEnabled
                 ? `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`
                 : undefined,
-            ...(healEffectActive ? {
+            ...(healEffectActive && config.heal.filterEffectEnabled ? {
               '--heal-base-filter': `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`,
             } as React.CSSProperties : {}),
           }}
@@ -1190,12 +1191,12 @@ export function OverlayPage() {
                 width: '100%',
                 height: '100%',
                 objectFit: 'cover',
-                filter: damageEffectActive
+                filter: damageEffectActive && config.attack.filterEffectEnabled
                   ? `sepia(${config.damageEffectFilter.sepia}) hue-rotate(${config.damageEffectFilter.hueRotate}deg) saturate(${config.damageEffectFilter.saturate}) brightness(${config.damageEffectFilter.brightness}) contrast(${config.damageEffectFilter.contrast})`
-                  : healEffectActive
+                  : healEffectActive && config.heal.filterEffectEnabled
                     ? `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`
                     : undefined,
-                ...(healEffectActive ? {
+                ...(healEffectActive && config.heal.filterEffectEnabled ? {
                   '--heal-base-filter': `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`,
                 } as React.CSSProperties : {}),
               }}
@@ -1223,7 +1224,7 @@ export function OverlayPage() {
       {/* WebMループ画像 */}
       {config.webmLoop.enabled && config.webmLoop.videoUrl && (
         <div
-          className={`webm-loop-container ${damageEffectActive ? 'damage-effect' : ''} ${healEffectActive ? 'heal-effect' : ''}`}
+          className={`webm-loop-container ${damageEffectActive && config.attack.filterEffectEnabled ? 'damage-effect' : ''} ${healEffectActive && config.heal.filterEffectEnabled ? 'heal-effect' : ''}`}
           style={{
             position: 'fixed',
             left: `calc(50% + ${config.webmLoop.x}px)`,
@@ -1235,12 +1236,12 @@ export function OverlayPage() {
             pointerEvents: 'none',
             overflow: 'hidden',
             transform: 'translate(-50%, -50%)',
-            filter: damageEffectActive
+            filter: damageEffectActive && config.attack.filterEffectEnabled
               ? `sepia(${config.damageEffectFilter.sepia}) hue-rotate(${config.damageEffectFilter.hueRotate}deg) saturate(${config.damageEffectFilter.saturate}) brightness(${config.damageEffectFilter.brightness}) contrast(${config.damageEffectFilter.contrast})`
-              : healEffectActive
+              : healEffectActive && config.heal.filterEffectEnabled
                 ? `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`
                 : undefined,
-            ...(healEffectActive ? {
+            ...(healEffectActive && config.heal.filterEffectEnabled ? {
               '--heal-base-filter': `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`,
             } as React.CSSProperties : {}),
           }}
@@ -1255,12 +1256,12 @@ export function OverlayPage() {
               width: '100%',
               height: '100%',
               objectFit: 'contain',
-              filter: damageEffectActive
+              filter: damageEffectActive && config.attack.filterEffectEnabled
                 ? `sepia(${config.damageEffectFilter.sepia}) hue-rotate(${config.damageEffectFilter.hueRotate}deg) saturate(${config.damageEffectFilter.saturate}) brightness(${config.damageEffectFilter.brightness}) contrast(${config.damageEffectFilter.contrast})`
-                : healEffectActive
+                : healEffectActive && config.heal.filterEffectEnabled
                   ? `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`
                   : undefined,
-              ...(healEffectActive ? {
+              ...(healEffectActive && config.heal.filterEffectEnabled ? {
                 '--heal-base-filter': `sepia(${config.healEffectFilter.sepia}) hue-rotate(${config.healEffectFilter.hueRotate}deg) saturate(${config.healEffectFilter.saturate}) brightness(${config.healEffectFilter.brightness}) contrast(${config.healEffectFilter.contrast})`,
               } as React.CSSProperties : {}),
             }}
@@ -1283,6 +1284,7 @@ export function OverlayPage() {
           isBleed={damage.isBleed}
           angle={damage.angle}
           distance={damage.distance}
+          damageColors={config.damageColors}
         />
       ))}
       {/* テストモード時のみテストボタンを表示（開発環境） */}
@@ -1368,12 +1370,12 @@ export function OverlayPage() {
                     type="number"
                     className="test-settings-input"
                     min="1"
-                    max="10"
+                    max="100"
                     value={testInputValues.gaugeCount ?? config.hp.gaugeCount}
                     onChange={(e) => {
                       setTestInputValues((prev) => ({ ...prev, gaugeCount: e.target.value }))
                       const value = Number(e.target.value)
-                      if (!isNaN(value) && value >= 1 && value <= 10) {
+                      if (!isNaN(value) && value >= 1 && value <= 100) {
                         updateConfigLocal({ hp: { ...config.hp, gaugeCount: value } })
                       }
                     }}
@@ -1690,6 +1692,16 @@ export function OverlayPage() {
                   </>
                 )}
                 <div className="test-settings-section">
+                  <label className="test-settings-label">最大HPを表示</label>
+                  <input
+                    type="checkbox"
+                    checked={config.display.showMaxHp}
+                    onChange={(e) => {
+                      updateConfigLocal({ display: { ...config.display, showMaxHp: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
                   <label className="test-settings-label">フォントサイズ</label>
                   <input
                     type="number"
@@ -1713,6 +1725,396 @@ export function OverlayPage() {
                     }}
                   />
                 </div>
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>アニメーション設定</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">アニメーション時間 (ms)</label>
+                  <input
+                    type="number"
+                    className="test-settings-input"
+                    min="0"
+                    max="10000"
+                    value={testInputValues.animationDuration ?? config.animation.duration}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, animationDuration: e.target.value }))
+                      const value = Number(e.target.value)
+                      if (!isNaN(value) && value >= 0 && value <= 10000) {
+                        updateConfigLocal({ animation: { ...config.animation, duration: value } })
+                      }
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.animationDuration
+                        return newValues
+                      }))
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">イージング</label>
+                  <select
+                    className="test-settings-select"
+                    value={config.animation.easing}
+                    onChange={(e) => {
+                      updateConfigLocal({ animation: { ...config.animation, easing: e.target.value } })
+                    }}
+                  >
+                    <option value="linear">linear</option>
+                    <option value="ease-in">ease-in</option>
+                    <option value="ease-out">ease-out</option>
+                    <option value="ease-in-out">ease-in-out</option>
+                    <option value="cubic-bezier">cubic-bezier</option>
+                  </select>
+                </div>
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>攻撃設定（詳細）</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">ミス判定を有効にする</label>
+                  <input
+                    type="checkbox"
+                    checked={config.attack.missEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ attack: { ...config.attack, missEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">クリティカル判定を有効にする</label>
+                  <input
+                    type="checkbox"
+                    checked={config.attack.criticalEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ attack: { ...config.attack, criticalEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">出血ダメージを有効にする</label>
+                  <input
+                    type="checkbox"
+                    checked={config.attack.bleedEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ attack: { ...config.attack, bleedEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                {config.attack.bleedEnabled && (
+                  <>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">出血持続時間 (秒)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        min="1"
+                        max="300"
+                        value={testInputValues.bleedDuration ?? config.attack.bleedDuration}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, bleedDuration: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value >= 1 && value <= 300) {
+                            updateConfigLocal({ attack: { ...config.attack, bleedDuration: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.bleedDuration
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">出血間隔 (秒)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        step="0.1"
+                        min="0.1"
+                        max="60"
+                        value={testInputValues.bleedInterval ?? config.attack.bleedInterval}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, bleedInterval: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value >= 0.1 && value <= 60) {
+                            updateConfigLocal({ attack: { ...config.attack, bleedInterval: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.bleedInterval
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="test-settings-section">
+                  <label className="test-settings-label">攻撃効果音を有効にする</label>
+                  <input
+                    type="checkbox"
+                    checked={config.attack.soundEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ attack: { ...config.attack, soundEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">攻撃時のフィルターエフェクトを有効にする</label>
+                  <input
+                    type="checkbox"
+                    checked={config.attack.filterEffectEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ attack: { ...config.attack, filterEffectEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>回復設定（詳細）</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">回復エフェクトを表示</label>
+                  <input
+                    type="checkbox"
+                    checked={config.heal.effectEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ heal: { ...config.heal, effectEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">回復効果音を有効にする</label>
+                  <input
+                    type="checkbox"
+                    checked={config.heal.soundEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ heal: { ...config.heal, soundEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">回復時のフィルターエフェクトを有効にする</label>
+                  <input
+                    type="checkbox"
+                    checked={config.heal.filterEffectEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ heal: { ...config.heal, filterEffectEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>リトライ設定</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">コマンド</label>
+                  <input
+                    type="text"
+                    className="test-settings-input"
+                    value={testInputValues.retryCommand ?? config.retry.command}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, retryCommand: e.target.value }))
+                      updateConfigLocal({ retry: { ...config.retry, command: e.target.value } })
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.retryCommand
+                        return newValues
+                      }))
+                    }}
+                    placeholder="!retry"
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">有効</label>
+                  <input
+                    type="checkbox"
+                    checked={config.retry.enabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ retry: { ...config.retry, enabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">蘇生効果音を有効にする</label>
+                  <input
+                    type="checkbox"
+                    checked={config.retry.soundEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ retry: { ...config.retry, soundEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>HP0画像設定</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">HPが0になったら画像を表示</label>
+                  <input
+                    type="checkbox"
+                    checked={config.zeroHpImage.enabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ zeroHpImage: { ...config.zeroHpImage, enabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                {config.zeroHpImage.enabled && (
+                  <div className="test-settings-section">
+                    <label className="test-settings-label">画像URL</label>
+                    <input
+                      type="text"
+                      className="test-settings-input"
+                      value={testInputValues.zeroHpImageUrl ?? config.zeroHpImage.imageUrl}
+                      onChange={(e) => {
+                        setTestInputValues((prev) => ({ ...prev, zeroHpImageUrl: e.target.value }))
+                        updateConfigLocal({ zeroHpImage: { ...config.zeroHpImage, imageUrl: e.target.value } })
+                      }}
+                      onBlur={() => {
+                        setTestInputValues((prev => {
+                          const newValues = { ...prev }
+                          delete newValues.zeroHpImageUrl
+                          return newValues
+                        }))
+                      }}
+                      placeholder="src/images/adelaide_otsu.png"
+                    />
+                  </div>
+                )}
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>HP0効果音設定</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">HPが0になったら効果音を再生</label>
+                  <input
+                    type="checkbox"
+                    checked={config.zeroHpSound.enabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ zeroHpSound: { ...config.zeroHpSound, enabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                {config.zeroHpSound.enabled && (
+                  <>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">効果音URL</label>
+                      <input
+                        type="text"
+                        className="test-settings-input"
+                        value={testInputValues.zeroHpSoundUrl ?? config.zeroHpSound.soundUrl}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, zeroHpSoundUrl: e.target.value }))
+                          updateConfigLocal({ zeroHpSound: { ...config.zeroHpSound, soundUrl: e.target.value } })
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.zeroHpSoundUrl
+                            return newValues
+                          }))
+                        }}
+                        placeholder="効果音のURLを入力"
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">音量 (0-1)</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        step="0.1"
+                        min="0"
+                        max="1"
+                        value={testInputValues.zeroHpSoundVolume ?? config.zeroHpSound.volume}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, zeroHpSoundVolume: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value >= 0 && value <= 1) {
+                            updateConfigLocal({ zeroHpSound: { ...config.zeroHpSound, volume: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.zeroHpSoundVolume
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>HP0エフェクト設定（WebM）</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">HPが0になったら動画エフェクトを表示</label>
+                  <input
+                    type="checkbox"
+                    checked={config.zeroHpEffect.enabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ zeroHpEffect: { ...config.zeroHpEffect, enabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                {config.zeroHpEffect.enabled && (
+                  <>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">動画URL（透過WebM推奨）</label>
+                      <input
+                        type="text"
+                        className="test-settings-input"
+                        value={testInputValues.zeroHpEffectVideoUrl ?? config.zeroHpEffect.videoUrl}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, zeroHpEffectVideoUrl: e.target.value }))
+                          updateConfigLocal({ zeroHpEffect: { ...config.zeroHpEffect, videoUrl: e.target.value } })
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.zeroHpEffectVideoUrl
+                            return newValues
+                          }))
+                        }}
+                        placeholder="src/images/bakuhatsu.webm"
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">表示時間（ミリ秒）</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        min="100"
+                        max="60000"
+                        value={testInputValues.zeroHpEffectDuration ?? config.zeroHpEffect.duration}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, zeroHpEffectDuration: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value >= 100 && value <= 60000) {
+                            updateConfigLocal({ zeroHpEffect: { ...config.zeroHpEffect, duration: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.zeroHpEffectDuration
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="test-settings-divider"></div>
                 <div className="test-settings-section">
                   <label className="test-settings-label">WebMループ画像</label>
@@ -2035,7 +2437,19 @@ export function OverlayPage() {
                   <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>ダメージエフェクトフィルター</label>
                 </div>
                 <div className="test-settings-section">
-                  <label className="test-settings-label">セピア (0-1)</label>
+                  <label className="test-settings-label">ダメージエフェクトフィルターを有効にする</label>
+                  <input
+                    type="checkbox"
+                    checked={config.attack.filterEffectEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ attack: { ...config.attack, filterEffectEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                {config.attack.filterEffectEnabled && (
+                  <>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">セピア (0-1)</label>
                   <input
                     type="range"
                     className="test-settings-range"
@@ -2123,13 +2537,27 @@ export function OverlayPage() {
                     }}
                   />
                   <span className="test-settings-range-value">{config.damageEffectFilter.contrast.toFixed(2)}</span>
-                </div>
+                    </div>
+                  </>
+                )}
                 <div className="test-settings-divider"></div>
                 <div className="test-settings-section">
                   <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>回復エフェクトフィルター</label>
                 </div>
                 <div className="test-settings-section">
-                  <label className="test-settings-label">セピア (0-1)</label>
+                  <label className="test-settings-label">回復エフェクトフィルターを有効にする</label>
+                  <input
+                    type="checkbox"
+                    checked={config.heal.filterEffectEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ heal: { ...config.heal, filterEffectEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                {config.heal.filterEffectEnabled && (
+                  <>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">セピア (0-1)</label>
                   <input
                     type="range"
                     className="test-settings-range"
@@ -2217,12 +2645,238 @@ export function OverlayPage() {
                     }}
                   />
                   <span className="test-settings-range-value">{config.healEffectFilter.contrast.toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>HPゲージ色設定</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">最後の1ゲージ</label>
+                  <input
+                    type="color"
+                    value={config.gaugeColors.lastGauge}
+                    onChange={(e) => {
+                      updateConfigLocal({ gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value } })
+                    }}
+                    style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
+                  />
+                  <input
+                    type="text"
+                    className="test-settings-input"
+                    value={testInputValues.gaugeColorLast ?? config.gaugeColors.lastGauge}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, gaugeColorLast: e.target.value }))
+                      updateConfigLocal({ gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value } })
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.gaugeColorLast
+                        return newValues
+                      }))
+                    }}
+                    placeholder="#FF0000"
+                    style={{ width: '100px', marginLeft: '0.5rem' }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">2ゲージ目</label>
+                  <input
+                    type="color"
+                    value={config.gaugeColors.secondGauge}
+                    onChange={(e) => {
+                      updateConfigLocal({ gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value } })
+                    }}
+                    style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
+                  />
+                  <input
+                    type="text"
+                    className="test-settings-input"
+                    value={testInputValues.gaugeColorSecond ?? config.gaugeColors.secondGauge}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, gaugeColorSecond: e.target.value }))
+                      updateConfigLocal({ gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value } })
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.gaugeColorSecond
+                        return newValues
+                      }))
+                    }}
+                    placeholder="#FFA500"
+                    style={{ width: '100px', marginLeft: '0.5rem' }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">交互パターン1（3, 5, 7, 9...ゲージ目）</label>
+                  <input
+                    type="color"
+                    value={config.gaugeColors.patternColor1}
+                    onChange={(e) => {
+                      updateConfigLocal({ gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value } })
+                    }}
+                    style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
+                  />
+                  <input
+                    type="text"
+                    className="test-settings-input"
+                    value={testInputValues.gaugeColorPattern1 ?? config.gaugeColors.patternColor1}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, gaugeColorPattern1: e.target.value }))
+                      updateConfigLocal({ gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value } })
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.gaugeColorPattern1
+                        return newValues
+                      }))
+                    }}
+                    placeholder="#8000FF"
+                    style={{ width: '100px', marginLeft: '0.5rem' }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">交互パターン2（4, 6, 8, 10...ゲージ目）</label>
+                  <input
+                    type="color"
+                    value={config.gaugeColors.patternColor2}
+                    onChange={(e) => {
+                      updateConfigLocal({ gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value } })
+                    }}
+                    style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
+                  />
+                  <input
+                    type="text"
+                    className="test-settings-input"
+                    value={testInputValues.gaugeColorPattern2 ?? config.gaugeColors.patternColor2}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, gaugeColorPattern2: e.target.value }))
+                      updateConfigLocal({ gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value } })
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.gaugeColorPattern2
+                        return newValues
+                      }))
+                    }}
+                    placeholder="#4aa3ff"
+                    style={{ width: '100px', marginLeft: '0.5rem' }}
+                  />
+                </div>
+                <div className="test-settings-divider"></div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>ダメージ値色設定</label>
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">通常ダメージ</label>
+                  <input
+                    type="color"
+                    value={config.damageColors.normal}
+                    onChange={(e) => {
+                      updateConfigLocal({ damageColors: { ...config.damageColors, normal: e.target.value } })
+                    }}
+                    style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
+                  />
+                  <input
+                    type="text"
+                    className="test-settings-input"
+                    value={testInputValues.damageColorNormal ?? config.damageColors.normal}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, damageColorNormal: e.target.value }))
+                      updateConfigLocal({ damageColors: { ...config.damageColors, normal: e.target.value } })
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.damageColorNormal
+                        return newValues
+                      }))
+                    }}
+                    placeholder="#cc0000"
+                    style={{ width: '100px', marginLeft: '0.5rem' }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">クリティカルダメージ</label>
+                  <input
+                    type="color"
+                    value={config.damageColors.critical}
+                    onChange={(e) => {
+                      updateConfigLocal({ damageColors: { ...config.damageColors, critical: e.target.value } })
+                    }}
+                    style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
+                  />
+                  <input
+                    type="text"
+                    className="test-settings-input"
+                    value={testInputValues.damageColorCritical ?? config.damageColors.critical}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, damageColorCritical: e.target.value }))
+                      updateConfigLocal({ damageColors: { ...config.damageColors, critical: e.target.value } })
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.damageColorCritical
+                        return newValues
+                      }))
+                    }}
+                    placeholder="#cc8800"
+                    style={{ width: '100px', marginLeft: '0.5rem' }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">出血ダメージ</label>
+                  <input
+                    type="color"
+                    value={config.damageColors.bleed}
+                    onChange={(e) => {
+                      updateConfigLocal({ damageColors: { ...config.damageColors, bleed: e.target.value } })
+                    }}
+                    style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
+                  />
+                  <input
+                    type="text"
+                    className="test-settings-input"
+                    value={testInputValues.damageColorBleed ?? config.damageColors.bleed}
+                    onChange={(e) => {
+                      setTestInputValues((prev) => ({ ...prev, damageColorBleed: e.target.value }))
+                      updateConfigLocal({ damageColors: { ...config.damageColors, bleed: e.target.value } })
+                    }}
+                    onBlur={() => {
+                      setTestInputValues((prev => {
+                        const newValues = { ...prev }
+                        delete newValues.damageColorBleed
+                        return newValues
+                      }))
+                    }}
+                    placeholder="#ff6666"
+                    style={{ width: '100px', marginLeft: '0.5rem' }}
+                  />
                 </div>
                 <div className="test-settings-divider"></div>
                 <div className="test-settings-section">
                   <button
                     className="test-button test-save"
-                    onClick={saveConfig}
+                    onClick={async () => {
+                      if (config) {
+                        const success = await saveOverlayConfig(config)
+                        if (success) {
+                          setShowSaveDialog(true)
+                          // 3秒後に自動的に閉じる
+                          setTimeout(() => {
+                            setShowSaveDialog(false)
+                          }, 3000)
+                        } else {
+                          alert('設定の保存に失敗しました。')
+                        }
+                      }
+                    }}
                     title="設定を保存"
                   >
                     設定を保存
@@ -2278,6 +2932,54 @@ export function OverlayPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* 保存成功ダイアログ */}
+      {showSaveDialog && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: '#2d2d2d',
+            color: '#fff',
+            padding: '20px 30px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+            zIndex: 10000,
+            border: '2px solid #4CAF50',
+            minWidth: '300px',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ marginBottom: '15px', fontSize: '18px', fontWeight: 'bold', color: '#4CAF50' }}>
+            ✅ 保存完了
+          </div>
+          <div style={{ marginBottom: '15px', fontSize: '14px' }}>
+            設定を正常に保存しました。
+          </div>
+          <button
+            onClick={() => setShowSaveDialog(false)}
+            style={{
+              backgroundColor: '#4CAF50',
+              color: '#fff',
+              border: 'none',
+              padding: '8px 20px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#45a049'
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = '#4CAF50'
+            }}
+          >
+            OK
+          </button>
         </div>
       )}
     </div>
