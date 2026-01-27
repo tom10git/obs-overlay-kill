@@ -300,7 +300,7 @@ export function loadOverlayConfigFromStorage(): OverlayConfig | null {
 /**
  * 設定値を検証・サニタイズ
  */
-function validateAndSanitizeConfig(config: unknown): OverlayConfig {
+export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   // 型ガード
   if (!config || typeof config !== 'object') {
     return DEFAULT_CONFIG

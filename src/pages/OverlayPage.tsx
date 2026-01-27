@@ -16,7 +16,8 @@ import { useSound } from '../hooks/useSound'
 import { getAdminUsername } from '../config/admin'
 import { useTwitchUser } from '../hooks/useTwitchUser'
 import type { TwitchChatMessage } from '../types/twitch'
-import { saveOverlayConfig } from '../utils/overlayConfig'
+import { saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
+import type { OverlayConfig } from '../types/overlay'
 import './OverlayPage.css'
 
 export function OverlayPage() {
@@ -60,6 +61,7 @@ export function OverlayPage() {
   const [showTestSettings, setShowTestSettings] = useState(false) // 設定パネルの表示/非表示
   const [testInputValues, setTestInputValues] = useState<Record<string, string>>({}) // 入力中の値を保持
   const [showSaveDialog, setShowSaveDialog] = useState(false) // 保存成功ダイアログの表示/非表示
+  const fileInputRef = useRef<HTMLInputElement>(null) // ファイル選択用のinput要素の参照
 
   // 外部ウィンドウキャプチャの管理
   const [externalStream, setExternalStream] = useState<MediaStream | null>(null)
@@ -2883,10 +2885,45 @@ export function OverlayPage() {
                   </button>
                 </div>
                 <div className="test-settings-section">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".json"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+
+                      try {
+                        const text = await file.text()
+                        const jsonConfig = JSON.parse(text)
+                        const validated = validateAndSanitizeConfig(jsonConfig)
+                        
+                        // 設定を更新（完全な設定を適用）
+                        updateConfigLocal(validated as Partial<OverlayConfig>)
+                        // ローカルストレージにも保存
+                        localStorage.setItem('overlay-config', JSON.stringify(validated))
+                        console.log('✅ 設定ファイルを読み込みました')
+                      } catch (error) {
+                        console.error('❌ 設定ファイルの読み込みに失敗しました:', error)
+                        alert('設定ファイルの読み込みに失敗しました。JSON形式が正しいか確認してください。')
+                      } finally {
+                        // ファイル入力をリセット（同じファイルを再度選択できるように）
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = ''
+                        }
+                      }
+                    }}
+                  />
                   <button
+                    type="button"
                     className="test-button test-reload"
-                    onClick={reloadConfig}
-                    title="overlay-config.jsonから設定を再読み込み"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      fileInputRef.current?.click()
+                    }}
+                    title="ローカルファイルから設定を読み込み"
                     disabled={configLoading}
                   >
                     {configLoading ? '読み込み中...' : '設定を再読み込み'}
