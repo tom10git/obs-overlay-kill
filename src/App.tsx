@@ -3,122 +3,71 @@ import { BrowserRouter, Routes, Route, Navigate, NavLink, useSearchParams } from
 import { UserDetails } from './components/UserDetails'
 import { OverlayPage } from './pages/OverlayPage'
 import { OverlaySettings } from './components/settings/OverlaySettings'
+import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
 import { getAdminUsername } from './config/admin'
+import { getTwitchClientId } from './config/auth'
 import './App.css'
 
-function OAuthCodeDisplay() {
-  const [searchParams] = useSearchParams()
-  const code = searchParams.get('code')
-  const [copied, setCopied] = useState(false)
+const TWITCH_OAUTH_SCOPES = 'channel:read:redemptions+channel:manage:redemptions+user:write:chat'
+
+function TwitchOAuthSection() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const oauthSuccess = searchParams.get('oauth') === 'success'
 
   useEffect(() => {
-    // codeパラメーターがある場合、URLから削除してクリーンなURLにする
-    if (code) {
-      const newSearchParams = new URLSearchParams(searchParams)
-      newSearchParams.delete('code')
-      const newUrl = window.location.pathname + (newSearchParams.toString() ? '?' + newSearchParams.toString() : '')
-      window.history.replaceState({}, '', newUrl)
+    if (oauthSuccess) {
+      const t = setTimeout(() => {
+        const next = new URLSearchParams(searchParams)
+        next.delete('oauth')
+        setSearchParams(next, { replace: true })
+      }, 5000)
+      return () => clearTimeout(t)
     }
-  }, [code, searchParams])
+  }, [oauthSuccess, searchParams, setSearchParams])
 
-  if (!code) {
-    return null
-  }
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error('コピーに失敗しました:', err)
-      // フォールバック: テキストエリアを使用
-      const textarea = document.createElement('textarea')
-      textarea.value = code
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+  const handleStartOAuth = () => {
+    const clientId = getTwitchClientId()
+    if (!clientId) {
+      alert('.env に VITE_TWITCH_CLIENT_ID を設定してください。')
+      return
     }
+    const redirectUri = `${window.location.origin}/oauth/callback`
+    const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(TWITCH_OAUTH_SCOPES)}`
+    window.location.href = authUrl
   }
 
   return (
-    <div className="oauth-code-display" style={{
-      margin: '20px 0',
-      padding: '15px',
-      backgroundColor: '#1a1a1a',
-      borderRadius: '8px',
-      border: '2px solid #ffffff'
-    }}>
-      <h3 style={{ marginTop: 0, color: '#ffffff' }}>✅ OAuth認証コードを取得しました</h3>
-      <p style={{ margin: '10px 0', fontSize: '14px', color: '#cccccc' }}>
-        以下の認証コードをコピーして、PowerShellコマンドで使用してください。
+    <div className="twitch-oauth-section" style={{ marginBottom: '20px' }}>
+      {oauthSuccess && (
+        <p style={{ padding: '10px', marginBottom: '10px', background: '#1a2f1a', borderRadius: '6px', color: '#8f8' }}>
+          ✅ Twitch の認証が完了しました。トークンはこのブラウザに保存されています。
+        </p>
+      )}
+      <p style={{ margin: '0 0 10px', fontSize: '14px', color: '#ccc' }}>
+        チャンネルポイント・PvPチャット送信には Twitch の OAuth トークンが必要です。
       </p>
-      <div style={{
-        display: 'flex',
-        gap: '10px',
-        alignItems: 'center',
-        marginTop: '10px'
-      }}>
-        <input
-          type="text"
-          value={code}
-          readOnly
-          style={{
-            flex: 1,
-            padding: '10px',
-            fontSize: '14px',
-            border: '1px solid #555555',
-            borderRadius: '4px',
-            fontFamily: 'monospace',
-            backgroundColor: '#2a2a2a',
-            color: '#ffffff'
-          }}
-        />
-        <button
-          onClick={handleCopy}
-          style={{
-            padding: '10px 20px',
-            fontSize: '14px',
-            backgroundColor: copied ? '#333333' : '#2a2a2a',
-            color: '#ffffff',
-            border: '1px solid #555555',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            transition: 'all 0.2s'
-          }}
-        >
-          {copied ? '✓ コピーしました' : 'コピー'}
-        </button>
-      </div>
-      <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#2a2a2a', borderRadius: '4px', border: '1px solid #555555' }}>
-        <p style={{ margin: '5px 0', fontSize: '13px', fontWeight: 'bold', color: '#ffffff' }}>PowerShellコマンド:</p>
-        <code style={{
-          display: 'block',
-          padding: '10px',
-          backgroundColor: '#1a1a1a',
-          borderRadius: '4px',
-          fontSize: '12px',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
-          color: '#ffffff',
-          border: '1px solid #555555'
-        }}>
-          {`$code = "${code}"
-$body = @{
-    client_id = "wh2nxnneo5c3qv6xaw0jtiauzx3wpo"
-    client_secret = "r3lfrpzdp5kdvt7auhcsyo1chdsevr"
-    code = $code
-    grant_type = "authorization_code"
-    redirect_uri = "http://localhost:5173"
-}
-$response = Invoke-RestMethod -Uri "https://id.twitch.tv/oauth2/token" -Method Post -Body $body -ContentType "application/x-www-form-urlencoded"
-$response | ConvertTo-Json`}
-        </code>
-      </div>
+      <button
+        type="button"
+        onClick={handleStartOAuth}
+        className="twitch-oauth-button"
+        style={{
+          padding: '10px 20px',
+          fontSize: '14px',
+          background: '#9146ff',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontWeight: 'bold',
+        }}
+      >
+        Twitch で認証（トークン取得）
+      </button>
+      <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#888' }}>
+        初回のみ .env に VITE_TWITCH_CLIENT_ID と VITE_TWITCH_CLIENT_SECRET を設定し、
+        Twitch 開発者コンソールでリダイレクト URL に <code>{window.location.origin}/oauth/callback</code> を追加してください。
+        開発サーバー（<code>npm run dev</code>）で開いている場合のみボタンから取得できます。本番ビルドの場合は <code>get-oauth-token.bat</code> を使用してください。
+      </p>
     </div>
   )
 }
@@ -159,7 +108,7 @@ function MainApp() {
           <NavLink to="/settings">設定</NavLink>
         </nav>
         <div className="card">
-          <OAuthCodeDisplay />
+          <TwitchOAuthSection />
           <div className="search-section">
             <h2>Twitchユーザー検索</h2>
             <div className="search-input-group">
@@ -224,6 +173,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<MainApp />} />
+        <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
         <Route path="/overlay" element={<OverlayPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

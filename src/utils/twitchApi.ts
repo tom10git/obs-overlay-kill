@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
-import { getTwitchClientId, getTwitchClientSecret, getTwitchAccessToken, getTwitchRefreshToken } from '../config/auth'
+import { getTwitchClientId, getTwitchClientSecret, getTwitchAccessToken, getTwitchRefreshToken, setTwitchOAuthTokens } from '../config/auth'
 import type {
   TwitchUser,
   TwitchStream,
@@ -203,13 +203,15 @@ class TwitchApiClient {
         }
       }
 
-      // 新しいリフレッシュトークンが返された場合は、それも保存すべきですが、
-      // 環境変数の動的更新はできないため、ログに記録するだけ
-      if (response.data.refresh_token && response.data.refresh_token !== refreshToken) {
-        console.warn(
-          '⚠️ A new refresh token was issued. Please update VITE_TWITCH_REFRESH_TOKEN in your .env file:\n' +
-          `VITE_TWITCH_REFRESH_TOKEN=${response.data.refresh_token}`
-        )
+      // 新しいトークンを localStorage に保存（getTwitchAccessToken やチャット接続で即反映）
+      const newRefresh = response.data.refresh_token?.trim() || refreshToken
+      try {
+        setTwitchOAuthTokens(this.userAccessToken!, newRefresh)
+        if (import.meta.env.DEV && response.data.refresh_token && response.data.refresh_token !== refreshToken) {
+          console.log('🔄 新しいリフレッシュトークンを localStorage に保存しました')
+        }
+      } catch (e) {
+        // localStorage が使えない環境では無視
       }
 
       return this.userAccessToken
@@ -424,6 +426,14 @@ class TwitchApiClient {
     this.userTokenExpiresAt = Date.now() + 3600000 // 1時間後に期限切れとみなす
 
     return userToken
+  }
+
+  /**
+   * 有効なユーザーアクセストークンを取得（リフレッシュあり・チャット接続用）
+   * 期限切れの場合はリフレッシュを試行し、成功時は localStorage にも保存する
+   */
+  async getValidUserToken(): Promise<string> {
+    return this.getUserAccessToken()
   }
 
   /**
@@ -1142,6 +1152,39 @@ class TwitchApiClient {
 
     // すべてのリトライが失敗した場合（到達不可能なコード）
     throw new Error('Failed to get channel point redemptions after all retries')
+  }
+
+  /**
+   * チャットにメッセージを送信（配信者アカウントで送信）
+   * OAuthユーザートークンが必要。sender_id はトークンのユーザーIDと一致する必要がある。
+   * @param broadcasterId チャンネル所有者のユーザーID（送信先）
+   * @param message 送信するメッセージ（最大500文字）
+   */
+  async sendChatMessage(broadcasterId: string, message: string): Promise<{ messageId?: string }> {
+    try {
+      const headers = await this.getOAuthHeaders()
+      const body = {
+        broadcaster_id: broadcasterId,
+        sender_id: broadcasterId,
+        message: message.slice(0, 500),
+      }
+      const response = await this.client.post<{ data: Array<{ message_id: string }> }>(
+        '/chat/messages',
+        body,
+        { headers }
+      )
+      const messageId = response.data?.data?.[0]?.message_id
+      return messageId ? { messageId } : {}
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        console.error(
+          '❌ Twitch チャット送信エラー (401)\n' +
+          'チャットにメッセージを送るには OAuth トークンに user:write:chat スコープが必要です。\n' +
+          'get-oauth-token.bat を再実行して新しいトークンを取得し、.env を更新してください。'
+        )
+      }
+      throw error
+    }
   }
 }
 

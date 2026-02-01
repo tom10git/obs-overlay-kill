@@ -11,6 +11,7 @@ interface UseHPGaugeOptions {
   channel: string
   config?: OverlayConfig
   onSurvivalHp1?: (message: string) => void // 食いしばり発動時に呼ばれるコールバック
+  onStreamerZeroHp?: (message: string) => void // 配信者HPが0になったときに呼ばれるコールバック（自動返信用）
 }
 
 interface UseHPGaugeResult {
@@ -35,12 +36,15 @@ interface UseHPGaugeResult {
 export function useHPGauge({
   config: initialConfig,
   onSurvivalHp1,
+  onStreamerZeroHp,
 }: UseHPGaugeOptions): UseHPGaugeResult {
   const [config, setConfig] = useState<OverlayConfig | null>(initialConfig || null)
   const [loading, setLoading] = useState(!initialConfig)
   const [error, setError] = useState<Error | null>(null)
   const onSurvivalHp1Ref = useRef(onSurvivalHp1)
   onSurvivalHp1Ref.current = onSurvivalHp1
+  const onStreamerZeroHpRef = useRef(onStreamerZeroHp)
+  onStreamerZeroHpRef.current = onStreamerZeroHp
 
   // 設定を読み込む
   useEffect(() => {
@@ -103,6 +107,19 @@ export function useHPGauge({
     },
     []
   )
+
+  // 配信者HPが0になったタイミングでコールバックを呼ぶ（useEffectで検知し、再レンダー後に呼ぶことで最新の config/送信状態が使える）
+  const prevStreamerHPRef = useRef<number | null>(null)
+  useEffect(() => {
+    const current = config?.hp.current ?? null
+    if (current === null) return
+    const prev = prevStreamerHPRef.current
+    prevStreamerHPRef.current = current
+    if (current === 0 && prev !== null && prev > 0 && config) {
+      const msg = (config.hp.messageWhenZeroHp ?? '配信者のHPが0になりました。').trim()
+      if (msg) onStreamerZeroHpRef.current?.(msg)
+    }
+  }, [config?.hp.current, config?.hp.messageWhenZeroHp])
 
   // HPを増やす
   const increaseHP = useCallback(

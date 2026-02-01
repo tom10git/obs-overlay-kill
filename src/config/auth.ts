@@ -128,18 +128,42 @@ class AuthConfigManager {
     return this.getTwitchConfig().clientSecret
   }
 
+  /** localStorage のキー（アプリ内OAuthで取得したトークンを保存） */
+  private static readonly STORAGE_ACCESS = 'twitch_oauth_access_token'
+  private static readonly STORAGE_REFRESH = 'twitch_oauth_refresh_token'
+
   /**
    * Access Tokenを取得（オプション）
+   * アプリ内OAuthで保存したトークンがあれば優先、なければ .env の値
    */
   getAccessToken(): string | undefined {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(AuthConfigManager.STORAGE_ACCESS)?.trim()
+      if (stored) return stored
+    }
     return this.getTwitchConfig().accessToken
   }
 
   /**
    * Refresh Tokenを取得（オプション）
+   * アプリ内OAuthで保存したトークンがあれば優先、なければ .env の値
    */
   getRefreshToken(): string | undefined {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(AuthConfigManager.STORAGE_REFRESH)?.trim()
+      if (stored) return stored
+    }
     return this.getTwitchConfig().refreshToken
+  }
+
+  /**
+   * アプリ内OAuthで取得したトークンを localStorage に保存する
+   */
+  setTwitchOAuthTokens(accessToken: string, refreshToken: string): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(AuthConfigManager.STORAGE_ACCESS, accessToken)
+      localStorage.setItem(AuthConfigManager.STORAGE_REFRESH, refreshToken)
+    }
   }
 
   /**
@@ -180,3 +204,5 @@ export const getTwitchAccessToken = () => authConfig.getAccessToken()
 export const getTwitchRefreshToken = () => authConfig.getRefreshToken()
 export const getTwitchUsername = () => authConfig.getUsername()
 export const isAuthConfigured = () => authConfig.isConfigured()
+export const setTwitchOAuthTokens = (accessToken: string, refreshToken: string) =>
+  authConfig.setTwitchOAuthTokens(accessToken, refreshToken)

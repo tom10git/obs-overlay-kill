@@ -14,6 +14,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     y: 0,
     width: 800,
     height: 60,
+    messageWhenZeroHp: '配信者を {attacker} が倒しました！',
   },
   attack: {
     rewardId: '',
@@ -61,6 +62,14 @@ const DEFAULT_CONFIG: OverlayConfig = {
   },
   retry: {
     command: '!retry',
+    fullHealCommand: '!fullheal',
+    fullResetAllCommand: '!resetall',
+    streamerHealCommand: '!heal',
+    streamerHealType: 'fixed',
+    streamerHealAmount: 20,
+    streamerHealMin: 10,
+    streamerHealMax: 30,
+    streamerHealWhenZeroEnabled: true,
     enabled: true,
     soundEnabled: false,
     soundUrl: '',
@@ -90,6 +99,55 @@ const DEFAULT_CONFIG: OverlayConfig = {
   },
   test: {
     enabled: false,
+  },
+  pvp: {
+    enabled: false,
+    streamerAttack: {
+      rewardId: '',
+      customText: '',
+      enabled: true,
+      damage: 15,
+      missEnabled: false,
+      missProbability: 0,
+      missSoundEnabled: false,
+      missSoundUrl: '',
+      missSoundVolume: 0.7,
+      criticalEnabled: false,
+      criticalProbability: 0,
+      criticalMultiplier: 2.0,
+      bleedEnabled: false,
+      bleedProbability: 0,
+      bleedDamage: 5,
+      bleedDuration: 10,
+      bleedInterval: 1,
+      bleedSoundEnabled: false,
+      bleedSoundUrl: '',
+      bleedSoundVolume: 0.7,
+      soundEnabled: false,
+      soundUrl: '',
+      soundVolume: 0.7,
+      filterEffectEnabled: true,
+      survivalHp1Enabled: false,
+      survivalHp1Probability: 30,
+      survivalHp1Message: '食いしばり!',
+    },
+    viewerMaxHp: 100,
+    counterCommand: '!counter',
+    autoReplyMessageTemplate: '{username} の残りHP: {hp}/{max}',
+    hpCheckCommand: '!hp',
+    viewerFullHealCommand: '!fullheal',
+    viewerHealCommand: '!heal',
+    viewerHealType: 'fixed',
+    viewerHealAmount: 20,
+    viewerHealMin: 10,
+    viewerHealMax: 30,
+    viewerHealWhenZeroEnabled: true,
+    counterOnAttackTargetAttacker: true,
+    counterOnAttackTargetRandom: false,
+    counterCommandAcceptsUsername: false,
+    messageWhenAttackBlockedByZeroHp: 'HPが0なので攻撃できません。',
+    messageWhenHealBlockedByZeroHp: 'HPが0なので回復できません。',
+    messageWhenViewerZeroHp: '視聴者 {username} のHPが0になりました。',
   },
   externalWindow: {
     enabled: false,
@@ -161,6 +219,11 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...storedConfig.zeroHpSound },
       zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...storedConfig.zeroHpEffect },
       test: { ...DEFAULT_CONFIG.test, ...storedConfig.test },
+      pvp: {
+        ...DEFAULT_CONFIG.pvp,
+        ...(storedConfig.pvp || {}),
+        streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...(storedConfig.pvp?.streamerAttack || {}) },
+      },
       externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...storedConfig.externalWindow },
       webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...storedConfig.webmLoop },
       damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...storedConfig.damageEffectFilter },
@@ -194,6 +257,7 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...validated.zeroHpSound },
       zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...validated.zeroHpEffect },
       test: { ...DEFAULT_CONFIG.test, ...validated.test },
+      pvp: { ...DEFAULT_CONFIG.pvp, ...validated.pvp, streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...validated.pvp.streamerAttack } },
       externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...validated.externalWindow },
       webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
       damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...validated.damageEffectFilter },
@@ -334,6 +398,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     height: isInRange(Number(hpConfig.height), 20, 500)
       ? Number(hpConfig.height) || DEFAULT_CONFIG.hp.height
       : DEFAULT_CONFIG.hp.height,
+    messageWhenZeroHp: typeof hpConfig.messageWhenZeroHp === 'string' ? hpConfig.messageWhenZeroHp : DEFAULT_CONFIG.hp.messageWhenZeroHp,
   }
 
   // 攻撃設定の検証
@@ -437,6 +502,23 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       typeof retryConfig.command === 'string' && isValidLength(retryConfig.command, 1, 50)
         ? retryConfig.command.replace(/[<>"']/g, '') // 危険な文字を削除
         : '!retry',
+    fullHealCommand:
+      typeof retryConfig.fullHealCommand === 'string' && isValidLength(retryConfig.fullHealCommand, 1, 50)
+        ? (retryConfig.fullHealCommand as string).replace(/[<>"']/g, '')
+        : '!fullheal',
+    fullResetAllCommand:
+      typeof retryConfig.fullResetAllCommand === 'string' && isValidLength(retryConfig.fullResetAllCommand, 1, 50)
+        ? (retryConfig.fullResetAllCommand as string).replace(/[<>"']/g, '')
+        : '!resetall',
+    streamerHealCommand:
+      typeof retryConfig.streamerHealCommand === 'string' && isValidLength(retryConfig.streamerHealCommand, 1, 50)
+        ? (retryConfig.streamerHealCommand as string).replace(/[<>"']/g, '')
+        : '!heal',
+    streamerHealType: retryConfig.streamerHealType === 'random' ? 'random' : 'fixed',
+    streamerHealAmount: isInRange(Number(retryConfig.streamerHealAmount), 1, 1000) ? Number(retryConfig.streamerHealAmount) || 20 : 20,
+    streamerHealMin: isInRange(Number(retryConfig.streamerHealMin), 1, 1000) ? Number(retryConfig.streamerHealMin) || 10 : 10,
+    streamerHealMax: isInRange(Number(retryConfig.streamerHealMax), 1, 1000) ? Number(retryConfig.streamerHealMax) || 30 : 30,
+    streamerHealWhenZeroEnabled: typeof retryConfig.streamerHealWhenZeroEnabled === 'boolean' ? retryConfig.streamerHealWhenZeroEnabled : true,
     enabled: typeof retryConfig.enabled === 'boolean' ? retryConfig.enabled : true,
     soundEnabled: typeof retryConfig.soundEnabled === 'boolean' ? retryConfig.soundEnabled : false,
     soundUrl:
@@ -625,6 +707,71 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     bleed: isValidColor(damageColorsConfig.bleed) ? (damageColorsConfig.bleed as string) : DEFAULT_CONFIG.damageColors.bleed,
   }
 
+  // PvP設定の検証（streamerAttack は attack と同じ構造）
+  const pvpConfig = (c.pvp as Record<string, unknown> | undefined) || {}
+  const sa = (pvpConfig.streamerAttack as Record<string, unknown> | undefined) || {}
+  const streamerAttack = {
+    rewardId: typeof sa.rewardId === 'string' ? sa.rewardId : '',
+    customText: typeof sa.customText === 'string' ? sa.customText : '',
+    enabled: typeof sa.enabled === 'boolean' ? sa.enabled : true,
+    damage: isInRange(Number(sa.damage), 1, 1000) ? Number(sa.damage) || 15 : 15,
+    missEnabled: typeof sa.missEnabled === 'boolean' ? sa.missEnabled : false,
+    missProbability: isInRange(Number(sa.missProbability), 0, 100) ? Number(sa.missProbability) || 0 : 0,
+    missSoundEnabled: typeof sa.missSoundEnabled === 'boolean' ? sa.missSoundEnabled : false,
+    missSoundUrl: typeof sa.missSoundUrl === 'string' ? sa.missSoundUrl : '',
+    missSoundVolume: isInRange(Number(sa.missSoundVolume), 0, 1) ? Number(sa.missSoundVolume) || 0.7 : 0.7,
+    criticalEnabled: typeof sa.criticalEnabled === 'boolean' ? sa.criticalEnabled : false,
+    criticalProbability: isInRange(Number(sa.criticalProbability), 0, 100) ? Number(sa.criticalProbability) || 0 : 0,
+    criticalMultiplier: isInRange(Number(sa.criticalMultiplier), 1, 10) ? Number(sa.criticalMultiplier) || 2 : 2,
+    bleedEnabled: typeof sa.bleedEnabled === 'boolean' ? sa.bleedEnabled : false,
+    bleedProbability: isInRange(Number(sa.bleedProbability), 0, 100) ? Number(sa.bleedProbability) || 0 : 0,
+    bleedDamage: isInRange(Number(sa.bleedDamage), 1, 1000) ? Number(sa.bleedDamage) || 5 : 5,
+    bleedDuration: isInRange(Number(sa.bleedDuration), 1, 600) ? Number(sa.bleedDuration) || 10 : 10,
+    bleedInterval: isInRange(Number(sa.bleedInterval), 0.1, 60) ? Number(sa.bleedInterval) || 1 : 1,
+    bleedSoundEnabled: typeof sa.bleedSoundEnabled === 'boolean' ? sa.bleedSoundEnabled : false,
+    bleedSoundUrl: typeof sa.bleedSoundUrl === 'string' ? sa.bleedSoundUrl : '',
+    bleedSoundVolume: isInRange(Number(sa.bleedSoundVolume), 0, 1) ? Number(sa.bleedSoundVolume) || 0.7 : 0.7,
+    soundEnabled: typeof sa.soundEnabled === 'boolean' ? sa.soundEnabled : false,
+    soundUrl: typeof sa.soundUrl === 'string' ? sa.soundUrl : '',
+    soundVolume: isInRange(Number(sa.soundVolume), 0, 1) ? Number(sa.soundVolume) || 0.7 : 0.7,
+    filterEffectEnabled: typeof sa.filterEffectEnabled === 'boolean' ? sa.filterEffectEnabled : true,
+    survivalHp1Enabled: typeof sa.survivalHp1Enabled === 'boolean' ? sa.survivalHp1Enabled : false,
+    survivalHp1Probability: isInRange(Number(sa.survivalHp1Probability), 0, 100) ? Number(sa.survivalHp1Probability) || 30 : 30,
+    survivalHp1Message: typeof sa.survivalHp1Message === 'string' ? sa.survivalHp1Message : '食いしばり!',
+  }
+  const viewerMaxHp = typeof pvpConfig.viewerMaxHp === 'number' && pvpConfig.viewerMaxHp > 0
+    ? Math.min(9999, Math.floor(pvpConfig.viewerMaxHp))
+    : 100
+  const pvp = {
+    enabled: typeof pvpConfig.enabled === 'boolean' ? pvpConfig.enabled : false,
+    viewerMaxHp,
+    streamerAttack,
+    counterOnAttackTargetAttacker: typeof pvpConfig.counterOnAttackTargetAttacker === 'boolean' ? pvpConfig.counterOnAttackTargetAttacker : true,
+    counterOnAttackTargetRandom: typeof pvpConfig.counterOnAttackTargetRandom === 'boolean' ? pvpConfig.counterOnAttackTargetRandom : false,
+    counterCommandAcceptsUsername: typeof pvpConfig.counterCommandAcceptsUsername === 'boolean' ? pvpConfig.counterCommandAcceptsUsername : false,
+    messageWhenAttackBlockedByZeroHp: typeof pvpConfig.messageWhenAttackBlockedByZeroHp === 'string' ? pvpConfig.messageWhenAttackBlockedByZeroHp : 'HPが0なので攻撃できません。',
+    messageWhenHealBlockedByZeroHp: typeof pvpConfig.messageWhenHealBlockedByZeroHp === 'string' ? pvpConfig.messageWhenHealBlockedByZeroHp : 'HPが0なので回復できません。',
+    messageWhenViewerZeroHp: typeof pvpConfig.messageWhenViewerZeroHp === 'string' ? pvpConfig.messageWhenViewerZeroHp : '視聴者 {username} のHPが0になりました。',
+    counterCommand: typeof pvpConfig.counterCommand === 'string' && isValidLength(pvpConfig.counterCommand, 1, 50)
+      ? (pvpConfig.counterCommand as string).replace(/[<>"']/g, '')
+      : '!counter',
+    autoReplyMessageTemplate: typeof pvpConfig.autoReplyMessageTemplate === 'string' ? pvpConfig.autoReplyMessageTemplate : '{username} の残りHP: {hp}/{max}',
+    hpCheckCommand: typeof pvpConfig.hpCheckCommand === 'string' && isValidLength(pvpConfig.hpCheckCommand, 1, 50)
+      ? (pvpConfig.hpCheckCommand as string).replace(/[<>"']/g, '')
+      : '!hp',
+    viewerFullHealCommand: typeof pvpConfig.viewerFullHealCommand === 'string' && isValidLength(pvpConfig.viewerFullHealCommand, 1, 50)
+      ? (pvpConfig.viewerFullHealCommand as string).replace(/[<>"']/g, '')
+      : '!fullheal',
+    viewerHealCommand: typeof pvpConfig.viewerHealCommand === 'string' && isValidLength(pvpConfig.viewerHealCommand, 1, 50)
+      ? (pvpConfig.viewerHealCommand as string).replace(/[<>"']/g, '')
+      : '!heal',
+    viewerHealType: pvpConfig.viewerHealType === 'random' ? 'random' : 'fixed',
+    viewerHealAmount: isInRange(Number(pvpConfig.viewerHealAmount), 1, 1000) ? Number(pvpConfig.viewerHealAmount) || 20 : 20,
+    viewerHealMin: isInRange(Number(pvpConfig.viewerHealMin), 1, 1000) ? Number(pvpConfig.viewerHealMin) || 10 : 10,
+    viewerHealMax: isInRange(Number(pvpConfig.viewerHealMax), 1, 1000) ? Number(pvpConfig.viewerHealMax) || 30 : 30,
+    viewerHealWhenZeroEnabled: typeof pvpConfig.viewerHealWhenZeroEnabled === 'boolean' ? pvpConfig.viewerHealWhenZeroEnabled : true,
+  }
+
   return {
     hp,
     attack,
@@ -636,6 +783,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     zeroHpSound,
     zeroHpEffect,
     test,
+    pvp,
     externalWindow,
     webmLoop,
     damageEffectFilter,

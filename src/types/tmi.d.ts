@@ -33,13 +33,18 @@ declare module 'tmi.js' {
   export interface ClientOptions {
     options?: {
       debug?: boolean
+      skipUpdatingEmotesets?: boolean
+      skipMembership?: boolean
+      updateEmotesetsTimer?: number
     }
     connection?: {
       secure?: boolean
       reconnect?: boolean
+      timeout?: number
+      reconnectDecay?: number
+      reconnectInterval?: number
       maxReconnectAttempts?: number
       maxReconnectInterval?: number
-      reconnectInterval?: number
     }
     identity?: {
       username?: string
@@ -53,6 +58,7 @@ declare module 'tmi.js' {
     connect(): Promise<[string, number]>
     disconnect(): Promise<void>
     readyState(): 'CONNECTING' | 'OPEN' | 'CLOSING' | 'CLOSED'
+    say(channel: string, message: string): void
     on(event: 'message', listener: (channel: string, tags: ChatUserstate, message: string, self: boolean) => void): this
     on(event: 'connected', listener: (addr: string, port: number) => void): this
     on(event: 'disconnected', listener: (reason: string) => void): this

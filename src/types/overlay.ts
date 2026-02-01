@@ -10,6 +10,8 @@ export interface HPConfig {
   y: number // 位置Y（px、中央からのオフセット）
   width: number // ゲージの幅（px）
   height: number // ゲージの高さ（px）
+  /** 配信者HPが0になったときにチャットへ送る自動返信メッセージ。{attacker} で攻撃した視聴者名に置換（空なら送信しない） */
+  messageWhenZeroHp: string
 }
 
 export interface AttackConfig {
@@ -60,6 +62,22 @@ export interface HealConfig {
 
 export interface RetryConfig {
   command: string
+  /** 配信者側の全回復コマンド（配信者が実行するとHPを最大まで回復） */
+  fullHealCommand: string
+  /** 配信者・全員を全回復するコマンド（配信者のみ実行可能・配信者HPと全視聴者HPを最大まで回復） */
+  fullResetAllCommand: string
+  /** 配信者側の通常回復コマンド（設定量だけ回復） */
+  streamerHealCommand: string
+  /** 配信者側の回復量タイプ（固定 or ランダム） */
+  streamerHealType: 'fixed' | 'random'
+  /** 配信者側の回復量（fixed 時） */
+  streamerHealAmount: number
+  /** 配信者側の回復量（random 時の最小） */
+  streamerHealMin: number
+  /** 配信者側の回復量（random 時の最大） */
+  streamerHealMax: number
+  /** 配信者HPが0のときも通常回復コマンドを許可する */
+  streamerHealWhenZeroEnabled: boolean
   enabled: boolean
   soundEnabled: boolean // 蘇生効果音の有効/無効
   soundUrl: string // 蘇生効果音のURL
@@ -110,6 +128,47 @@ export interface TestConfig {
   enabled: boolean
 }
 
+/** PvPモード: 配信者 vs 視聴者。視聴者ごとにHPを管理し、配信者のカウンター攻撃などを行う */
+export interface PvPConfig {
+  enabled: boolean
+  /** 視聴者1人あたりの最大HP（ユーザー側のHP量） */
+  viewerMaxHp: number
+  /** 配信者側の攻撃設定（カウンター攻撃に使用。視聴者用攻撃設定とは別） */
+  streamerAttack: AttackConfig
+  /** カウンター攻撃を発動するカスタムコマンド（配信者のみ実行可能） */
+  counterCommand: string
+  /** 攻撃時にチャットへ投稿するメッセージ。{username} {hp} {max} が置換される */
+  autoReplyMessageTemplate: string
+  /** 視聴者が自分のHPを確認するカスタムコマンド */
+  hpCheckCommand: string
+  /** 視聴者が自分のHPを全回復するカスタムコマンド（実行した視聴者のHPを最大まで回復） */
+  viewerFullHealCommand: string
+  /** 視聴者側の通常回復コマンド（実行した視聴者のHPを設定量だけ回復） */
+  viewerHealCommand: string
+  /** 視聴者側の回復量タイプ（固定 or ランダム） */
+  viewerHealType: 'fixed' | 'random'
+  /** 視聴者側の回復量（fixed 時） */
+  viewerHealAmount: number
+  /** 視聴者側の回復量（random 時の最小） */
+  viewerHealMin: number
+  /** 視聴者側の回復量（random 時の最大） */
+  viewerHealMax: number
+  /** 視聴者HPが0のときも通常回復コマンドを許可する */
+  viewerHealWhenZeroEnabled: boolean
+  /** 視聴者が攻撃したとき、攻撃者にカウンターする（初期設定・デフォルトON） */
+  counterOnAttackTargetAttacker: boolean
+  /** 視聴者が攻撃したとき、ランダムなユーザーにカウンターする（counterOnAttackTargetAttacker より優先されない） */
+  counterOnAttackTargetRandom: boolean
+  /** カウンターコマンドでユーザー名を指定して攻撃できる（!counter ユーザー名） */
+  counterCommandAcceptsUsername: boolean
+  /** HPが0のときに攻撃をブロックしたときの自動返信メッセージ */
+  messageWhenAttackBlockedByZeroHp: string
+  /** HPが0のときに回復をブロックしたときの自動返信メッセージ */
+  messageWhenHealBlockedByZeroHp: string
+  /** 視聴者HPが0になったときにチャットへ送る自動返信メッセージ。{username} で対象の表示名に置換 */
+  messageWhenViewerZeroHp: string
+}
+
 export interface ExternalWindowConfig {
   enabled: boolean
   x: number // 位置X（px）
@@ -151,6 +210,7 @@ export interface OverlayConfig {
   zeroHpSound: ZeroHpSoundConfig
   zeroHpEffect: ZeroHpEffectConfig
   test: TestConfig
+  pvp: PvPConfig
   externalWindow: ExternalWindowConfig
   webmLoop: WebMLoopConfig
   damageEffectFilter: EffectFilterConfig // ダメージエフェクトのフィルター設定

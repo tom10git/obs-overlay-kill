@@ -289,6 +289,35 @@
   overflow-y: auto;
 }
 
+.test-settings-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.test-settings-tab {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.test-settings-tab:hover {
+  color: #fff;
+}
+
+.test-settings-tab-active {
+  color: #fff;
+  border-bottom-color: rgba(255, 255, 255, 0.9);
+}
+
 .test-settings-section {
   display: flex;
   align-items: center;

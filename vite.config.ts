@@ -60,4 +60,15 @@ function configSavePlugin(): Plugin {
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), configSavePlugin()],
+  server: {
+    proxy: {
+      // アプリ内OAuth: トークン取得をプロキシ（CORS回避）
+      '/api/oauth/token': {
+        target: 'https://id.twitch.tv',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/oauth\/token/, '/oauth2/token'),
+      },
+    },
+  },
 })

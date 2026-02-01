@@ -18,6 +18,7 @@ export function OverlaySettings() {
     attack: true,
     heal: true,
     retry: true,
+    pvp: true,
     animation: true,
     display: true,
     zeroHpImage: true,
@@ -28,6 +29,7 @@ export function OverlaySettings() {
     gaugeColors: true,
     damageColors: true,
   })
+  const [activeTab, setActiveTab] = useState<'streamer' | 'user'>('streamer')
   const [showAttackRewardId, setShowAttackRewardId] = useState(false)
   const [showHealRewardId, setShowHealRewardId] = useState(false)
   // 入力中の値を文字列として保持（空文字列を許可するため）
@@ -114,6 +116,25 @@ export function OverlaySettings() {
         </div>
       )}
 
+      <div className="settings-tabs">
+        <button
+          type="button"
+          className={`settings-tab ${activeTab === 'streamer' ? 'settings-tab-active' : ''}`}
+          onClick={() => setActiveTab('streamer')}
+        >
+          配信者側
+        </button>
+        <button
+          type="button"
+          className={`settings-tab ${activeTab === 'user' ? 'settings-tab-active' : ''}`}
+          onClick={() => setActiveTab('user')}
+        >
+          ユーザー側
+        </button>
+      </div>
+
+      {activeTab === 'streamer' && (
+      <div className="settings-tab-panel">
       <div className="settings-section">
         <h3 className="settings-section-header" onClick={() => toggleSection('hp')}>
           <span className="accordion-icon">{expandedSections.hp ? '▼' : '▶'}</span>
@@ -237,6 +258,22 @@ export function OverlaySettings() {
                       }
                     }
                   }}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                配信者HPが0になったときの自動返信メッセージ（{'{attacker}'} で攻撃した視聴者名に置換）:
+                <input
+                  type="text"
+                  value={config.hp.messageWhenZeroHp ?? '配信者を {attacker} が倒しました！'}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      hp: { ...config.hp, messageWhenZeroHp: e.target.value },
+                    })
+                  }
+                  placeholder="配信者を {attacker} が倒しました！"
                 />
               </label>
             </div>
@@ -1383,7 +1420,7 @@ export function OverlaySettings() {
           <div className="settings-section-content">
             <div className="settings-row">
               <label>
-                コマンド:
+                コマンド（HPが最大未満のとき最大まで回復）:
                 <input
                   type="text"
                   value={config.retry.command}
@@ -1393,6 +1430,35 @@ export function OverlaySettings() {
                       retry: { ...config.retry, command: e.target.value },
                     })
                   }
+                  placeholder="!retry"
+                />
+              </label>
+              <label>
+                全回復コマンド（配信者側・HPを常に最大まで回復）:
+                <input
+                  type="text"
+                  value={config.retry.fullHealCommand ?? '!fullheal'}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      retry: { ...config.retry, fullHealCommand: e.target.value },
+                    })
+                  }
+                  placeholder="!fullheal"
+                />
+              </label>
+              <label>
+                全員全回復コマンド（配信者・全視聴者を最大HPに・配信者のみ実行可能）:
+                <input
+                  type="text"
+                  value={config.retry.fullResetAllCommand ?? '!resetall'}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      retry: { ...config.retry, fullResetAllCommand: e.target.value },
+                    })
+                  }
+                  placeholder="!resetall"
                 />
               </label>
               <label>
@@ -1407,6 +1473,114 @@ export function OverlaySettings() {
                   }
                 />
                 有効
+              </label>
+            </div>
+            <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+              配信者側の通常回復（設定量だけ回復）
+            </div>
+            <div className="settings-row">
+              <label>
+                通常回復コマンド:
+                <input
+                  type="text"
+                  value={config.retry.streamerHealCommand ?? '!heal'}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      retry: { ...config.retry, streamerHealCommand: e.target.value },
+                    })
+                  }
+                  placeholder="!heal"
+                />
+              </label>
+              <label>
+                回復量タイプ:
+                <select
+                  value={config.retry.streamerHealType ?? 'fixed'}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      retry: { ...config.retry, streamerHealType: e.target.value as 'fixed' | 'random' },
+                    })
+                  }
+                >
+                  <option value="fixed">固定</option>
+                  <option value="random">ランダム</option>
+                </select>
+              </label>
+            </div>
+            <div className="settings-row">
+              {config.retry.streamerHealType === 'fixed' ? (
+                <label>
+                  回復量:
+                  <input
+                    type="number"
+                    min={1}
+                    max={1000}
+                    value={config.retry.streamerHealAmount ?? 20}
+                    onChange={(e) => {
+                      const num = Number(e.target.value)
+                      if (!isNaN(num) && num >= 1 && num <= 1000) {
+                        setConfig({
+                          ...config,
+                          retry: { ...config.retry, streamerHealAmount: num },
+                        })
+                      }
+                    }}
+                  />
+                </label>
+              ) : (
+                <>
+                  <label>
+                    回復量（最小）:
+                    <input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={config.retry.streamerHealMin ?? 10}
+                      onChange={(e) => {
+                        const num = Number(e.target.value)
+                        if (!isNaN(num) && num >= 1 && num <= 1000) {
+                          setConfig({
+                            ...config,
+                            retry: { ...config.retry, streamerHealMin: num },
+                          })
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    回復量（最大）:
+                    <input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={config.retry.streamerHealMax ?? 30}
+                      onChange={(e) => {
+                        const num = Number(e.target.value)
+                        if (!isNaN(num) && num >= 1 && num <= 1000) {
+                          setConfig({
+                            ...config,
+                            retry: { ...config.retry, streamerHealMax: num },
+                          })
+                        }
+                      }}
+                    />
+                  </label>
+                </>
+              )}
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.retry.streamerHealWhenZeroEnabled ?? true}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      retry: { ...config.retry, streamerHealWhenZeroEnabled: e.target.checked },
+                    })
+                  }
+                />
+                HP0のときも通常回復を許可
               </label>
             </div>
             <div className="settings-row">
@@ -1494,7 +1668,586 @@ export function OverlaySettings() {
           </div>
         )}
       </div>
+      </div>
+      )}
 
+      {activeTab === 'user' && (
+      <div className="settings-tab-panel">
+      <div className="settings-section">
+        <h3 className="settings-section-header" onClick={() => toggleSection('pvp')}>
+          <span className="accordion-icon">{expandedSections.pvp ? '▼' : '▶'}</span>
+          PvPモード（配信者 vs 視聴者）
+        </h3>
+        {expandedSections.pvp && (
+          <div className="settings-section-content">
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.pvp.enabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      pvp: { ...config.pvp, enabled: e.target.checked },
+                    })
+                  }
+                />
+                PvPモードを有効にする（視聴者ごとにHPを管理・ゲージは表示しない）
+              </label>
+            </div>
+            {config.pvp.enabled && (
+              <div className="settings-row">
+                <label>
+                  ユーザー側の最大HP:
+                  <input
+                    type="number"
+                    min={1}
+                    max={9999}
+                    value={inputValues['pvp.viewerMaxHp'] ?? String(config.pvp.viewerMaxHp ?? 100)}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setInputValues((prev) => ({ ...prev, 'pvp.viewerMaxHp': value }))
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      const num = value === '' ? 100 : parseInt(value, 10)
+                      if (!isNaN(num) && num >= 1 && num <= 9999) {
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, viewerMaxHp: num },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['pvp.viewerMaxHp']
+                          return next
+                        })
+                      } else {
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, viewerMaxHp: config.pvp.viewerMaxHp ?? 100 },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['pvp.viewerMaxHp']
+                          return next
+                        })
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+            {config.pvp.enabled && (
+              <p className="settings-hint">
+                カウンター攻撃時やHP確認時にチャットへ自動返信します。送信にはOAuthトークンに <code>user:write:chat</code> スコープが必要です。
+              </p>
+            )}
+            {config.pvp.enabled && (
+              <>
+                <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                  カウンター対象の切り替え
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.counterOnAttackTargetAttacker ?? true}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, counterOnAttackTargetAttacker: e.target.checked },
+                        })
+                      }
+                    />
+                    攻撃したユーザーにカウンターする（初期設定・デフォルトON）
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.counterOnAttackTargetRandom ?? false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, counterOnAttackTargetRandom: e.target.checked },
+                        })
+                      }
+                    />
+                    ランダムなユーザーにカウンターする（視聴者が攻撃したとき）
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.counterCommandAcceptsUsername ?? false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, counterCommandAcceptsUsername: e.target.checked },
+                        })
+                      }
+                    />
+                    カウンターコマンドでユーザー名を指定可能（!counter ユーザー名）
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    追加カウンターコマンド（任意・配信者のみ実行）:
+                    <input
+                      type="text"
+                      value={config.pvp.counterCommand}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, counterCommand: e.target.value },
+                        })
+                      }
+                      placeholder="!counter"
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint" style={{ marginTop: 0 }}>
+                  視聴者が攻撃すると自動でカウンターされます。上記コマンドは「同じ視聴者に追加でダメージを与えたいとき」用です。ユーザー名指定ONのときは「!counter ユーザー名」でそのユーザーを攻撃できます。
+                </p>
+                <div className="settings-row">
+                  <label>
+                    攻撃時自動返信メッセージ（{'{username}'} {'{hp}'} {'{max}'} で置換）:
+                    <input
+                      type="text"
+                      value={config.pvp.autoReplyMessageTemplate}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, autoReplyMessageTemplate: e.target.value },
+                        })
+                      }
+                      placeholder="{username} の残りHP: {hp}/{max}"
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    HP確認コマンド（視聴者が自分の残りHPを確認）:
+                    <input
+                      type="text"
+                      value={config.pvp.hpCheckCommand}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, hpCheckCommand: e.target.value },
+                        })
+                      }
+                      placeholder="!hp"
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    全回復コマンド（視聴者側・実行した視聴者のHPを最大まで回復）:
+                    <input
+                      type="text"
+                      value={config.pvp.viewerFullHealCommand ?? '!fullheal'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, viewerFullHealCommand: e.target.value },
+                        })
+                      }
+                      placeholder="!fullheal"
+                    />
+                  </label>
+                </div>
+                <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                  視聴者側の通常回復（設定量だけ回復）
+                </div>
+                <div className="settings-row">
+                  <label>
+                    通常回復コマンド:
+                    <input
+                      type="text"
+                      value={config.pvp.viewerHealCommand ?? '!heal'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, viewerHealCommand: e.target.value },
+                        })
+                      }
+                      placeholder="!heal"
+                    />
+                  </label>
+                  <label>
+                    回復量タイプ:
+                    <select
+                      value={config.pvp.viewerHealType ?? 'fixed'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, viewerHealType: e.target.value as 'fixed' | 'random' },
+                        })
+                      }
+                    >
+                      <option value="fixed">固定</option>
+                      <option value="random">ランダム</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="settings-row">
+                  {config.pvp.viewerHealType === 'fixed' ? (
+                    <label>
+                      回復量:
+                      <input
+                        type="number"
+                        min={1}
+                        max={1000}
+                        value={config.pvp.viewerHealAmount ?? 20}
+                        onChange={(e) => {
+                          const num = Number(e.target.value)
+                          if (!isNaN(num) && num >= 1 && num <= 1000) {
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, viewerHealAmount: num },
+                            })
+                          }
+                        }}
+                      />
+                    </label>
+                  ) : (
+                    <>
+                      <label>
+                        回復量（最小）:
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          value={config.pvp.viewerHealMin ?? 10}
+                          onChange={(e) => {
+                            const num = Number(e.target.value)
+                            if (!isNaN(num) && num >= 1 && num <= 1000) {
+                              setConfig({
+                                ...config,
+                                pvp: { ...config.pvp, viewerHealMin: num },
+                              })
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        回復量（最大）:
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          value={config.pvp.viewerHealMax ?? 30}
+                          onChange={(e) => {
+                            const num = Number(e.target.value)
+                            if (!isNaN(num) && num >= 1 && num <= 1000) {
+                              setConfig({
+                                ...config,
+                                pvp: { ...config.pvp, viewerHealMax: num },
+                              })
+                            }
+                          }}
+                        />
+                      </label>
+                    </>
+                  )}
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.viewerHealWhenZeroEnabled ?? true}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, viewerHealWhenZeroEnabled: e.target.checked },
+                        })
+                      }
+                    />
+                    HP0のときも通常回復を許可
+                  </label>
+                </div>
+                <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                  HPが0のときのブロックメッセージ（攻撃・回復不可時に自動返信）
+                </div>
+                <div className="settings-row">
+                  <label>
+                    攻撃ブロック時:
+                    <input
+                      type="text"
+                      value={config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, messageWhenAttackBlockedByZeroHp: e.target.value },
+                        })
+                      }
+                      placeholder="HPが0なので攻撃できません。"
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    回復ブロック時:
+                    <input
+                      type="text"
+                      value={config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, messageWhenHealBlockedByZeroHp: e.target.value },
+                        })
+                      }
+                      placeholder="HPが0なので回復できません。"
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    視聴者HPが0になったときの自動返信メッセージ（{'{username}'} で対象の表示名に置換）:
+                    <input
+                      type="text"
+                      value={config.pvp.messageWhenViewerZeroHp ?? '視聴者 {username} のHPが0になりました。'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, messageWhenViewerZeroHp: e.target.value },
+                        })
+                      }
+                      placeholder="視聴者 {username} のHPが0になりました。"
+                    />
+                  </label>
+                </div>
+                <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                  配信者（カウンター）攻撃設定
+                </div>
+                <div className="settings-row">
+                  <label>
+                    ダメージ:
+                    <input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={inputValues['pvp.streamerAttack.damage'] ?? String(config.pvp.streamerAttack.damage)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.damage': e.target.value }))
+                        const num = Number(e.target.value)
+                        if (!isNaN(num) && num >= 1 && num <= 1000) {
+                          setConfig({
+                            ...config,
+                            pvp: {
+                              ...config.pvp,
+                              streamerAttack: { ...config.pvp.streamerAttack, damage: num },
+                            },
+                          })
+                        }
+                      }}
+                      onBlur={() => {
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['pvp.streamerAttack.damage']
+                          return next
+                        })
+                      }}
+                    />
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.streamerAttack.missEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: {
+                            ...config.pvp,
+                            streamerAttack: { ...config.pvp.streamerAttack, missEnabled: e.target.checked },
+                          },
+                        })
+                      }
+                    />
+                    ミスあり
+                  </label>
+                  <label>
+                    ミス確率（0-100）:
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={inputValues['pvp.streamerAttack.missProbability'] ?? String(config.pvp.streamerAttack.missProbability)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.missProbability': e.target.value }))
+                        const num = Number(e.target.value)
+                        if (!isNaN(num) && num >= 0 && num <= 100) {
+                          setConfig({
+                            ...config,
+                            pvp: {
+                              ...config.pvp,
+                              streamerAttack: { ...config.pvp.streamerAttack, missProbability: num },
+                            },
+                          })
+                        }
+                      }}
+                      onBlur={() => {
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['pvp.streamerAttack.missProbability']
+                          return next
+                        })
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.streamerAttack.criticalEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: {
+                            ...config.pvp,
+                            streamerAttack: { ...config.pvp.streamerAttack, criticalEnabled: e.target.checked },
+                          },
+                        })
+                      }
+                    />
+                    クリティカルあり
+                  </label>
+                  <label>
+                    クリティカル確率（0-100）:
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={inputValues['pvp.streamerAttack.criticalProbability'] ?? String(config.pvp.streamerAttack.criticalProbability)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.criticalProbability': e.target.value }))
+                        const num = Number(e.target.value)
+                        if (!isNaN(num) && num >= 0 && num <= 100) {
+                          setConfig({
+                            ...config,
+                            pvp: {
+                              ...config.pvp,
+                              streamerAttack: { ...config.pvp.streamerAttack, criticalProbability: num },
+                            },
+                          })
+                        }
+                      }}
+                      onBlur={() => {
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['pvp.streamerAttack.criticalProbability']
+                          return next
+                        })
+                      }}
+                    />
+                  </label>
+                  <label>
+                    倍率:
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      step={0.1}
+                      value={inputValues['pvp.streamerAttack.criticalMultiplier'] ?? String(config.pvp.streamerAttack.criticalMultiplier)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.criticalMultiplier': e.target.value }))
+                        const num = Number(e.target.value)
+                        if (!isNaN(num) && num >= 1 && num <= 10) {
+                          setConfig({
+                            ...config,
+                            pvp: {
+                              ...config.pvp,
+                              streamerAttack: { ...config.pvp.streamerAttack, criticalMultiplier: num },
+                            },
+                          })
+                        }
+                      }}
+                      onBlur={() => {
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['pvp.streamerAttack.criticalMultiplier']
+                          return next
+                        })
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.streamerAttack.survivalHp1Enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: {
+                            ...config.pvp,
+                            streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Enabled: e.target.checked },
+                          },
+                        })
+                      }
+                    />
+                    食いしばり（HP1残り）
+                  </label>
+                  <label>
+                    確率（0-100）:
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={inputValues['pvp.streamerAttack.survivalHp1Probability'] ?? String(config.pvp.streamerAttack.survivalHp1Probability)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.survivalHp1Probability': e.target.value }))
+                        const num = Number(e.target.value)
+                        if (!isNaN(num) && num >= 0 && num <= 100) {
+                          setConfig({
+                            ...config,
+                            pvp: {
+                              ...config.pvp,
+                              streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Probability: num },
+                            },
+                          })
+                        }
+                      }}
+                      onBlur={() => {
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['pvp.streamerAttack.survivalHp1Probability']
+                          return next
+                        })
+                      }}
+                    />
+                  </label>
+                  <label>
+                    メッセージ:
+                    <input
+                      type="text"
+                      value={config.pvp.streamerAttack.survivalHp1Message}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: {
+                            ...config.pvp,
+                            streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Message: e.target.value },
+                          },
+                        })
+                      }
+                      placeholder="食いしばり!"
+                    />
+                  </label>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      </div>
+      )}
+
+      {activeTab === 'streamer' && (
+      <div className="settings-tab-panel">
       <div className="settings-section">
         <h3 className="settings-section-header" onClick={() => toggleSection('animation')}>
           <span className="accordion-icon">{expandedSections.animation ? '▼' : '▶'}</span>
@@ -2313,6 +3066,8 @@ export function OverlaySettings() {
           </div>
         )}
       </div>
+      </div>
+      )}
 
       <div className="settings-actions">
         <input
@@ -2328,7 +3083,7 @@ export function OverlaySettings() {
               const text = await file.text()
               const jsonConfig = JSON.parse(text)
               const validated = validateAndSanitizeConfig(jsonConfig)
-              
+
               // 設定を更新
               setConfig(validated)
               // 入力値を初期化
