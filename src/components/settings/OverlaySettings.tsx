@@ -942,6 +942,85 @@ export function OverlaySettings() {
                 攻撃時のフィルターエフェクトを有効にする
               </label>
             </div>
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.attack.survivalHp1Enabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      attack: { ...config.attack, survivalHp1Enabled: e.target.checked },
+                    })
+                  }
+                />
+                攻撃でHPが0になる場合に一定確率で1残す
+              </label>
+            </div>
+            {config.attack.survivalHp1Enabled && (
+              <>
+                <div className="settings-row">
+                  <label>
+                    HPが1残る確率（0-100）:
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={inputValues['attack.survivalHp1Probability'] ?? String(config.attack.survivalHp1Probability)}
+                    onChange={(e) => {
+                      setInputValues((prev) => ({ ...prev, 'attack.survivalHp1Probability': e.target.value }))
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value === '' || isNaN(parseInt(value))) {
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, survivalHp1Probability: 30 },
+                        })
+                        setInputValues((prev) => {
+                          const next = { ...prev }
+                          delete next['attack.survivalHp1Probability']
+                          return next
+                        })
+                      } else {
+                        const num = parseInt(value)
+                        if (!isNaN(num)) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              survivalHp1Probability: Math.min(100, Math.max(0, num)),
+                            },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.survivalHp1Probability']
+                            return next
+                          })
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+                <div className="settings-row">
+                  <label>
+                    表示メッセージ:
+                    <input
+                      type="text"
+                      value={config.attack.survivalHp1Message}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, survivalHp1Message: e.target.value },
+                        })
+                      }
+                      placeholder="食いしばり!"
+                    />
+                  </label>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1177,6 +1256,21 @@ export function OverlaySettings() {
                   }
                 />
                 回復エフェクトを表示
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.heal.healWhenZeroEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      heal: { ...config.heal, healWhenZeroEnabled: e.target.checked },
+                    })
+                  }
+                />
+                HPが0のときも通常回復を許可する
               </label>
             </div>
             <div className="settings-row">

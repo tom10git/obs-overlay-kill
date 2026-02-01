@@ -2,7 +2,7 @@
  * HPゲージの状態管理フック
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { loadOverlayConfig, saveOverlayConfig } from '../utils/overlayConfig'
 import type { OverlayConfig } from '../types/overlay'
 
@@ -10,6 +10,7 @@ interface UseHPGaugeOptions {
   broadcasterId: string
   channel: string
   config?: OverlayConfig
+  onSurvivalHp1?: (message: string) => void // 食いしばり発動時に呼ばれるコールバック
 }
 
 interface UseHPGaugeResult {
@@ -33,10 +34,13 @@ interface UseHPGaugeResult {
  */
 export function useHPGauge({
   config: initialConfig,
+  onSurvivalHp1,
 }: UseHPGaugeOptions): UseHPGaugeResult {
   const [config, setConfig] = useState<OverlayConfig | null>(initialConfig || null)
   const [loading, setLoading] = useState(!initialConfig)
   const [error, setError] = useState<Error | null>(null)
+  const onSurvivalHp1Ref = useRef(onSurvivalHp1)
+  onSurvivalHp1Ref.current = onSurvivalHp1
 
   // 設定を読み込む
   useEffect(() => {
@@ -71,7 +75,22 @@ export function useHPGauge({
           console.warn('[reduceHP] configがnullです')
           return prev
         }
-        const newHP = Math.max(0, prev.hp.current - amount)
+        let newHP = prev.hp.current - amount
+        // 攻撃でHPが0以下になる場合、一定確率で1残す
+        if (
+          newHP <= 0 &&
+          prev.attack.survivalHp1Enabled &&
+          prev.attack.survivalHp1Probability > 0
+        ) {
+          const roll = Math.random() * 100
+          if (roll < prev.attack.survivalHp1Probability) {
+            newHP = 1
+            const message = (prev.attack.survivalHp1Message || '食いしばり!').trim() || '食いしばり!'
+            onSurvivalHp1Ref.current?.(message)
+            console.log(`[reduceHP] HP1残り発動 (確率${prev.attack.survivalHp1Probability}%、roll=${roll.toFixed(1)})`)
+          }
+        }
+        newHP = Math.max(0, newHP)
         console.log(`[reduceHP] HP更新: ${prev.hp.current} -> ${newHP}`)
         return {
           ...prev,
@@ -82,7 +101,7 @@ export function useHPGauge({
         }
       })
     },
-    [] // configへの依存を削除（setConfigの関数形式を使うため）
+    []
   )
 
   // HPを増やす
@@ -90,6 +109,10 @@ export function useHPGauge({
     (amount: number) => {
       setConfig((prev) => {
         if (!prev) return prev
+        // HPが0のときは「HP0でも通常回復を許可」がオフなら回復しない
+        if (prev.hp.current === 0 && !prev.heal.healWhenZeroEnabled) {
+          return prev
+        }
         const newHP = Math.min(prev.hp.max, prev.hp.current + amount)
         return {
           ...prev,

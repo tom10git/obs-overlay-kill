@@ -40,6 +40,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundUrl: '',
     soundVolume: 0.7,
     filterEffectEnabled: true,
+    survivalHp1Enabled: false,
+    survivalHp1Probability: 30,
+    survivalHp1Message: '食いしばり!',
   },
   heal: {
     rewardId: '',
@@ -54,6 +57,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundUrl: '',
     soundVolume: 0.7,
     filterEffectEnabled: true,
+    healWhenZeroEnabled: true,
   },
   retry: {
     command: '!retry',
@@ -390,6 +394,11 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       ? Number(attackConfig.soundVolume) || 0.7
       : 0.7,
     filterEffectEnabled: typeof attackConfig.filterEffectEnabled === 'boolean' ? attackConfig.filterEffectEnabled : true,
+    survivalHp1Enabled: typeof attackConfig.survivalHp1Enabled === 'boolean' ? attackConfig.survivalHp1Enabled : false,
+    survivalHp1Probability: isInRange(Number(attackConfig.survivalHp1Probability), 0, 100)
+      ? Number(attackConfig.survivalHp1Probability) || 30
+      : 30,
+    survivalHp1Message: typeof attackConfig.survivalHp1Message === 'string' ? attackConfig.survivalHp1Message : '食いしばり!',
   }
 
   // 回復設定の検証
@@ -418,6 +427,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       ? Number(healConfig.soundVolume) || 0.7
       : 0.7,
     filterEffectEnabled: typeof healConfig.filterEffectEnabled === 'boolean' ? healConfig.filterEffectEnabled : true,
+    healWhenZeroEnabled: typeof healConfig.healWhenZeroEnabled === 'boolean' ? healConfig.healWhenZeroEnabled : true,
   }
 
   // リトライ設定の検証

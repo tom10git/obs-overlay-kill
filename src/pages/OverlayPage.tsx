@@ -32,6 +32,11 @@ export function OverlayPage() {
   const [criticalVisible, setCriticalVisible] = useState(false)
   const criticalTimerRef = useRef<number | null>(null)
 
+  // 食いしばり（HP1残り）メッセージ表示
+  const [survivalMessageVisible, setSurvivalMessageVisible] = useState(false)
+  const [survivalMessageText, setSurvivalMessageText] = useState('')
+  const survivalMessageTimerRef = useRef<number | null>(null)
+
   // 回復エフェクト（キラキラパーティクル）
   const [healParticles, setHealParticles] = useState<Array<{ id: number; angle: number; delay: number; distance: number; createdAt: number; size: number; color: string }>>([])
   const particleIdRef = useRef(0)
@@ -120,6 +125,23 @@ export function OverlayPage() {
       missTimerRef.current = window.setTimeout(() => {
         setMissVisible(false)
         missTimerRef.current = null
+      }, Math.max(200, durationMs))
+    },
+    []
+  )
+
+  const showSurvivalMessage = useCallback(
+    (message: string, durationMs: number = 1500) => {
+      setSurvivalMessageText(message)
+      setSurvivalMessageVisible(false)
+      requestAnimationFrame(() => setSurvivalMessageVisible(true))
+
+      if (survivalMessageTimerRef.current) {
+        window.clearTimeout(survivalMessageTimerRef.current)
+      }
+      survivalMessageTimerRef.current = window.setTimeout(() => {
+        setSurvivalMessageVisible(false)
+        survivalMessageTimerRef.current = null
       }, Math.max(200, durationMs))
     },
     []
@@ -228,10 +250,10 @@ export function OverlayPage() {
     increaseHP,
     resetHP,
     updateConfigLocal,
-    reloadConfig,
   } = useHPGauge({
     broadcasterId: user?.id || '',
     channel: username,
+    onSurvivalHp1: (message) => showSurvivalMessage(message),
   })
 
   // reduceHPを常に最新の状態で参照できるようにする
@@ -1105,6 +1127,10 @@ export function OverlayPage() {
 
       {/* MISS表示（ミス判定が発生したときのみ） */}
       {missVisible && <div className="overlay-miss">MISS</div>}
+      {/* 食いしばり（HP1残り）メッセージ表示 */}
+      {survivalMessageVisible && (
+        <div className="overlay-survival">{survivalMessageText}</div>
+      )}
       {/* クリティカル表示（クリティカル判定が発生したときのみ） */}
       {criticalVisible && <div className="overlay-critical">CRITICAL!</div>}
       {/* 回復エフェクト（キラキラパーティクル - ゲージ中央から放射状） */}
@@ -1878,6 +1904,56 @@ export function OverlayPage() {
                     }}
                   />
                 </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">攻撃でHPが0になる場合に一定確率で1残す</label>
+                  <input
+                    type="checkbox"
+                    checked={config.attack.survivalHp1Enabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ attack: { ...config.attack, survivalHp1Enabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                {config.attack.survivalHp1Enabled && (
+                  <>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">HPが1残る確率（0-100）</label>
+                      <input
+                        type="number"
+                        className="test-settings-input"
+                        min={0}
+                        max={100}
+                        value={testInputValues.survivalHp1Probability ?? config.attack.survivalHp1Probability}
+                        onChange={(e) => {
+                          setTestInputValues((prev) => ({ ...prev, survivalHp1Probability: e.target.value }))
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value >= 0 && value <= 100) {
+                            updateConfigLocal({ attack: { ...config.attack, survivalHp1Probability: value } })
+                          }
+                        }}
+                        onBlur={() => {
+                          setTestInputValues((prev => {
+                            const newValues = { ...prev }
+                            delete newValues.survivalHp1Probability
+                            return newValues
+                          }))
+                        }}
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">食いしばり発動時のメッセージ</label>
+                      <input
+                        type="text"
+                        className="test-settings-input"
+                        placeholder="食いしばり!"
+                        value={config.attack.survivalHp1Message}
+                        onChange={(e) => {
+                          updateConfigLocal({ attack: { ...config.attack, survivalHp1Message: e.target.value } })
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="test-settings-divider"></div>
                 <div className="test-settings-section">
                   <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>回復設定（詳細）</label>
@@ -1889,6 +1965,16 @@ export function OverlayPage() {
                     checked={config.heal.effectEnabled}
                     onChange={(e) => {
                       updateConfigLocal({ heal: { ...config.heal, effectEnabled: e.target.checked } })
+                    }}
+                  />
+                </div>
+                <div className="test-settings-section">
+                  <label className="test-settings-label">HPが0のときも通常回復を許可する</label>
+                  <input
+                    type="checkbox"
+                    checked={config.heal.healWhenZeroEnabled}
+                    onChange={(e) => {
+                      updateConfigLocal({ heal: { ...config.heal, healWhenZeroEnabled: e.target.checked } })
                     }}
                   />
                 </div>

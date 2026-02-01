@@ -37,6 +37,9 @@ export interface AttackConfig {
   soundUrl: string // 攻撃効果音のURL
   soundVolume: number // 攻撃効果音の音量（0-1）
   filterEffectEnabled: boolean // 攻撃時のフィルターエフェクトの有効/無効
+  survivalHp1Enabled: boolean // 攻撃でHPが0になる場合に一定確率で1残す機能の有効/無効
+  survivalHp1Probability: number // HPが1残る確率（0-100）
+  survivalHp1Message: string // 食いしばり発動時に表示するカスタムメッセージ
 }
 
 export interface HealConfig {
@@ -52,6 +55,7 @@ export interface HealConfig {
   soundUrl: string // 回復効果音のURL
   soundVolume: number // 回復効果音の音量（0-1）
   filterEffectEnabled: boolean // 回復時のフィルターエフェクトの有効/無効
+  healWhenZeroEnabled: boolean // HPが0のときも通常回復を許可する
 }
 
 export interface RetryConfig {
