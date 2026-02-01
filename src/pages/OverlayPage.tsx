@@ -18,7 +18,7 @@ import { getAdminUsername } from '../config/admin'
 import { useTwitchUser } from '../hooks/useTwitchUser'
 import { twitchChat } from '../utils/twitchChat'
 import type { TwitchChatMessage } from '../types/twitch'
-import { saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
+import { saveOverlayConfig, validateAndSanitizeConfig, getDefaultConfig } from '../utils/overlayConfig'
 import { twitchApi } from '../utils/twitchApi'
 import type { OverlayConfig } from '../types/overlay'
 import type { ChannelPointEvent } from '../types/overlay'
@@ -1149,6 +1149,84 @@ export function OverlayPage() {
               if (zeroMsg) {
                 if (twitchChat.canSend()) twitchChat.say(username, zeroMsg)
                 else twitchApi.sendChatMessage(user.id, zeroMsg).catch((err) => console.error('[PvP] 視聴者HP0自動返信の送信失敗', err))
+              }
+            }
+          }
+        }
+      }
+
+      // PvP: 視聴者同士の攻撃コマンド（例: !attack ユーザー名）
+      const viewerAttackViewerCmd = (config.pvp?.viewerAttackViewerCommand ?? '!attack').trim()
+      if (
+        !commandMatched &&
+        config.pvp?.enabled &&
+        viewerAttackViewerCmd.length > 0 &&
+        user?.id &&
+        message.user.id !== user.id
+      ) {
+        const cmdLower = viewerAttackViewerCmd.toLowerCase()
+        const isViewerAttackViewerMatch =
+          messageLower === cmdLower ||
+          messageLower.startsWith(cmdLower + ' ') ||
+          messageLower.startsWith(cmdLower + '\n') ||
+          messageLower.startsWith(cmdLower + '\t')
+        if (isViewerAttackViewerMatch) {
+          const parts = messageText.trim().split(/\s+/)
+          const targetNamePart = parts.length >= 2 ? parts.slice(1).join(' ').trim().toLowerCase() : ''
+          if (!targetNamePart) {
+            // ユーザー名未指定は無視（または返信で案内）
+          } else {
+            const attackerId = message.user.id
+            const attackerState = getViewerHPCurrent(attackerId) ?? getViewerHP(attackerId)
+            const attackerCurrent = attackerState?.current ?? viewerMaxHP
+            if (attackerCurrent <= 0) {
+              processedChatMessagesRef.current.add(message.id)
+              commandMatched = true
+              if (config.pvp.autoReplyBlockedByZeroHp) {
+                const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
+                if (twitchChat.canSend()) twitchChat.say(username, msg)
+                else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] 視聴者同士攻撃ブロック送信失敗', err))
+              }
+            } else {
+              const looked = userLookupRef.current.get(targetNamePart)
+              if (!looked) {
+                // 対象がチャットにいない or 未登録
+                processedChatMessagesRef.current.add(message.id)
+                commandMatched = true
+              } else {
+                const targetUserId = looked.userId
+                const targetDisplayName = looked.displayName
+                if (targetUserId === attackerId) {
+                  processedChatMessagesRef.current.add(message.id)
+                  commandMatched = true
+                  // 自分自身は攻撃不可（オプションで返信）
+                } else if (targetUserId === user.id) {
+                  processedChatMessagesRef.current.add(message.id)
+                  commandMatched = true
+                  // 配信者への攻撃は別コマンド（攻撃カスタムテキスト）で行う
+                } else {
+                  processedChatMessagesRef.current.add(message.id)
+                  commandMatched = true
+                  ensureViewerHP(targetUserId)
+                  const vva = config.pvp.viewerVsViewerAttack
+                  const result = applyViewerDamage(targetUserId, vva.damage, vva)
+                  const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
+                  const reply = tpl
+                    .replace(/\{username\}/g, targetDisplayName)
+                    .replace(/\{hp\}/g, String(result.newHP))
+                    .replace(/\{max\}/g, String(viewerMaxHP))
+                  if (config.pvp.autoReplyAttackCounter) {
+                    if (twitchChat.canSend()) twitchChat.say(username, reply)
+                    else twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 視聴者同士攻撃返信の送信失敗', err))
+                  }
+                  if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyAttackCounter) {
+                    const zeroMsg = config.pvp.messageWhenViewerZeroHp.replace(/\{username\}/g, targetDisplayName).trim()
+                    if (zeroMsg) {
+                      if (twitchChat.canSend()) twitchChat.say(username, zeroMsg)
+                      else twitchApi.sendChatMessage(user.id, zeroMsg).catch((err) => console.error('[PvP] 視聴者HP0自動返信の送信失敗', err))
+                    }
+                  }
+                }
               }
             }
           }
@@ -2676,6 +2754,38 @@ export function OverlayPage() {
                           />
                         </div>
                         <div className="test-settings-section">
+                          <label className="test-settings-label">視聴者同士攻撃コマンド</label>
+                          <input
+                            type="text"
+                            className="test-settings-input"
+                            value={config.pvp.viewerAttackViewerCommand ?? '!attack'}
+                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, viewerAttackViewerCommand: e.target.value } })}
+                            placeholder="!attack"
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">視聴者同士攻撃のダメージ</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={1000}
+                            className="test-settings-input"
+                            value={config.pvp.viewerVsViewerAttack?.damage ?? 10}
+                            onChange={(e) => {
+                              const num = Number(e.target.value)
+                              if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                const base = config.pvp.viewerVsViewerAttack ?? getDefaultConfig().pvp.viewerVsViewerAttack
+                                updateConfigLocal({
+                                  pvp: {
+                                    ...config.pvp,
+                                    viewerVsViewerAttack: { ...base, damage: num },
+                                  },
+                                })
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="test-settings-section">
                           <label className="test-settings-label">HP確認コマンド</label>
                           <input
                             type="text"
@@ -3085,13 +3195,13 @@ export function OverlayPage() {
                             className="test-settings-input"
                             min={1}
                             max={1000}
-value={config.retry.streamerHealMax ?? 30}
-                              onChange={(e) => {
-                                const num = Number(e.target.value)
-                                if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                  updateConfigLocal({ retry: { ...config.retry, streamerHealMax: num } })
-                                }
-                              }}
+                            value={config.retry.streamerHealMax ?? 30}
+                            onChange={(e) => {
+                              const num = Number(e.target.value)
+                              if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                updateConfigLocal({ retry: { ...config.retry, streamerHealMax: num } })
+                              }
+                            }}
                           />
                         </div>
                         <div className="test-settings-section">

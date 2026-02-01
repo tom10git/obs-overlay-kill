@@ -134,1842 +134,1393 @@ export function OverlaySettings() {
       </div>
 
       {activeTab === 'streamer' && (
-      <div className="settings-tab-panel">
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('hp')}>
-          <span className="accordion-icon">{expandedSections.hp ? '▼' : '▶'}</span>
-          HP設定
-        </h3>
-        {expandedSections.hp && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                最大HP:
-                <input
-                  type="text"
-                  value={inputValues['hp.max'] ?? String(config.hp.max)}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setInputValues((prev) => ({ ...prev, 'hp.max': value }))
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim()
-                    if (value === '' || isNaN(parseInt(value))) {
-                      setConfig({
-                        ...config,
-                        hp: { ...config.hp, max: 100 },
-                      })
-                      setInputValues((prev) => {
-                        const next = { ...prev }
-                        delete next['hp.max']
-                        return next
-                      })
-                    } else {
-                      const num = parseInt(value)
-                      if (!isNaN(num)) {
+        <div className="settings-tab-panel">
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('hp')}>
+              <span className="accordion-icon">{expandedSections.hp ? '▼' : '▶'}</span>
+              HP設定
+            </h3>
+            {expandedSections.hp && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    最大HP:
+                    <input
+                      type="text"
+                      value={inputValues['hp.max'] ?? String(config.hp.max)}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setInputValues((prev) => ({ ...prev, 'hp.max': value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, max: 100 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['hp.max']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: { ...config.hp, max: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['hp.max']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    現在のHP:
+                    <input
+                      type="text"
+                      value={inputValues['hp.current'] ?? String(config.hp.current)}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setInputValues((prev) => ({ ...prev, 'hp.current': value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, current: 0 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['hp.current']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: {
+                                ...config.hp,
+                                current: Math.min(num, config.hp.max),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['hp.current']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    ゲージ数:
+                    <input
+                      type="text"
+                      value={inputValues['hp.gaugeCount'] ?? String(config.hp.gaugeCount)}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setInputValues((prev) => ({ ...prev, 'hp.gaugeCount': value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, gaugeCount: 3 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['hp.gaugeCount']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: { ...config.hp, gaugeCount: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['hp.gaugeCount']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.retry.streamerAutoReplyEnabled ?? true}
+                      onChange={(e) =>
                         setConfig({
                           ...config,
-                          hp: { ...config.hp, max: num },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['hp.max']
-                          return next
+                          retry: { ...config.retry, streamerAutoReplyEnabled: e.target.checked },
                         })
                       }
-                    }
-                  }}
-                />
-              </label>
-              <label>
-                現在のHP:
-                <input
-                  type="text"
-                  value={inputValues['hp.current'] ?? String(config.hp.current)}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setInputValues((prev) => ({ ...prev, 'hp.current': value }))
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim()
-                    if (value === '' || isNaN(parseInt(value))) {
-                      setConfig({
-                        ...config,
-                        hp: { ...config.hp, current: 0 },
-                      })
-                      setInputValues((prev) => {
-                        const next = { ...prev }
-                        delete next['hp.current']
-                        return next
-                      })
-                    } else {
-                      const num = parseInt(value)
-                      if (!isNaN(num)) {
+                    />
+                    配信者側の自動返信（配信者HP0時などにチャットへメッセージを送る）
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    配信者HPが0になったときの自動返信メッセージ（{'{attacker}'} で攻撃した視聴者名に置換）:
+                    <input
+                      type="text"
+                      value={config.hp.messageWhenZeroHp ?? '配信者を {attacker} が倒しました！'}
+                      onChange={(e) =>
                         setConfig({
                           ...config,
-                          hp: {
-                            ...config.hp,
-                            current: Math.min(num, config.hp.max),
+                          hp: { ...config.hp, messageWhenZeroHp: e.target.value },
+                        })
+                      }
+                      placeholder="配信者を {attacker} が倒しました！"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('attack')}>
+              <span className="accordion-icon">{expandedSections.attack ? '▼' : '▶'}</span>
+              攻撃設定
+            </h3>
+            {expandedSections.attack && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    リワードID:
+                    <div className="password-input-wrapper">
+                      <input
+                        type={showAttackRewardId ? 'text' : 'password'}
+                        value={config.attack.rewardId}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, rewardId: e.target.value },
+                          })
+                        }
+                        placeholder="チャンネルポイントリワードID"
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle"
+                        onClick={() => setShowAttackRewardId(!showAttackRewardId)}
+                        title={showAttackRewardId ? '非表示' : '表示'}
+                      >
+                        {showAttackRewardId ? (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                          </svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    有効
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    カスタムテキスト（App Access Token用）:
+                    <input
+                      type="text"
+                      value={config.attack.customText}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, customText: e.target.value },
+                        })
+                      }
+                      placeholder="チャットメッセージに含まれるテキスト（例: !attack）"
+                    />
+                  </label>
+                </div>
+                <div className="settings-hint">
+                  <p>
+                    <strong>カスタムテキストについて:</strong>
+                  </p>
+                  <ul>
+                    <li>App Access Tokenでも使用できるように、チャットメッセージで判定するテキストを設定できます</li>
+                    <li>リワードIDとカスタムテキストのどちらかが一致すれば攻撃として判定されます</li>
+                    <li>カスタムテキストが空欄の場合は、リワードIDのみで判定します</li>
+                  </ul>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    ダメージ:
+                    <input
+                      type="text"
+                      value={inputValues['attack.damage'] ?? String(config.attack.damage)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'attack.damage': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, damage: 10 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['attack.damage']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, damage: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.damage']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.missEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, missEnabled: e.target.checked },
+                        })
+                      }
+                    />
+                    ミス判定を有効にする
+                  </label>
+                  {config.attack.missEnabled && (
+                    <label>
+                      ミス確率 (%):
+                      <input
+                        type="text"
+                        value={inputValues['attack.missProbability'] ?? String(config.attack.missProbability)}
+                        onChange={(e) => {
+                          setInputValues((prev) => ({ ...prev, 'attack.missProbability': e.target.value }))
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim()
+                          if (value === '' || isNaN(parseFloat(value))) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, missProbability: 0 },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.missProbability']
+                              return next
+                            })
+                          } else {
+                            const num = parseFloat(value)
+                            if (!isNaN(num)) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, missProbability: num },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.missProbability']
+                                return next
+                              })
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+                {config.attack.missEnabled && (
+                  <div className="settings-row">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={config.attack.missSoundEnabled}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, missSoundEnabled: e.target.checked },
+                          })
+                        }
+                      />
+                      ミス効果音を有効にする
+                    </label>
+                  </div>
+                )}
+                {config.attack.missEnabled && config.attack.missSoundEnabled && (
+                  <div className="settings-row">
+                    <label>
+                      効果音URL:
+                      <input
+                        type="text"
+                        value={config.attack.missSoundUrl}
+                        onChange={(e) => {
+                          const url = e.target.value
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, missSoundUrl: url },
+                            })
+                          } else {
+                            setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                            setTimeout(() => setMessage(null), 3000)
+                          }
+                        }}
+                        placeholder="空欄の場合は効果音なし"
+                      />
+                    </label>
+                    <label>
+                      音量:
+                      <input
+                        type="text"
+                        value={inputValues['attack.missSoundVolume'] ?? String(config.attack.missSoundVolume)}
+                        onChange={(e) => {
+                          setInputValues((prev) => ({ ...prev, 'attack.missSoundVolume': e.target.value }))
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim()
+                          if (value === '' || isNaN(parseFloat(value))) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, missSoundVolume: 0.7 },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.missSoundVolume']
+                              return next
+                            })
+                          } else {
+                            const num = parseFloat(value)
+                            if (!isNaN(num)) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, missSoundVolume: Math.min(1, Math.max(0, num)) },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.missSoundVolume']
+                                return next
+                              })
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+                {config.attack.missEnabled && config.attack.missSoundEnabled && (
+                  <p className="settings-hint">
+                    例: <code>src/sounds/miss.mp3</code>（public/sounds に配置）または{' '}
+                    <code>https://...</code>
+                  </p>
+                )}
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.criticalEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, criticalEnabled: e.target.checked },
+                        })
+                      }
+                    />
+                    クリティカル判定を有効にする
+                  </label>
+                  {config.attack.criticalEnabled && (
+                    <>
+                      <label>
+                        クリティカル確率 (%):
+                        <input
+                          type="text"
+                          value={inputValues['attack.criticalProbability'] ?? String(config.attack.criticalProbability)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'attack.criticalProbability': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            if (value === '' || isNaN(parseFloat(value))) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, criticalProbability: 0 },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.criticalProbability']
+                                return next
+                              })
+                            } else {
+                              const num = parseFloat(value)
+                              if (!isNaN(num)) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, criticalProbability: num },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.criticalProbability']
+                                  return next
+                                })
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        クリティカル倍率:
+                        <input
+                          type="text"
+                          value={inputValues['attack.criticalMultiplier'] ?? String(config.attack.criticalMultiplier)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'attack.criticalMultiplier': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            if (value === '' || isNaN(parseFloat(value))) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, criticalMultiplier: 2.0 },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.criticalMultiplier']
+                                return next
+                              })
+                            } else {
+                              const num = parseFloat(value)
+                              if (!isNaN(num)) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, criticalMultiplier: num },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.criticalMultiplier']
+                                  return next
+                                })
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.bleedEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, bleedEnabled: e.target.checked },
+                        })
+                      }
+                    />
+                    出血ダメージを有効にする
+                  </label>
+                  {config.attack.bleedEnabled && (
+                    <>
+                      <label>
+                        出血確率 (%):
+                        <input
+                          type="text"
+                          value={inputValues['attack.bleedProbability'] ?? String(config.attack.bleedProbability)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'attack.bleedProbability': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            if (value === '' || isNaN(parseFloat(value))) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, bleedProbability: 0 },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.bleedProbability']
+                                return next
+                              })
+                            } else {
+                              const num = parseFloat(value)
+                              if (!isNaN(num)) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, bleedProbability: Math.min(100, Math.max(0, num)) },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.bleedProbability']
+                                  return next
+                                })
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        出血ダメージ:
+                        <input
+                          type="text"
+                          value={inputValues['attack.bleedDamage'] ?? String(config.attack.bleedDamage)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'attack.bleedDamage': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            if (value === '' || isNaN(parseInt(value))) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, bleedDamage: 5 },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.bleedDamage']
+                                return next
+                              })
+                            } else {
+                              const num = parseInt(value)
+                              if (!isNaN(num)) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, bleedDamage: num },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.bleedDamage']
+                                  return next
+                                })
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        持続時間 (秒):
+                        <input
+                          type="text"
+                          value={inputValues['attack.bleedDuration'] ?? String(config.attack.bleedDuration)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'attack.bleedDuration': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            if (value === '' || isNaN(parseInt(value))) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, bleedDuration: 10 },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.bleedDuration']
+                                return next
+                              })
+                            } else {
+                              const num = parseInt(value)
+                              if (!isNaN(num)) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, bleedDuration: num },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.bleedDuration']
+                                  return next
+                                })
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        間隔 (秒):
+                        <input
+                          type="text"
+                          value={inputValues['attack.bleedInterval'] ?? String(config.attack.bleedInterval)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'attack.bleedInterval': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            if (value === '' || isNaN(parseFloat(value))) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, bleedInterval: 1 },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.bleedInterval']
+                                return next
+                              })
+                            } else {
+                              const num = parseFloat(value)
+                              if (!isNaN(num)) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, bleedInterval: Math.max(0.1, num) },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.bleedInterval']
+                                  return next
+                                })
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+                {config.attack.bleedEnabled && (
+                  <div className="settings-row">
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={config.attack.bleedSoundEnabled}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, bleedSoundEnabled: e.target.checked },
+                          })
+                        }
+                      />
+                      出血ダメージ効果音を有効にする
+                    </label>
+                  </div>
+                )}
+                {config.attack.bleedEnabled && config.attack.bleedSoundEnabled && (
+                  <div className="settings-row">
+                    <label>
+                      効果音URL:
+                      <input
+                        type="text"
+                        value={config.attack.bleedSoundUrl}
+                        onChange={(e) => {
+                          const url = e.target.value
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, bleedSoundUrl: url },
+                            })
+                          } else {
+                            setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                            setTimeout(() => setMessage(null), 3000)
+                          }
+                        }}
+                        placeholder="空欄の場合は効果音なし"
+                      />
+                    </label>
+                    <label>
+                      音量:
+                      <input
+                        type="text"
+                        value={inputValues['attack.bleedSoundVolume'] ?? String(config.attack.bleedSoundVolume)}
+                        onChange={(e) => {
+                          setInputValues((prev) => ({ ...prev, 'attack.bleedSoundVolume': e.target.value }))
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim()
+                          if (value === '' || isNaN(parseFloat(value))) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, bleedSoundVolume: 0.7 },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.bleedSoundVolume']
+                              return next
+                            })
+                          } else {
+                            const num = parseFloat(value)
+                            if (!isNaN(num)) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, bleedSoundVolume: Math.min(1, Math.max(0, num)) },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.bleedSoundVolume']
+                                return next
+                              })
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+                {config.attack.bleedEnabled && config.attack.bleedSoundEnabled && (
+                  <p className="settings-hint">
+                    例: <code>src/sounds/bleed.mp3</code>（public/sounds に配置）または{' '}
+                    <code>https://...</code>
+                  </p>
+                )}
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.soundEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, soundEnabled: e.target.checked },
+                        })
+                      }
+                    />
+                    攻撃効果音を有効にする
+                  </label>
+                </div>
+                {config.attack.soundEnabled && (
+                  <div className="settings-row">
+                    <label>
+                      効果音URL:
+                      <input
+                        type="text"
+                        value={config.attack.soundUrl}
+                        onChange={(e) => {
+                          const url = e.target.value
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, soundUrl: url },
+                            })
+                          } else {
+                            setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                            setTimeout(() => setMessage(null), 3000)
+                          }
+                        }}
+                        placeholder="空欄の場合は効果音なし"
+                      />
+                    </label>
+                    <label>
+                      音量:
+                      <input
+                        type="text"
+                        value={inputValues['attack.soundVolume'] ?? String(config.attack.soundVolume)}
+                        onChange={(e) => {
+                          setInputValues((prev) => ({ ...prev, 'attack.soundVolume': e.target.value }))
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim()
+                          if (value === '' || isNaN(parseFloat(value))) {
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, soundVolume: 0.7 },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['attack.soundVolume']
+                              return next
+                            })
+                          } else {
+                            const num = parseFloat(value)
+                            if (!isNaN(num)) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, soundVolume: Math.min(1, Math.max(0, num)) },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.soundVolume']
+                                return next
+                              })
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+                {config.attack.soundEnabled && (
+                  <p className="settings-hint">
+                    例: <code>src/sounds/attack.mp3</code>（public/sounds に配置）または{' '}
+                    <code>https://...</code>
+                  </p>
+                )}
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.filterEffectEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, filterEffectEnabled: e.target.checked },
+                        })
+                      }
+                    />
+                    攻撃時のフィルターエフェクトを有効にする
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.survivalHp1Enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, survivalHp1Enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    攻撃でHPが0になる場合に一定確率で1残す
+                  </label>
+                </div>
+                {config.attack.survivalHp1Enabled && (
+                  <>
+                    <div className="settings-row">
+                      <label>
+                        HPが1残る確率（0-100）:
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={inputValues['attack.survivalHp1Probability'] ?? String(config.attack.survivalHp1Probability)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'attack.survivalHp1Probability': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            if (value === '' || isNaN(parseInt(value))) {
+                              setConfig({
+                                ...config,
+                                attack: { ...config.attack, survivalHp1Probability: 30 },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['attack.survivalHp1Probability']
+                                return next
+                              })
+                            } else {
+                              const num = parseInt(value)
+                              if (!isNaN(num)) {
+                                setConfig({
+                                  ...config,
+                                  attack: {
+                                    ...config.attack,
+                                    survivalHp1Probability: Math.min(100, Math.max(0, num)),
+                                  },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.survivalHp1Probability']
+                                  return next
+                                })
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        表示メッセージ:
+                        <input
+                          type="text"
+                          value={config.attack.survivalHp1Message}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, survivalHp1Message: e.target.value },
+                            })
+                          }
+                          placeholder="食いしばり!"
+                        />
+                      </label>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('heal')}>
+              <span className="accordion-icon">{expandedSections.heal ? '▼' : '▶'}</span>
+              回復設定
+            </h3>
+            {expandedSections.heal && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    リワードID:
+                    <div className="password-input-wrapper">
+                      <input
+                        type={showHealRewardId ? 'text' : 'password'}
+                        value={config.heal.rewardId}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            heal: { ...config.heal, rewardId: e.target.value },
+                          })
+                        }
+                        placeholder="チャンネルポイントリワードID"
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle"
+                        onClick={() => setShowHealRewardId(!showHealRewardId)}
+                        title={showHealRewardId ? '非表示' : '表示'}
+                      >
+                        {showHealRewardId ? (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                          </svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.heal.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: { ...config.heal, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    有効
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    カスタムテキスト（App Access Token用）:
+                    <input
+                      type="text"
+                      value={config.heal.customText}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: { ...config.heal, customText: e.target.value },
+                        })
+                      }
+                      placeholder="チャットメッセージに含まれるテキスト（例: !heal）"
+                    />
+                  </label>
+                </div>
+                <div className="settings-hint">
+                  <p>
+                    <strong>カスタムテキストについて:</strong>
+                  </p>
+                  <ul>
+                    <li>App Access Tokenでも使用できるように、チャットメッセージで判定するテキストを設定できます</li>
+                    <li>リワードIDとカスタムテキストのどちらかが一致すれば回復として判定されます</li>
+                    <li>カスタムテキストが空欄の場合は、リワードIDのみで判定します</li>
+                  </ul>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    回復タイプ:
+                    <select
+                      value={config.heal.healType}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: {
+                            ...config.heal,
+                            healType: e.target.value as 'fixed' | 'random',
                           },
                         })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['hp.current']
-                          return next
-                        })
                       }
-                    }
-                  }}
-                />
-              </label>
-              <label>
-                ゲージ数:
-                <input
-                  type="text"
-                  value={inputValues['hp.gaugeCount'] ?? String(config.hp.gaugeCount)}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setInputValues((prev) => ({ ...prev, 'hp.gaugeCount': value }))
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim()
-                    if (value === '' || isNaN(parseInt(value))) {
-                      setConfig({
-                        ...config,
-                        hp: { ...config.hp, gaugeCount: 3 },
-                      })
-                      setInputValues((prev) => {
-                        const next = { ...prev }
-                        delete next['hp.gaugeCount']
-                        return next
-                      })
-                    } else {
-                      const num = parseInt(value)
-                      if (!isNaN(num)) {
-                        setConfig({
-                          ...config,
-                          hp: { ...config.hp, gaugeCount: num },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['hp.gaugeCount']
-                          return next
-                        })
-                      }
-                    }
-                  }}
-                />
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.retry.streamerAutoReplyEnabled ?? true}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      retry: { ...config.retry, streamerAutoReplyEnabled: e.target.checked },
-                    })
-                  }
-                />
-                配信者側の自動返信（配信者HP0時などにチャットへメッセージを送る）
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                配信者HPが0になったときの自動返信メッセージ（{'{attacker}'} で攻撃した視聴者名に置換）:
-                <input
-                  type="text"
-                  value={config.hp.messageWhenZeroHp ?? '配信者を {attacker} が倒しました！'}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      hp: { ...config.hp, messageWhenZeroHp: e.target.value },
-                    })
-                  }
-                  placeholder="配信者を {attacker} が倒しました！"
-                />
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('attack')}>
-          <span className="accordion-icon">{expandedSections.attack ? '▼' : '▶'}</span>
-          攻撃設定
-        </h3>
-        {expandedSections.attack && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                リワードID:
-                <div className="password-input-wrapper">
-                  <input
-                    type={showAttackRewardId ? 'text' : 'password'}
-                    value={config.attack.rewardId}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        attack: { ...config.attack, rewardId: e.target.value },
-                      })
-                    }
-                    placeholder="チャンネルポイントリワードID"
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() => setShowAttackRewardId(!showAttackRewardId)}
-                    title={showAttackRewardId ? '非表示' : '表示'}
-                  >
-                    {showAttackRewardId ? (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                      </svg>
-                    ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                        <line x1="1" y1="1" x2="23" y2="23"></line>
-                      </svg>
-                    )}
-                  </button>
+                    >
+                      <option value="fixed">固定</option>
+                      <option value="random">ランダム</option>
+                    </select>
+                  </label>
+                  {config.heal.healType === 'fixed' ? (
+                    <label>
+                      回復量:
+                      <input
+                        type="text"
+                        value={inputValues['heal.healAmount'] ?? String(config.heal.healAmount)}
+                        onChange={(e) => {
+                          setInputValues((prev) => ({ ...prev, 'heal.healAmount': e.target.value }))
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim()
+                          if (value === '' || isNaN(parseInt(value))) {
+                            setConfig({
+                              ...config,
+                              heal: { ...config.heal, healAmount: 20 },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['heal.healAmount']
+                              return next
+                            })
+                          } else {
+                            const num = parseInt(value)
+                            if (!isNaN(num)) {
+                              setConfig({
+                                ...config,
+                                heal: { ...config.heal, healAmount: num },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['heal.healAmount']
+                                return next
+                              })
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  ) : (
+                    <>
+                      <label>
+                        最小回復量:
+                        <input
+                          type="text"
+                          value={inputValues['heal.healMin'] ?? String(config.heal.healMin)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'heal.healMin': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            if (value === '' || isNaN(parseInt(value))) {
+                              setConfig({
+                                ...config,
+                                heal: { ...config.heal, healMin: 10 },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['heal.healMin']
+                                return next
+                              })
+                            } else {
+                              const num = parseInt(value)
+                              if (!isNaN(num)) {
+                                setConfig({
+                                  ...config,
+                                  heal: { ...config.heal, healMin: num },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['heal.healMin']
+                                  return next
+                                })
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        最大回復量:
+                        <input
+                          type="text"
+                          value={inputValues['heal.healMax'] ?? String(config.heal.healMax)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'heal.healMax': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            if (value === '' || isNaN(parseInt(value))) {
+                              setConfig({
+                                ...config,
+                                heal: { ...config.heal, healMax: 30 },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['heal.healMax']
+                                return next
+                              })
+                            } else {
+                              const num = parseInt(value)
+                              if (!isNaN(num)) {
+                                setConfig({
+                                  ...config,
+                                  heal: { ...config.heal, healMax: num },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['heal.healMax']
+                                  return next
+                                })
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        刻み（50・100など。1のときは最小～最大の連続値）:
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          value={inputValues['heal.healRandomStep'] ?? String(config.heal.healRandomStep ?? 1)}
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'heal.healRandomStep': e.target.value }))}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            const num = value === '' ? 1 : parseInt(value, 10)
+                            if (!isNaN(num) && num >= 1 && num <= 1000) {
+                              setConfig({ ...config, heal: { ...config.heal, healRandomStep: num } })
+                              setInputValues((prev) => { const next = { ...prev }; delete next['heal.healRandomStep']; return next })
+                            }
+                          }}
+                        />
+                      </label>
+                    </>
+                  )}
                 </div>
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.attack.enabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      attack: { ...config.attack, enabled: e.target.checked },
-                    })
-                  }
-                />
-                有効
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                カスタムテキスト（App Access Token用）:
-                <input
-                  type="text"
-                  value={config.attack.customText}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      attack: { ...config.attack, customText: e.target.value },
-                    })
-                  }
-                  placeholder="チャットメッセージに含まれるテキスト（例: !attack）"
-                />
-              </label>
-            </div>
-            <div className="settings-hint">
-              <p>
-                <strong>カスタムテキストについて:</strong>
-              </p>
-              <ul>
-                <li>App Access Tokenでも使用できるように、チャットメッセージで判定するテキストを設定できます</li>
-                <li>リワードIDとカスタムテキストのどちらかが一致すれば攻撃として判定されます</li>
-                <li>カスタムテキストが空欄の場合は、リワードIDのみで判定します</li>
-              </ul>
-            </div>
-            <div className="settings-row">
-              <label>
-                ダメージ:
-                <input
-                  type="text"
-                  value={inputValues['attack.damage'] ?? String(config.attack.damage)}
-                  onChange={(e) => {
-                    setInputValues((prev) => ({ ...prev, 'attack.damage': e.target.value }))
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim()
-                    if (value === '' || isNaN(parseInt(value))) {
-                      setConfig({
-                        ...config,
-                        attack: { ...config.attack, damage: 10 },
-                      })
-                      setInputValues((prev) => {
-                        const next = { ...prev }
-                        delete next['attack.damage']
-                        return next
-                      })
-                    } else {
-                      const num = parseInt(value)
-                      if (!isNaN(num)) {
-                        setConfig({
-                          ...config,
-                          attack: { ...config.attack, damage: num },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['attack.damage']
-                          return next
-                        })
-                      }
-                    }
-                  }}
-                />
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.attack.missEnabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      attack: { ...config.attack, missEnabled: e.target.checked },
-                    })
-                  }
-                />
-                ミス判定を有効にする
-              </label>
-              {config.attack.missEnabled && (
-                <label>
-                  ミス確率 (%):
-                  <input
-                    type="text"
-                    value={inputValues['attack.missProbability'] ?? String(config.attack.missProbability)}
-                    onChange={(e) => {
-                      setInputValues((prev) => ({ ...prev, 'attack.missProbability': e.target.value }))
-                    }}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim()
-                      if (value === '' || isNaN(parseFloat(value))) {
-                        setConfig({
-                          ...config,
-                          attack: { ...config.attack, missProbability: 0 },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['attack.missProbability']
-                          return next
-                        })
-                      } else {
-                        const num = parseFloat(value)
-                        if (!isNaN(num)) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, missProbability: num },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.missProbability']
-                            return next
-                          })
-                        }
-                      }
-                    }}
-                  />
-                </label>
-              )}
-            </div>
-            {config.attack.missEnabled && (
-              <div className="settings-row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={config.attack.missSoundEnabled}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        attack: { ...config.attack, missSoundEnabled: e.target.checked },
-                      })
-                    }
-                  />
-                  ミス効果音を有効にする
-                </label>
-              </div>
-            )}
-            {config.attack.missEnabled && config.attack.missSoundEnabled && (
-              <div className="settings-row">
-                <label>
-                  効果音URL:
-                  <input
-                    type="text"
-                    value={config.attack.missSoundUrl}
-                    onChange={(e) => {
-                      const url = e.target.value
-                      if (isValidUrl(url)) {
-                        setConfig({
-                          ...config,
-                          attack: { ...config.attack, missSoundUrl: url },
-                        })
-                      } else {
-                        setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                        setTimeout(() => setMessage(null), 3000)
-                      }
-                    }}
-                    placeholder="空欄の場合は効果音なし"
-                  />
-                </label>
-                <label>
-                  音量:
-                  <input
-                    type="text"
-                    value={inputValues['attack.missSoundVolume'] ?? String(config.attack.missSoundVolume)}
-                    onChange={(e) => {
-                      setInputValues((prev) => ({ ...prev, 'attack.missSoundVolume': e.target.value }))
-                    }}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim()
-                      if (value === '' || isNaN(parseFloat(value))) {
-                        setConfig({
-                          ...config,
-                          attack: { ...config.attack, missSoundVolume: 0.7 },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['attack.missSoundVolume']
-                          return next
-                        })
-                      } else {
-                        const num = parseFloat(value)
-                        if (!isNaN(num)) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, missSoundVolume: Math.min(1, Math.max(0, num)) },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.missSoundVolume']
-                            return next
-                          })
-                        }
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-            )}
-            {config.attack.missEnabled && config.attack.missSoundEnabled && (
-              <p className="settings-hint">
-                例: <code>src/sounds/miss.mp3</code>（public/sounds に配置）または{' '}
-                <code>https://...</code>
-              </p>
-            )}
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.attack.criticalEnabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      attack: { ...config.attack, criticalEnabled: e.target.checked },
-                    })
-                  }
-                />
-                クリティカル判定を有効にする
-              </label>
-              {config.attack.criticalEnabled && (
-                <>
-                  <label>
-                    クリティカル確率 (%):
-                    <input
-                      type="text"
-                      value={inputValues['attack.criticalProbability'] ?? String(config.attack.criticalProbability)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'attack.criticalProbability': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseFloat(value))) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, criticalProbability: 0 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.criticalProbability']
-                            return next
-                          })
-                        } else {
-                          const num = parseFloat(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              attack: { ...config.attack, criticalProbability: num },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['attack.criticalProbability']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                  <label>
-                    クリティカル倍率:
-                    <input
-                      type="text"
-                      value={inputValues['attack.criticalMultiplier'] ?? String(config.attack.criticalMultiplier)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'attack.criticalMultiplier': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseFloat(value))) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, criticalMultiplier: 2.0 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.criticalMultiplier']
-                            return next
-                          })
-                        } else {
-                          const num = parseFloat(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              attack: { ...config.attack, criticalMultiplier: num },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['attack.criticalMultiplier']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                </>
-              )}
-            </div>
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.attack.bleedEnabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      attack: { ...config.attack, bleedEnabled: e.target.checked },
-                    })
-                  }
-                />
-                出血ダメージを有効にする
-              </label>
-              {config.attack.bleedEnabled && (
-                <>
-                  <label>
-                    出血確率 (%):
-                    <input
-                      type="text"
-                      value={inputValues['attack.bleedProbability'] ?? String(config.attack.bleedProbability)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'attack.bleedProbability': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseFloat(value))) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, bleedProbability: 0 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.bleedProbability']
-                            return next
-                          })
-                        } else {
-                          const num = parseFloat(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              attack: { ...config.attack, bleedProbability: Math.min(100, Math.max(0, num)) },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['attack.bleedProbability']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                  <label>
-                    出血ダメージ:
-                    <input
-                      type="text"
-                      value={inputValues['attack.bleedDamage'] ?? String(config.attack.bleedDamage)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'attack.bleedDamage': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseInt(value))) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, bleedDamage: 5 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.bleedDamage']
-                            return next
-                          })
-                        } else {
-                          const num = parseInt(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              attack: { ...config.attack, bleedDamage: num },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['attack.bleedDamage']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                  <label>
-                    持続時間 (秒):
-                    <input
-                      type="text"
-                      value={inputValues['attack.bleedDuration'] ?? String(config.attack.bleedDuration)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'attack.bleedDuration': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseInt(value))) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, bleedDuration: 10 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.bleedDuration']
-                            return next
-                          })
-                        } else {
-                          const num = parseInt(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              attack: { ...config.attack, bleedDuration: num },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['attack.bleedDuration']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                  <label>
-                    間隔 (秒):
-                    <input
-                      type="text"
-                      value={inputValues['attack.bleedInterval'] ?? String(config.attack.bleedInterval)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'attack.bleedInterval': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseFloat(value))) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, bleedInterval: 1 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.bleedInterval']
-                            return next
-                          })
-                        } else {
-                          const num = parseFloat(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              attack: { ...config.attack, bleedInterval: Math.max(0.1, num) },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['attack.bleedInterval']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                </>
-              )}
-            </div>
-            {config.attack.bleedEnabled && (
-              <div className="settings-row">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={config.attack.bleedSoundEnabled}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        attack: { ...config.attack, bleedSoundEnabled: e.target.checked },
-                      })
-                    }
-                  />
-                  出血ダメージ効果音を有効にする
-                </label>
-              </div>
-            )}
-            {config.attack.bleedEnabled && config.attack.bleedSoundEnabled && (
-              <div className="settings-row">
-                <label>
-                  効果音URL:
-                  <input
-                    type="text"
-                    value={config.attack.bleedSoundUrl}
-                    onChange={(e) => {
-                      const url = e.target.value
-                      if (isValidUrl(url)) {
-                        setConfig({
-                          ...config,
-                          attack: { ...config.attack, bleedSoundUrl: url },
-                        })
-                      } else {
-                        setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                        setTimeout(() => setMessage(null), 3000)
-                      }
-                    }}
-                    placeholder="空欄の場合は効果音なし"
-                  />
-                </label>
-                <label>
-                  音量:
-                  <input
-                    type="text"
-                    value={inputValues['attack.bleedSoundVolume'] ?? String(config.attack.bleedSoundVolume)}
-                    onChange={(e) => {
-                      setInputValues((prev) => ({ ...prev, 'attack.bleedSoundVolume': e.target.value }))
-                    }}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim()
-                      if (value === '' || isNaN(parseFloat(value))) {
-                        setConfig({
-                          ...config,
-                          attack: { ...config.attack, bleedSoundVolume: 0.7 },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['attack.bleedSoundVolume']
-                          return next
-                        })
-                      } else {
-                        const num = parseFloat(value)
-                        if (!isNaN(num)) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, bleedSoundVolume: Math.min(1, Math.max(0, num)) },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.bleedSoundVolume']
-                            return next
-                          })
-                        }
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-            )}
-            {config.attack.bleedEnabled && config.attack.bleedSoundEnabled && (
-              <p className="settings-hint">
-                例: <code>src/sounds/bleed.mp3</code>（public/sounds に配置）または{' '}
-                <code>https://...</code>
-              </p>
-            )}
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.attack.soundEnabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      attack: { ...config.attack, soundEnabled: e.target.checked },
-                    })
-                  }
-                />
-                攻撃効果音を有効にする
-              </label>
-            </div>
-            {config.attack.soundEnabled && (
-              <div className="settings-row">
-                <label>
-                  効果音URL:
-                  <input
-                    type="text"
-                    value={config.attack.soundUrl}
-                    onChange={(e) => {
-                      const url = e.target.value
-                      if (isValidUrl(url)) {
-                        setConfig({
-                          ...config,
-                          attack: { ...config.attack, soundUrl: url },
-                        })
-                      } else {
-                        setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                        setTimeout(() => setMessage(null), 3000)
-                      }
-                    }}
-                    placeholder="空欄の場合は効果音なし"
-                  />
-                </label>
-                <label>
-                  音量:
-                  <input
-                    type="text"
-                    value={inputValues['attack.soundVolume'] ?? String(config.attack.soundVolume)}
-                    onChange={(e) => {
-                      setInputValues((prev) => ({ ...prev, 'attack.soundVolume': e.target.value }))
-                    }}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim()
-                      if (value === '' || isNaN(parseFloat(value))) {
-                        setConfig({
-                          ...config,
-                          attack: { ...config.attack, soundVolume: 0.7 },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['attack.soundVolume']
-                          return next
-                        })
-                      } else {
-                        const num = parseFloat(value)
-                        if (!isNaN(num)) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, soundVolume: Math.min(1, Math.max(0, num)) },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.soundVolume']
-                            return next
-                          })
-                        }
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-            )}
-            {config.attack.soundEnabled && (
-              <p className="settings-hint">
-                例: <code>src/sounds/attack.mp3</code>（public/sounds に配置）または{' '}
-                <code>https://...</code>
-              </p>
-            )}
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.attack.filterEffectEnabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      attack: { ...config.attack, filterEffectEnabled: e.target.checked },
-                    })
-                  }
-                />
-                攻撃時のフィルターエフェクトを有効にする
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.attack.survivalHp1Enabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      attack: { ...config.attack, survivalHp1Enabled: e.target.checked },
-                    })
-                  }
-                />
-                攻撃でHPが0になる場合に一定確率で1残す
-              </label>
-            </div>
-            {config.attack.survivalHp1Enabled && (
-              <>
                 <div className="settings-row">
                   <label>
-                    HPが1残る確率（0-100）:
                     <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={inputValues['attack.survivalHp1Probability'] ?? String(config.attack.survivalHp1Probability)}
-                    onChange={(e) => {
-                      setInputValues((prev) => ({ ...prev, 'attack.survivalHp1Probability': e.target.value }))
-                    }}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim()
-                      if (value === '' || isNaN(parseInt(value))) {
-                        setConfig({
-                          ...config,
-                          attack: { ...config.attack, survivalHp1Probability: 30 },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['attack.survivalHp1Probability']
-                          return next
-                        })
-                      } else {
-                        const num = parseInt(value)
-                        if (!isNaN(num)) {
-                          setConfig({
-                            ...config,
-                            attack: {
-                              ...config.attack,
-                              survivalHp1Probability: Math.min(100, Math.max(0, num)),
-                            },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.survivalHp1Probability']
-                            return next
-                          })
-                        }
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-                <div className="settings-row">
-                  <label>
-                    表示メッセージ:
-                    <input
-                      type="text"
-                      value={config.attack.survivalHp1Message}
+                      type="checkbox"
+                      checked={config.heal.effectEnabled}
                       onChange={(e) =>
                         setConfig({
                           ...config,
-                          attack: { ...config.attack, survivalHp1Message: e.target.value },
+                          heal: { ...config.heal, effectEnabled: e.target.checked },
                         })
                       }
-                      placeholder="食いしばり!"
                     />
+                    回復エフェクトを表示
                   </label>
                 </div>
-              </>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.heal.healWhenZeroEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: { ...config.heal, healWhenZeroEnabled: e.target.checked },
+                        })
+                      }
+                    />
+                    HPが0のときも通常回復を許可する
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.heal.soundEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: { ...config.heal, soundEnabled: e.target.checked },
+                        })
+                      }
+                    />
+                    回復効果音を有効にする
+                  </label>
+                </div>
+                {config.heal.soundEnabled && (
+                  <div className="settings-row">
+                    <label>
+                      効果音URL:
+                      <input
+                        type="text"
+                        value={config.heal.soundUrl}
+                        onChange={(e) => {
+                          const url = e.target.value
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              heal: { ...config.heal, soundUrl: url },
+                            })
+                          } else {
+                            setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                            setTimeout(() => setMessage(null), 3000)
+                          }
+                        }}
+                        placeholder="空欄の場合は効果音なし"
+                      />
+                    </label>
+                    <label>
+                      音量:
+                      <input
+                        type="text"
+                        value={inputValues['heal.soundVolume'] ?? String(config.heal.soundVolume)}
+                        onChange={(e) => {
+                          setInputValues((prev) => ({ ...prev, 'heal.soundVolume': e.target.value }))
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim()
+                          if (value === '' || isNaN(parseFloat(value))) {
+                            setConfig({
+                              ...config,
+                              heal: { ...config.heal, soundVolume: 0.7 },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['heal.soundVolume']
+                              return next
+                            })
+                          } else {
+                            const num = parseFloat(value)
+                            if (!isNaN(num)) {
+                              setConfig({
+                                ...config,
+                                heal: { ...config.heal, soundVolume: Math.min(1, Math.max(0, num)) },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['heal.soundVolume']
+                                return next
+                              })
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+                {config.heal.soundEnabled && (
+                  <p className="settings-hint">
+                    例: <code>src/sounds/heal.mp3</code>（public/sounds に配置）または{' '}
+                    <code>https://...</code>
+                  </p>
+                )}
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.heal.filterEffectEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: { ...config.heal, filterEffectEnabled: e.target.checked },
+                        })
+                      }
+                    />
+                    回復時のフィルターエフェクトを有効にする
+                  </label>
+                </div>
+              </div>
             )}
           </div>
-        )}
-      </div>
 
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('heal')}>
-          <span className="accordion-icon">{expandedSections.heal ? '▼' : '▶'}</span>
-          回復設定
-        </h3>
-        {expandedSections.heal && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                リワードID:
-                <div className="password-input-wrapper">
-                  <input
-                    type={showHealRewardId ? 'text' : 'password'}
-                    value={config.heal.rewardId}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        heal: { ...config.heal, rewardId: e.target.value },
-                      })
-                    }
-                    placeholder="チャンネルポイントリワードID"
-                  />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() => setShowHealRewardId(!showHealRewardId)}
-                    title={showHealRewardId ? '非表示' : '表示'}
-                  >
-                    {showHealRewardId ? (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                      </svg>
-                    ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                        <line x1="1" y1="1" x2="23" y2="23"></line>
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.heal.enabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      heal: { ...config.heal, enabled: e.target.checked },
-                    })
-                  }
-                />
-                有効
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                カスタムテキスト（App Access Token用）:
-                <input
-                  type="text"
-                  value={config.heal.customText}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      heal: { ...config.heal, customText: e.target.value },
-                    })
-                  }
-                  placeholder="チャットメッセージに含まれるテキスト（例: !heal）"
-                />
-              </label>
-            </div>
-            <div className="settings-hint">
-              <p>
-                <strong>カスタムテキストについて:</strong>
-              </p>
-              <ul>
-                <li>App Access Tokenでも使用できるように、チャットメッセージで判定するテキストを設定できます</li>
-                <li>リワードIDとカスタムテキストのどちらかが一致すれば回復として判定されます</li>
-                <li>カスタムテキストが空欄の場合は、リワードIDのみで判定します</li>
-              </ul>
-            </div>
-            <div className="settings-row">
-              <label>
-                回復タイプ:
-                <select
-                  value={config.heal.healType}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      heal: {
-                        ...config.heal,
-                        healType: e.target.value as 'fixed' | 'random',
-                      },
-                    })
-                  }
-                >
-                  <option value="fixed">固定</option>
-                  <option value="random">ランダム</option>
-                </select>
-              </label>
-              {config.heal.healType === 'fixed' ? (
-                <label>
-                  回復量:
-                  <input
-                    type="text"
-                    value={inputValues['heal.healAmount'] ?? String(config.heal.healAmount)}
-                    onChange={(e) => {
-                      setInputValues((prev) => ({ ...prev, 'heal.healAmount': e.target.value }))
-                    }}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim()
-                      if (value === '' || isNaN(parseInt(value))) {
-                        setConfig({
-                          ...config,
-                          heal: { ...config.heal, healAmount: 20 },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['heal.healAmount']
-                          return next
-                        })
-                      } else {
-                        const num = parseInt(value)
-                        if (!isNaN(num)) {
-                          setConfig({
-                            ...config,
-                            heal: { ...config.heal, healAmount: num },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['heal.healAmount']
-                            return next
-                          })
-                        }
-                      }
-                    }}
-                  />
-                </label>
-              ) : (
-                <>
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('retry')}>
+              <span className="accordion-icon">{expandedSections.retry ? '▼' : '▶'}</span>
+              リトライ設定
+            </h3>
+            {expandedSections.retry && (
+              <div className="settings-section-content">
+                <div className="settings-row">
                   <label>
-                    最小回復量:
+                    コマンド（HPが最大未満のとき最大まで回復）:
                     <input
                       type="text"
-                      value={inputValues['heal.healMin'] ?? String(config.heal.healMin)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'heal.healMin': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseInt(value))) {
-                          setConfig({
-                            ...config,
-                            heal: { ...config.heal, healMin: 10 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['heal.healMin']
-                            return next
-                          })
-                        } else {
-                          const num = parseInt(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              heal: { ...config.heal, healMin: num },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['heal.healMin']
-                              return next
-                            })
-                          }
-                        }
-                      }}
+                      value={config.retry.command}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          retry: { ...config.retry, command: e.target.value },
+                        })
+                      }
+                      placeholder="!retry"
                     />
                   </label>
                   <label>
-                    最大回復量:
+                    全回復コマンド（配信者側・HPを常に最大まで回復）:
                     <input
                       type="text"
-                      value={inputValues['heal.healMax'] ?? String(config.heal.healMax)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'heal.healMax': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseInt(value))) {
-                          setConfig({
-                            ...config,
-                            heal: { ...config.heal, healMax: 30 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['heal.healMax']
-                            return next
-                          })
-                        } else {
-                          const num = parseInt(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              heal: { ...config.heal, healMax: num },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['heal.healMax']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                  <label>
-                    刻み（50・100など。1のときは最小～最大の連続値）:
-                    <input
-                      type="number"
-                      min={1}
-                      max={1000}
-                      value={inputValues['heal.healRandomStep'] ?? String(config.heal.healRandomStep ?? 1)}
-                      onChange={(e) => setInputValues((prev) => ({ ...prev, 'heal.healRandomStep': e.target.value }))}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        const num = value === '' ? 1 : parseInt(value, 10)
-                        if (!isNaN(num) && num >= 1 && num <= 1000) {
-                          setConfig({ ...config, heal: { ...config.heal, healRandomStep: num } })
-                          setInputValues((prev) => { const next = { ...prev }; delete next['heal.healRandomStep']; return next })
-                        }
-                      }}
-                    />
-                  </label>
-                </>
-              )}
-            </div>
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.heal.effectEnabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      heal: { ...config.heal, effectEnabled: e.target.checked },
-                    })
-                  }
-                />
-                回復エフェクトを表示
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.heal.healWhenZeroEnabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      heal: { ...config.heal, healWhenZeroEnabled: e.target.checked },
-                    })
-                  }
-                />
-                HPが0のときも通常回復を許可する
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.heal.soundEnabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      heal: { ...config.heal, soundEnabled: e.target.checked },
-                    })
-                  }
-                />
-                回復効果音を有効にする
-              </label>
-            </div>
-            {config.heal.soundEnabled && (
-              <div className="settings-row">
-                <label>
-                  効果音URL:
-                  <input
-                    type="text"
-                    value={config.heal.soundUrl}
-                    onChange={(e) => {
-                      const url = e.target.value
-                      if (isValidUrl(url)) {
-                        setConfig({
-                          ...config,
-                          heal: { ...config.heal, soundUrl: url },
-                        })
-                      } else {
-                        setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                        setTimeout(() => setMessage(null), 3000)
-                      }
-                    }}
-                    placeholder="空欄の場合は効果音なし"
-                  />
-                </label>
-                <label>
-                  音量:
-                  <input
-                    type="text"
-                    value={inputValues['heal.soundVolume'] ?? String(config.heal.soundVolume)}
-                    onChange={(e) => {
-                      setInputValues((prev) => ({ ...prev, 'heal.soundVolume': e.target.value }))
-                    }}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim()
-                      if (value === '' || isNaN(parseFloat(value))) {
-                        setConfig({
-                          ...config,
-                          heal: { ...config.heal, soundVolume: 0.7 },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['heal.soundVolume']
-                          return next
-                        })
-                      } else {
-                        const num = parseFloat(value)
-                        if (!isNaN(num)) {
-                          setConfig({
-                            ...config,
-                            heal: { ...config.heal, soundVolume: Math.min(1, Math.max(0, num)) },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['heal.soundVolume']
-                            return next
-                          })
-                        }
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-            )}
-            {config.heal.soundEnabled && (
-              <p className="settings-hint">
-                例: <code>src/sounds/heal.mp3</code>（public/sounds に配置）または{' '}
-                <code>https://...</code>
-              </p>
-            )}
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.heal.filterEffectEnabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      heal: { ...config.heal, filterEffectEnabled: e.target.checked },
-                    })
-                  }
-                />
-                回復時のフィルターエフェクトを有効にする
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('retry')}>
-          <span className="accordion-icon">{expandedSections.retry ? '▼' : '▶'}</span>
-          リトライ設定
-        </h3>
-        {expandedSections.retry && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                コマンド（HPが最大未満のとき最大まで回復）:
-                <input
-                  type="text"
-                  value={config.retry.command}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      retry: { ...config.retry, command: e.target.value },
-                    })
-                  }
-                  placeholder="!retry"
-                />
-              </label>
-              <label>
-                全回復コマンド（配信者側・HPを常に最大まで回復）:
-                <input
-                  type="text"
-                  value={config.retry.fullHealCommand ?? '!fullheal'}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      retry: { ...config.retry, fullHealCommand: e.target.value },
-                    })
-                  }
-                  placeholder="!fullheal"
-                />
-              </label>
-              <label>
-                全員全回復コマンド（配信者・全視聴者を最大HPに・配信者のみ実行可能）:
-                <input
-                  type="text"
-                  value={config.retry.fullResetAllCommand ?? '!resetall'}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      retry: { ...config.retry, fullResetAllCommand: e.target.value },
-                    })
-                  }
-                  placeholder="!resetall"
-                />
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.retry.enabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      retry: { ...config.retry, enabled: e.target.checked },
-                    })
-                  }
-                />
-                有効
-              </label>
-            </div>
-            <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
-              配信者側の通常回復（設定量だけ回復）
-            </div>
-            <div className="settings-row">
-              <label>
-                通常回復コマンド:
-                <input
-                  type="text"
-                  value={config.retry.streamerHealCommand ?? '!heal'}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      retry: { ...config.retry, streamerHealCommand: e.target.value },
-                    })
-                  }
-                  placeholder="!heal"
-                />
-              </label>
-              <label>
-                回復量タイプ:
-                <select
-                  value={config.retry.streamerHealType ?? 'fixed'}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      retry: { ...config.retry, streamerHealType: e.target.value as 'fixed' | 'random' },
-                    })
-                  }
-                >
-                  <option value="fixed">固定</option>
-                  <option value="random">ランダム</option>
-                </select>
-              </label>
-            </div>
-            <div className="settings-row">
-              {config.retry.streamerHealType === 'fixed' ? (
-                <label>
-                  回復量:
-                  <input
-                    type="number"
-                    min={1}
-                    max={1000}
-                    value={config.retry.streamerHealAmount ?? 20}
-                    onChange={(e) => {
-                      const num = Number(e.target.value)
-                      if (!isNaN(num) && num >= 1 && num <= 1000) {
-                        setConfig({
-                          ...config,
-                          retry: { ...config.retry, streamerHealAmount: num },
-                        })
-                      }
-                    }}
-                  />
-                </label>
-              ) : (
-                <>
-                  <label>
-                    回復量（最小）:
-                    <input
-                      type="number"
-                      min={1}
-                      max={1000}
-                      value={config.retry.streamerHealMin ?? 10}
-                      onChange={(e) => {
-                        const num = Number(e.target.value)
-                        if (!isNaN(num) && num >= 1 && num <= 1000) {
-                          setConfig({
-                            ...config,
-                            retry: { ...config.retry, streamerHealMin: num },
-                          })
-                        }
-                      }}
-                    />
-                  </label>
-                  <label>
-                    回復量（最大）:
-                    <input
-                      type="number"
-                      min={1}
-                      max={1000}
-                      value={config.retry.streamerHealMax ?? 30}
-                      onChange={(e) => {
-                        const num = Number(e.target.value)
-                        if (!isNaN(num) && num >= 1 && num <= 1000) {
-                          setConfig({
-                            ...config,
-                            retry: { ...config.retry, streamerHealMax: num },
-                          })
-                        }
-                      }}
-                    />
-                  </label>
-                  <label>
-                    刻み（50・100など。1のときは最小～最大の連続値）:
-                    <input
-                      type="number"
-                      min={1}
-                      max={1000}
-                      value={config.retry.streamerHealRandomStep ?? 1}
-                      onChange={(e) => {
-                        const num = Number(e.target.value)
-                        if (!isNaN(num) && num >= 1 && num <= 1000) {
-                          setConfig({
-                            ...config,
-                            retry: { ...config.retry, streamerHealRandomStep: num },
-                          })
-                        }
-                      }}
-                    />
-                  </label>
-                </>
-              )}
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.retry.streamerHealWhenZeroEnabled ?? true}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      retry: { ...config.retry, streamerHealWhenZeroEnabled: e.target.checked },
-                    })
-                  }
-                />
-                HP0のときも通常回復を許可
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.retry.soundEnabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      retry: { ...config.retry, soundEnabled: e.target.checked },
-                    })
-                  }
-                />
-                蘇生効果音を有効にする
-              </label>
-            </div>
-            {config.retry.soundEnabled && (
-              <div className="settings-row">
-                <label>
-                  効果音URL:
-                  <input
-                    type="text"
-                    value={config.retry.soundUrl}
-                    onChange={(e) => {
-                      const url = e.target.value
-                      if (isValidUrl(url)) {
-                        setConfig({
-                          ...config,
-                          retry: { ...config.retry, soundUrl: url },
-                        })
-                      } else {
-                        setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                        setTimeout(() => setMessage(null), 3000)
-                      }
-                    }}
-                    placeholder="空欄の場合は効果音なし"
-                  />
-                </label>
-                <label>
-                  音量:
-                  <input
-                    type="text"
-                    value={inputValues['retry.soundVolume'] ?? String(config.retry.soundVolume)}
-                    onChange={(e) => {
-                      setInputValues((prev) => ({ ...prev, 'retry.soundVolume': e.target.value }))
-                    }}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim()
-                      if (value === '' || isNaN(parseFloat(value))) {
-                        setConfig({
-                          ...config,
-                          retry: { ...config.retry, soundVolume: 0.7 },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['retry.soundVolume']
-                          return next
-                        })
-                      } else {
-                        const num = parseFloat(value)
-                        if (!isNaN(num)) {
-                          setConfig({
-                            ...config,
-                            retry: { ...config.retry, soundVolume: Math.min(1, Math.max(0, num)) },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['retry.soundVolume']
-                            return next
-                          })
-                        }
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-            )}
-            {config.retry.soundEnabled && (
-              <p className="settings-hint">
-                例: <code>src/sounds/revive.mp3</code>（public/sounds に配置）または{' '}
-                <code>https://...</code>
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-      </div>
-      )}
-
-      {activeTab === 'user' && (
-      <div className="settings-tab-panel">
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('pvp')}>
-          <span className="accordion-icon">{expandedSections.pvp ? '▼' : '▶'}</span>
-          PvPモード（配信者 vs 視聴者）
-        </h3>
-        {expandedSections.pvp && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.pvp.enabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      pvp: { ...config.pvp, enabled: e.target.checked },
-                    })
-                  }
-                />
-                PvPモードを有効にする（視聴者ごとにHPを管理・ゲージは表示しない）
-              </label>
-            </div>
-            {config.pvp.enabled && (
-              <>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.pvp.autoReplyAttackCounter ?? true}
+                      value={config.retry.fullHealCommand ?? '!fullheal'}
                       onChange={(e) =>
                         setConfig({
                           ...config,
-                          pvp: { ...config.pvp, autoReplyAttackCounter: e.target.checked },
-                        })
-                      }
-                    />
-                    攻撃・カウンター時の自動返信（HP表示＋視聴者HP0になったときのメッセージ）
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.pvp.autoReplyViewerCommands ?? true}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, autoReplyViewerCommands: e.target.checked },
-                        })
-                      }
-                    />
-                    視聴者コマンドの自動返信（HP確認・全回復・通常回復の返信）
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.pvp.autoReplyBlockedByZeroHp ?? true}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, autoReplyBlockedByZeroHp: e.target.checked },
-                        })
-                      }
-                    />
-                    HP0ブロック時の自動返信（「攻撃できません」「回復できません」）
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    ユーザー側の最大HP:
-                  <input
-                    type="number"
-                    min={1}
-                    max={9999}
-                    value={inputValues['pvp.viewerMaxHp'] ?? String(config.pvp.viewerMaxHp ?? 100)}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setInputValues((prev) => ({ ...prev, 'pvp.viewerMaxHp': value }))
-                    }}
-                    onBlur={(e) => {
-                      const value = e.target.value.trim()
-                      const num = value === '' ? 100 : parseInt(value, 10)
-                      if (!isNaN(num) && num >= 1 && num <= 9999) {
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, viewerMaxHp: num },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['pvp.viewerMaxHp']
-                          return next
-                        })
-                      } else {
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, viewerMaxHp: config.pvp.viewerMaxHp ?? 100 },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['pvp.viewerMaxHp']
-                          return next
-                        })
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-              </>
-            )}
-            {config.pvp.enabled && (
-              <p className="settings-hint">
-                カウンター攻撃時やHP確認時にチャットへ自動返信します。送信にはOAuthトークンに <code>user:write:chat</code> スコープが必要です。
-              </p>
-            )}
-            {config.pvp.enabled && (
-              <>
-                <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
-                  カウンター対象の切り替え
-                </div>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.pvp.counterOnAttackTargetAttacker ?? true}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, counterOnAttackTargetAttacker: e.target.checked },
-                        })
-                      }
-                    />
-                    攻撃したユーザーにカウンターする（初期設定・デフォルトON）
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.pvp.counterOnAttackTargetRandom ?? false}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, counterOnAttackTargetRandom: e.target.checked },
-                        })
-                      }
-                    />
-                    ランダムなユーザーにカウンターする（視聴者が攻撃したとき）
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.pvp.counterCommandAcceptsUsername ?? false}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, counterCommandAcceptsUsername: e.target.checked },
-                        })
-                      }
-                    />
-                    カウンターコマンドでユーザー名を指定可能（!counter ユーザー名）
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    追加カウンターコマンド（任意・配信者のみ実行）:
-                    <input
-                      type="text"
-                      value={config.pvp.counterCommand}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, counterCommand: e.target.value },
-                        })
-                      }
-                      placeholder="!counter"
-                    />
-                  </label>
-                </div>
-                <p className="settings-hint" style={{ marginTop: 0 }}>
-                  視聴者が攻撃すると自動でカウンターされます。上記コマンドは「同じ視聴者に追加でダメージを与えたいとき」用です。ユーザー名指定ONのときは「!counter ユーザー名」でそのユーザーを攻撃できます。
-                </p>
-                <div className="settings-row">
-                  <label>
-                    攻撃時自動返信メッセージ（{'{username}'} {'{hp}'} {'{max}'} で置換）:
-                    <input
-                      type="text"
-                      value={config.pvp.autoReplyMessageTemplate}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, autoReplyMessageTemplate: e.target.value },
-                        })
-                      }
-                      placeholder="{username} の残りHP: {hp}/{max}"
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    HP確認コマンド（視聴者が自分の残りHPを確認）:
-                    <input
-                      type="text"
-                      value={config.pvp.hpCheckCommand}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, hpCheckCommand: e.target.value },
-                        })
-                      }
-                      placeholder="!hp"
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    全回復コマンド（視聴者側・実行した視聴者のHPを最大まで回復）:
-                    <input
-                      type="text"
-                      value={config.pvp.viewerFullHealCommand ?? '!fullheal'}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, viewerFullHealCommand: e.target.value },
+                          retry: { ...config.retry, fullHealCommand: e.target.value },
                         })
                       }
                       placeholder="!fullheal"
                     />
                   </label>
+                  <label>
+                    全員全回復コマンド（配信者・全視聴者を最大HPに・配信者のみ実行可能）:
+                    <input
+                      type="text"
+                      value={config.retry.fullResetAllCommand ?? '!resetall'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          retry: { ...config.retry, fullResetAllCommand: e.target.value },
+                        })
+                      }
+                      placeholder="!resetall"
+                    />
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.retry.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          retry: { ...config.retry, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    有効
+                  </label>
                 </div>
                 <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
-                  視聴者側の通常回復（設定量だけ回復）
+                  配信者側の通常回復（設定量だけ回復）
                 </div>
                 <div className="settings-row">
                   <label>
                     通常回復コマンド:
                     <input
                       type="text"
-                      value={config.pvp.viewerHealCommand ?? '!heal'}
+                      value={config.retry.streamerHealCommand ?? '!heal'}
                       onChange={(e) =>
                         setConfig({
                           ...config,
-                          pvp: { ...config.pvp, viewerHealCommand: e.target.value },
+                          retry: { ...config.retry, streamerHealCommand: e.target.value },
                         })
                       }
                       placeholder="!heal"
@@ -1978,11 +1529,11 @@ export function OverlaySettings() {
                   <label>
                     回復量タイプ:
                     <select
-                      value={config.pvp.viewerHealType ?? 'fixed'}
+                      value={config.retry.streamerHealType ?? 'fixed'}
                       onChange={(e) =>
                         setConfig({
                           ...config,
-                          pvp: { ...config.pvp, viewerHealType: e.target.value as 'fixed' | 'random' },
+                          retry: { ...config.retry, streamerHealType: e.target.value as 'fixed' | 'random' },
                         })
                       }
                     >
@@ -1992,20 +1543,20 @@ export function OverlaySettings() {
                   </label>
                 </div>
                 <div className="settings-row">
-                  {config.pvp.viewerHealType === 'fixed' ? (
+                  {config.retry.streamerHealType === 'fixed' ? (
                     <label>
                       回復量:
                       <input
                         type="number"
                         min={1}
                         max={1000}
-                        value={config.pvp.viewerHealAmount ?? 20}
+                        value={config.retry.streamerHealAmount ?? 20}
                         onChange={(e) => {
                           const num = Number(e.target.value)
                           if (!isNaN(num) && num >= 1 && num <= 1000) {
                             setConfig({
                               ...config,
-                              pvp: { ...config.pvp, viewerHealAmount: num },
+                              retry: { ...config.retry, streamerHealAmount: num },
                             })
                           }
                         }}
@@ -2019,13 +1570,13 @@ export function OverlaySettings() {
                           type="number"
                           min={1}
                           max={1000}
-                          value={config.pvp.viewerHealMin ?? 10}
+                          value={config.retry.streamerHealMin ?? 10}
                           onChange={(e) => {
                             const num = Number(e.target.value)
                             if (!isNaN(num) && num >= 1 && num <= 1000) {
                               setConfig({
                                 ...config,
-                                pvp: { ...config.pvp, viewerHealMin: num },
+                                retry: { ...config.retry, streamerHealMin: num },
                               })
                             }
                           }}
@@ -2037,13 +1588,13 @@ export function OverlaySettings() {
                           type="number"
                           min={1}
                           max={1000}
-                          value={config.pvp.viewerHealMax ?? 30}
+                          value={config.retry.streamerHealMax ?? 30}
                           onChange={(e) => {
                             const num = Number(e.target.value)
                             if (!isNaN(num) && num >= 1 && num <= 1000) {
                               setConfig({
                                 ...config,
-                                pvp: { ...config.pvp, viewerHealMax: num },
+                                retry: { ...config.retry, streamerHealMax: num },
                               })
                             }
                           }}
@@ -2055,13 +1606,13 @@ export function OverlaySettings() {
                           type="number"
                           min={1}
                           max={1000}
-                          value={config.pvp.viewerHealRandomStep ?? 1}
+                          value={config.retry.streamerHealRandomStep ?? 1}
                           onChange={(e) => {
                             const num = Number(e.target.value)
                             if (!isNaN(num) && num >= 1 && num <= 1000) {
                               setConfig({
                                 ...config,
-                                pvp: { ...config.pvp, viewerHealRandomStep: num },
+                                retry: { ...config.retry, streamerHealRandomStep: num },
                               })
                             }
                           }}
@@ -2072,1117 +1623,1606 @@ export function OverlaySettings() {
                   <label>
                     <input
                       type="checkbox"
-                      checked={config.pvp.viewerHealWhenZeroEnabled ?? true}
+                      checked={config.retry.streamerHealWhenZeroEnabled ?? true}
                       onChange={(e) =>
                         setConfig({
                           ...config,
-                          pvp: { ...config.pvp, viewerHealWhenZeroEnabled: e.target.checked },
+                          retry: { ...config.retry, streamerHealWhenZeroEnabled: e.target.checked },
                         })
                       }
                     />
                     HP0のときも通常回復を許可
                   </label>
                 </div>
-                <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
-                  HPが0のときのブロックメッセージ（攻撃・回復不可時に自動返信）
-                </div>
-                <div className="settings-row">
-                  <label>
-                    攻撃ブロック時:
-                    <input
-                      type="text"
-                      value={config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, messageWhenAttackBlockedByZeroHp: e.target.value },
-                        })
-                      }
-                      placeholder="HPが0なので攻撃できません。"
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    回復ブロック時:
-                    <input
-                      type="text"
-                      value={config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, messageWhenHealBlockedByZeroHp: e.target.value },
-                        })
-                      }
-                      placeholder="HPが0なので回復できません。"
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    視聴者HPが0になったときの自動返信メッセージ（{'{username}'} で対象の表示名に置換）:
-                    <input
-                      type="text"
-                      value={config.pvp.messageWhenViewerZeroHp ?? '視聴者 {username} のHPが0になりました。'}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: { ...config.pvp, messageWhenViewerZeroHp: e.target.value },
-                        })
-                      }
-                      placeholder="視聴者 {username} のHPが0になりました。"
-                    />
-                  </label>
-                </div>
-                <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
-                  配信者（カウンター）攻撃設定
-                </div>
-                <div className="settings-row">
-                  <label>
-                    ダメージ:
-                    <input
-                      type="number"
-                      min={1}
-                      max={1000}
-                      value={inputValues['pvp.streamerAttack.damage'] ?? String(config.pvp.streamerAttack.damage)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.damage': e.target.value }))
-                        const num = Number(e.target.value)
-                        if (!isNaN(num) && num >= 1 && num <= 1000) {
-                          setConfig({
-                            ...config,
-                            pvp: {
-                              ...config.pvp,
-                              streamerAttack: { ...config.pvp.streamerAttack, damage: num },
-                            },
-                          })
-                        }
-                      }}
-                      onBlur={() => {
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['pvp.streamerAttack.damage']
-                          return next
-                        })
-                      }}
-                    />
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.pvp.streamerAttack.missEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: {
-                            ...config.pvp,
-                            streamerAttack: { ...config.pvp.streamerAttack, missEnabled: e.target.checked },
-                          },
-                        })
-                      }
-                    />
-                    ミスあり
-                  </label>
-                  <label>
-                    ミス確率（0-100）:
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={inputValues['pvp.streamerAttack.missProbability'] ?? String(config.pvp.streamerAttack.missProbability)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.missProbability': e.target.value }))
-                        const num = Number(e.target.value)
-                        if (!isNaN(num) && num >= 0 && num <= 100) {
-                          setConfig({
-                            ...config,
-                            pvp: {
-                              ...config.pvp,
-                              streamerAttack: { ...config.pvp.streamerAttack, missProbability: num },
-                            },
-                          })
-                        }
-                      }}
-                      onBlur={() => {
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['pvp.streamerAttack.missProbability']
-                          return next
-                        })
-                      }}
-                    />
-                  </label>
-                </div>
                 <div className="settings-row">
                   <label>
                     <input
                       type="checkbox"
-                      checked={config.pvp.streamerAttack.criticalEnabled}
+                      checked={config.retry.soundEnabled}
                       onChange={(e) =>
                         setConfig({
                           ...config,
-                          pvp: {
-                            ...config.pvp,
-                            streamerAttack: { ...config.pvp.streamerAttack, criticalEnabled: e.target.checked },
-                          },
+                          retry: { ...config.retry, soundEnabled: e.target.checked },
                         })
                       }
                     />
-                    クリティカルあり
-                  </label>
-                  <label>
-                    クリティカル確率（0-100）:
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={inputValues['pvp.streamerAttack.criticalProbability'] ?? String(config.pvp.streamerAttack.criticalProbability)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.criticalProbability': e.target.value }))
-                        const num = Number(e.target.value)
-                        if (!isNaN(num) && num >= 0 && num <= 100) {
-                          setConfig({
-                            ...config,
-                            pvp: {
-                              ...config.pvp,
-                              streamerAttack: { ...config.pvp.streamerAttack, criticalProbability: num },
-                            },
-                          })
-                        }
-                      }}
-                      onBlur={() => {
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['pvp.streamerAttack.criticalProbability']
-                          return next
-                        })
-                      }}
-                    />
-                  </label>
-                  <label>
-                    倍率:
-                    <input
-                      type="number"
-                      min={1}
-                      max={10}
-                      step={0.1}
-                      value={inputValues['pvp.streamerAttack.criticalMultiplier'] ?? String(config.pvp.streamerAttack.criticalMultiplier)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.criticalMultiplier': e.target.value }))
-                        const num = Number(e.target.value)
-                        if (!isNaN(num) && num >= 1 && num <= 10) {
-                          setConfig({
-                            ...config,
-                            pvp: {
-                              ...config.pvp,
-                              streamerAttack: { ...config.pvp.streamerAttack, criticalMultiplier: num },
-                            },
-                          })
-                        }
-                      }}
-                      onBlur={() => {
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['pvp.streamerAttack.criticalMultiplier']
-                          return next
-                        })
-                      }}
-                    />
+                    蘇生効果音を有効にする
                   </label>
                 </div>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.pvp.streamerAttack.survivalHp1Enabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: {
-                            ...config.pvp,
-                            streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Enabled: e.target.checked },
-                          },
-                        })
-                      }
-                    />
-                    食いしばり（HP1残り）
-                  </label>
-                  <label>
-                    確率（0-100）:
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={inputValues['pvp.streamerAttack.survivalHp1Probability'] ?? String(config.pvp.streamerAttack.survivalHp1Probability)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.survivalHp1Probability': e.target.value }))
-                        const num = Number(e.target.value)
-                        if (!isNaN(num) && num >= 0 && num <= 100) {
-                          setConfig({
-                            ...config,
-                            pvp: {
-                              ...config.pvp,
-                              streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Probability: num },
-                            },
-                          })
-                        }
-                      }}
-                      onBlur={() => {
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['pvp.streamerAttack.survivalHp1Probability']
-                          return next
-                        })
-                      }}
-                    />
-                  </label>
-                  <label>
-                    メッセージ:
-                    <input
-                      type="text"
-                      value={config.pvp.streamerAttack.survivalHp1Message}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          pvp: {
-                            ...config.pvp,
-                            streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Message: e.target.value },
-                          },
-                        })
-                      }
-                      placeholder="食いしばり!"
-                    />
-                  </label>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-      </div>
-      )}
-
-      {activeTab === 'streamer' && (
-      <div className="settings-tab-panel">
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('animation')}>
-          <span className="accordion-icon">{expandedSections.animation ? '▼' : '▶'}</span>
-          HPゲージ アニメーション設定
-        </h3>
-        {expandedSections.animation && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                アニメーション時間 (ms):
-                <input
-                  type="text"
-                  value={inputValues['animation.duration'] ?? String(config.animation.duration)}
-                  onChange={(e) => {
-                    setInputValues((prev) => ({ ...prev, 'animation.duration': e.target.value }))
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim()
-                    if (value === '' || isNaN(parseInt(value))) {
-                      setConfig({
-                        ...config,
-                        animation: { ...config.animation, duration: 500 },
-                      })
-                      setInputValues((prev) => {
-                        const next = { ...prev }
-                        delete next['animation.duration']
-                        return next
-                      })
-                    } else {
-                      const num = parseInt(value)
-                      if (!isNaN(num)) {
-                        setConfig({
-                          ...config,
-                          animation: { ...config.animation, duration: num },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['animation.duration']
-                          return next
-                        })
-                      }
-                    }
-                  }}
-                />
-              </label>
-              <label>
-                イージング:
-                <select
-                  value={config.animation.easing}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      animation: {
-                        ...config.animation,
-                        easing: e.target.value,
-                      },
-                    })
-                  }
-                >
-                  <option value="linear">linear</option>
-                  <option value="ease-in">ease-in</option>
-                  <option value="ease-out">ease-out</option>
-                  <option value="ease-in-out">ease-in-out</option>
-                  <option value="cubic-bezier">cubic-bezier</option>
-                </select>
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('display')}>
-          <span className="accordion-icon">{expandedSections.display ? '▼' : '▶'}</span>
-          HP表示設定
-        </h3>
-        {expandedSections.display && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.display.showMaxHp}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      display: {
-                        ...config.display,
-                        showMaxHp: e.target.checked,
-                      },
-                    })
-                  }
-                />
-                最大HPを表示
-              </label>
-              <label>
-                フォントサイズ:
-                <input
-                  type="text"
-                  value={inputValues['display.fontSize'] ?? String(config.display.fontSize)}
-                  onChange={(e) => {
-                    setInputValues((prev) => ({ ...prev, 'display.fontSize': e.target.value }))
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim()
-                    if (value === '' || isNaN(parseInt(value))) {
-                      setConfig({
-                        ...config,
-                        display: { ...config.display, fontSize: 24 },
-                      })
-                      setInputValues((prev) => {
-                        const next = { ...prev }
-                        delete next['display.fontSize']
-                        return next
-                      })
-                    } else {
-                      const num = parseInt(value)
-                      if (!isNaN(num)) {
-                        setConfig({
-                          ...config,
-                          display: { ...config.display, fontSize: num },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['display.fontSize']
-                          return next
-                        })
-                      }
-                    }
-                  }}
-                />
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('zeroHpImage')}>
-          <span className="accordion-icon">{expandedSections.zeroHpImage ? '▼' : '▶'}</span>
-          HP0画像設定
-        </h3>
-        {expandedSections.zeroHpImage && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.zeroHpImage.enabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      zeroHpImage: { ...config.zeroHpImage, enabled: e.target.checked },
-                    })
-                  }
-                />
-                HPが0になったら画像を表示
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                画像URL:
-                <input
-                  type="text"
-                  value={config.zeroHpImage.imageUrl}
-                  onChange={(e) => {
-                    const url = e.target.value
-                    if (isValidUrl(url)) {
-                      setConfig({
-                        ...config,
-                        zeroHpImage: { ...config.zeroHpImage, imageUrl: url },
-                      })
-                    } else {
-                      setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                      setTimeout(() => setMessage(null), 3000)
-                    }
-                  }}
-                  placeholder="画像のURLを入力"
-                />
-              </label>
-            </div>
-            <p className="settings-hint">
-              例: <code>src/images/custom.png</code>（public/images に配置）または{' '}
-              <code>https://...</code>
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('zeroHpSound')}>
-          <span className="accordion-icon">{expandedSections.zeroHpSound ? '▼' : '▶'}</span>
-          HP0効果音設定
-        </h3>
-        {expandedSections.zeroHpSound && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.zeroHpSound.enabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      zeroHpSound: { ...config.zeroHpSound, enabled: e.target.checked },
-                    })
-                  }
-                />
-                HPが0になったら効果音を再生
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                効果音URL:
-                <input
-                  type="text"
-                  value={config.zeroHpSound.soundUrl}
-                  onChange={(e) => {
-                    const url = e.target.value
-                    if (isValidUrl(url)) {
-                      setConfig({
-                        ...config,
-                        zeroHpSound: { ...config.zeroHpSound, soundUrl: url },
-                      })
-                    } else {
-                      setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                      setTimeout(() => setMessage(null), 3000)
-                    }
-                  }}
-                  placeholder="効果音のURLを入力"
-                />
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                音量:
-                <input
-                  type="text"
-                  value={inputValues['zeroHpSound.volume'] ?? String(config.zeroHpSound.volume)}
-                  onChange={(e) => {
-                    setInputValues((prev) => ({ ...prev, 'zeroHpSound.volume': e.target.value }))
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim()
-                    if (value === '' || isNaN(parseFloat(value))) {
-                      setConfig({
-                        ...config,
-                        zeroHpSound: { ...config.zeroHpSound, volume: 0.7 },
-                      })
-                      setInputValues((prev) => {
-                        const next = { ...prev }
-                        delete next['zeroHpSound.volume']
-                        return next
-                      })
-                    } else {
-                      const num = parseFloat(value)
-                      if (!isNaN(num)) {
-                        setConfig({
-                          ...config,
-                          zeroHpSound: {
-                            ...config.zeroHpSound,
-                            volume: Math.min(1, Math.max(0, num)),
-                          },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['zeroHpSound.volume']
-                          return next
-                        })
-                      }
-                    }
-                  }}
-                />
-              </label>
-            </div>
-            <p className="settings-hint">
-              例: <code>src/sounds/custom.mp3</code>（public/sounds に配置）または{' '}
-              <code>https://...</code>
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('zeroHpEffect')}>
-          <span className="accordion-icon">{expandedSections.zeroHpEffect ? '▼' : '▶'}</span>
-          HP0エフェクト設定（WebM）
-        </h3>
-        {expandedSections.zeroHpEffect && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.zeroHpEffect.enabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      zeroHpEffect: { ...config.zeroHpEffect, enabled: e.target.checked },
-                    })
-                  }
-                />
-                HPが0になったら動画エフェクトを表示
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                動画 URL（透過WebM推奨）:
-                <input
-                  type="text"
-                  value={config.zeroHpEffect.videoUrl}
-                  onChange={(e) => {
-                    const url = e.target.value
-                    if (isValidUrl(url)) {
-                      setConfig({
-                        ...config,
-                        zeroHpEffect: { ...config.zeroHpEffect, videoUrl: url },
-                      })
-                    } else {
-                      setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                      setTimeout(() => setMessage(null), 3000)
-                    }
-                  }}
-                  placeholder="動画のURLを入力"
-                />
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                表示時間（ミリ秒）:
-                <input
-                  type="text"
-                  value={inputValues['zeroHpEffect.duration'] ?? String(config.zeroHpEffect.duration)}
-                  onChange={(e) => {
-                    setInputValues((prev) => ({ ...prev, 'zeroHpEffect.duration': e.target.value }))
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value.trim()
-                    if (value === '' || isNaN(parseInt(value))) {
-                      setConfig({
-                        ...config,
-                        zeroHpEffect: { ...config.zeroHpEffect, duration: 2000 },
-                      })
-                      setInputValues((prev) => {
-                        const next = { ...prev }
-                        delete next['zeroHpEffect.duration']
-                        return next
-                      })
-                    } else {
-                      const num = parseInt(value)
-                      if (!isNaN(num)) {
-                        setConfig({
-                          ...config,
-                          zeroHpEffect: {
-                            ...config.zeroHpEffect,
-                            duration: Math.max(100, num),
-                          },
-                        })
-                        setInputValues((prev) => {
-                          const next = { ...prev }
-                          delete next['zeroHpEffect.duration']
-                          return next
-                        })
-                      }
-                    }
-                  }}
-                />
-              </label>
-            </div>
-            <p className="settings-hint">
-              例: <code>src/images/bakuhatsu.gif</code>（public/images に配置）または{' '}
-              <code>https://...</code>
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('gaugeColors')}>
-          <span className="accordion-icon">{expandedSections.gaugeColors ? '▼' : '▶'}</span>
-          HPゲージ色設定
-        </h3>
-        {expandedSections.gaugeColors && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                最後の1ゲージ（HPが最後に残る分）:
-                <input
-                  type="color"
-                  value={config.gaugeColors.lastGauge}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  value={config.gaugeColors.lastGauge}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
-                    })
-                  }
-                  placeholder="#FF0000"
-                  style={{ width: '100px', marginLeft: '0.5rem' }}
-                />
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                2ゲージ目:
-                <input
-                  type="color"
-                  value={config.gaugeColors.secondGauge}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  value={config.gaugeColors.secondGauge}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
-                    })
-                  }
-                  placeholder="#FFA500"
-                  style={{ width: '100px', marginLeft: '0.5rem' }}
-                />
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                3ゲージ目以降の交互パターン1（3, 5, 7, 9...ゲージ目）:
-                <input
-                  type="color"
-                  value={config.gaugeColors.patternColor1}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  value={config.gaugeColors.patternColor1}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
-                    })
-                  }
-                  placeholder="#8000FF"
-                  style={{ width: '100px', marginLeft: '0.5rem' }}
-                />
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                3ゲージ目以降の交互パターン2（4, 6, 8, 10...ゲージ目）:
-                <input
-                  type="color"
-                  value={config.gaugeColors.patternColor2}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  value={config.gaugeColors.patternColor2}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
-                    })
-                  }
-                  placeholder="#4aa3ff"
-                  style={{ width: '100px', marginLeft: '0.5rem' }}
-                />
-              </label>
-            </div>
-            <div className="settings-hint">
-              <p>
-                <strong>注意:</strong> 3ゲージ目以降は、設定した2色を交互に使用します。ゲージ数が10を超えても、この2色が繰り返し適用されます。
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('damageColors')}>
-          <span className="accordion-icon">{expandedSections.damageColors ? '▼' : '▶'}</span>
-          ダメージ値色設定
-        </h3>
-        {expandedSections.damageColors && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                通常ダメージの色:
-                <input
-                  type="color"
-                  value={config.damageColors.normal}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      damageColors: { ...config.damageColors, normal: e.target.value },
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  value={config.damageColors.normal}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      damageColors: { ...config.damageColors, normal: e.target.value },
-                    })
-                  }
-                  placeholder="#cc0000"
-                  style={{ width: '100px', marginLeft: '0.5rem' }}
-                />
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                クリティカルダメージの色:
-                <input
-                  type="color"
-                  value={config.damageColors.critical}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      damageColors: { ...config.damageColors, critical: e.target.value },
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  value={config.damageColors.critical}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      damageColors: { ...config.damageColors, critical: e.target.value },
-                    })
-                  }
-                  placeholder="#cc8800"
-                  style={{ width: '100px', marginLeft: '0.5rem' }}
-                />
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                出血ダメージの色:
-                <input
-                  type="color"
-                  value={config.damageColors.bleed}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      damageColors: { ...config.damageColors, bleed: e.target.value },
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  value={config.damageColors.bleed}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      damageColors: { ...config.damageColors, bleed: e.target.value },
-                    })
-                  }
-                  placeholder="#ff6666"
-                  style={{ width: '100px', marginLeft: '0.5rem' }}
-                />
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="settings-section">
-        <h3 className="settings-section-header" onClick={() => toggleSection('test')}>
-          <span className="accordion-icon">{expandedSections.test ? '▼' : '▶'}</span>
-          テストモード設定
-        </h3>
-        {expandedSections.test && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.test.enabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      test: { ...config.test, enabled: e.target.checked },
-                    })
-                  }
-                />
-                テストモードを有効にする
-              </label>
-              {config.test.enabled && (
-                <label>長押しで連打できます（ショートカットは廃止）</label>
-              )}
-            </div>
-            {config.test.enabled && (
-              <div className="settings-hint">
-                <p>
-                  <strong>テストモードについて:</strong>
-                </p>
-                <ul>
-                  <li>
-                    テストモードでは、実際のTwitchチャンネルポイントAPIを使用せずに動作を確認できます
-                  </li>
-                  <li>
-                    アフィリエイト未参加の配信者でも、このモードでテストできます
-                  </li>
-                  <li>
-                    ボタンは長押しで連打できます
-                  </li>
-                  <li>
-                    開発環境では、画面右下にテストボタンが表示されます
-                  </li>
-                </ul>
+                {config.retry.soundEnabled && (
+                  <div className="settings-row">
+                    <label>
+                      効果音URL:
+                      <input
+                        type="text"
+                        value={config.retry.soundUrl}
+                        onChange={(e) => {
+                          const url = e.target.value
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              retry: { ...config.retry, soundUrl: url },
+                            })
+                          } else {
+                            setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                            setTimeout(() => setMessage(null), 3000)
+                          }
+                        }}
+                        placeholder="空欄の場合は効果音なし"
+                      />
+                    </label>
+                    <label>
+                      音量:
+                      <input
+                        type="text"
+                        value={inputValues['retry.soundVolume'] ?? String(config.retry.soundVolume)}
+                        onChange={(e) => {
+                          setInputValues((prev) => ({ ...prev, 'retry.soundVolume': e.target.value }))
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim()
+                          if (value === '' || isNaN(parseFloat(value))) {
+                            setConfig({
+                              ...config,
+                              retry: { ...config.retry, soundVolume: 0.7 },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['retry.soundVolume']
+                              return next
+                            })
+                          } else {
+                            const num = parseFloat(value)
+                            if (!isNaN(num)) {
+                              setConfig({
+                                ...config,
+                                retry: { ...config.retry, soundVolume: Math.min(1, Math.max(0, num)) },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['retry.soundVolume']
+                                return next
+                              })
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+                {config.retry.soundEnabled && (
+                  <p className="settings-hint">
+                    例: <code>src/sounds/revive.mp3</code>（public/sounds に配置）または{' '}
+                    <code>https://...</code>
+                  </p>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* 外部ウィンドウ設定 */}
-      <div className="settings-section">
-        <h3 onClick={() => toggleSection('externalWindow')}>
-          {expandedSections.externalWindow ? '▼' : '▶'} 外部ウィンドウキャプチャ
-        </h3>
-        {expandedSections.externalWindow && (
-          <div className="settings-section-content">
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={config.externalWindow.enabled}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      externalWindow: { ...config.externalWindow, enabled: e.target.checked },
-                    })
-                  }
-                />
-                外部ウィンドウキャプチャを有効化
-              </label>
-            </div>
-            {config.externalWindow.enabled && (
-              <>
+      {activeTab === 'user' && (
+        <div className="settings-tab-panel">
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('pvp')}>
+              <span className="accordion-icon">{expandedSections.pvp ? '▼' : '▶'}</span>
+              PvPモード（配信者 vs 視聴者）
+            </h3>
+            {expandedSections.pvp && (
+              <div className="settings-section-content">
                 <div className="settings-row">
-                  <label>位置 X (px)</label>
-                  <input
-                    type="number"
-                    value={inputValues.externalWindowX ?? config.externalWindow.x}
-                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowX: e.target.value }))}
-                    onBlur={(e) => {
-                      const value = Number(e.target.value)
-                      if (!isNaN(value)) {
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.enabled}
+                      onChange={(e) =>
                         setConfig({
                           ...config,
-                          externalWindow: { ...config.externalWindow, x: value },
+                          pvp: { ...config.pvp, enabled: e.target.checked },
                         })
                       }
-                      setInputValues((prev) => {
-                        const newValues = { ...prev }
-                        delete newValues.externalWindowX
-                        return newValues
-                      })
-                    }}
-                  />
+                    />
+                    PvPモードを有効にする（視聴者ごとにHPを管理・ゲージは表示しない）
+                  </label>
+                </div>
+                {config.pvp.enabled && (
+                  <>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.autoReplyAttackCounter ?? true}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, autoReplyAttackCounter: e.target.checked },
+                            })
+                          }
+                        />
+                        攻撃・カウンター時の自動返信（HP表示＋視聴者HP0になったときのメッセージ）
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.autoReplyViewerCommands ?? true}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, autoReplyViewerCommands: e.target.checked },
+                            })
+                          }
+                        />
+                        視聴者コマンドの自動返信（HP確認・全回復・通常回復の返信）
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.autoReplyBlockedByZeroHp ?? true}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, autoReplyBlockedByZeroHp: e.target.checked },
+                            })
+                          }
+                        />
+                        HP0ブロック時の自動返信（「攻撃できません」「回復できません」）
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        ユーザー側の最大HP:
+                        <input
+                          type="number"
+                          min={1}
+                          max={9999}
+                          value={inputValues['pvp.viewerMaxHp'] ?? String(config.pvp.viewerMaxHp ?? 100)}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            setInputValues((prev) => ({ ...prev, 'pvp.viewerMaxHp': value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            const num = value === '' ? 100 : parseInt(value, 10)
+                            if (!isNaN(num) && num >= 1 && num <= 9999) {
+                              setConfig({
+                                ...config,
+                                pvp: { ...config.pvp, viewerMaxHp: num },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['pvp.viewerMaxHp']
+                                return next
+                              })
+                            } else {
+                              setConfig({
+                                ...config,
+                                pvp: { ...config.pvp, viewerMaxHp: config.pvp.viewerMaxHp ?? 100 },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['pvp.viewerMaxHp']
+                                return next
+                              })
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </>
+                )}
+                {config.pvp.enabled && (
+                  <p className="settings-hint">
+                    カウンター攻撃時やHP確認時にチャットへ自動返信します。送信にはOAuthトークンに <code>user:write:chat</code> スコープが必要です。
+                  </p>
+                )}
+                {config.pvp.enabled && (
+                  <>
+                    <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                      カウンター対象の切り替え
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.counterOnAttackTargetAttacker ?? true}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, counterOnAttackTargetAttacker: e.target.checked },
+                            })
+                          }
+                        />
+                        攻撃したユーザーにカウンターする（初期設定・デフォルトON）
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.counterOnAttackTargetRandom ?? false}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, counterOnAttackTargetRandom: e.target.checked },
+                            })
+                          }
+                        />
+                        ランダムなユーザーにカウンターする（視聴者が攻撃したとき）
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.counterCommandAcceptsUsername ?? false}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, counterCommandAcceptsUsername: e.target.checked },
+                            })
+                          }
+                        />
+                        カウンターコマンドでユーザー名を指定可能（!counter ユーザー名）
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        追加カウンターコマンド（任意・配信者のみ実行）:
+                        <input
+                          type="text"
+                          value={config.pvp.counterCommand}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, counterCommand: e.target.value },
+                            })
+                          }
+                          placeholder="!counter"
+                        />
+                      </label>
+                    </div>
+                    <p className="settings-hint" style={{ marginTop: 0 }}>
+                      視聴者が攻撃すると自動でカウンターされます。上記コマンドは「同じ視聴者に追加でダメージを与えたいとき」用です。ユーザー名指定ONのときは「!counter ユーザー名」でそのユーザーを攻撃できます。
+                    </p>
+                    <div className="settings-row">
+                      <label>
+                        攻撃時自動返信メッセージ（{'{username}'} {'{hp}'} {'{max}'} で置換）:
+                        <input
+                          type="text"
+                          value={config.pvp.autoReplyMessageTemplate}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, autoReplyMessageTemplate: e.target.value },
+                            })
+                          }
+                          placeholder="{username} の残りHP: {hp}/{max}"
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        視聴者同士攻撃コマンド（例: !attack ユーザー名）:
+                        <input
+                          type="text"
+                          value={config.pvp.viewerAttackViewerCommand ?? '!attack'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, viewerAttackViewerCommand: e.target.value },
+                            })
+                          }
+                          placeholder="!attack"
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        視聴者同士攻撃のダメージ:
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          value={config.pvp.viewerVsViewerAttack?.damage ?? 10}
+                          onChange={(e) => {
+                            const num = Number(e.target.value)
+                            if (!isNaN(num) && num >= 1 && num <= 1000) {
+                              const base = config.pvp.viewerVsViewerAttack ?? getDefaultConfig().pvp.viewerVsViewerAttack
+                              setConfig({
+                                ...config,
+                                pvp: {
+                                  ...config.pvp,
+                                  viewerVsViewerAttack: { ...base, damage: num },
+                                },
+                              })
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        HP確認コマンド（視聴者が自分の残りHPを確認）:
+                        <input
+                          type="text"
+                          value={config.pvp.hpCheckCommand}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, hpCheckCommand: e.target.value },
+                            })
+                          }
+                          placeholder="!hp"
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        全回復コマンド（視聴者側・実行した視聴者のHPを最大まで回復）:
+                        <input
+                          type="text"
+                          value={config.pvp.viewerFullHealCommand ?? '!fullheal'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, viewerFullHealCommand: e.target.value },
+                            })
+                          }
+                          placeholder="!fullheal"
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                      視聴者側の通常回復（設定量だけ回復）
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        通常回復コマンド:
+                        <input
+                          type="text"
+                          value={config.pvp.viewerHealCommand ?? '!heal'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, viewerHealCommand: e.target.value },
+                            })
+                          }
+                          placeholder="!heal"
+                        />
+                      </label>
+                      <label>
+                        回復量タイプ:
+                        <select
+                          value={config.pvp.viewerHealType ?? 'fixed'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, viewerHealType: e.target.value as 'fixed' | 'random' },
+                            })
+                          }
+                        >
+                          <option value="fixed">固定</option>
+                          <option value="random">ランダム</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      {config.pvp.viewerHealType === 'fixed' ? (
+                        <label>
+                          回復量:
+                          <input
+                            type="number"
+                            min={1}
+                            max={1000}
+                            value={config.pvp.viewerHealAmount ?? 20}
+                            onChange={(e) => {
+                              const num = Number(e.target.value)
+                              if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                setConfig({
+                                  ...config,
+                                  pvp: { ...config.pvp, viewerHealAmount: num },
+                                })
+                              }
+                            }}
+                          />
+                        </label>
+                      ) : (
+                        <>
+                          <label>
+                            回復量（最小）:
+                            <input
+                              type="number"
+                              min={1}
+                              max={1000}
+                              value={config.pvp.viewerHealMin ?? 10}
+                              onChange={(e) => {
+                                const num = Number(e.target.value)
+                                if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                  setConfig({
+                                    ...config,
+                                    pvp: { ...config.pvp, viewerHealMin: num },
+                                  })
+                                }
+                              }}
+                            />
+                          </label>
+                          <label>
+                            回復量（最大）:
+                            <input
+                              type="number"
+                              min={1}
+                              max={1000}
+                              value={config.pvp.viewerHealMax ?? 30}
+                              onChange={(e) => {
+                                const num = Number(e.target.value)
+                                if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                  setConfig({
+                                    ...config,
+                                    pvp: { ...config.pvp, viewerHealMax: num },
+                                  })
+                                }
+                              }}
+                            />
+                          </label>
+                          <label>
+                            刻み（50・100など。1のときは最小～最大の連続値）:
+                            <input
+                              type="number"
+                              min={1}
+                              max={1000}
+                              value={config.pvp.viewerHealRandomStep ?? 1}
+                              onChange={(e) => {
+                                const num = Number(e.target.value)
+                                if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                  setConfig({
+                                    ...config,
+                                    pvp: { ...config.pvp, viewerHealRandomStep: num },
+                                  })
+                                }
+                              }}
+                            />
+                          </label>
+                        </>
+                      )}
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.viewerHealWhenZeroEnabled ?? true}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, viewerHealWhenZeroEnabled: e.target.checked },
+                            })
+                          }
+                        />
+                        HP0のときも通常回復を許可
+                      </label>
+                    </div>
+                    <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                      HPが0のときのブロックメッセージ（攻撃・回復不可時に自動返信）
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        攻撃ブロック時:
+                        <input
+                          type="text"
+                          value={config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, messageWhenAttackBlockedByZeroHp: e.target.value },
+                            })
+                          }
+                          placeholder="HPが0なので攻撃できません。"
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        回復ブロック時:
+                        <input
+                          type="text"
+                          value={config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, messageWhenHealBlockedByZeroHp: e.target.value },
+                            })
+                          }
+                          placeholder="HPが0なので回復できません。"
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        視聴者HPが0になったときの自動返信メッセージ（{'{username}'} で対象の表示名に置換）:
+                        <input
+                          type="text"
+                          value={config.pvp.messageWhenViewerZeroHp ?? '視聴者 {username} のHPが0になりました。'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, messageWhenViewerZeroHp: e.target.value },
+                            })
+                          }
+                          placeholder="視聴者 {username} のHPが0になりました。"
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                      配信者（カウンター）攻撃設定
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        ダメージ:
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          value={inputValues['pvp.streamerAttack.damage'] ?? String(config.pvp.streamerAttack.damage)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.damage': e.target.value }))
+                            const num = Number(e.target.value)
+                            if (!isNaN(num) && num >= 1 && num <= 1000) {
+                              setConfig({
+                                ...config,
+                                pvp: {
+                                  ...config.pvp,
+                                  streamerAttack: { ...config.pvp.streamerAttack, damage: num },
+                                },
+                              })
+                            }
+                          }}
+                          onBlur={() => {
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['pvp.streamerAttack.damage']
+                              return next
+                            })
+                          }}
+                        />
+                      </label>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.streamerAttack.missEnabled}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                streamerAttack: { ...config.pvp.streamerAttack, missEnabled: e.target.checked },
+                              },
+                            })
+                          }
+                        />
+                        ミスあり
+                      </label>
+                      <label>
+                        ミス確率（0-100）:
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={inputValues['pvp.streamerAttack.missProbability'] ?? String(config.pvp.streamerAttack.missProbability)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.missProbability': e.target.value }))
+                            const num = Number(e.target.value)
+                            if (!isNaN(num) && num >= 0 && num <= 100) {
+                              setConfig({
+                                ...config,
+                                pvp: {
+                                  ...config.pvp,
+                                  streamerAttack: { ...config.pvp.streamerAttack, missProbability: num },
+                                },
+                              })
+                            }
+                          }}
+                          onBlur={() => {
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['pvp.streamerAttack.missProbability']
+                              return next
+                            })
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.streamerAttack.criticalEnabled}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                streamerAttack: { ...config.pvp.streamerAttack, criticalEnabled: e.target.checked },
+                              },
+                            })
+                          }
+                        />
+                        クリティカルあり
+                      </label>
+                      <label>
+                        クリティカル確率（0-100）:
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={inputValues['pvp.streamerAttack.criticalProbability'] ?? String(config.pvp.streamerAttack.criticalProbability)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.criticalProbability': e.target.value }))
+                            const num = Number(e.target.value)
+                            if (!isNaN(num) && num >= 0 && num <= 100) {
+                              setConfig({
+                                ...config,
+                                pvp: {
+                                  ...config.pvp,
+                                  streamerAttack: { ...config.pvp.streamerAttack, criticalProbability: num },
+                                },
+                              })
+                            }
+                          }}
+                          onBlur={() => {
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['pvp.streamerAttack.criticalProbability']
+                              return next
+                            })
+                          }}
+                        />
+                      </label>
+                      <label>
+                        倍率:
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          step={0.1}
+                          value={inputValues['pvp.streamerAttack.criticalMultiplier'] ?? String(config.pvp.streamerAttack.criticalMultiplier)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.criticalMultiplier': e.target.value }))
+                            const num = Number(e.target.value)
+                            if (!isNaN(num) && num >= 1 && num <= 10) {
+                              setConfig({
+                                ...config,
+                                pvp: {
+                                  ...config.pvp,
+                                  streamerAttack: { ...config.pvp.streamerAttack, criticalMultiplier: num },
+                                },
+                              })
+                            }
+                          }}
+                          onBlur={() => {
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['pvp.streamerAttack.criticalMultiplier']
+                              return next
+                            })
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.streamerAttack.survivalHp1Enabled}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Enabled: e.target.checked },
+                              },
+                            })
+                          }
+                        />
+                        食いしばり（HP1残り）
+                      </label>
+                      <label>
+                        確率（0-100）:
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={inputValues['pvp.streamerAttack.survivalHp1Probability'] ?? String(config.pvp.streamerAttack.survivalHp1Probability)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.survivalHp1Probability': e.target.value }))
+                            const num = Number(e.target.value)
+                            if (!isNaN(num) && num >= 0 && num <= 100) {
+                              setConfig({
+                                ...config,
+                                pvp: {
+                                  ...config.pvp,
+                                  streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Probability: num },
+                                },
+                              })
+                            }
+                          }}
+                          onBlur={() => {
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['pvp.streamerAttack.survivalHp1Probability']
+                              return next
+                            })
+                          }}
+                        />
+                      </label>
+                      <label>
+                        メッセージ:
+                        <input
+                          type="text"
+                          value={config.pvp.streamerAttack.survivalHp1Message}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Message: e.target.value },
+                              },
+                            })
+                          }
+                          placeholder="食いしばり!"
+                        />
+                      </label>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'streamer' && (
+        <div className="settings-tab-panel">
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('animation')}>
+              <span className="accordion-icon">{expandedSections.animation ? '▼' : '▶'}</span>
+              HPゲージ アニメーション設定
+            </h3>
+            {expandedSections.animation && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    アニメーション時間 (ms):
+                    <input
+                      type="text"
+                      value={inputValues['animation.duration'] ?? String(config.animation.duration)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'animation.duration': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            animation: { ...config.animation, duration: 500 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['animation.duration']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              animation: { ...config.animation, duration: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['animation.duration']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    イージング:
+                    <select
+                      value={config.animation.easing}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          animation: {
+                            ...config.animation,
+                            easing: e.target.value,
+                          },
+                        })
+                      }
+                    >
+                      <option value="linear">linear</option>
+                      <option value="ease-in">ease-in</option>
+                      <option value="ease-out">ease-out</option>
+                      <option value="ease-in-out">ease-in-out</option>
+                      <option value="cubic-bezier">cubic-bezier</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('display')}>
+              <span className="accordion-icon">{expandedSections.display ? '▼' : '▶'}</span>
+              HP表示設定
+            </h3>
+            {expandedSections.display && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.display.showMaxHp}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          display: {
+                            ...config.display,
+                            showMaxHp: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    最大HPを表示
+                  </label>
+                  <label>
+                    フォントサイズ:
+                    <input
+                      type="text"
+                      value={inputValues['display.fontSize'] ?? String(config.display.fontSize)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'display.fontSize': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            display: { ...config.display, fontSize: 24 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['display.fontSize']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              display: { ...config.display, fontSize: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['display.fontSize']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('zeroHpImage')}>
+              <span className="accordion-icon">{expandedSections.zeroHpImage ? '▼' : '▶'}</span>
+              HP0画像設定
+            </h3>
+            {expandedSections.zeroHpImage && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.zeroHpImage.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          zeroHpImage: { ...config.zeroHpImage, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    HPが0になったら画像を表示
+                  </label>
                 </div>
                 <div className="settings-row">
-                  <label>位置 Y (px)</label>
-                  <input
-                    type="number"
-                    value={inputValues.externalWindowY ?? config.externalWindow.y}
-                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowY: e.target.value }))}
-                    onBlur={(e) => {
-                      const value = Number(e.target.value)
-                      if (!isNaN(value)) {
+                  <label>
+                    画像URL:
+                    <input
+                      type="text"
+                      value={config.zeroHpImage.imageUrl}
+                      onChange={(e) => {
+                        const url = e.target.value
+                        if (isValidUrl(url)) {
+                          setConfig({
+                            ...config,
+                            zeroHpImage: { ...config.zeroHpImage, imageUrl: url },
+                          })
+                        } else {
+                          setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                          setTimeout(() => setMessage(null), 3000)
+                        }
+                      }}
+                      placeholder="画像のURLを入力"
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  例: <code>src/images/custom.png</code>（public/images に配置）または{' '}
+                  <code>https://...</code>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('zeroHpSound')}>
+              <span className="accordion-icon">{expandedSections.zeroHpSound ? '▼' : '▶'}</span>
+              HP0効果音設定
+            </h3>
+            {expandedSections.zeroHpSound && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.zeroHpSound.enabled}
+                      onChange={(e) =>
                         setConfig({
                           ...config,
-                          externalWindow: { ...config.externalWindow, y: value },
+                          zeroHpSound: { ...config.zeroHpSound, enabled: e.target.checked },
                         })
                       }
-                      setInputValues((prev) => {
-                        const newValues = { ...prev }
-                        delete newValues.externalWindowY
-                        return newValues
-                      })
-                    }}
-                  />
+                    />
+                    HPが0になったら効果音を再生
+                  </label>
                 </div>
                 <div className="settings-row">
-                  <label>幅 (px)</label>
-                  <input
-                    type="number"
-                    value={inputValues.externalWindowWidth ?? config.externalWindow.width}
-                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowWidth: e.target.value }))}
-                    onBlur={(e) => {
-                      const value = Number(e.target.value)
-                      if (!isNaN(value) && value > 0) {
-                        setConfig({
-                          ...config,
-                          externalWindow: { ...config.externalWindow, width: value },
-                        })
-                      }
-                      setInputValues((prev) => {
-                        const newValues = { ...prev }
-                        delete newValues.externalWindowWidth
-                        return newValues
-                      })
-                    }}
-                  />
+                  <label>
+                    効果音URL:
+                    <input
+                      type="text"
+                      value={config.zeroHpSound.soundUrl}
+                      onChange={(e) => {
+                        const url = e.target.value
+                        if (isValidUrl(url)) {
+                          setConfig({
+                            ...config,
+                            zeroHpSound: { ...config.zeroHpSound, soundUrl: url },
+                          })
+                        } else {
+                          setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                          setTimeout(() => setMessage(null), 3000)
+                        }
+                      }}
+                      placeholder="効果音のURLを入力"
+                    />
+                  </label>
                 </div>
                 <div className="settings-row">
-                  <label>高さ (px)</label>
-                  <input
-                    type="number"
-                    value={inputValues.externalWindowHeight ?? config.externalWindow.height}
-                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowHeight: e.target.value }))}
-                    onBlur={(e) => {
-                      const value = Number(e.target.value)
-                      if (!isNaN(value) && value > 0) {
+                  <label>
+                    音量:
+                    <input
+                      type="text"
+                      value={inputValues['zeroHpSound.volume'] ?? String(config.zeroHpSound.volume)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'zeroHpSound.volume': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseFloat(value))) {
+                          setConfig({
+                            ...config,
+                            zeroHpSound: { ...config.zeroHpSound, volume: 0.7 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['zeroHpSound.volume']
+                            return next
+                          })
+                        } else {
+                          const num = parseFloat(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              zeroHpSound: {
+                                ...config.zeroHpSound,
+                                volume: Math.min(1, Math.max(0, num)),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['zeroHpSound.volume']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  例: <code>src/sounds/custom.mp3</code>（public/sounds に配置）または{' '}
+                  <code>https://...</code>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('zeroHpEffect')}>
+              <span className="accordion-icon">{expandedSections.zeroHpEffect ? '▼' : '▶'}</span>
+              HP0エフェクト設定（WebM）
+            </h3>
+            {expandedSections.zeroHpEffect && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.zeroHpEffect.enabled}
+                      onChange={(e) =>
                         setConfig({
                           ...config,
-                          externalWindow: { ...config.externalWindow, height: value },
+                          zeroHpEffect: { ...config.zeroHpEffect, enabled: e.target.checked },
                         })
                       }
-                      setInputValues((prev) => {
-                        const newValues = { ...prev }
-                        delete newValues.externalWindowHeight
-                        return newValues
-                      })
-                    }}
-                  />
+                    />
+                    HPが0になったら動画エフェクトを表示
+                  </label>
                 </div>
                 <div className="settings-row">
-                  <label>透明度 (0-1)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="1"
-                    value={inputValues.externalWindowOpacity ?? config.externalWindow.opacity}
-                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowOpacity: e.target.value }))}
-                    onBlur={(e) => {
-                      const value = Number(e.target.value)
-                      if (!isNaN(value) && value >= 0 && value <= 1) {
-                        setConfig({
-                          ...config,
-                          externalWindow: { ...config.externalWindow, opacity: value },
-                        })
-                      }
-                      setInputValues((prev) => {
-                        const newValues = { ...prev }
-                        delete newValues.externalWindowOpacity
-                        return newValues
-                      })
-                    }}
-                  />
+                  <label>
+                    動画 URL（透過WebM推奨）:
+                    <input
+                      type="text"
+                      value={config.zeroHpEffect.videoUrl}
+                      onChange={(e) => {
+                        const url = e.target.value
+                        if (isValidUrl(url)) {
+                          setConfig({
+                            ...config,
+                            zeroHpEffect: { ...config.zeroHpEffect, videoUrl: url },
+                          })
+                        } else {
+                          setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                          setTimeout(() => setMessage(null), 3000)
+                        }
+                      }}
+                      placeholder="動画のURLを入力"
+                    />
+                  </label>
                 </div>
                 <div className="settings-row">
-                  <label>Z-Index (HPゲージより後ろに配置するため低めの値)</label>
-                  <input
-                    type="number"
-                    value={inputValues.externalWindowZIndex ?? config.externalWindow.zIndex}
-                    onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowZIndex: e.target.value }))}
-                    onBlur={(e) => {
-                      const value = Number(e.target.value)
-                      if (!isNaN(value)) {
+                  <label>
+                    表示時間（ミリ秒）:
+                    <input
+                      type="text"
+                      value={inputValues['zeroHpEffect.duration'] ?? String(config.zeroHpEffect.duration)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'zeroHpEffect.duration': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            zeroHpEffect: { ...config.zeroHpEffect, duration: 2000 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['zeroHpEffect.duration']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              zeroHpEffect: {
+                                ...config.zeroHpEffect,
+                                duration: Math.max(100, num),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['zeroHpEffect.duration']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  例: <code>src/images/bakuhatsu.gif</code>（public/images に配置）または{' '}
+                  <code>https://...</code>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('gaugeColors')}>
+              <span className="accordion-icon">{expandedSections.gaugeColors ? '▼' : '▶'}</span>
+              HPゲージ色設定
+            </h3>
+            {expandedSections.gaugeColors && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    最後の1ゲージ（HPが最後に残る分）:
+                    <input
+                      type="color"
+                      value={config.gaugeColors.lastGauge}
+                      onChange={(e) =>
                         setConfig({
                           ...config,
-                          externalWindow: { ...config.externalWindow, zIndex: value },
+                          gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
                         })
                       }
-                      setInputValues((prev) => {
-                        const newValues = { ...prev }
-                        delete newValues.externalWindowZIndex
-                        return newValues
-                      })
-                    }}
-                  />
+                    />
+                    <input
+                      type="text"
+                      value={config.gaugeColors.lastGauge}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
+                        })
+                      }
+                      placeholder="#FF0000"
+                      style={{ width: '100px', marginLeft: '0.5rem' }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    2ゲージ目:
+                    <input
+                      type="color"
+                      value={config.gaugeColors.secondGauge}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.gaugeColors.secondGauge}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
+                        })
+                      }
+                      placeholder="#FFA500"
+                      style={{ width: '100px', marginLeft: '0.5rem' }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    3ゲージ目以降の交互パターン1（3, 5, 7, 9...ゲージ目）:
+                    <input
+                      type="color"
+                      value={config.gaugeColors.patternColor1}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.gaugeColors.patternColor1}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
+                        })
+                      }
+                      placeholder="#8000FF"
+                      style={{ width: '100px', marginLeft: '0.5rem' }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    3ゲージ目以降の交互パターン2（4, 6, 8, 10...ゲージ目）:
+                    <input
+                      type="color"
+                      value={config.gaugeColors.patternColor2}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.gaugeColors.patternColor2}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
+                        })
+                      }
+                      placeholder="#4aa3ff"
+                      style={{ width: '100px', marginLeft: '0.5rem' }}
+                    />
+                  </label>
                 </div>
                 <div className="settings-hint">
                   <p>
-                    <strong>使用方法:</strong>
+                    <strong>注意:</strong> 3ゲージ目以降は、設定した2色を交互に使用します。ゲージ数が10を超えても、この2色が繰り返し適用されます。
                   </p>
-                  <ul>
-                    <li>外部ウィンドウキャプチャを有効化すると、ブラウザがウィンドウ選択画面を表示します</li>
-                    <li>キャプチャしたいアプリケーションウィンドウを選択してください</li>
-                    <li>位置、サイズ、透明度、Z-Indexを調整してHPゲージの後ろに配置できます</li>
-                    <li>Z-Indexは低い値（例: 1）に設定すると、HPゲージ（通常はz-index: 10以上）の後ろに表示されます</li>
-                  </ul>
                 </div>
-              </>
+              </div>
             )}
           </div>
-        )}
-      </div>
-      </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('damageColors')}>
+              <span className="accordion-icon">{expandedSections.damageColors ? '▼' : '▶'}</span>
+              ダメージ値色設定
+            </h3>
+            {expandedSections.damageColors && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    通常ダメージの色:
+                    <input
+                      type="color"
+                      value={config.damageColors.normal}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          damageColors: { ...config.damageColors, normal: e.target.value },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.damageColors.normal}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          damageColors: { ...config.damageColors, normal: e.target.value },
+                        })
+                      }
+                      placeholder="#cc0000"
+                      style={{ width: '100px', marginLeft: '0.5rem' }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    クリティカルダメージの色:
+                    <input
+                      type="color"
+                      value={config.damageColors.critical}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          damageColors: { ...config.damageColors, critical: e.target.value },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.damageColors.critical}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          damageColors: { ...config.damageColors, critical: e.target.value },
+                        })
+                      }
+                      placeholder="#cc8800"
+                      style={{ width: '100px', marginLeft: '0.5rem' }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    出血ダメージの色:
+                    <input
+                      type="color"
+                      value={config.damageColors.bleed}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          damageColors: { ...config.damageColors, bleed: e.target.value },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.damageColors.bleed}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          damageColors: { ...config.damageColors, bleed: e.target.value },
+                        })
+                      }
+                      placeholder="#ff6666"
+                      style={{ width: '100px', marginLeft: '0.5rem' }}
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('test')}>
+              <span className="accordion-icon">{expandedSections.test ? '▼' : '▶'}</span>
+              テストモード設定
+            </h3>
+            {expandedSections.test && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.test.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          test: { ...config.test, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    テストモードを有効にする
+                  </label>
+                  {config.test.enabled && (
+                    <label>長押しで連打できます（ショートカットは廃止）</label>
+                  )}
+                </div>
+                {config.test.enabled && (
+                  <div className="settings-hint">
+                    <p>
+                      <strong>テストモードについて:</strong>
+                    </p>
+                    <ul>
+                      <li>
+                        テストモードでは、実際のTwitchチャンネルポイントAPIを使用せずに動作を確認できます
+                      </li>
+                      <li>
+                        アフィリエイト未参加の配信者でも、このモードでテストできます
+                      </li>
+                      <li>
+                        ボタンは長押しで連打できます
+                      </li>
+                      <li>
+                        開発環境では、画面右下にテストボタンが表示されます
+                      </li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 外部ウィンドウ設定 */}
+          <div className="settings-section">
+            <h3 onClick={() => toggleSection('externalWindow')}>
+              {expandedSections.externalWindow ? '▼' : '▶'} 外部ウィンドウキャプチャ
+            </h3>
+            {expandedSections.externalWindow && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.externalWindow.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          externalWindow: { ...config.externalWindow, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    外部ウィンドウキャプチャを有効化
+                  </label>
+                </div>
+                {config.externalWindow.enabled && (
+                  <>
+                    <div className="settings-row">
+                      <label>位置 X (px)</label>
+                      <input
+                        type="number"
+                        value={inputValues.externalWindowX ?? config.externalWindow.x}
+                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowX: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value)
+                          if (!isNaN(value)) {
+                            setConfig({
+                              ...config,
+                              externalWindow: { ...config.externalWindow, x: value },
+                            })
+                          }
+                          setInputValues((prev) => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowX
+                            return newValues
+                          })
+                        }}
+                      />
+                    </div>
+                    <div className="settings-row">
+                      <label>位置 Y (px)</label>
+                      <input
+                        type="number"
+                        value={inputValues.externalWindowY ?? config.externalWindow.y}
+                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowY: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value)
+                          if (!isNaN(value)) {
+                            setConfig({
+                              ...config,
+                              externalWindow: { ...config.externalWindow, y: value },
+                            })
+                          }
+                          setInputValues((prev) => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowY
+                            return newValues
+                          })
+                        }}
+                      />
+                    </div>
+                    <div className="settings-row">
+                      <label>幅 (px)</label>
+                      <input
+                        type="number"
+                        value={inputValues.externalWindowWidth ?? config.externalWindow.width}
+                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowWidth: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value > 0) {
+                            setConfig({
+                              ...config,
+                              externalWindow: { ...config.externalWindow, width: value },
+                            })
+                          }
+                          setInputValues((prev) => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowWidth
+                            return newValues
+                          })
+                        }}
+                      />
+                    </div>
+                    <div className="settings-row">
+                      <label>高さ (px)</label>
+                      <input
+                        type="number"
+                        value={inputValues.externalWindowHeight ?? config.externalWindow.height}
+                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowHeight: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value > 0) {
+                            setConfig({
+                              ...config,
+                              externalWindow: { ...config.externalWindow, height: value },
+                            })
+                          }
+                          setInputValues((prev) => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowHeight
+                            return newValues
+                          })
+                        }}
+                      />
+                    </div>
+                    <div className="settings-row">
+                      <label>透明度 (0-1)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="1"
+                        value={inputValues.externalWindowOpacity ?? config.externalWindow.opacity}
+                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowOpacity: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value)
+                          if (!isNaN(value) && value >= 0 && value <= 1) {
+                            setConfig({
+                              ...config,
+                              externalWindow: { ...config.externalWindow, opacity: value },
+                            })
+                          }
+                          setInputValues((prev) => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowOpacity
+                            return newValues
+                          })
+                        }}
+                      />
+                    </div>
+                    <div className="settings-row">
+                      <label>Z-Index (HPゲージより後ろに配置するため低めの値)</label>
+                      <input
+                        type="number"
+                        value={inputValues.externalWindowZIndex ?? config.externalWindow.zIndex}
+                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowZIndex: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value)
+                          if (!isNaN(value)) {
+                            setConfig({
+                              ...config,
+                              externalWindow: { ...config.externalWindow, zIndex: value },
+                            })
+                          }
+                          setInputValues((prev) => {
+                            const newValues = { ...prev }
+                            delete newValues.externalWindowZIndex
+                            return newValues
+                          })
+                        }}
+                      />
+                    </div>
+                    <div className="settings-hint">
+                      <p>
+                        <strong>使用方法:</strong>
+                      </p>
+                      <ul>
+                        <li>外部ウィンドウキャプチャを有効化すると、ブラウザがウィンドウ選択画面を表示します</li>
+                        <li>キャプチャしたいアプリケーションウィンドウを選択してください</li>
+                        <li>位置、サイズ、透明度、Z-Indexを調整してHPゲージの後ろに配置できます</li>
+                        <li>Z-Indexは低い値（例: 1）に設定すると、HPゲージ（通常はz-index: 10以上）の後ろに表示されます</li>
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="settings-actions">

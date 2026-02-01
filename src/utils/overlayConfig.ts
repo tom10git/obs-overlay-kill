@@ -155,6 +155,36 @@ const DEFAULT_CONFIG: OverlayConfig = {
     autoReplyAttackCounter: true,
     autoReplyViewerCommands: true,
     autoReplyBlockedByZeroHp: true,
+    viewerAttackViewerCommand: '!attack',
+    viewerVsViewerAttack: {
+      rewardId: '',
+      customText: '',
+      enabled: true,
+      damage: 10,
+      missEnabled: false,
+      missProbability: 0,
+      missSoundEnabled: false,
+      missSoundUrl: '',
+      missSoundVolume: 0.7,
+      criticalEnabled: false,
+      criticalProbability: 0,
+      criticalMultiplier: 2.0,
+      bleedEnabled: false,
+      bleedProbability: 0,
+      bleedDamage: 5,
+      bleedDuration: 10,
+      bleedInterval: 1,
+      bleedSoundEnabled: false,
+      bleedSoundUrl: '',
+      bleedSoundVolume: 0.7,
+      soundEnabled: false,
+      soundUrl: '',
+      soundVolume: 0.7,
+      filterEffectEnabled: true,
+      survivalHp1Enabled: false,
+      survivalHp1Probability: 30,
+      survivalHp1Message: '食いしばり!',
+    },
   },
   externalWindow: {
     enabled: false,
@@ -230,6 +260,7 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
         ...DEFAULT_CONFIG.pvp,
         ...(storedConfig.pvp || {}),
         streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...(storedConfig.pvp?.streamerAttack || {}) },
+        viewerVsViewerAttack: { ...DEFAULT_CONFIG.pvp.viewerVsViewerAttack, ...(storedConfig.pvp?.viewerVsViewerAttack || {}) },
       },
       externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...storedConfig.externalWindow },
       webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...storedConfig.webmLoop },
@@ -264,7 +295,12 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...validated.zeroHpSound },
       zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...validated.zeroHpEffect },
       test: { ...DEFAULT_CONFIG.test, ...validated.test },
-      pvp: { ...DEFAULT_CONFIG.pvp, ...validated.pvp, streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...validated.pvp.streamerAttack } },
+      pvp: {
+        ...DEFAULT_CONFIG.pvp,
+        ...validated.pvp,
+        streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...validated.pvp.streamerAttack },
+        viewerVsViewerAttack: { ...DEFAULT_CONFIG.pvp.viewerVsViewerAttack, ...(validated.pvp?.viewerVsViewerAttack || {}) },
+      },
       externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...validated.externalWindow },
       webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
       damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...validated.damageEffectFilter },
@@ -525,7 +561,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       typeof retryConfig.streamerHealCommand === 'string' && isValidLength(retryConfig.streamerHealCommand, 1, 50)
         ? (retryConfig.streamerHealCommand as string).replace(/[<>"']/g, '')
         : '!heal',
-    streamerHealType: retryConfig.streamerHealType === 'random' ? 'random' : 'fixed',
+    streamerHealType: (retryConfig.streamerHealType === 'random' ? 'random' : 'fixed') as 'fixed' | 'random',
     streamerHealAmount: isInRange(Number(retryConfig.streamerHealAmount), 1, 1000) ? Number(retryConfig.streamerHealAmount) || 20 : 20,
     streamerHealMin: isInRange(Number(retryConfig.streamerHealMin), 1, 1000) ? Number(retryConfig.streamerHealMin) || 10 : 10,
     streamerHealMax: isInRange(Number(retryConfig.streamerHealMax), 1, 1000) ? Number(retryConfig.streamerHealMax) || 30 : 30,
@@ -755,6 +791,36 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     ? Math.min(9999, Math.floor(pvpConfig.viewerMaxHp))
     : 100
   const legacyAutoReply = typeof (pvpConfig as { autoReplyEnabled?: boolean }).autoReplyEnabled === 'boolean' ? (pvpConfig as { autoReplyEnabled: boolean }).autoReplyEnabled : true
+  const vva = (pvpConfig.viewerVsViewerAttack as Record<string, unknown> | undefined) || {}
+  const viewerVsViewerAttack = {
+    rewardId: typeof vva.rewardId === 'string' ? vva.rewardId : '',
+    customText: typeof vva.customText === 'string' ? vva.customText : '',
+    enabled: typeof vva.enabled === 'boolean' ? vva.enabled : true,
+    damage: isInRange(Number(vva.damage), 1, 1000) ? Number(vva.damage) || 10 : 10,
+    missEnabled: typeof vva.missEnabled === 'boolean' ? vva.missEnabled : false,
+    missProbability: isInRange(Number(vva.missProbability), 0, 100) ? Number(vva.missProbability) || 0 : 0,
+    missSoundEnabled: typeof vva.missSoundEnabled === 'boolean' ? vva.missSoundEnabled : false,
+    missSoundUrl: typeof vva.missSoundUrl === 'string' ? vva.missSoundUrl : '',
+    missSoundVolume: isInRange(Number(vva.missSoundVolume), 0, 1) ? Number(vva.missSoundVolume) || 0.7 : 0.7,
+    criticalEnabled: typeof vva.criticalEnabled === 'boolean' ? vva.criticalEnabled : false,
+    criticalProbability: isInRange(Number(vva.criticalProbability), 0, 100) ? Number(vva.criticalProbability) || 0 : 0,
+    criticalMultiplier: isInRange(Number(vva.criticalMultiplier), 1, 10) ? Number(vva.criticalMultiplier) || 2 : 2,
+    bleedEnabled: typeof vva.bleedEnabled === 'boolean' ? vva.bleedEnabled : false,
+    bleedProbability: isInRange(Number(vva.bleedProbability), 0, 100) ? Number(vva.bleedProbability) || 0 : 0,
+    bleedDamage: isInRange(Number(vva.bleedDamage), 1, 1000) ? Number(vva.bleedDamage) || 5 : 5,
+    bleedDuration: isInRange(Number(vva.bleedDuration), 1, 600) ? Number(vva.bleedDuration) || 10 : 10,
+    bleedInterval: isInRange(Number(vva.bleedInterval), 0.1, 60) ? Number(vva.bleedInterval) || 1 : 1,
+    bleedSoundEnabled: typeof vva.bleedSoundEnabled === 'boolean' ? vva.bleedSoundEnabled : false,
+    bleedSoundUrl: typeof vva.bleedSoundUrl === 'string' ? vva.bleedSoundUrl : '',
+    bleedSoundVolume: isInRange(Number(vva.bleedSoundVolume), 0, 1) ? Number(vva.bleedSoundVolume) || 0.7 : 0.7,
+    soundEnabled: typeof vva.soundEnabled === 'boolean' ? vva.soundEnabled : false,
+    soundUrl: typeof vva.soundUrl === 'string' ? vva.soundUrl : '',
+    soundVolume: isInRange(Number(vva.soundVolume), 0, 1) ? Number(vva.soundVolume) || 0.7 : 0.7,
+    filterEffectEnabled: typeof vva.filterEffectEnabled === 'boolean' ? vva.filterEffectEnabled : true,
+    survivalHp1Enabled: typeof vva.survivalHp1Enabled === 'boolean' ? vva.survivalHp1Enabled : false,
+    survivalHp1Probability: isInRange(Number(vva.survivalHp1Probability), 0, 100) ? Number(vva.survivalHp1Probability) || 30 : 30,
+    survivalHp1Message: typeof vva.survivalHp1Message === 'string' ? vva.survivalHp1Message : '食いしばり!',
+  }
   const pvp = {
     enabled: typeof pvpConfig.enabled === 'boolean' ? pvpConfig.enabled : false,
     autoReplyAttackCounter: typeof pvpConfig.autoReplyAttackCounter === 'boolean' ? pvpConfig.autoReplyAttackCounter : legacyAutoReply,
@@ -781,12 +847,16 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     viewerHealCommand: typeof pvpConfig.viewerHealCommand === 'string' && isValidLength(pvpConfig.viewerHealCommand, 1, 50)
       ? (pvpConfig.viewerHealCommand as string).replace(/[<>"']/g, '')
       : '!heal',
-    viewerHealType: pvpConfig.viewerHealType === 'random' ? 'random' : 'fixed',
+    viewerHealType: (pvpConfig.viewerHealType === 'random' ? 'random' : 'fixed') as 'fixed' | 'random',
     viewerHealAmount: isInRange(Number(pvpConfig.viewerHealAmount), 1, 1000) ? Number(pvpConfig.viewerHealAmount) || 20 : 20,
     viewerHealMin: isInRange(Number(pvpConfig.viewerHealMin), 1, 1000) ? Number(pvpConfig.viewerHealMin) || 10 : 10,
     viewerHealMax: isInRange(Number(pvpConfig.viewerHealMax), 1, 1000) ? Number(pvpConfig.viewerHealMax) || 30 : 30,
     viewerHealRandomStep: isInRange(Number(pvpConfig.viewerHealRandomStep), 1, 1000) ? Math.floor(Number(pvpConfig.viewerHealRandomStep)) || 1 : 1,
     viewerHealWhenZeroEnabled: typeof pvpConfig.viewerHealWhenZeroEnabled === 'boolean' ? pvpConfig.viewerHealWhenZeroEnabled : true,
+    viewerAttackViewerCommand: typeof pvpConfig.viewerAttackViewerCommand === 'string' && isValidLength(pvpConfig.viewerAttackViewerCommand, 1, 50)
+      ? (pvpConfig.viewerAttackViewerCommand as string).replace(/[<>"']/g, '')
+      : '!attack',
+    viewerVsViewerAttack,
   }
 
   return {

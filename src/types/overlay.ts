@@ -181,6 +181,10 @@ export interface PvPConfig {
   messageWhenHealBlockedByZeroHp: string
   /** 視聴者HPが0になったときにチャットへ送る自動返信メッセージ。{username} で対象の表示名に置換 */
   messageWhenViewerZeroHp: string
+  /** 視聴者が別の視聴者を攻撃するコマンド（例: !attack ユーザー名） */
+  viewerAttackViewerCommand: string
+  /** 視聴者同士の攻撃時のダメージ・ミス・クリティカル等の設定 */
+  viewerVsViewerAttack: AttackConfig
 }
 
 export interface ExternalWindowConfig {
