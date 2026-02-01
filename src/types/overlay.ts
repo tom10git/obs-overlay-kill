@@ -53,6 +53,8 @@ export interface HealConfig {
   healAmount: number // fixed の場合
   healMin: number // random の場合
   healMax: number // random の場合
+  /** random 時の刻み（例: 50 → 50,100,150... のいずれか。1 のときは min～max の連続値） */
+  healRandomStep: number
   soundEnabled: boolean // 回復効果音の有効/無効
   soundUrl: string // 回復効果音のURL
   soundVolume: number // 回復効果音の音量（0-1）
@@ -62,6 +64,8 @@ export interface HealConfig {
 
 export interface RetryConfig {
   command: string
+  /** 配信者側の自動返信（配信者HP0時などにチャットへメッセージを送る） */
+  streamerAutoReplyEnabled: boolean
   /** 配信者側の全回復コマンド（配信者が実行するとHPを最大まで回復） */
   fullHealCommand: string
   /** 配信者・全員を全回復するコマンド（配信者のみ実行可能・配信者HPと全視聴者HPを最大まで回復） */
@@ -76,6 +80,8 @@ export interface RetryConfig {
   streamerHealMin: number
   /** 配信者側の回復量（random 時の最大） */
   streamerHealMax: number
+  /** 配信者側のランダム回復の刻み（例: 50 → 50,100,150...。1 のときは min～max の連続値） */
+  streamerHealRandomStep: number
   /** 配信者HPが0のときも通常回復コマンドを許可する */
   streamerHealWhenZeroEnabled: boolean
   enabled: boolean
@@ -131,6 +137,12 @@ export interface TestConfig {
 /** PvPモード: 配信者 vs 視聴者。視聴者ごとにHPを管理し、配信者のカウンター攻撃などを行う */
 export interface PvPConfig {
   enabled: boolean
+  /** 攻撃・カウンター時の自動返信（HP表示＋視聴者HP0になったときのメッセージ） */
+  autoReplyAttackCounter: boolean
+  /** 視聴者コマンドの自動返信（HP確認・全回復・通常回復の返信） */
+  autoReplyViewerCommands: boolean
+  /** HP0ブロック時の自動返信（「攻撃できません」「回復できません」） */
+  autoReplyBlockedByZeroHp: boolean
   /** 視聴者1人あたりの最大HP（ユーザー側のHP量） */
   viewerMaxHp: number
   /** 配信者側の攻撃設定（カウンター攻撃に使用。視聴者用攻撃設定とは別） */
@@ -153,6 +165,8 @@ export interface PvPConfig {
   viewerHealMin: number
   /** 視聴者側の回復量（random 時の最大） */
   viewerHealMax: number
+  /** 視聴者側のランダム回復の刻み（例: 50 → 50,100,150...。1 のときは min～max の連続値） */
+  viewerHealRandomStep: number
   /** 視聴者HPが0のときも通常回復コマンドを許可する */
   viewerHealWhenZeroEnabled: boolean
   /** 視聴者が攻撃したとき、攻撃者にカウンターする（初期設定・デフォルトON） */

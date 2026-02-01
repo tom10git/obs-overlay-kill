@@ -24,6 +24,15 @@ import type { OverlayConfig } from '../types/overlay'
 import type { ChannelPointEvent } from '../types/overlay'
 import './OverlayPage.css'
 
+/** ランダム回復量を計算（step が 1 のときは min～max の連続値、>1 のときは min, min+step, min+2*step... のいずれか） */
+function getRandomHealAmount(min: number, max: number, step: number): number {
+  if (step <= 1) return Math.floor(Math.random() * (max - min + 1)) + min
+  const steps = Math.floor((max - min) / step) + 1
+  if (steps < 1) return min
+  const index = Math.floor(Math.random() * steps)
+  return min + index * step
+}
+
 export function OverlayPage() {
   const username = getAdminUsername() || ''
   const { user, loading: userLoading } = useTwitchUser(username)
@@ -261,7 +270,7 @@ export function OverlayPage() {
     onSurvivalHp1: (message) => showSurvivalMessage(message),
     onStreamerZeroHp: (message) => {
       const raw = message?.trim()
-      if (!raw || config?.test.enabled) return
+      if (!raw || config?.test.enabled || !config?.retry.streamerAutoReplyEnabled) return
       const attackerName = lastStreamerAttackerRef.current?.userName ?? ''
       const msg = raw.replace(/\{attacker\}/g, attackerName).trim()
       if (!msg) return
@@ -658,12 +667,14 @@ export function OverlayPage() {
             .replace(/\{username\}/g, targetUserName)
             .replace(/\{hp\}/g, String(hp))
             .replace(/\{max\}/g, String(max))
-          if (twitchChat.canSend()) {
-            twitchChat.say(username, reply)
-          } else if (user?.id) {
-            twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 攻撃時自動返信の送信失敗', err))
+          if (config.pvp.autoReplyAttackCounter) {
+            if (twitchChat.canSend()) {
+              twitchChat.say(username, reply)
+            } else if (user?.id) {
+              twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 攻撃時自動返信の送信失敗', err))
+            }
           }
-          if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim()) {
+          if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyAttackCounter) {
             const zeroMsg = config.pvp.messageWhenViewerZeroHp.replace(/\{username\}/g, targetUserName).trim()
             if (zeroMsg) {
               if (twitchChat.canSend()) twitchChat.say(username, zeroMsg)
@@ -690,10 +701,11 @@ export function OverlayPage() {
         if (config.heal.healType === 'fixed') {
           healAmount = config.heal.healAmount
         } else {
-          // ランダム回復
+          // ランダム回復（刻み対応）
           const min = config.heal.healMin
           const max = config.heal.healMax
-          healAmount = Math.floor(Math.random() * (max - min + 1)) + min
+          const step = config.heal.healRandomStep ?? 1
+          healAmount = getRandomHealAmount(min, max, step)
         }
 
         increaseHP(healAmount)
@@ -729,8 +741,10 @@ export function OverlayPage() {
         if (current <= 0) {
           const isHeal = config?.heal.enabled && event.rewardId === config.heal.rewardId && config.heal.rewardId.length > 0
           const msg = isHeal ? (config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。') : (config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。')
-          if (twitchChat.canSend()) twitchChat.say(username, msg)
-          else if (user?.id) twitchApi.sendChatMessage(user.id, msg).catch(() => { })
+          if (config.pvp.autoReplyBlockedByZeroHp) {
+            if (twitchChat.canSend()) twitchChat.say(username, msg)
+            else if (user?.id) twitchApi.sendChatMessage(user.id, msg).catch(() => { })
+          }
           return
         }
       }
@@ -763,8 +777,10 @@ export function OverlayPage() {
         const current = state?.current ?? viewerMaxHP
         if (current <= 0) {
           const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
-          if (twitchChat.canSend()) twitchChat.say(username, msg)
-          else if (user?.id) twitchApi.sendChatMessage(user.id, msg).catch(() => { })
+          if (config.pvp.autoReplyBlockedByZeroHp) {
+            if (twitchChat.canSend()) twitchChat.say(username, msg)
+            else if (user?.id) twitchApi.sendChatMessage(user.id, msg).catch(() => { })
+          }
           return
         }
       }
@@ -790,8 +806,10 @@ export function OverlayPage() {
         const current = state?.current ?? viewerMaxHP
         if (current <= 0) {
           const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
-          if (twitchChat.canSend()) twitchChat.say(username, msg)
-          else if (user?.id) twitchApi.sendChatMessage(user.id, msg).catch(() => { })
+          if (config.pvp.autoReplyBlockedByZeroHp) {
+            if (twitchChat.canSend()) twitchChat.say(username, msg)
+            else if (user?.id) twitchApi.sendChatMessage(user.id, msg).catch(() => { })
+          }
           return
         }
       }
@@ -982,10 +1000,11 @@ export function OverlayPage() {
     if (config.heal.healType === 'fixed') {
       healAmount = config.heal.healAmount
     } else {
-      // ランダム回復
+      // ランダム回復（刻み対応）
       const min = config.heal.healMin
       const max = config.heal.healMax
-      healAmount = Math.floor(Math.random() * (max - min + 1)) + min
+      const step = config.heal.healRandomStep ?? 1
+      healAmount = getRandomHealAmount(min, max, step)
     }
 
     increaseHP(healAmount)
@@ -1118,12 +1137,14 @@ export function OverlayPage() {
               .replace(/\{username\}/g, targetDisplayName)
               .replace(/\{hp\}/g, String(result.newHP))
               .replace(/\{max\}/g, String(viewerMaxHP))
-            if (twitchChat.canSend()) {
-              twitchChat.say(username, reply)
-            } else {
-              twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] チャット送信失敗', err))
+            if (config.pvp.autoReplyAttackCounter) {
+              if (twitchChat.canSend()) {
+                twitchChat.say(username, reply)
+              } else {
+                twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] チャット送信失敗', err))
+              }
             }
-            if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim()) {
+            if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyAttackCounter) {
               const zeroMsg = config.pvp.messageWhenViewerZeroHp.replace(/\{username\}/g, targetDisplayName).trim()
               if (zeroMsg) {
                 if (twitchChat.canSend()) twitchChat.say(username, zeroMsg)
@@ -1161,10 +1182,12 @@ export function OverlayPage() {
             .replace(/\{username\}/g, displayName)
             .replace(/\{hp\}/g, String(hp))
             .replace(/\{max\}/g, String(max))
-          if (twitchChat.canSend()) {
-            twitchChat.say(username, reply)
-          } else {
-            twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] HP確認チャット送信失敗', err))
+          if (config.pvp.autoReplyViewerCommands) {
+            if (twitchChat.canSend()) {
+              twitchChat.say(username, reply)
+            } else {
+              twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] HP確認チャット送信失敗', err))
+            }
           }
         }
       }
@@ -1195,24 +1218,26 @@ export function OverlayPage() {
             .replace(/\{username\}/g, displayName)
             .replace(/\{hp\}/g, String(viewerMaxHP))
             .replace(/\{max\}/g, String(viewerMaxHP))
-          if (twitchChat.canSend()) {
-            twitchChat.say(username, reply)
-          } else {
-            twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 全回復返信の送信失敗', err))
+          if (config.pvp.autoReplyViewerCommands) {
+            if (twitchChat.canSend()) {
+              twitchChat.say(username, reply)
+            } else {
+              twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 全回復返信の送信失敗', err))
+            }
           }
         }
       }
 
       // PvP: 視聴者側の通常回復コマンド（設定量だけ回復）
+      const viewerHealCmd = (config.pvp?.viewerHealCommand ?? '!heal').trim()
       if (
         !commandMatched &&
         config.pvp?.enabled &&
-        config.pvp.viewerHealCommand &&
-        config.pvp.viewerHealCommand.length > 0 &&
+        viewerHealCmd.length > 0 &&
         user?.id &&
         message.user.id !== user.id
       ) {
-        const viewerHealLower = config.pvp.viewerHealCommand.toLowerCase().trim()
+        const viewerHealLower = viewerHealCmd.toLowerCase()
         const isViewerHealMatch =
           messageLower === viewerHealLower ||
           messageLower.startsWith(viewerHealLower + ' ') ||
@@ -1222,20 +1247,24 @@ export function OverlayPage() {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
           ensureViewerHP(message.user.id)
+          // ref から現在HPを読む（ensureViewerHP 直後でも setState の updater 内で ref が更新されている）
           const state = getViewerHPCurrent(message.user.id) ?? getViewerHP(message.user.id)
           const current = state?.current ?? viewerMaxHP
           if (current <= 0 && !config.pvp.viewerHealWhenZeroEnabled) {
-            const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
-            if (twitchChat.canSend()) twitchChat.say(username, msg)
-            else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] HP0ブロックメッセージ送信失敗', err))
+            if (config.pvp.autoReplyBlockedByZeroHp) {
+              const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
+              if (twitchChat.canSend()) twitchChat.say(username, msg)
+              else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] HP0ブロックメッセージ送信失敗', err))
+            }
           } else {
             let healAmount: number
-            if (config.pvp.viewerHealType === 'random') {
-              const min = config.pvp.viewerHealMin
-              const max = config.pvp.viewerHealMax
-              healAmount = Math.floor(Math.random() * (max - min + 1)) + min
+            if ((config.pvp.viewerHealType ?? 'fixed') === 'random') {
+              const min = config.pvp.viewerHealMin ?? 10
+              const max = config.pvp.viewerHealMax ?? 30
+              const step = config.pvp.viewerHealRandomStep ?? 1
+              healAmount = getRandomHealAmount(min, max, step)
             } else {
-              healAmount = config.pvp.viewerHealAmount
+              healAmount = config.pvp.viewerHealAmount ?? 20
             }
             const newHP = Math.min(viewerMaxHP, current + healAmount)
             setViewerHP(message.user.id, newHP)
@@ -1245,10 +1274,12 @@ export function OverlayPage() {
               .replace(/\{username\}/g, displayName)
               .replace(/\{hp\}/g, String(newHP))
               .replace(/\{max\}/g, String(viewerMaxHP))
-            if (twitchChat.canSend()) {
-              twitchChat.say(username, reply)
-            } else {
-              twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 回復返信の送信失敗', err))
+            if (config.pvp.autoReplyViewerCommands) {
+              if (twitchChat.canSend()) {
+                twitchChat.say(username, reply)
+              } else {
+                twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 回復返信の送信失敗', err))
+              }
             }
           }
         }
@@ -1282,9 +1313,11 @@ export function OverlayPage() {
             const state = getViewerHPCurrent(message.user.id) ?? getViewerHP(message.user.id)
             const current = state?.current ?? viewerMaxHP
             if (current <= 0) {
-              const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
-              if (twitchChat.canSend()) twitchChat.say(username, msg)
-              else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] HP0ブロックメッセージ送信失敗', err))
+              if (config.pvp.autoReplyBlockedByZeroHp) {
+                const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
+                if (twitchChat.canSend()) twitchChat.say(username, msg)
+                else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] HP0ブロックメッセージ送信失敗', err))
+              }
             } else {
               handleAttackEvent({
                 rewardId: 'custom-text',
@@ -1331,9 +1364,11 @@ export function OverlayPage() {
             const state = getViewerHPCurrent(message.user.id) ?? getViewerHP(message.user.id)
             const current = state?.current ?? viewerMaxHP
             if (current <= 0) {
-              const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
-              if (twitchChat.canSend()) twitchChat.say(username, msg)
-              else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] HP0ブロックメッセージ送信失敗', err))
+              if (config.pvp.autoReplyBlockedByZeroHp) {
+                const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
+                if (twitchChat.canSend()) twitchChat.say(username, msg)
+                else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] HP0ブロックメッセージ送信失敗', err))
+              }
             } else {
               handleHealEvent({ rewardId: 'custom-text' })
             }
@@ -1417,7 +1452,8 @@ export function OverlayPage() {
             if (config.retry.streamerHealType === 'random') {
               const min = config.retry.streamerHealMin
               const max = config.retry.streamerHealMax
-              healAmount = Math.floor(Math.random() * (max - min + 1)) + min
+              const step = config.retry.streamerHealRandomStep ?? 1
+              healAmount = getRandomHealAmount(min, max, step)
             } else {
               healAmount = config.retry.streamerHealAmount
             }
@@ -1858,6 +1894,14 @@ export function OverlayPage() {
                       />
                     </div>
                     <div className="test-settings-section">
+                      <label className="test-settings-label">配信者側の自動返信（配信者HP0時などにチャットへメッセージを送る）</label>
+                      <input
+                        type="checkbox"
+                        checked={config.retry.streamerAutoReplyEnabled ?? true}
+                        onChange={(e) => updateConfigLocal({ retry: { ...config.retry, streamerAutoReplyEnabled: e.target.checked } })}
+                      />
+                    </div>
+                    <div className="test-settings-section">
                       <label className="test-settings-label">配信者HPが0になったときの自動返信（{'{attacker}'} で攻撃者名に置換）</label>
                       <input
                         type="text"
@@ -2192,6 +2236,22 @@ export function OverlayPage() {
                             }}
                           />
                         </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">刻み（50・100など。1のときは最小～最大の連続値）</label>
+                          <input
+                            type="number"
+                            className="test-settings-input"
+                            min={1}
+                            max={1000}
+                            value={config.heal.healRandomStep ?? 1}
+                            onChange={(e) => {
+                              const num = Number(e.target.value)
+                              if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                updateConfigLocal({ heal: { ...config.heal, healRandomStep: num } })
+                              }
+                            }}
+                          />
+                        </div>
                       </>
                     )}
                     <div className="test-settings-section">
@@ -2494,6 +2554,30 @@ export function OverlayPage() {
                     {config.pvp.enabled && (
                       <>
                         <div className="test-settings-section">
+                          <label className="test-settings-label">攻撃・カウンター時の自動返信（HP表示＋視聴者HP0になったときのメッセージ）</label>
+                          <input
+                            type="checkbox"
+                            checked={config.pvp.autoReplyAttackCounter ?? true}
+                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, autoReplyAttackCounter: e.target.checked } })}
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">視聴者コマンドの自動返信（HP確認・全回復・通常回復の返信）</label>
+                          <input
+                            type="checkbox"
+                            checked={config.pvp.autoReplyViewerCommands ?? true}
+                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, autoReplyViewerCommands: e.target.checked } })}
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">HP0ブロック時の自動返信（「攻撃できません」「回復できません」）</label>
+                          <input
+                            type="checkbox"
+                            checked={config.pvp.autoReplyBlockedByZeroHp ?? true}
+                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, autoReplyBlockedByZeroHp: e.target.checked } })}
+                          />
+                        </div>
+                        <div className="test-settings-section">
                           <label className="test-settings-label">攻撃したユーザーにカウンター</label>
                           <input
                             type="checkbox"
@@ -2679,6 +2763,22 @@ export function OverlayPage() {
                                   const num = Number(e.target.value)
                                   if (!isNaN(num) && num >= 1 && num <= 1000) {
                                     updateConfigLocal({ pvp: { ...config.pvp, viewerHealMax: num } })
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">刻み（50・100など。1のときは最小～最大の連続値）</label>
+                              <input
+                                type="number"
+                                className="test-settings-input"
+                                min={1}
+                                max={1000}
+                                value={config.pvp.viewerHealRandomStep ?? 1}
+                                onChange={(e) => {
+                                  const num = Number(e.target.value)
+                                  if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                    updateConfigLocal({ pvp: { ...config.pvp, viewerHealRandomStep: num } })
                                   }
                                 }}
                               />
@@ -2985,11 +3085,27 @@ export function OverlayPage() {
                             className="test-settings-input"
                             min={1}
                             max={1000}
-                            value={config.retry.streamerHealMax ?? 30}
+value={config.retry.streamerHealMax ?? 30}
+                              onChange={(e) => {
+                                const num = Number(e.target.value)
+                                if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                  updateConfigLocal({ retry: { ...config.retry, streamerHealMax: num } })
+                                }
+                              }}
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">刻み（50・100など。1のときは最小～最大の連続値）</label>
+                          <input
+                            type="number"
+                            className="test-settings-input"
+                            min={1}
+                            max={1000}
+                            value={config.retry.streamerHealRandomStep ?? 1}
                             onChange={(e) => {
                               const num = Number(e.target.value)
                               if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                updateConfigLocal({ retry: { ...config.retry, streamerHealMax: num } })
+                                updateConfigLocal({ retry: { ...config.retry, streamerHealRandomStep: num } })
                               }
                             }}
                           />

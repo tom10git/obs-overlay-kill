@@ -263,6 +263,21 @@ export function OverlaySettings() {
             </div>
             <div className="settings-row">
               <label>
+                <input
+                  type="checkbox"
+                  checked={config.retry.streamerAutoReplyEnabled ?? true}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      retry: { ...config.retry, streamerAutoReplyEnabled: e.target.checked },
+                    })
+                  }
+                />
+                配信者側の自動返信（配信者HP0時などにチャットへメッセージを送る）
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
                 配信者HPが0になったときの自動返信メッセージ（{'{attacker}'} で攻撃した視聴者名に置換）:
                 <input
                   type="text"
@@ -1277,6 +1292,24 @@ export function OverlaySettings() {
                       }}
                     />
                   </label>
+                  <label>
+                    刻み（50・100など。1のときは最小～最大の連続値）:
+                    <input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={inputValues['heal.healRandomStep'] ?? String(config.heal.healRandomStep ?? 1)}
+                      onChange={(e) => setInputValues((prev) => ({ ...prev, 'heal.healRandomStep': e.target.value }))}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        const num = value === '' ? 1 : parseInt(value, 10)
+                        if (!isNaN(num) && num >= 1 && num <= 1000) {
+                          setConfig({ ...config, heal: { ...config.heal, healRandomStep: num } })
+                          setInputValues((prev) => { const next = { ...prev }; delete next['heal.healRandomStep']; return next })
+                        }
+                      }}
+                    />
+                  </label>
                 </>
               )}
             </div>
@@ -1567,6 +1600,24 @@ export function OverlaySettings() {
                       }}
                     />
                   </label>
+                  <label>
+                    刻み（50・100など。1のときは最小～最大の連続値）:
+                    <input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={config.retry.streamerHealRandomStep ?? 1}
+                      onChange={(e) => {
+                        const num = Number(e.target.value)
+                        if (!isNaN(num) && num >= 1 && num <= 1000) {
+                          setConfig({
+                            ...config,
+                            retry: { ...config.retry, streamerHealRandomStep: num },
+                          })
+                        }
+                      }}
+                    />
+                  </label>
                 </>
               )}
               <label>
@@ -1696,9 +1747,55 @@ export function OverlaySettings() {
               </label>
             </div>
             {config.pvp.enabled && (
-              <div className="settings-row">
-                <label>
-                  ユーザー側の最大HP:
+              <>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.autoReplyAttackCounter ?? true}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, autoReplyAttackCounter: e.target.checked },
+                        })
+                      }
+                    />
+                    攻撃・カウンター時の自動返信（HP表示＋視聴者HP0になったときのメッセージ）
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.autoReplyViewerCommands ?? true}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, autoReplyViewerCommands: e.target.checked },
+                        })
+                      }
+                    />
+                    視聴者コマンドの自動返信（HP確認・全回復・通常回復の返信）
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.autoReplyBlockedByZeroHp ?? true}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, autoReplyBlockedByZeroHp: e.target.checked },
+                        })
+                      }
+                    />
+                    HP0ブロック時の自動返信（「攻撃できません」「回復できません」）
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    ユーザー側の最大HP:
                   <input
                     type="number"
                     min={1}
@@ -1736,6 +1833,7 @@ export function OverlaySettings() {
                   />
                 </label>
               </div>
+              </>
             )}
             {config.pvp.enabled && (
               <p className="settings-hint">
@@ -1946,6 +2044,24 @@ export function OverlaySettings() {
                               setConfig({
                                 ...config,
                                 pvp: { ...config.pvp, viewerHealMax: num },
+                              })
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        刻み（50・100など。1のときは最小～最大の連続値）:
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          value={config.pvp.viewerHealRandomStep ?? 1}
+                          onChange={(e) => {
+                            const num = Number(e.target.value)
+                            if (!isNaN(num) && num >= 1 && num <= 1000) {
+                              setConfig({
+                                ...config,
+                                pvp: { ...config.pvp, viewerHealRandomStep: num },
                               })
                             }
                           }}
