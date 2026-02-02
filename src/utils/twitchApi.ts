@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
-import { getTwitchClientId, getTwitchClientSecret, getTwitchAccessToken, getTwitchRefreshToken, setTwitchOAuthTokens } from '../config/auth'
+import { getTwitchClientId, getTwitchClientSecret, getTwitchConsoleClientId, getTwitchConsoleClientSecret, getTwitchAccessToken, getTwitchRefreshToken, setTwitchOAuthTokens } from '../config/auth'
 import type {
   TwitchUser,
   TwitchStream,
@@ -22,6 +22,8 @@ class TwitchApiClient {
   private client: AxiosInstance
   private accessToken: string | null = null
   private tokenExpiresAt: number = 0
+  private consoleAccessToken: string | null = null
+  private consoleTokenExpiresAt: number = 0
   private userAccessToken: string | null = null
   private userTokenExpiresAt: number = 0
   private isRefreshing: boolean = false
@@ -95,6 +97,14 @@ class TwitchApiClient {
             'Client IDまたはClient Secretが正しくない可能性があります。\n' +
             '認証情報を以下で確認してください: https://dev.twitch.tv/console/apps'
           )
+        } else if (status === 403) {
+          const hint = getTwitchConsoleClientId() && getTwitchConsoleClientSecret()
+            ? '（コンソール用アプリでリトライします）'
+            : 'フォールバックするには .env に VITE_TWITCH_CONSOLE_CLIENT_ID と VITE_TWITCH_CONSOLE_CLIENT_SECRET を設定してください。'
+          console.error(
+            `❌ Twitch API: アクセストークンの取得に失敗しました - HTTP 403 (invalid client secret)\n` +
+            `トークン用アプリの Client Secret が無効です。${hint}`
+          )
         } else {
           console.error(
             `❌ Twitch API: アクセストークンの取得に失敗しました - HTTP ${status}\n`,
@@ -109,15 +119,131 @@ class TwitchApiClient {
   }
 
   /**
-   * APIリクエスト用のヘッダーを取得
-   * チャンネルポイント関連のAPIでは、OAuth認証（ユーザートークン）が必要な場合は
-   * useOAuthHeaders() を使用してください
+   * APIリクエスト用のヘッダーを取得（トークンジェネレーター用アプリの Client Credentials）
+   * チャンネルポイント・OAuth・EventSub・チャット送信で使用
    */
   private async getHeaders(): Promise<Record<string, string>> {
     const token = await this.getAppAccessToken()
     return {
       'Client-ID': getTwitchClientId(),
       Authorization: `Bearer ${token}`,
+    }
+  }
+
+  /**
+   * コンソール用アプリの App Access Token を取得（Client Credentials）
+   * VITE_TWITCH_CONSOLE_CLIENT_ID と VITE_TWITCH_CONSOLE_CLIENT_SECRET が両方設定されている場合のみ使用
+   */
+  private async getConsoleAppAccessToken(): Promise<string | null> {
+    const consoleClientId = getTwitchConsoleClientId()
+    const consoleClientSecret = getTwitchConsoleClientSecret()
+    if (!consoleClientId || !consoleClientSecret) {
+      return null
+    }
+    if (this.consoleAccessToken && Date.now() < this.consoleTokenExpiresAt) {
+      return this.consoleAccessToken
+    }
+    try {
+      const response = await axios.post<TwitchTokenResponse>(
+        'https://id.twitch.tv/oauth2/token',
+        null,
+        {
+          params: {
+            client_id: consoleClientId,
+            client_secret: consoleClientSecret,
+            grant_type: 'client_credentials',
+          },
+        }
+      )
+      this.consoleAccessToken = response.data.access_token
+      this.consoleTokenExpiresAt = Date.now() + (response.data.expires_in - 300) * 1000
+      return this.consoleAccessToken
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * ユーザー検索・公開情報取得用ヘッダー（VITE_TWITCH_CONSOLE_CLIENT_ID を優先）
+   * Twitchユーザー検索などはコンソール用アプリで取得する必要がある場合がある。
+   * コンソール用が設定されている場合はコンソールのみ使用（失敗時は呼び出し元でトークン用にリトライ可能にするため getHeaders にフォールバックしない）
+   */
+  private async getReadOnlyHeaders(): Promise<Record<string, string>> {
+    const consoleClientId = getTwitchConsoleClientId()
+    const consoleClientSecret = getTwitchConsoleClientSecret()
+    if (consoleClientId && consoleClientSecret) {
+      const consoleToken = await this.getConsoleAppAccessToken()
+      if (consoleToken) {
+        return {
+          'Client-ID': consoleClientId,
+          Authorization: `Bearer ${consoleToken}`,
+        }
+      }
+      throw new Error(
+        'Twitch コンソール用アプリのトークン取得に失敗しました。VITE_TWITCH_CONSOLE_CLIENT_ID / VITE_TWITCH_CONSOLE_CLIENT_SECRET を確認してください。'
+      )
+    }
+    return this.getHeaders()
+  }
+
+  /**
+   * トークン用アプリで取得に失敗したらコンソール用アプリでリトライする
+   * ユーザー検索・ストリーム情報など、読み取り専用API用
+   */
+  private isRetryableWithConsole(error: unknown): boolean {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status
+      const data = error.response?.data as { message?: string } | undefined
+      const msg = (data?.message ?? error.message ?? '').toLowerCase()
+      if (status === 403 || status === 401) return true
+      if (msg.includes('invalid client') || msg.includes('unauthorized')) return true
+    }
+    return false
+  }
+
+  /**
+   * 読み取り専用API用: コンソール用アプリが設定されていれば先に試し、失敗時はトークン用アプリでリトライ
+   */
+  private async requestWithConsoleFallback<T>(
+    request: (headers: Record<string, string>) => Promise<T>
+  ): Promise<T> {
+    const hasConsole = !!(getTwitchConsoleClientId() && getTwitchConsoleClientSecret())
+
+    // コンソール用が設定されていれば先に試す（トークン用が無効でもユーザー情報・ストリーム取得が成功しやすくする）
+    if (hasConsole) {
+      try {
+        const headers = await this.getReadOnlyHeaders()
+        return await request(headers)
+      } catch (firstError) {
+        if (import.meta.env.DEV) {
+          console.warn(
+            '⚠️ コンソール用アプリでの取得に失敗したため、トークン用アプリでリトライします。',
+            firstError
+          )
+        }
+        try {
+          const headers = await this.getHeaders()
+          return await request(headers)
+        } catch (retryError) {
+          console.error('❌ Twitch API: トークン用アプリでのリトライも失敗しました', retryError)
+          throw retryError
+        }
+      }
+    }
+
+    // コンソール用が未設定の場合はトークン用のみ
+    try {
+      const headers = await this.getHeaders()
+      return await request(headers)
+    } catch (firstError) {
+      if (this.isRetryableWithConsole(firstError)) {
+        console.warn(
+          '💡 トークン用アプリで認証に失敗しました。.env に次を設定するとコンソール用アプリでユーザー情報・ストリーム取得を試せます:\n' +
+          '   VITE_TWITCH_CONSOLE_CLIENT_ID=...\n' +
+          '   VITE_TWITCH_CONSOLE_CLIENT_SECRET=...'
+        )
+      }
+      throw firstError
     }
   }
 
@@ -238,8 +364,8 @@ class TwitchApiClient {
             '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
           )
           const abortError = new Error(`Request aborted: ${errorMessage}`)
-          ;(abortError as any).code = error.code
-          ;(abortError as any).isAxiosError = true
+            ; (abortError as any).code = error.code
+            ; (abortError as any).isAxiosError = true
           throw abortError
         }
 
@@ -262,8 +388,8 @@ class TwitchApiClient {
             '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
           )
           const networkError = new Error(`Network error: ${error.message}`)
-          ;(networkError as any).code = error.code
-          ;(networkError as any).isAxiosError = true
+            ; (networkError as any).code = error.code
+            ; (networkError as any).isAxiosError = true
           throw networkError
         }
 
@@ -437,8 +563,9 @@ class TwitchApiClient {
   }
 
   /**
-   * OAuth認証（ユーザートークン）が必要なAPIリクエスト用のヘッダーを取得
-   * チャンネルポイントの引き換え履歴など、ユーザートークンが必要なAPIで使用
+   * OAuth認証（ユーザートークン）用ヘッダー取得
+   * チャンネルポイント情報の取得には必ずトークン用アプリ（VITE_TWITCH_TOKEN_APP_CLIENT_ID）を使用すること。
+   * コンソール用アプリは使用しない。
    */
   private async getOAuthHeaders(): Promise<Record<string, string>> {
     try {
@@ -506,20 +633,18 @@ class TwitchApiClient {
   }
 
   /**
-   * ユーザー情報を取得
+   * ユーザー情報を取得（Twitchユーザー検索）
+   * VITE_TWITCH_CONSOLE_CLIENT_ID が設定されていればコンソール用アプリで取得、未設定時はトークン用アプリ
    */
   async getUser(login: string): Promise<TwitchUser | null> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchUser>>(
-        '/users',
-        {
-          headers,
-          params: { login },
-        }
-      )
-
-      return response.data.data[0] || null
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchUser>>(
+          '/users',
+          { headers, params: { login } }
+        )
+        return response.data.data[0] || null
+      })
     } catch (error) {
       console.error('❌ Twitch API: ユーザー情報の取得に失敗しました', error)
       throw error
@@ -527,20 +652,18 @@ class TwitchApiClient {
   }
 
   /**
-   * 複数のユーザー情報を取得
+   * 複数のユーザー情報を取得（Twitchユーザー検索）
+   * VITE_TWITCH_CONSOLE_CLIENT_ID が設定されていればコンソール用アプリで取得
    */
   async getUsers(logins: string[]): Promise<TwitchUser[]> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchUser>>(
-        '/users',
-        {
-          headers,
-          params: { login: logins },
-        }
-      )
-
-      return response.data.data
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchUser>>(
+          '/users',
+          { headers, params: { login: logins } }
+        )
+        return response.data.data
+      })
     } catch (error) {
       console.error('❌ Twitch API: ユーザー情報の取得に失敗しました', error)
       throw error
@@ -549,19 +672,17 @@ class TwitchApiClient {
 
   /**
    * ストリーム情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getStream(userLogin: string): Promise<TwitchStream | null> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchStream>>(
-        '/streams',
-        {
-          headers,
-          params: { user_login: userLogin },
-        }
-      )
-
-      return response.data.data[0] || null
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchStream>>(
+          '/streams',
+          { headers, params: { user_login: userLogin } }
+        )
+        return response.data.data[0] || null
+      })
     } catch (error) {
       // CORSエラーの場合は、開発環境では警告のみ（オーバーレイページでは使用されない）
       if (axios.isAxiosError(error)) {
@@ -572,30 +693,30 @@ class TwitchApiClient {
               error.message
             )
           }
-          // CORSエラーの場合は、nullを返す（エラーとして扱わない）
           return null
         }
       }
-      console.error('❌ Twitch API: ストリーム情報の取得に失敗しました', error)
+      console.error(
+        '❌ Twitch API: ストリーム情報の取得に失敗しました',
+        error
+      )
       throw error
     }
   }
 
   /**
    * 複数のストリーム情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getStreams(userLogins: string[]): Promise<TwitchStream[]> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchStream>>(
-        '/streams',
-        {
-          headers,
-          params: { user_login: userLogins },
-        }
-      )
-
-      return response.data.data
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchStream>>(
+          '/streams',
+          { headers, params: { user_login: userLogins } }
+        )
+        return response.data.data
+      })
     } catch (error) {
       console.error('❌ Twitch API: ストリーム情報の取得に失敗しました', error)
       throw error
@@ -604,19 +725,17 @@ class TwitchApiClient {
 
   /**
    * ゲーム情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getGame(gameId: string): Promise<TwitchGame | null> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchGame>>(
-        '/games',
-        {
-          headers,
-          params: { id: gameId },
-        }
-      )
-
-      return response.data.data[0] || null
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchGame>>(
+          '/games',
+          { headers, params: { id: gameId } }
+        )
+        return response.data.data[0] || null
+      })
     } catch (error) {
       console.error('❌ Twitch API: ゲーム情報の取得に失敗しました', error)
       throw error
@@ -625,19 +744,17 @@ class TwitchApiClient {
 
   /**
    * チャンネル情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getChannel(broadcasterId: string): Promise<TwitchChannel | null> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchChannel>>(
-        '/channels',
-        {
-          headers,
-          params: { broadcaster_id: broadcasterId },
-        }
-      )
-
-      return response.data.data[0] || null
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchChannel>>(
+          '/channels',
+          { headers, params: { broadcaster_id: broadcasterId } }
+        )
+        return response.data.data[0] || null
+      })
     } catch (error) {
       console.error('❌ Twitch API: チャンネル情報の取得に失敗しました', error)
       throw error
@@ -646,19 +763,17 @@ class TwitchApiClient {
 
   /**
    * チャンネル情報を取得（ユーザーIDから）
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getChannelByUserId(userId: string): Promise<TwitchChannelInformation | null> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchChannelInformation>>(
-        '/channels',
-        {
-          headers,
-          params: { broadcaster_id: userId },
-        }
-      )
-
-      return response.data.data[0] || null
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchChannelInformation>>(
+          '/channels',
+          { headers, params: { broadcaster_id: userId } }
+        )
+        return response.data.data[0] || null
+      })
     } catch (error) {
       console.error('❌ Twitch API: チャンネル情報の取得に失敗しました', error)
       throw error
@@ -667,6 +782,7 @@ class TwitchApiClient {
 
   /**
    * ビデオ情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getVideos(
     userId: string,
@@ -674,24 +790,18 @@ class TwitchApiClient {
     cursor?: string
   ): Promise<TwitchApiPaginatedResponse<TwitchVideo>> {
     try {
-      const headers = await this.getHeaders()
-      const params: Record<string, string | number> = {
-        user_id: userId,
-        first: limit,
-      }
-      if (cursor) {
-        params.after = cursor
-      }
-
-      const response = await this.client.get<TwitchApiPaginatedResponse<TwitchVideo>>(
-        '/videos',
-        {
-          headers,
-          params,
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const params: Record<string, string | number> = {
+          user_id: userId,
+          first: limit,
         }
-      )
-
-      return response.data
+        if (cursor) params.after = cursor
+        const response = await this.client.get<TwitchApiPaginatedResponse<TwitchVideo>>(
+          '/videos',
+          { headers, params }
+        )
+        return response.data
+      })
     } catch (error) {
       console.error('❌ Twitch API: ビデオ情報の取得に失敗しました', error)
       throw error
@@ -700,6 +810,7 @@ class TwitchApiClient {
 
   /**
    * クリップ情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getClips(
     broadcasterId: string,
@@ -707,24 +818,18 @@ class TwitchApiClient {
     cursor?: string
   ): Promise<TwitchApiPaginatedResponse<TwitchClip>> {
     try {
-      const headers = await this.getHeaders()
-      const params: Record<string, string | number> = {
-        broadcaster_id: broadcasterId,
-        first: limit,
-      }
-      if (cursor) {
-        params.after = cursor
-      }
-
-      const response = await this.client.get<TwitchApiPaginatedResponse<TwitchClip>>(
-        '/clips',
-        {
-          headers,
-          params,
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const params: Record<string, string | number> = {
+          broadcaster_id: broadcasterId,
+          first: limit,
         }
-      )
-
-      return response.data
+        if (cursor) params.after = cursor
+        const response = await this.client.get<TwitchApiPaginatedResponse<TwitchClip>>(
+          '/clips',
+          { headers, params }
+        )
+        return response.data
+      })
     } catch (error) {
       console.error('❌ Twitch API: クリップ情報の取得に失敗しました', error)
       throw error
@@ -733,19 +838,17 @@ class TwitchApiClient {
 
   /**
    * エモート情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getEmotes(broadcasterId: string): Promise<TwitchEmote[]> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchEmote>>(
-        '/chat/emotes',
-        {
-          headers,
-          params: { broadcaster_id: broadcasterId },
-        }
-      )
-
-      return response.data.data
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchEmote>>(
+          '/chat/emotes',
+          { headers, params: { broadcaster_id: broadcasterId } }
+        )
+        return response.data.data
+      })
     } catch (error) {
       console.error('❌ Twitch API: エモート情報の取得に失敗しました', error)
       throw error
@@ -754,18 +857,17 @@ class TwitchApiClient {
 
   /**
    * グローバルエモート情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getGlobalEmotes(): Promise<TwitchEmote[]> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchEmote>>(
-        '/chat/emotes/global',
-        {
-          headers,
-        }
-      )
-
-      return response.data.data
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchEmote>>(
+          '/chat/emotes/global',
+          { headers }
+        )
+        return response.data.data
+      })
     } catch (error) {
       console.error('❌ Twitch API: グローバルエモート情報の取得に失敗しました', error)
       throw error
@@ -774,6 +876,7 @@ class TwitchApiClient {
 
   /**
    * フォロワー情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getFollowers(
     broadcasterId: string,
@@ -781,24 +884,18 @@ class TwitchApiClient {
     cursor?: string
   ): Promise<TwitchFollowerResponse> {
     try {
-      const headers = await this.getHeaders()
-      const params: Record<string, string | number> = {
-        broadcaster_id: broadcasterId,
-        first: limit,
-      }
-      if (cursor) {
-        params.after = cursor
-      }
-
-      const response = await this.client.get<TwitchFollowerResponse>(
-        '/channels/followers',
-        {
-          headers,
-          params,
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const params: Record<string, string | number> = {
+          broadcaster_id: broadcasterId,
+          first: limit,
         }
-      )
-
-      return response.data
+        if (cursor) params.after = cursor
+        const response = await this.client.get<TwitchFollowerResponse>(
+          '/channels/followers',
+          { headers, params }
+        )
+        return response.data
+      })
     } catch (error) {
       console.error('❌ Twitch API: フォロワー情報の取得に失敗しました', error)
       throw error
@@ -807,19 +904,17 @@ class TwitchApiClient {
 
   /**
    * チャットバッジ情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getChatBadges(broadcasterId: string): Promise<TwitchChatBadge[]> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchChatBadge>>(
-        '/chat/badges',
-        {
-          headers,
-          params: { broadcaster_id: broadcasterId },
-        }
-      )
-
-      return response.data.data
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchChatBadge>>(
+          '/chat/badges',
+          { headers, params: { broadcaster_id: broadcasterId } }
+        )
+        return response.data.data
+      })
     } catch (error) {
       console.error('Failed to get Twitch chat badges:', error)
       throw error
@@ -828,18 +923,17 @@ class TwitchApiClient {
 
   /**
    * グローバルチャットバッジ情報を取得
+   * トークン用アプリで失敗した場合はコンソール用アプリでリトライ
    */
   async getGlobalChatBadges(): Promise<TwitchChatBadge[]> {
     try {
-      const headers = await this.getHeaders()
-      const response = await this.client.get<TwitchApiResponse<TwitchChatBadge>>(
-        '/chat/badges/global',
-        {
-          headers,
-        }
-      )
-
-      return response.data.data
+      return await this.requestWithConsoleFallback(async (headers) => {
+        const response = await this.client.get<TwitchApiResponse<TwitchChatBadge>>(
+          '/chat/badges/global',
+          { headers }
+        )
+        return response.data.data
+      })
     } catch (error) {
       console.error('❌ Twitch API: グローバルチャットバッジ情報の取得に失敗しました', error)
       throw error
@@ -848,8 +942,7 @@ class TwitchApiClient {
 
   /**
    * チャンネルポイントリワード一覧を取得
-   * 注意: このメソッドはOAuth認証（ユーザートークン）が必要です
-   * App Access Tokenでは使用できません
+   * OAuth認証（ユーザートークン）必須。Client-ID は VITE_TWITCH_TOKEN_APP_CLIENT_ID（トークン用アプリ）を使用。コンソール用アプリは使用しない。
    */
   async getChannelPointRewards(
     broadcasterId: string,
@@ -943,8 +1036,7 @@ class TwitchApiClient {
 
   /**
    * チャンネルポイントリワードの引き換え履歴を取得
-   * 注意: このメソッドはOAuth認証（ユーザートークン）が必要です
-   * App Access Tokenでは使用できません
+   * OAuth認証（ユーザートークン）必須。Client-ID は VITE_TWITCH_TOKEN_APP_CLIENT_ID（トークン用アプリ）を使用。コンソール用アプリは使用しない。
    *
    * 公式API仕様: https://dev.twitch.tv/docs/api/reference#get-custom-reward-redemption
    *

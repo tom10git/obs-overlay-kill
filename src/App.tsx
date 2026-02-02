@@ -1,72 +1,23 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, NavLink, useSearchParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom'
 import { UserDetails } from './components/UserDetails'
 import { OverlayPage } from './pages/OverlayPage'
 import { OverlaySettings } from './components/settings/OverlaySettings'
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
 import { getAdminUsername } from './config/admin'
-import { getTwitchClientId } from './config/auth'
 import './App.css'
 
-const TWITCH_OAUTH_SCOPES = 'channel:read:redemptions+channel:manage:redemptions+user:write:chat'
-
 function TwitchOAuthSection() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const oauthSuccess = searchParams.get('oauth') === 'success'
-
-  useEffect(() => {
-    if (oauthSuccess) {
-      const t = setTimeout(() => {
-        const next = new URLSearchParams(searchParams)
-        next.delete('oauth')
-        setSearchParams(next, { replace: true })
-      }, 5000)
-      return () => clearTimeout(t)
-    }
-  }, [oauthSuccess, searchParams, setSearchParams])
-
-  const handleStartOAuth = () => {
-    const clientId = getTwitchClientId()
-    if (!clientId) {
-      alert('.env に VITE_TWITCH_CLIENT_ID を設定してください。')
-      return
-    }
-    const redirectUri = `${window.location.origin}/oauth/callback`
-    const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(TWITCH_OAUTH_SCOPES)}`
-    window.location.href = authUrl
-  }
-
   return (
     <div className="twitch-oauth-section" style={{ marginBottom: '20px' }}>
-      {oauthSuccess && (
-        <p style={{ padding: '10px', marginBottom: '10px', background: '#1a2f1a', borderRadius: '6px', color: '#8f8' }}>
-          ✅ Twitch の認証が完了しました。トークンはこのブラウザに保存されています。
-        </p>
-      )}
       <p style={{ margin: '0 0 10px', fontSize: '14px', color: '#ccc' }}>
         チャンネルポイント・PvPチャット送信には Twitch の OAuth トークンが必要です。
       </p>
-      <button
-        type="button"
-        onClick={handleStartOAuth}
-        className="twitch-oauth-button"
-        style={{
-          padding: '10px 20px',
-          fontSize: '14px',
-          background: '#9146ff',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontWeight: 'bold',
-        }}
-      >
-        Twitch で認証（トークン取得）
-      </button>
       <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#888' }}>
-        初回のみ .env に VITE_TWITCH_CLIENT_ID と VITE_TWITCH_CLIENT_SECRET を設定し、
-        Twitch 開発者コンソールでリダイレクト URL に <code>{window.location.origin}/oauth/callback</code> を追加してください。
-        開発サーバー（<code>npm run dev</code>）で開いている場合のみボタンから取得できます。本番ビルドの場合は <code>get-oauth-token.bat</code> を使用してください。
+        <code>.env</code> にトークンジェネレーター用の認証情報（<code>VITE_TWITCH_TOKEN_APP_*</code> または <code>VITE_TWITCH_CLIENT_ID</code> / <code>VITE_TWITCH_CLIENT_SECRET</code>）を設定し、
+        トークンは Twitch 公式のトークンジェネレーター（
+        <a href="https://twitchtokengenerator.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#9146ff' }}>twitchtokengenerator.com</a> 等）で取得して
+        <code>VITE_TWITCH_ACCESS_TOKEN</code> に設定してください。
       </p>
     </div>
   )

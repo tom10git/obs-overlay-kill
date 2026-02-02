@@ -58,6 +58,16 @@ button {
   transition: all 0.25s;
 }
 
+/* OBS Overlay 設定の配信者側・ユーザー側タブは角丸にしない */
+.overlay-settings button.settings-tab {
+  border-radius: 0;
+}
+
+/* オーバーレイのテストモード内タブ（配信者側・ユーザー側）は角丸にしない */
+button.test-settings-tab {
+  border-radius: 0;
+}
+
 button:hover {
   background-color: #333333;
   border-color: #ffffff;

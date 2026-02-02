@@ -10,10 +10,22 @@
   color: #888;
 }
 
-.overlay-settings h2 {
+.overlay-settings-header {
   margin-bottom: 2rem;
-  font-size: 2rem;
+}
+
+.overlay-settings-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+  font-weight: 600;
   color: #fff;
+}
+
+.overlay-settings-desc {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #aaa;
+  line-height: 1.5;
 }
 
 .settings-message {
@@ -36,9 +48,11 @@
   gap: 0;
   margin-bottom: 1.5rem;
   border-bottom: 1px solid #333;
+  border-radius: 0;
 }
 
-.settings-tab {
+/* セレクタの詳細度を上げてグローバル button の角丸を上書き（!important なし） */
+.overlay-settings .settings-tabs .settings-tab {
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
   font-weight: 500;
@@ -49,6 +63,7 @@
   margin-bottom: -1px;
   cursor: pointer;
   transition: color 0.2s, border-color 0.2s;
+  border-radius: 0;
 }
 
 .settings-tab:hover {
@@ -58,6 +73,16 @@
 .settings-tab-active {
   color: #fff;
   border-bottom-color: #fff;
+}
+
+.settings-tabs--sub {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.settings-tabs--sub .settings-tab {
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
 }
 
 .settings-tab-panel {
@@ -125,10 +150,22 @@
 }
 
 .settings-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  /* 1項目の行は1カラムで全幅を使う */
+  grid-template-columns: 1fr;
+  align-items: flex-start;
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+/* 2項目以上の行は複数カラムで並べる */
+.settings-row:has(label:nth-of-type(2)) {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+/* 見出しのみの行（ラベルなし）はグリッドにせず1行で表示 */
+.settings-row:not(:has(label)) {
+  display: block;
 }
 
 .settings-row:last-child {
@@ -141,13 +178,22 @@
   gap: 0.5rem;
   color: #fff;
   font-size: 0.9rem;
-  min-width: 200px;
+  min-width: 0;
   flex: 1;
+}
+
+/* チェックボックス行: 左にチェックボックス、右にラベルテキストで揃え、文字がチェックボックスに寄って見えるようにする */
+.settings-row label:has(input[type="checkbox"]) {
+  flex-direction: row;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .settings-row label input[type="checkbox"] {
   width: auto;
-  margin-right: 0.5rem;
+  margin-right: 0.35rem;
+  flex-shrink: 0;
 }
 
 .settings-row label input[type="text"],
@@ -215,76 +261,105 @@
 
 .settings-actions {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
   margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid #333;
-  justify-content: center;
+  padding: 1.5rem;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
 }
 
 .settings-actions button {
-  padding: 0.75rem 2rem;
-  background-color: #2a2a2a;
-  color: #ffffff;
-  border: 1px solid #555555;
-  border-radius: 4px;
+  padding: 0.65rem 1.25rem;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: background-color 0.2s, border-color 0.2s, opacity 0.2s;
 }
 
-.settings-actions button:hover:not(:disabled) {
-  background-color: #333333;
-  border-color: #ffffff;
+.settings-action-primary {
+  background-color: #2d5a2d;
+  color: #fff;
+  border: 1px solid #3d7a3d;
 }
 
-.settings-actions button:disabled {
+.settings-action-primary:hover:not(:disabled) {
+  background-color: #3a6f3a;
+  border-color: #4d904d;
+}
+
+.settings-action-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.settings-actions button:last-child {
-  background-color: #1a1a1a;
-  border-color: #666666;
+.settings-action-secondary {
+  background-color: #2a2a2a;
+  color: #fff;
+  border: 1px solid #555;
 }
 
-.settings-actions button:last-child:hover {
-  background-color: #2a2a2a;
-  border-color: #888888;
+.settings-action-secondary:hover {
+  background-color: #333;
+  border-color: #888;
+}
+
+.settings-action-reset {
+  background-color: #1a1a1a;
+  color: #aaa;
+  border: 1px solid #444;
+}
+
+.settings-action-reset:hover {
+  background-color: #252525;
+  color: #ccc;
+  border-color: #666;
 }
 
 .settings-info {
   margin-top: 2rem;
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem;
   background-color: #1a1a1a;
   border-radius: 8px;
   border: 1px solid #333;
 }
 
 .settings-info p {
-  margin: 0 0 1rem 0;
-  color: #ccc;
-  line-height: 1.6;
+  margin: 0 0 0.75rem 0;
+  color: #bbb;
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
-.settings-info p:last-child {
-  margin-bottom: 0;
+.settings-info p:last-of-type {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #2a2a2a;
 }
 
 .settings-info ul {
-  color: #ccc;
-  line-height: 1.8;
+  margin: 0 0 0 1.25rem;
+  padding: 0;
+  color: #bbb;
+  font-size: 0.9rem;
+  line-height: 1.7;
   text-align: left;
 }
 
+.settings-info li {
+  margin-bottom: 0.35rem;
+}
+
 .settings-info code {
-  background-color: #2a2a2a;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  font-size: 0.9em;
-  color: #ffffff;
-  border: 1px solid #555555;
+  background-color: #252525;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+  color: #e0e0e0;
+  border: 1px solid #404040;
 }
 
 .settings-hint {
@@ -313,4 +388,86 @@
 .settings-hint li {
   margin-bottom: 0.25rem;
   text-align: left;
+}
+
+/* HPゲージ色・ダメージ色設定 */
+.settings-color-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.settings-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: #222;
+  border: 1px solid #333;
+  border-radius: 8px;
+}
+
+.settings-color-label {
+  flex: 1;
+  min-width: 180px;
+  font-size: 0.95rem;
+  color: #e0e0e0;
+  line-height: 1.4;
+}
+
+.settings-color-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.settings-color-picker {
+  width: 44px;
+  height: 44px;
+  padding: 2px;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background: #2a2a2a;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-color-picker:hover {
+  border-color: #666;
+}
+
+.settings-color-picker::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.settings-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 6px;
+}
+
+.settings-color-picker::-moz-color-swatch {
+  border: none;
+  border-radius: 6px;
+}
+
+.settings-color-hex {
+  width: 100px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.9rem;
+  font-family: ui-monospace, monospace;
+  color: #fff;
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 6px;
+}
+
+.settings-color-hex:focus {
+  outline: none;
+  border-color: #fff;
+}
+
+.settings-color-hex::placeholder {
+  color: #666;
 }

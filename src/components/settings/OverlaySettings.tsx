@@ -14,22 +14,23 @@ export function OverlaySettings() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    hp: true,
-    attack: true,
-    heal: true,
-    retry: true,
-    pvp: true,
-    animation: true,
-    display: true,
-    zeroHpImage: true,
-    zeroHpSound: true,
-    zeroHpEffect: true,
-    test: true,
-    externalWindow: true,
-    gaugeColors: true,
-    damageColors: true,
+    hp: false,
+    attack: false,
+    heal: false,
+    retry: false,
+    pvp: false,
+    animation: false,
+    display: false,
+    zeroHpImage: false,
+    zeroHpSound: false,
+    zeroHpEffect: false,
+    test: false,
+    externalWindow: false,
+    gaugeColors: false,
+    damageColors: false,
   })
-  const [activeTab, setActiveTab] = useState<'streamer' | 'user'>('streamer')
+  const [activeTab, setActiveTab] = useState<'streamer' | 'user' | 'autoReply'>('streamer')
+  const [autoReplySubTab, setAutoReplySubTab] = useState<'streamer' | 'viewer'>('streamer')
   const [showAttackRewardId, setShowAttackRewardId] = useState(false)
   const [showHealRewardId, setShowHealRewardId] = useState(false)
   // 入力中の値を文字列として保持（空文字列を許可するため）
@@ -108,7 +109,10 @@ export function OverlaySettings() {
 
   return (
     <div className="overlay-settings">
-      <h2>OBS Overlay 設定</h2>
+      <header className="overlay-settings-header">
+        <h2>OBS Overlay 設定</h2>
+        <p className="overlay-settings-desc">HPゲージ・攻撃・回復・PvP・アニメーションなど、オーバーレイの動作を設定します。</p>
+      </header>
 
       {message && (
         <div className={`settings-message ${saving ? 'saving' : ''}`}>
@@ -130,6 +134,13 @@ export function OverlaySettings() {
           onClick={() => setActiveTab('user')}
         >
           ユーザー側
+        </button>
+        <button
+          type="button"
+          className={`settings-tab ${activeTab === 'autoReply' ? 'settings-tab-active' : ''}`}
+          onClick={() => setActiveTab('autoReply')}
+        >
+          自動返信設定
         </button>
       </div>
 
@@ -258,37 +269,6 @@ export function OverlaySettings() {
                           }
                         }
                       }}
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.retry.streamerAutoReplyEnabled ?? true}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          retry: { ...config.retry, streamerAutoReplyEnabled: e.target.checked },
-                        })
-                      }
-                    />
-                    配信者側の自動返信（配信者HP0時などにチャットへメッセージを送る）
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    配信者HPが0になったときの自動返信メッセージ（{'{attacker}'} で攻撃した視聴者名に置換）:
-                    <input
-                      type="text"
-                      value={config.hp.messageWhenZeroHp ?? '配信者を {attacker} が倒しました！'}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          hp: { ...config.hp, messageWhenZeroHp: e.target.value },
-                        })
-                      }
-                      placeholder="配信者を {attacker} が倒しました！"
                     />
                   </label>
                 </div>
@@ -1453,7 +1433,7 @@ export function OverlaySettings() {
               <div className="settings-section-content">
                 <div className="settings-row">
                   <label>
-                    コマンド（HPが最大未満のとき最大まで回復）:
+                    リトライコマンド（HPが最大未満のとき最大まで回復）:
                     <input
                       type="text"
                       value={config.retry.command}
@@ -1505,7 +1485,7 @@ export function OverlaySettings() {
                         })
                       }
                     />
-                    有効
+                    コマンドを有効にする
                   </label>
                 </div>
                 <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
@@ -1750,51 +1730,6 @@ export function OverlaySettings() {
                   <>
                     <div className="settings-row">
                       <label>
-                        <input
-                          type="checkbox"
-                          checked={config.pvp.autoReplyAttackCounter ?? true}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              pvp: { ...config.pvp, autoReplyAttackCounter: e.target.checked },
-                            })
-                          }
-                        />
-                        攻撃・カウンター時の自動返信（HP表示＋視聴者HP0になったときのメッセージ）
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={config.pvp.autoReplyViewerCommands ?? true}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              pvp: { ...config.pvp, autoReplyViewerCommands: e.target.checked },
-                            })
-                          }
-                        />
-                        視聴者コマンドの自動返信（HP確認・全回復・通常回復の返信）
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={config.pvp.autoReplyBlockedByZeroHp ?? true}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              pvp: { ...config.pvp, autoReplyBlockedByZeroHp: e.target.checked },
-                            })
-                          }
-                        />
-                        HP0ブロック時の自動返信（「攻撃できません」「回復できません」）
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
                         ユーザー側の最大HP:
                         <input
                           type="number"
@@ -1834,11 +1769,6 @@ export function OverlaySettings() {
                       </label>
                     </div>
                   </>
-                )}
-                {config.pvp.enabled && (
-                  <p className="settings-hint">
-                    カウンター攻撃時やHP確認時にチャットへ自動返信します。送信にはOAuthトークンに <code>user:write:chat</code> スコープが必要です。
-                  </p>
                 )}
                 {config.pvp.enabled && (
                   <>
@@ -1911,60 +1841,65 @@ export function OverlaySettings() {
                     </p>
                     <div className="settings-row">
                       <label>
-                        攻撃時自動返信メッセージ（{'{username}'} {'{hp}'} {'{max}'} で置換）:
-                        <input
-                          type="text"
-                          value={config.pvp.autoReplyMessageTemplate}
+                        攻撃モード（誰と攻撃し合うか）:
+                        <select
+                          value={config.pvp.attackMode ?? 'both'}
                           onChange={(e) =>
                             setConfig({
                               ...config,
-                              pvp: { ...config.pvp, autoReplyMessageTemplate: e.target.value },
+                              pvp: { ...config.pvp, attackMode: e.target.value as 'streamer_only' | 'both' },
                             })
                           }
-                          placeholder="{username} の残りHP: {hp}/{max}"
-                        />
+                        >
+                          <option value="streamer_only">配信者 vs 視聴者のみ（視聴者同士の攻撃なし）</option>
+                          <option value="both">両方（配信者 vs 視聴者 ＋ 視聴者同士の攻撃）</option>
+                        </select>
                       </label>
                     </div>
-                    <div className="settings-row">
-                      <label>
-                        視聴者同士攻撃コマンド（例: !attack ユーザー名）:
-                        <input
-                          type="text"
-                          value={config.pvp.viewerAttackViewerCommand ?? '!attack'}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              pvp: { ...config.pvp, viewerAttackViewerCommand: e.target.value },
-                            })
-                          }
-                          placeholder="!attack"
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        視聴者同士攻撃のダメージ:
-                        <input
-                          type="number"
-                          min={1}
-                          max={1000}
-                          value={config.pvp.viewerVsViewerAttack?.damage ?? 10}
-                          onChange={(e) => {
-                            const num = Number(e.target.value)
-                            if (!isNaN(num) && num >= 1 && num <= 1000) {
-                              const base = config.pvp.viewerVsViewerAttack ?? getDefaultConfig().pvp.viewerVsViewerAttack
-                              setConfig({
-                                ...config,
-                                pvp: {
-                                  ...config.pvp,
-                                  viewerVsViewerAttack: { ...base, damage: num },
-                                },
-                              })
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
+                    {(config.pvp.attackMode ?? 'both') === 'both' && (
+                      <>
+                        <div className="settings-row">
+                          <label>
+                            視聴者同士攻撃コマンド（例: !attack ユーザー名）:
+                            <input
+                              type="text"
+                              value={config.pvp.viewerAttackViewerCommand ?? '!attack'}
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: { ...config.pvp, viewerAttackViewerCommand: e.target.value },
+                                })
+                              }
+                              placeholder="!attack"
+                            />
+                          </label>
+                        </div>
+                        <div className="settings-row">
+                          <label>
+                            視聴者同士攻撃のダメージ:
+                            <input
+                              type="number"
+                              min={1}
+                              max={1000}
+                              value={config.pvp.viewerVsViewerAttack?.damage ?? 10}
+                              onChange={(e) => {
+                                const num = Number(e.target.value)
+                                if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                  const base = config.pvp.viewerVsViewerAttack ?? getDefaultConfig().pvp.viewerVsViewerAttack
+                                  setConfig({
+                                    ...config,
+                                    pvp: {
+                                      ...config.pvp,
+                                      viewerVsViewerAttack: { ...base, damage: num },
+                                    },
+                                  })
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </>
+                    )}
                     <div className="settings-row">
                       <label>
                         HP確認コマンド（視聴者が自分の残りHPを確認）:
@@ -2121,57 +2056,6 @@ export function OverlaySettings() {
                           }
                         />
                         HP0のときも通常回復を許可
-                      </label>
-                    </div>
-                    <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
-                      HPが0のときのブロックメッセージ（攻撃・回復不可時に自動返信）
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        攻撃ブロック時:
-                        <input
-                          type="text"
-                          value={config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              pvp: { ...config.pvp, messageWhenAttackBlockedByZeroHp: e.target.value },
-                            })
-                          }
-                          placeholder="HPが0なので攻撃できません。"
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        回復ブロック時:
-                        <input
-                          type="text"
-                          value={config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              pvp: { ...config.pvp, messageWhenHealBlockedByZeroHp: e.target.value },
-                            })
-                          }
-                          placeholder="HPが0なので回復できません。"
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        視聴者HPが0になったときの自動返信メッセージ（{'{username}'} で対象の表示名に置換）:
-                        <input
-                          type="text"
-                          value={config.pvp.messageWhenViewerZeroHp ?? '視聴者 {username} のHPが0になりました。'}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              pvp: { ...config.pvp, messageWhenViewerZeroHp: e.target.value },
-                            })
-                          }
-                          placeholder="視聴者 {username} のHPが0になりました。"
-                        />
                       </label>
                     </div>
                     <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
@@ -2788,113 +2672,119 @@ export function OverlaySettings() {
             </h3>
             {expandedSections.gaugeColors && (
               <div className="settings-section-content">
-                <div className="settings-row">
-                  <label>
-                    最後の1ゲージ（HPが最後に残る分）:
-                    <input
-                      type="color"
-                      value={config.gaugeColors.lastGauge}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
-                        })
-                      }
-                    />
-                    <input
-                      type="text"
-                      value={config.gaugeColors.lastGauge}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
-                        })
-                      }
-                      placeholder="#FF0000"
-                      style={{ width: '100px', marginLeft: '0.5rem' }}
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    2ゲージ目:
-                    <input
-                      type="color"
-                      value={config.gaugeColors.secondGauge}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
-                        })
-                      }
-                    />
-                    <input
-                      type="text"
-                      value={config.gaugeColors.secondGauge}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
-                        })
-                      }
-                      placeholder="#FFA500"
-                      style={{ width: '100px', marginLeft: '0.5rem' }}
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    3ゲージ目以降の交互パターン1（3, 5, 7, 9...ゲージ目）:
-                    <input
-                      type="color"
-                      value={config.gaugeColors.patternColor1}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
-                        })
-                      }
-                    />
-                    <input
-                      type="text"
-                      value={config.gaugeColors.patternColor1}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
-                        })
-                      }
-                      placeholder="#8000FF"
-                      style={{ width: '100px', marginLeft: '0.5rem' }}
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    3ゲージ目以降の交互パターン2（4, 6, 8, 10...ゲージ目）:
-                    <input
-                      type="color"
-                      value={config.gaugeColors.patternColor2}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
-                        })
-                      }
-                    />
-                    <input
-                      type="text"
-                      value={config.gaugeColors.patternColor2}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
-                        })
-                      }
-                      placeholder="#4aa3ff"
-                      style={{ width: '100px', marginLeft: '0.5rem' }}
-                    />
-                  </label>
+                <div className="settings-color-grid">
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">最後の1ゲージ（HPが最後に残る分）</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.gaugeColors.lastGauge}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.lastGauge}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
+                          })
+                        }
+                        placeholder="#FF0000"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">2ゲージ目</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.gaugeColors.secondGauge}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.secondGauge}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
+                          })
+                        }
+                        placeholder="#FFA500"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">3ゲージ目以降のパターン1（3, 5, 7…）</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.gaugeColors.patternColor1}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.patternColor1}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
+                          })
+                        }
+                        placeholder="#8000FF"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">3ゲージ目以降のパターン2（4, 6, 8…）</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.gaugeColors.patternColor2}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.patternColor2}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
+                          })
+                        }
+                        placeholder="#4aa3ff"
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="settings-hint">
                   <p>
@@ -2912,86 +2802,91 @@ export function OverlaySettings() {
             </h3>
             {expandedSections.damageColors && (
               <div className="settings-section-content">
-                <div className="settings-row">
-                  <label>
-                    通常ダメージの色:
-                    <input
-                      type="color"
-                      value={config.damageColors.normal}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          damageColors: { ...config.damageColors, normal: e.target.value },
-                        })
-                      }
-                    />
-                    <input
-                      type="text"
-                      value={config.damageColors.normal}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          damageColors: { ...config.damageColors, normal: e.target.value },
-                        })
-                      }
-                      placeholder="#cc0000"
-                      style={{ width: '100px', marginLeft: '0.5rem' }}
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    クリティカルダメージの色:
-                    <input
-                      type="color"
-                      value={config.damageColors.critical}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          damageColors: { ...config.damageColors, critical: e.target.value },
-                        })
-                      }
-                    />
-                    <input
-                      type="text"
-                      value={config.damageColors.critical}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          damageColors: { ...config.damageColors, critical: e.target.value },
-                        })
-                      }
-                      placeholder="#cc8800"
-                      style={{ width: '100px', marginLeft: '0.5rem' }}
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    出血ダメージの色:
-                    <input
-                      type="color"
-                      value={config.damageColors.bleed}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          damageColors: { ...config.damageColors, bleed: e.target.value },
-                        })
-                      }
-                    />
-                    <input
-                      type="text"
-                      value={config.damageColors.bleed}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          damageColors: { ...config.damageColors, bleed: e.target.value },
-                        })
-                      }
-                      placeholder="#ff6666"
-                      style={{ width: '100px', marginLeft: '0.5rem' }}
-                    />
-                  </label>
+                <div className="settings-color-grid">
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">通常ダメージ</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.damageColors.normal}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, normal: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.damageColors.normal}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, normal: e.target.value },
+                          })
+                        }
+                        placeholder="#cc0000"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">クリティカル</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.damageColors.critical}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, critical: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.damageColors.critical}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, critical: e.target.value },
+                          })
+                        }
+                        placeholder="#cc8800"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">出血ダメージ</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.damageColors.bleed}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, bleed: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.damageColors.bleed}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, bleed: e.target.value },
+                          })
+                        }
+                        placeholder="#ff6666"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -3049,8 +2944,9 @@ export function OverlaySettings() {
 
           {/* 外部ウィンドウ設定 */}
           <div className="settings-section">
-            <h3 onClick={() => toggleSection('externalWindow')}>
-              {expandedSections.externalWindow ? '▼' : '▶'} 外部ウィンドウキャプチャ
+            <h3 className="settings-section-header" onClick={() => toggleSection('externalWindow')}>
+              <span className="accordion-icon">{expandedSections.externalWindow ? '▼' : '▶'}</span>
+              外部ウィンドウキャプチャ
             </h3>
             {expandedSections.externalWindow && (
               <div className="settings-section-content">
@@ -3069,159 +2965,270 @@ export function OverlaySettings() {
                     外部ウィンドウキャプチャを有効化
                   </label>
                 </div>
-                {config.externalWindow.enabled && (
-                  <>
-                    <div className="settings-row">
-                      <label>位置 X (px)</label>
-                      <input
-                        type="number"
-                        value={inputValues.externalWindowX ?? config.externalWindow.x}
-                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowX: e.target.value }))}
-                        onBlur={(e) => {
-                          const value = Number(e.target.value)
-                          if (!isNaN(value)) {
-                            setConfig({
-                              ...config,
-                              externalWindow: { ...config.externalWindow, x: value },
-                            })
-                          }
-                          setInputValues((prev) => {
-                            const newValues = { ...prev }
-                            delete newValues.externalWindowX
-                            return newValues
-                          })
-                        }}
-                      />
-                    </div>
-                    <div className="settings-row">
-                      <label>位置 Y (px)</label>
-                      <input
-                        type="number"
-                        value={inputValues.externalWindowY ?? config.externalWindow.y}
-                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowY: e.target.value }))}
-                        onBlur={(e) => {
-                          const value = Number(e.target.value)
-                          if (!isNaN(value)) {
-                            setConfig({
-                              ...config,
-                              externalWindow: { ...config.externalWindow, y: value },
-                            })
-                          }
-                          setInputValues((prev) => {
-                            const newValues = { ...prev }
-                            delete newValues.externalWindowY
-                            return newValues
-                          })
-                        }}
-                      />
-                    </div>
-                    <div className="settings-row">
-                      <label>幅 (px)</label>
-                      <input
-                        type="number"
-                        value={inputValues.externalWindowWidth ?? config.externalWindow.width}
-                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowWidth: e.target.value }))}
-                        onBlur={(e) => {
-                          const value = Number(e.target.value)
-                          if (!isNaN(value) && value > 0) {
-                            setConfig({
-                              ...config,
-                              externalWindow: { ...config.externalWindow, width: value },
-                            })
-                          }
-                          setInputValues((prev) => {
-                            const newValues = { ...prev }
-                            delete newValues.externalWindowWidth
-                            return newValues
-                          })
-                        }}
-                      />
-                    </div>
-                    <div className="settings-row">
-                      <label>高さ (px)</label>
-                      <input
-                        type="number"
-                        value={inputValues.externalWindowHeight ?? config.externalWindow.height}
-                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowHeight: e.target.value }))}
-                        onBlur={(e) => {
-                          const value = Number(e.target.value)
-                          if (!isNaN(value) && value > 0) {
-                            setConfig({
-                              ...config,
-                              externalWindow: { ...config.externalWindow, height: value },
-                            })
-                          }
-                          setInputValues((prev) => {
-                            const newValues = { ...prev }
-                            delete newValues.externalWindowHeight
-                            return newValues
-                          })
-                        }}
-                      />
-                    </div>
-                    <div className="settings-row">
-                      <label>透明度 (0-1)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="1"
-                        value={inputValues.externalWindowOpacity ?? config.externalWindow.opacity}
-                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowOpacity: e.target.value }))}
-                        onBlur={(e) => {
-                          const value = Number(e.target.value)
-                          if (!isNaN(value) && value >= 0 && value <= 1) {
-                            setConfig({
-                              ...config,
-                              externalWindow: { ...config.externalWindow, opacity: value },
-                            })
-                          }
-                          setInputValues((prev) => {
-                            const newValues = { ...prev }
-                            delete newValues.externalWindowOpacity
-                            return newValues
-                          })
-                        }}
-                      />
-                    </div>
-                    <div className="settings-row">
-                      <label>Z-Index (HPゲージより後ろに配置するため低めの値)</label>
-                      <input
-                        type="number"
-                        value={inputValues.externalWindowZIndex ?? config.externalWindow.zIndex}
-                        onChange={(e) => setInputValues((prev) => ({ ...prev, externalWindowZIndex: e.target.value }))}
-                        onBlur={(e) => {
-                          const value = Number(e.target.value)
-                          if (!isNaN(value)) {
-                            setConfig({
-                              ...config,
-                              externalWindow: { ...config.externalWindow, zIndex: value },
-                            })
-                          }
-                          setInputValues((prev) => {
-                            const newValues = { ...prev }
-                            delete newValues.externalWindowZIndex
-                            return newValues
-                          })
-                        }}
-                      />
-                    </div>
-                    <div className="settings-hint">
-                      <p>
-                        <strong>使用方法:</strong>
-                      </p>
-                      <ul>
-                        <li>外部ウィンドウキャプチャを有効化すると、ブラウザがウィンドウ選択画面を表示します</li>
-                        <li>キャプチャしたいアプリケーションウィンドウを選択してください</li>
-                        <li>位置、サイズ、透明度、Z-Indexを調整してHPゲージの後ろに配置できます</li>
-                        <li>Z-Indexは低い値（例: 1）に設定すると、HPゲージ（通常はz-index: 10以上）の後ろに表示されます</li>
-                      </ul>
-                    </div>
-                  </>
-                )}
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'autoReply' && (
+        <div className="settings-tab-panel">
+          <div className="settings-tabs settings-tabs--sub">
+            <button
+              type="button"
+              className={`settings-tab ${autoReplySubTab === 'streamer' ? 'settings-tab-active' : ''}`}
+              onClick={() => setAutoReplySubTab('streamer')}
+            >
+              配信者側
+            </button>
+            <button
+              type="button"
+              className={`settings-tab ${autoReplySubTab === 'viewer' ? 'settings-tab-active' : ''}`}
+              onClick={() => setAutoReplySubTab('viewer')}
+            >
+              ユーザー側
+            </button>
+          </div>
+          {autoReplySubTab === 'streamer' && (
+            <div className="settings-section">
+              <h3>配信者側の自動返信</h3>
+              <p className="settings-hint" style={{ marginTop: 0 }}>
+                配信者HP0時・回復コマンド使用時にチャットへ送るメッセージを設定します。送信にはOAuthトークンに <code>user:write:chat</code> スコープが必要です。
+              </p>
+              <div className="settings-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={config.retry.streamerAutoReplyEnabled ?? true}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        retry: { ...config.retry, streamerAutoReplyEnabled: e.target.checked },
+                      })
+                    }
+                  />
+                  配信者側の自動返信（配信者HP0時などにチャットへメッセージを送る）
+                </label>
+              </div>
+              <div className="settings-row">
+                <label>
+                  配信者HPが0になったときの自動返信メッセージ（{'{attacker}'} で攻撃した視聴者名に置換）:
+                  <input
+                    type="text"
+                    value={config.hp.messageWhenZeroHp ?? '配信者を {attacker} が倒しました！'}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        hp: { ...config.hp, messageWhenZeroHp: e.target.value },
+                      })
+                    }
+                    placeholder="配信者を {attacker} が倒しました！"
+                  />
+                </label>
+              </div>
+              <div className="settings-row" style={{ marginTop: '1rem', fontWeight: 'bold' }}>
+                回復コマンドの自動返信
+              </div>
+              <div className="settings-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={config.heal.autoReplyEnabled ?? false}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        heal: { ...config.heal, autoReplyEnabled: e.target.checked },
+                      })
+                    }
+                  />
+                  回復コマンド使用時にチャットへ自動返信（攻撃時と同様）
+                </label>
+              </div>
+              {config.heal.autoReplyEnabled && (
+                <div className="settings-row">
+                  <label>
+                    回復時自動返信メッセージ（{'{hp}'} {'{max}'} で置換。視聴者!healの場合は {'{username}'} で視聴者名に置換）:
+                    <input
+                      type="text"
+                      value={config.heal.autoReplyMessageTemplate ?? '配信者の残りHP: {hp}/{max}'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: { ...config.heal, autoReplyMessageTemplate: e.target.value },
+                        })
+                      }
+                      placeholder="配信者の残りHP: {hp}/{max} または {username} の残りHP: {hp}/{max}"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+          {autoReplySubTab === 'viewer' && (
+            <div className="settings-section">
+              <h3>ユーザー側（視聴者）の自動返信</h3>
+              <p className="settings-hint" style={{ marginTop: 0 }}>
+                カウンター攻撃時やHP確認時にチャットへ自動返信します。送信にはOAuthトークンに <code>user:write:chat</code> スコープが必要です。
+              </p>
+              <div className="settings-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={config.pvp.autoReplyAttackCounter ?? true}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pvp: { ...config.pvp, autoReplyAttackCounter: e.target.checked },
+                      })
+                    }
+                  />
+                  攻撃・カウンター時の自動返信（HP表示）
+                </label>
+              </div>
+              <div className="settings-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={config.pvp.autoReplyWhenViewerZeroHp ?? true}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pvp: { ...config.pvp, autoReplyWhenViewerZeroHp: e.target.checked },
+                      })
+                    }
+                  />
+                  視聴者HPが0になったときの自動返信
+                </label>
+              </div>
+              <div className="settings-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={config.pvp.autoReplyHpCheck ?? true}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pvp: { ...config.pvp, autoReplyHpCheck: e.target.checked },
+                      })
+                    }
+                  />
+                  HP確認コマンドの自動返信
+                </label>
+              </div>
+              <div className="settings-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={config.pvp.autoReplyFullHeal ?? true}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pvp: { ...config.pvp, autoReplyFullHeal: e.target.checked },
+                      })
+                    }
+                  />
+                  全回復コマンドの自動返信
+                </label>
+              </div>
+              <div className="settings-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={config.pvp.autoReplyHeal ?? true}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pvp: { ...config.pvp, autoReplyHeal: e.target.checked },
+                      })
+                    }
+                  />
+                  通常回復コマンドの自動返信
+                </label>
+              </div>
+              <div className="settings-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={config.pvp.autoReplyBlockedByZeroHp ?? true}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pvp: { ...config.pvp, autoReplyBlockedByZeroHp: e.target.checked },
+                      })
+                    }
+                  />
+                  HP0ブロック時の自動返信（「攻撃できません」「回復できません」）
+                </label>
+              </div>
+              <div className="settings-row">
+                <label>
+                  攻撃時自動返信メッセージ（{'{username}'} {'{hp}'} {'{max}'} で置換）:
+                  <input
+                    type="text"
+                    value={config.pvp.autoReplyMessageTemplate}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pvp: { ...config.pvp, autoReplyMessageTemplate: e.target.value },
+                      })
+                    }
+                    placeholder="{username} の残りHP: {hp}/{max}"
+                  />
+                </label>
+              </div>
+              <div className="settings-row" style={{ marginTop: '1rem', fontWeight: 'bold' }}>
+                HPが0のときのブロックメッセージ（攻撃・回復不可時に自動返信）
+              </div>
+              <div className="settings-row">
+                <label>
+                  攻撃ブロック時:
+                  <input
+                    type="text"
+                    value={config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pvp: { ...config.pvp, messageWhenAttackBlockedByZeroHp: e.target.value },
+                      })
+                    }
+                    placeholder="HPが0なので攻撃できません。"
+                  />
+                </label>
+              </div>
+              <div className="settings-row">
+                <label>
+                  回復ブロック時:
+                  <input
+                    type="text"
+                    value={config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pvp: { ...config.pvp, messageWhenHealBlockedByZeroHp: e.target.value },
+                      })
+                    }
+                    placeholder="HPが0なので回復できません。"
+                  />
+                </label>
+              </div>
+              <div className="settings-row">
+                <label>
+                  視聴者HPが0になったときの自動返信メッセージ（{'{username}'} で対象の表示名に置換）:
+                  <input
+                    type="text"
+                    value={config.pvp.messageWhenViewerZeroHp ?? '視聴者 {username} のHPが0になりました。'}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        pvp: { ...config.pvp, messageWhenViewerZeroHp: e.target.value },
+                      })
+                    }
+                    placeholder="視聴者 {username} のHPが0になりました。"
+                  />
+                </label>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -3261,11 +3268,12 @@ export function OverlaySettings() {
             }
           }}
         />
-        <button onClick={handleSave} disabled={saving}>
+        <button type="button" className="settings-action-primary" onClick={handleSave} disabled={saving}>
           {saving ? '保存中...' : '設定を保存'}
         </button>
         <button
           type="button"
+          className="settings-action-secondary"
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -3274,7 +3282,9 @@ export function OverlaySettings() {
         >
           設定を再読み込み
         </button>
-        <button onClick={handleReset}>リセット</button>
+        <button type="button" className="settings-action-reset" onClick={handleReset}>
+          リセット
+        </button>
       </div>
 
       <div className="settings-info">

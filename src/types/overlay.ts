@@ -60,6 +60,10 @@ export interface HealConfig {
   soundVolume: number // 回復効果音の音量（0-1）
   filterEffectEnabled: boolean // 回復時のフィルターエフェクトの有効/無効
   healWhenZeroEnabled: boolean // HPが0のときも通常回復を許可する
+  /** 回復コマンド（チャンネルポイント）使用時にチャットへ自動返信する */
+  autoReplyEnabled: boolean
+  /** 回復時自動返信メッセージ。{hp} {max} で置換（攻撃時と同様） */
+  autoReplyMessageTemplate: string
 }
 
 export interface RetryConfig {
@@ -137,10 +141,16 @@ export interface TestConfig {
 /** PvPモード: 配信者 vs 視聴者。視聴者ごとにHPを管理し、配信者のカウンター攻撃などを行う */
 export interface PvPConfig {
   enabled: boolean
-  /** 攻撃・カウンター時の自動返信（HP表示＋視聴者HP0になったときのメッセージ） */
+  /** 攻撃・カウンター時の自動返信（HP表示メッセージ） */
   autoReplyAttackCounter: boolean
-  /** 視聴者コマンドの自動返信（HP確認・全回復・通常回復の返信） */
-  autoReplyViewerCommands: boolean
+  /** 視聴者HPが0になったときの自動返信メッセージを送る */
+  autoReplyWhenViewerZeroHp: boolean
+  /** HP確認コマンドの自動返信 */
+  autoReplyHpCheck: boolean
+  /** 全回復コマンドの自動返信 */
+  autoReplyFullHeal: boolean
+  /** 通常回復コマンドの自動返信（視聴者!healで回復設定を使わない場合のPvPテンプレート返信） */
+  autoReplyHeal: boolean
   /** HP0ブロック時の自動返信（「攻撃できません」「回復できません」） */
   autoReplyBlockedByZeroHp: boolean
   /** 視聴者1人あたりの最大HP（ユーザー側のHP量） */
@@ -181,7 +191,13 @@ export interface PvPConfig {
   messageWhenHealBlockedByZeroHp: string
   /** 視聴者HPが0になったときにチャットへ送る自動返信メッセージ。{username} で対象の表示名に置換 */
   messageWhenViewerZeroHp: string
-  /** 視聴者が別の視聴者を攻撃するコマンド（例: !attack ユーザー名） */
+  /**
+   * 攻撃モード: 配信者 vs 視聴者のみ / 両方（視聴者同士の攻撃も有効）
+   * - streamer_only: 視聴者同士の攻撃は無効。配信者への攻撃とカウンターのみ。
+   * - both: 配信者 vs 視聴者に加え、視聴者同士の攻撃も有効。
+   */
+  attackMode: 'streamer_only' | 'both'
+  /** 視聴者が別の視聴者を攻撃するコマンド（例: !attack ユーザー名）。attackMode が both のときのみ有効。 */
   viewerAttackViewerCommand: string
   /** 視聴者同士の攻撃時のダメージ・ミス・クリティカル等の設定 */
   viewerVsViewerAttack: AttackConfig

@@ -4,8 +4,18 @@
  */
 
 export interface TwitchAuthConfig {
+  /** トークンジェネレーター用アプリの Client ID（TOKEN_APP 未設定時は CLIENT_ID を利用） */
   clientId: string
+  /** トークンジェネレーター用アプリの Client Secret（TOKEN_APP 未設定時は CLIENT_SECRET を利用） */
   clientSecret: string
+  /** Twitch 公式トークンジェネレーターでトークン取得に使ったアプリの Client ID（任意・設定時は getClientId がこれを返す） */
+  tokenAppClientId?: string
+  /** トークンジェネレーター用アプリの Client Secret（任意） */
+  tokenAppClientSecret?: string
+  /** Twitch Developers で「コンソール」用に作成したアプリの Client ID（任意・ユーザー検索で使用） */
+  consoleClientId?: string
+  /** コンソール用アプリの Client Secret（任意・ユーザー検索でコンソールアプリを使う場合に必要） */
+  consoleClientSecret?: string
   accessToken?: string
   refreshToken?: string
   username?: string
@@ -32,43 +42,41 @@ class AuthConfigManager {
 
     const twitchClientId = import.meta.env.VITE_TWITCH_CLIENT_ID?.trim()
     const twitchClientSecret = import.meta.env.VITE_TWITCH_CLIENT_SECRET?.trim()
+    const twitchTokenAppClientId = import.meta.env.VITE_TWITCH_TOKEN_APP_CLIENT_ID?.trim()
+    const twitchTokenAppClientSecret = import.meta.env.VITE_TWITCH_TOKEN_APP_CLIENT_SECRET?.trim()
+    const twitchConsoleClientId = import.meta.env.VITE_TWITCH_CONSOLE_CLIENT_ID?.trim()
+    const twitchConsoleClientSecret = import.meta.env.VITE_TWITCH_CONSOLE_CLIENT_SECRET?.trim()
     const twitchAccessToken = import.meta.env.VITE_TWITCH_ACCESS_TOKEN?.trim()
     const twitchRefreshToken = import.meta.env.VITE_TWITCH_REFRESH_TOKEN?.trim()
     const twitchUsername = import.meta.env.VITE_TWITCH_USERNAME?.trim()
 
-    // 必須項目の検証
-    if (!twitchClientId) {
+    // トークンジェネレーター用: TOKEN_APP_* または CLIENT_ID/SECRET のいずれか必須
+    const tokenAppId = twitchTokenAppClientId || twitchClientId
+    const tokenAppSecret = twitchTokenAppClientSecret || twitchClientSecret
+    if (!tokenAppId || !tokenAppSecret) {
       throw new Error(
-        'VITE_TWITCH_CLIENT_ID is not set. Please set it in your .env file.\n' +
-        'Get your Client ID from: https://dev.twitch.tv/console/apps'
+        'トークンジェネレーター用の認証情報を設定してください。\n' +
+        '次のいずれかを .env に設定:\n' +
+        '  VITE_TWITCH_TOKEN_APP_CLIENT_ID と VITE_TWITCH_TOKEN_APP_CLIENT_SECRET（公式トークンジェネレーターで使ったアプリ）\n' +
+        '  または VITE_TWITCH_CLIENT_ID と VITE_TWITCH_CLIENT_SECRET\n' +
+        '取得先: https://dev.twitch.tv/console/apps / https://twitchtokengenerator.com/'
       )
     }
 
-    if (!twitchClientSecret) {
-      throw new Error(
-        'VITE_TWITCH_CLIENT_SECRET is not set. Please set it in your .env file.\n' +
-        'Get your Client Secret from: https://dev.twitch.tv/console/apps'
-      )
-    }
-
-    // Client IDの形式検証（Twitch Client IDは通常30文字以上の英数字）
-    // ユーザー名のような短い文字列や、アンダースコアのみの文字列を検出
-    if (twitchClientId.length < 20 || /^[a-z_]+$/.test(twitchClientId)) {
+    // Client IDの形式検証（トークン用アプリ）
+    if (tokenAppId.length < 20 || /^[a-z_]+$/.test(tokenAppId)) {
       console.warn(
-        `⚠️ Warning: VITE_TWITCH_CLIENT_ID="${twitchClientId}" looks invalid.\n` +
+        `⚠️ Warning: トークン用 Client ID="${tokenAppId}" looks invalid.\n` +
         `Twitch Client IDs are typically 30+ character alphanumeric strings.\n` +
-        `This looks like a username. Please check your .env file.\n` +
         `Get your Client ID from: https://dev.twitch.tv/console/apps`
       )
     }
 
-    // Client Secretの形式検証（通常30文字以上の英数字）
-    if (twitchClientSecret.length < 20) {
+    if (tokenAppSecret.length < 20) {
       console.warn(
-        `⚠️ Warning: VITE_TWITCH_CLIENT_SECRET looks invalid.\n` +
+        `⚠️ Warning: トークン用 Client Secret looks invalid.\n` +
         `Twitch Client Secrets are typically 30+ character alphanumeric strings.\n` +
-        `Please check your .env file.\n` +
-        `Get your Client Secret from: https://dev.twitch.tv/console/apps`
+        `Please check your .env file.`
       )
     }
 
@@ -92,8 +100,12 @@ class AuthConfigManager {
 
     this.config = {
       twitch: {
-        clientId: twitchClientId,
-        clientSecret: twitchClientSecret,
+        clientId: twitchClientId || '',
+        clientSecret: twitchClientSecret || '',
+        tokenAppClientId: twitchTokenAppClientId || undefined,
+        tokenAppClientSecret: twitchTokenAppClientSecret || undefined,
+        consoleClientId: twitchConsoleClientId || undefined,
+        consoleClientSecret: twitchConsoleClientSecret || undefined,
         accessToken: twitchAccessToken,
         refreshToken: twitchRefreshToken,
         username: twitchUsername,
@@ -115,17 +127,37 @@ class AuthConfigManager {
   }
 
   /**
-   * Client IDを取得
+   * トークンジェネレーター用アプリの Client ID を取得
+   * VITE_TWITCH_TOKEN_APP_CLIENT_ID が設定されていればその値、なければ VITE_TWITCH_CLIENT_ID
    */
   getClientId(): string {
-    return this.getTwitchConfig().clientId
+    const c = this.getTwitchConfig()
+    return c.tokenAppClientId || c.clientId
   }
 
   /**
-   * Client Secretを取得
+   * トークンジェネレーター用アプリの Client Secret を取得
+   * VITE_TWITCH_TOKEN_APP_CLIENT_SECRET が設定されていればその値、なければ VITE_TWITCH_CLIENT_SECRET
    */
   getClientSecret(): string {
-    return this.getTwitchConfig().clientSecret
+    const c = this.getTwitchConfig()
+    return c.tokenAppClientSecret || c.clientSecret
+  }
+
+  /**
+   * コンソール用アプリの Client ID を取得（オプション）
+   * ユーザー検索などで使用。VITE_TWITCH_CONSOLE_CLIENT_ID が設定されていればその値
+   */
+  getConsoleClientId(): string | undefined {
+    return this.getTwitchConfig().consoleClientId
+  }
+
+  /**
+   * コンソール用アプリの Client Secret を取得（オプション）
+   * ユーザー検索でコンソールアプリの App Access Token 取得時に使用
+   */
+  getConsoleClientSecret(): string | undefined {
+    return this.getTwitchConfig().consoleClientSecret
   }
 
   /** localStorage のキー（アプリ内OAuthで取得したトークンを保存） */
@@ -200,6 +232,8 @@ export const authConfig = new AuthConfigManager()
 // 便利な関数をエクスポート
 export const getTwitchClientId = () => authConfig.getClientId()
 export const getTwitchClientSecret = () => authConfig.getClientSecret()
+export const getTwitchConsoleClientId = () => authConfig.getConsoleClientId()
+export const getTwitchConsoleClientSecret = () => authConfig.getConsoleClientSecret()
 export const getTwitchAccessToken = () => authConfig.getAccessToken()
 export const getTwitchRefreshToken = () => authConfig.getRefreshToken()
 export const getTwitchUsername = () => authConfig.getUsername()

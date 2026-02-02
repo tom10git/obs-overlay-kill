@@ -60,6 +60,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundVolume: 0.7,
     filterEffectEnabled: true,
     healWhenZeroEnabled: true,
+    autoReplyEnabled: false,
+    autoReplyMessageTemplate: '配信者の残りHP: {hp}/{max}',
   },
   retry: {
     command: '!retry',
@@ -153,8 +155,12 @@ const DEFAULT_CONFIG: OverlayConfig = {
     messageWhenHealBlockedByZeroHp: 'HPが0なので回復できません。',
     messageWhenViewerZeroHp: '視聴者 {username} のHPが0になりました。',
     autoReplyAttackCounter: true,
-    autoReplyViewerCommands: true,
+    autoReplyWhenViewerZeroHp: true,
+    autoReplyHpCheck: true,
+    autoReplyFullHeal: true,
+    autoReplyHeal: true,
     autoReplyBlockedByZeroHp: true,
+    attackMode: 'both',
     viewerAttackViewerCommand: '!attack',
     viewerVsViewerAttack: {
       rewardId: '',
@@ -539,6 +545,8 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       : 0.7,
     filterEffectEnabled: typeof healConfig.filterEffectEnabled === 'boolean' ? healConfig.filterEffectEnabled : true,
     healWhenZeroEnabled: typeof healConfig.healWhenZeroEnabled === 'boolean' ? healConfig.healWhenZeroEnabled : true,
+    autoReplyEnabled: typeof healConfig.autoReplyEnabled === 'boolean' ? healConfig.autoReplyEnabled : false,
+    autoReplyMessageTemplate: typeof healConfig.autoReplyMessageTemplate === 'string' ? healConfig.autoReplyMessageTemplate : '配信者の残りHP: {hp}/{max}',
   }
 
   // リトライ設定の検証
@@ -824,7 +832,10 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   const pvp = {
     enabled: typeof pvpConfig.enabled === 'boolean' ? pvpConfig.enabled : false,
     autoReplyAttackCounter: typeof pvpConfig.autoReplyAttackCounter === 'boolean' ? pvpConfig.autoReplyAttackCounter : legacyAutoReply,
-    autoReplyViewerCommands: typeof pvpConfig.autoReplyViewerCommands === 'boolean' ? pvpConfig.autoReplyViewerCommands : legacyAutoReply,
+    autoReplyWhenViewerZeroHp: typeof pvpConfig.autoReplyWhenViewerZeroHp === 'boolean' ? pvpConfig.autoReplyWhenViewerZeroHp : legacyAutoReply,
+    autoReplyHpCheck: typeof pvpConfig.autoReplyHpCheck === 'boolean' ? pvpConfig.autoReplyHpCheck : (typeof (pvpConfig as { autoReplyViewerCommands?: boolean }).autoReplyViewerCommands === 'boolean' ? (pvpConfig as { autoReplyViewerCommands: boolean }).autoReplyViewerCommands : true),
+    autoReplyFullHeal: typeof pvpConfig.autoReplyFullHeal === 'boolean' ? pvpConfig.autoReplyFullHeal : (typeof (pvpConfig as { autoReplyViewerCommands?: boolean }).autoReplyViewerCommands === 'boolean' ? (pvpConfig as { autoReplyViewerCommands: boolean }).autoReplyViewerCommands : true),
+    autoReplyHeal: typeof pvpConfig.autoReplyHeal === 'boolean' ? pvpConfig.autoReplyHeal : (typeof (pvpConfig as { autoReplyViewerCommands?: boolean }).autoReplyViewerCommands === 'boolean' ? (pvpConfig as { autoReplyViewerCommands: boolean }).autoReplyViewerCommands : true),
     autoReplyBlockedByZeroHp: typeof pvpConfig.autoReplyBlockedByZeroHp === 'boolean' ? pvpConfig.autoReplyBlockedByZeroHp : legacyAutoReply,
     viewerMaxHp,
     streamerAttack,
@@ -853,6 +864,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     viewerHealMax: isInRange(Number(pvpConfig.viewerHealMax), 1, 1000) ? Number(pvpConfig.viewerHealMax) || 30 : 30,
     viewerHealRandomStep: isInRange(Number(pvpConfig.viewerHealRandomStep), 1, 1000) ? Math.floor(Number(pvpConfig.viewerHealRandomStep)) || 1 : 1,
     viewerHealWhenZeroEnabled: typeof pvpConfig.viewerHealWhenZeroEnabled === 'boolean' ? pvpConfig.viewerHealWhenZeroEnabled : true,
+    attackMode: (pvpConfig.attackMode === 'streamer_only' ? 'streamer_only' : 'both') as 'streamer_only' | 'both',
     viewerAttackViewerCommand: typeof pvpConfig.viewerAttackViewerCommand === 'string' && isValidLength(pvpConfig.viewerAttackViewerCommand, 1, 50)
       ? (pvpConfig.viewerAttackViewerCommand as string).replace(/[<>"']/g, '')
       : '!attack',
