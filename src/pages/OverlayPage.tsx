@@ -2076,8 +2076,9 @@ export function OverlayPage() {
               height: testPanelSize.height,
             }}
           >
-            <div className="test-controls-inner">
-              <div className="test-controls-header">
+            <div className="test-controls-scroll">
+              <div className="test-controls-inner">
+                <div className="test-controls-header">
                 <button
                   className="test-settings-toggle"
                   onClick={() => setShowTestSettings(!showTestSettings)}
@@ -4779,6 +4780,7 @@ export function OverlayPage() {
               >
                 全員全回復
               </button>
+            </div>
             </div>
             </div>
             <div
