@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { loadOverlayConfig, saveOverlayConfig } from '../utils/overlayConfig'
+import { loadOverlayConfig, saveOverlayConfig, getDefaultConfig } from '../utils/overlayConfig'
 import type { OverlayConfig } from '../types/overlay'
 
 interface UseHPGaugeOptions {
@@ -80,9 +80,10 @@ export function useHPGauge({
           return prev
         }
         let newHP = prev.hp.current - amount
-        // 攻撃でHPが0以下になる場合、一定確率で1残す
+        // 攻撃でHPが0以下になる場合、攻撃前HPが2以上のときだけ一定確率で1残す（HP1の状態では発動しない）
         if (
           newHP <= 0 &&
+          prev.hp.current >= 2 &&
           prev.attack.survivalHp1Enabled &&
           prev.attack.survivalHp1Probability > 0
         ) {
@@ -165,7 +166,13 @@ export function useHPGauge({
         return {
           ...prev,
           ...newConfig,
-          hp: { ...prev.hp, ...newConfig.hp },
+          hp: (() => {
+            const merged = { ...prev.hp, ...newConfig.hp }
+            if (newConfig.hp?.max != null && newConfig.hp?.current === undefined) {
+              merged.current = Math.min(prev.hp.current, merged.max)
+            }
+            return merged
+          })(),
           attack: { ...prev.attack, ...newConfig.attack },
           heal: { ...prev.heal, ...newConfig.heal },
           retry: { ...prev.retry, ...newConfig.retry },
@@ -181,6 +188,19 @@ export function useHPGauge({
           healEffectFilter: { ...prev.healEffectFilter, ...newConfig.healEffectFilter },
           gaugeColors: { ...prev.gaugeColors, ...newConfig.gaugeColors },
           damageColors: { ...prev.damageColors, ...newConfig.damageColors },
+          pvp: newConfig.pvp
+            ? (() => {
+              const basePvp = prev.pvp ?? getDefaultConfig().pvp
+              const baseStreamer = basePvp.streamerAttack ?? getDefaultConfig().pvp.streamerAttack
+              const baseVva = basePvp.viewerVsViewerAttack ?? getDefaultConfig().pvp.viewerVsViewerAttack
+              return {
+                ...basePvp,
+                ...newConfig.pvp,
+                streamerAttack: { ...baseStreamer, ...newConfig.pvp?.streamerAttack },
+                viewerVsViewerAttack: { ...baseVva, ...newConfig.pvp?.viewerVsViewerAttack },
+              }
+            })()
+            : prev.pvp,
         }
       })
     },
@@ -220,25 +240,14 @@ export function useHPGauge({
     [updateConfigLocal]
   )
 
-  // 設定を再読み込み
+  // 設定を再読み込み（JSONファイルから）
   const reloadConfig = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      // ローカルストレージをクリアしてJSONファイルから読み込む
-      localStorage.removeItem('overlay-config')
       const loadedConfig = await loadOverlayConfig()
       setConfig(loadedConfig)
-      // 読み込んだ設定をローカルストレージにも保存
-      if (loadedConfig) {
-        try {
-          localStorage.setItem('overlay-config', JSON.stringify(loadedConfig))
-          console.log('✅ 設定を再読み込みし、ローカルストレージにも保存しました')
-        } catch (storageError) {
-          console.warn('⚠️ ローカルストレージへの保存に失敗しました:', storageError)
-          console.log('✅ 設定を再読み込みしました（ローカルストレージへの保存はスキップ）')
-        }
-      }
+      console.log('✅ 設定を再読み込みしました')
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to reload config')
       setError(error)

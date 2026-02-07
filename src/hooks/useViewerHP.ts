@@ -51,9 +51,10 @@ function resolveAttackDamage(
 
   let newHP = currentHP - appliedDamage
 
-  // 食いしばり（HPが0以下になる場合に確率で1残す）
+  // 食いしばり（HPが0以下になる場合、攻撃前HPが2以上のときだけ確率で1残す。HP1の状態では発動しない）
   if (
     newHP <= 0 &&
+    currentHP >= 2 &&
     attack.survivalHp1Enabled &&
     attack.survivalHp1Probability > 0
   ) {

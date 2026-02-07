@@ -3,7 +3,10 @@
  */
 
 import type { OverlayConfig } from '../types/overlay'
-import { isValidUrl, isInRange, isValidLength, validateConfigStructure } from './security'
+import { isValidUrl, isInRange, isValidLength } from './security'
+
+/** 確率以外の数値項目の上限（上限を設けないため十分大きな値） */
+const MAX_NUM = 999999
 
 const DEFAULT_CONFIG: OverlayConfig = {
   hp: {
@@ -20,7 +23,11 @@ const DEFAULT_CONFIG: OverlayConfig = {
     rewardId: '',
     customText: '',
     enabled: true,
+    damageType: 'fixed',
     damage: 10,
+    damageMin: 5,
+    damageMax: 15,
+    damageRandomStep: 1,
     missEnabled: false,
     missProbability: 0,
     missSoundEnabled: false,
@@ -111,7 +118,11 @@ const DEFAULT_CONFIG: OverlayConfig = {
       rewardId: '',
       customText: '',
       enabled: true,
+      damageType: 'fixed',
       damage: 15,
+      damageMin: 10,
+      damageMax: 25,
+      damageRandomStep: 1,
       missEnabled: false,
       missProbability: 0,
       missSoundEnabled: false,
@@ -162,11 +173,22 @@ const DEFAULT_CONFIG: OverlayConfig = {
     autoReplyBlockedByZeroHp: true,
     attackMode: 'both',
     viewerAttackViewerCommand: '!attack',
+    streamerHealOnAttackEnabled: false,
+    streamerHealOnAttackProbability: 10,
+    streamerHealOnAttackType: 'fixed',
+    streamerHealOnAttackAmount: 10,
+    streamerHealOnAttackMin: 5,
+    streamerHealOnAttackMax: 20,
+    streamerHealOnAttackRandomStep: 1,
     viewerVsViewerAttack: {
       rewardId: '',
       customText: '',
       enabled: true,
+      damageType: 'fixed',
       damage: 10,
+      damageMin: 5,
+      damageMax: 15,
+      damageRandomStep: 1,
       missEnabled: false,
       missProbability: 0,
       missSoundEnabled: false,
@@ -241,43 +263,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
 
 /**
  * 設定ファイルを読み込む
- * 優先順位: ローカルストレージ > JSONファイル > デフォルト設定
+ * 保存先はJSONファイルのみ。優先順位: JSONファイル → デフォルト設定
  */
 export async function loadOverlayConfig(): Promise<OverlayConfig> {
-  // まずローカルストレージをチェック
-  const storedConfig = loadOverlayConfigFromStorage()
-  if (storedConfig) {
-    console.log('ローカルストレージから設定を読み込みました。')
-    // デフォルト値でマージ（不足している項目を補完）
-    return {
-      ...DEFAULT_CONFIG,
-      ...storedConfig,
-      hp: { ...DEFAULT_CONFIG.hp, ...storedConfig.hp },
-      attack: { ...DEFAULT_CONFIG.attack, ...storedConfig.attack },
-      heal: { ...DEFAULT_CONFIG.heal, ...storedConfig.heal },
-      retry: { ...DEFAULT_CONFIG.retry, ...storedConfig.retry },
-      animation: { ...DEFAULT_CONFIG.animation, ...storedConfig.animation },
-      display: { ...DEFAULT_CONFIG.display, ...storedConfig.display },
-      zeroHpImage: { ...DEFAULT_CONFIG.zeroHpImage, ...storedConfig.zeroHpImage },
-      zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...storedConfig.zeroHpSound },
-      zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...storedConfig.zeroHpEffect },
-      test: { ...DEFAULT_CONFIG.test, ...storedConfig.test },
-      pvp: {
-        ...DEFAULT_CONFIG.pvp,
-        ...(storedConfig.pvp || {}),
-        streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...(storedConfig.pvp?.streamerAttack || {}) },
-        viewerVsViewerAttack: { ...DEFAULT_CONFIG.pvp.viewerVsViewerAttack, ...(storedConfig.pvp?.viewerVsViewerAttack || {}) },
-      },
-      externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...storedConfig.externalWindow },
-      webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...storedConfig.webmLoop },
-      damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...storedConfig.damageEffectFilter },
-      healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...storedConfig.healEffectFilter },
-      gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...storedConfig.gaugeColors },
-      damageColors: { ...DEFAULT_CONFIG.damageColors, ...storedConfig.damageColors },
-    }
-  }
-
-  // ローカルストレージにない場合はJSONファイルから読み込む
   try {
     const response = await fetch('/config/overlay-config.json')
     if (!response.ok) {
@@ -288,6 +276,50 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
     // 設定値を検証・サニタイズ
     const validated = validateAndSanitizeConfig(config)
     // デフォルト値でマージ（不足している項目を補完）
+    return {
+      ...DEFAULT_CONFIG,
+      ...validated,
+      hp: { ...DEFAULT_CONFIG.hp, ...validated.hp },
+      attack: { ...DEFAULT_CONFIG.attack, ...validated.attack },
+      heal: { ...DEFAULT_CONFIG.heal, ...validated.heal },
+      retry: { ...DEFAULT_CONFIG.retry, ...validated.retry },
+      animation: { ...DEFAULT_CONFIG.animation, ...validated.animation },
+      display: { ...DEFAULT_CONFIG.display, ...validated.display },
+      zeroHpImage: { ...DEFAULT_CONFIG.zeroHpImage, ...validated.zeroHpImage },
+      zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...validated.zeroHpSound },
+      zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...validated.zeroHpEffect },
+      test: { ...DEFAULT_CONFIG.test, ...validated.test },
+      pvp: {
+        ...DEFAULT_CONFIG.pvp,
+        ...validated.pvp,
+        streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...validated.pvp.streamerAttack },
+        viewerVsViewerAttack: { ...DEFAULT_CONFIG.pvp.viewerVsViewerAttack, ...(validated.pvp?.viewerVsViewerAttack || {}) },
+      },
+      externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...validated.externalWindow },
+      webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
+      damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...validated.damageEffectFilter },
+      healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...validated.healEffectFilter },
+      gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...validated.gaugeColors },
+      damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
+    }
+  } catch (error) {
+    console.error('設定ファイルの読み込みに失敗しました:', error)
+    return DEFAULT_CONFIG
+  }
+}
+
+/**
+ * JSONファイルから設定を読み込む（loadOverlayConfig と同じ内容。設定画面の「JSONファイルから読み込み」用）
+ */
+export async function loadOverlayConfigFromFile(): Promise<OverlayConfig> {
+  try {
+    const response = await fetch('/config/overlay-config.json')
+    if (!response.ok) {
+      console.warn('設定ファイルが見つかりません。デフォルト設定を使用します。')
+      return DEFAULT_CONFIG
+    }
+    const config = await response.json()
+    const validated = validateAndSanitizeConfig(config)
     return {
       ...DEFAULT_CONFIG,
       ...validated,
@@ -341,18 +373,21 @@ export async function saveOverlayConfig(config: OverlayConfig): Promise<boolean>
         })
 
         if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || '設定の保存に失敗しました')
+          let errorMessage = '設定の保存に失敗しました'
+          try {
+            const errorBody = await response.json()
+            if (errorBody && typeof errorBody.error === 'string') errorMessage = errorBody.error
+          } catch (_) {
+            errorMessage = `HTTP ${response.status}`
+          }
+          throw new Error(errorMessage)
         }
 
-        const result = await response.json()
+        const result = await response.json().catch(() => ({ message: '設定を保存しました' }))
         console.log('✅ 設定をJSONファイルに保存しました:', result.message)
-        // ローカルストレージにも保存（フォールバック用）
-        localStorage.setItem('overlay-config', JSON.stringify(validated))
         return true
       } catch (apiError) {
         console.warn('API経由での保存に失敗しました。ダウンロード方式にフォールバックします:', apiError)
-        // APIが失敗した場合はダウンロード方式にフォールバック
         return downloadConfigAsJson(validated)
       }
     }
@@ -389,32 +424,6 @@ function downloadConfigAsJson(config: OverlayConfig): boolean {
 }
 
 /**
- * ローカルストレージから設定を読み込む
- */
-export function loadOverlayConfigFromStorage(): OverlayConfig | null {
-  try {
-    const stored = localStorage.getItem('overlay-config')
-    if (!stored) return null
-
-    // JSONパース
-    const parsed = JSON.parse(stored)
-
-    // 基本的な構造検証
-    if (!validateConfigStructure(parsed)) {
-      console.warn('設定の構造が不正です。デフォルト設定を使用します。')
-      return null
-    }
-
-    // 設定値の検証とサニタイズ
-    const validated = validateAndSanitizeConfig(parsed)
-    return validated
-  } catch (error) {
-    console.error('ローカルストレージからの設定読み込みに失敗しました:', error)
-    return null
-  }
-}
-
-/**
  * 設定値を検証・サニタイズ
  */
 export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
@@ -428,11 +437,11 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   const hpConfig = (c.hp as Record<string, unknown> | undefined) || {}
   const hpMax = Number(hpConfig.max) || DEFAULT_CONFIG.hp.max
   const hp = {
-    max: isInRange(hpMax, 1, 10000) ? hpMax : DEFAULT_CONFIG.hp.max,
+    max: isInRange(hpMax, 1, MAX_NUM) ? hpMax : DEFAULT_CONFIG.hp.max,
     current: isInRange(Number(hpConfig.current), 0, hpMax)
       ? Math.max(0, Math.min(Number(hpConfig.current) || 0, hpMax))
       : DEFAULT_CONFIG.hp.current,
-    gaugeCount: isInRange(Number(hpConfig.gaugeCount), 1, 100)
+    gaugeCount: isInRange(Number(hpConfig.gaugeCount), 1, MAX_NUM)
       ? Number(hpConfig.gaugeCount) || DEFAULT_CONFIG.hp.gaugeCount
       : DEFAULT_CONFIG.hp.gaugeCount,
     x: isInRange(Number(hpConfig.x), -10000, 10000)
@@ -441,10 +450,10 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     y: isInRange(Number(hpConfig.y), -10000, 10000)
       ? Number(hpConfig.y) || 0
       : 0,
-    width: isInRange(Number(hpConfig.width), 100, 5000)
+    width: isInRange(Number(hpConfig.width), 1, MAX_NUM)
       ? Number(hpConfig.width) || DEFAULT_CONFIG.hp.width
       : DEFAULT_CONFIG.hp.width,
-    height: isInRange(Number(hpConfig.height), 20, 500)
+    height: isInRange(Number(hpConfig.height), 1, MAX_NUM)
       ? Number(hpConfig.height) || DEFAULT_CONFIG.hp.height
       : DEFAULT_CONFIG.hp.height,
     messageWhenZeroHp: typeof hpConfig.messageWhenZeroHp === 'string' ? hpConfig.messageWhenZeroHp : DEFAULT_CONFIG.hp.messageWhenZeroHp,
@@ -452,13 +461,24 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
 
   // 攻撃設定の検証
   const attackConfig = (c.attack as Record<string, unknown> | undefined) || {}
+  const attackDamageType: 'fixed' | 'random' = attackConfig.damageType === 'random' ? 'random' : 'fixed'
   const attack = {
     rewardId: typeof attackConfig.rewardId === 'string' ? attackConfig.rewardId : '',
     customText: typeof attackConfig.customText === 'string' ? attackConfig.customText : '',
     enabled: typeof attackConfig.enabled === 'boolean' ? attackConfig.enabled : true,
-    damage: isInRange(Number(attackConfig.damage), 1, 1000)
+    damageType: attackDamageType,
+    damage: isInRange(Number(attackConfig.damage), 1, MAX_NUM)
       ? Number(attackConfig.damage) || 10
       : 10,
+    damageMin: isInRange(Number(attackConfig.damageMin), 1, MAX_NUM)
+      ? Number(attackConfig.damageMin) || 5
+      : 5,
+    damageMax: isInRange(Number(attackConfig.damageMax), 1, MAX_NUM)
+      ? Number(attackConfig.damageMax) || 15
+      : 15,
+    damageRandomStep: isInRange(Number(attackConfig.damageRandomStep), 1, MAX_NUM)
+      ? Number(attackConfig.damageRandomStep) || 1
+      : 1,
     missEnabled: typeof attackConfig.missEnabled === 'boolean' ? attackConfig.missEnabled : false,
     missProbability: isInRange(Number(attackConfig.missProbability), 0, 100)
       ? Number(attackConfig.missProbability) || 0
@@ -475,20 +495,20 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     criticalProbability: isInRange(Number(attackConfig.criticalProbability), 0, 100)
       ? Number(attackConfig.criticalProbability) || 0
       : 0,
-    criticalMultiplier: isInRange(Number(attackConfig.criticalMultiplier), 1.0, 10.0)
+    criticalMultiplier: isInRange(Number(attackConfig.criticalMultiplier), 1.0, MAX_NUM)
       ? Number(attackConfig.criticalMultiplier) || 2.0
       : 2.0,
     bleedEnabled: typeof attackConfig.bleedEnabled === 'boolean' ? attackConfig.bleedEnabled : false,
     bleedProbability: isInRange(Number(attackConfig.bleedProbability), 0, 100)
       ? Number(attackConfig.bleedProbability) || 0
       : 0,
-    bleedDamage: isInRange(Number(attackConfig.bleedDamage), 1, 1000)
+    bleedDamage: isInRange(Number(attackConfig.bleedDamage), 1, MAX_NUM)
       ? Number(attackConfig.bleedDamage) || 5
       : 5,
-    bleedDuration: isInRange(Number(attackConfig.bleedDuration), 1, 300)
+    bleedDuration: isInRange(Number(attackConfig.bleedDuration), 1, MAX_NUM)
       ? Number(attackConfig.bleedDuration) || 10
       : 10,
-    bleedInterval: isInRange(Number(attackConfig.bleedInterval), 0.1, 60)
+    bleedInterval: isInRange(Number(attackConfig.bleedInterval), 0.1, MAX_NUM)
       ? Number(attackConfig.bleedInterval) || 1
       : 1,
     bleedSoundEnabled: typeof attackConfig.bleedSoundEnabled === 'boolean' ? attackConfig.bleedSoundEnabled : false,
@@ -523,16 +543,16 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     enabled: typeof healConfig.enabled === 'boolean' ? healConfig.enabled : true,
     effectEnabled: typeof healConfig.effectEnabled === 'boolean' ? healConfig.effectEnabled : true,
     healType: (healConfig.healType === 'random' ? 'random' : 'fixed') as 'fixed' | 'random',
-    healAmount: isInRange(Number(healConfig.healAmount), 1, 1000)
+    healAmount: isInRange(Number(healConfig.healAmount), 1, 999999)
       ? Number(healConfig.healAmount) || 20
       : 20,
-    healMin: isInRange(Number(healConfig.healMin), 1, 1000)
+    healMin: isInRange(Number(healConfig.healMin), 1, 999999)
       ? Number(healConfig.healMin) || 10
       : 10,
-    healMax: isInRange(Number(healConfig.healMax), 1, 1000)
+    healMax: isInRange(Number(healConfig.healMax), 1, 999999)
       ? Number(healConfig.healMax) || 30
       : 30,
-    healRandomStep: isInRange(Number(healConfig.healRandomStep), 1, 1000)
+    healRandomStep: isInRange(Number(healConfig.healRandomStep), 1, 999999)
       ? Math.floor(Number(healConfig.healRandomStep)) || 1
       : 1,
     soundEnabled: typeof healConfig.soundEnabled === 'boolean' ? healConfig.soundEnabled : false,
@@ -570,10 +590,10 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
         ? (retryConfig.streamerHealCommand as string).replace(/[<>"']/g, '')
         : '!heal',
     streamerHealType: (retryConfig.streamerHealType === 'random' ? 'random' : 'fixed') as 'fixed' | 'random',
-    streamerHealAmount: isInRange(Number(retryConfig.streamerHealAmount), 1, 1000) ? Number(retryConfig.streamerHealAmount) || 20 : 20,
-    streamerHealMin: isInRange(Number(retryConfig.streamerHealMin), 1, 1000) ? Number(retryConfig.streamerHealMin) || 10 : 10,
-    streamerHealMax: isInRange(Number(retryConfig.streamerHealMax), 1, 1000) ? Number(retryConfig.streamerHealMax) || 30 : 30,
-    streamerHealRandomStep: isInRange(Number(retryConfig.streamerHealRandomStep), 1, 1000) ? Math.floor(Number(retryConfig.streamerHealRandomStep)) || 1 : 1,
+    streamerHealAmount: isInRange(Number(retryConfig.streamerHealAmount), 1, 999999) ? Number(retryConfig.streamerHealAmount) || 20 : 20,
+    streamerHealMin: isInRange(Number(retryConfig.streamerHealMin), 1, 999999) ? Number(retryConfig.streamerHealMin) || 10 : 10,
+    streamerHealMax: isInRange(Number(retryConfig.streamerHealMax), 1, 999999) ? Number(retryConfig.streamerHealMax) || 30 : 30,
+    streamerHealRandomStep: isInRange(Number(retryConfig.streamerHealRandomStep), 1, 999999) ? Math.floor(Number(retryConfig.streamerHealRandomStep)) || 1 : 1,
     streamerHealWhenZeroEnabled: typeof retryConfig.streamerHealWhenZeroEnabled === 'boolean' ? retryConfig.streamerHealWhenZeroEnabled : true,
     enabled: typeof retryConfig.enabled === 'boolean' ? retryConfig.enabled : true,
     soundEnabled: typeof retryConfig.soundEnabled === 'boolean' ? retryConfig.soundEnabled : false,
@@ -589,7 +609,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   // アニメーション設定の検証
   const animationConfig = (c.animation as Record<string, unknown> | undefined) || {}
   const animation = {
-    duration: isInRange(Number(animationConfig.duration), 0, 10000)
+    duration: isInRange(Number(animationConfig.duration), 0, MAX_NUM)
       ? Number(animationConfig.duration) || 500
       : 500,
     easing: typeof animationConfig.easing === 'string' ? animationConfig.easing : 'ease-out',
@@ -599,7 +619,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   const displayConfig = (c.display as Record<string, unknown> | undefined) || {}
   const display = {
     showMaxHp: typeof displayConfig.showMaxHp === 'boolean' ? displayConfig.showMaxHp : true,
-    fontSize: isInRange(Number(displayConfig.fontSize), 8, 200)
+    fontSize: isInRange(Number(displayConfig.fontSize), 1, MAX_NUM)
       ? Number(displayConfig.fontSize) || 24
       : 24,
   }
@@ -635,7 +655,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       typeof zeroHpEffectConfig.videoUrl === 'string' && isValidUrl(zeroHpEffectConfig.videoUrl)
         ? zeroHpEffectConfig.videoUrl
         : DEFAULT_CONFIG.zeroHpEffect.videoUrl,
-    duration: isInRange(Number(zeroHpEffectConfig.duration), 100, 60000)
+    duration: isInRange(Number(zeroHpEffectConfig.duration), 1, MAX_NUM)
       ? Number(zeroHpEffectConfig.duration) || 2000
       : 2000,
   }
@@ -656,10 +676,10 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     y: isInRange(Number(externalWindowConfig.y), -10000, 10000)
       ? Number(externalWindowConfig.y) || 0
       : 0,
-    width: isInRange(Number(externalWindowConfig.width), 1, 10000)
+    width: isInRange(Number(externalWindowConfig.width), 1, MAX_NUM)
       ? Number(externalWindowConfig.width) || 800
       : 800,
-    height: isInRange(Number(externalWindowConfig.height), 1, 10000)
+    height: isInRange(Number(externalWindowConfig.height), 1, MAX_NUM)
       ? Number(externalWindowConfig.height) || 600
       : 600,
     opacity: isInRange(Number(externalWindowConfig.opacity), 0, 1)
@@ -680,10 +700,10 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     y: isInRange(Number(webmLoopConfig.y), -10000, 10000)
       ? Number(webmLoopConfig.y) || 0
       : 0,
-    width: isInRange(Number(webmLoopConfig.width), 1, 10000)
+    width: isInRange(Number(webmLoopConfig.width), 1, MAX_NUM)
       ? Number(webmLoopConfig.width) || 800
       : 800,
-    height: isInRange(Number(webmLoopConfig.height), 1, 10000)
+    height: isInRange(Number(webmLoopConfig.height), 1, MAX_NUM)
       ? Number(webmLoopConfig.height) || 600
       : 600,
     opacity: isInRange(Number(webmLoopConfig.opacity), 0, 1)
@@ -766,11 +786,16 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   // PvP設定の検証（streamerAttack は attack と同じ構造）
   const pvpConfig = (c.pvp as Record<string, unknown> | undefined) || {}
   const sa = (pvpConfig.streamerAttack as Record<string, unknown> | undefined) || {}
+  const streamerDamageType: 'fixed' | 'random' = sa.damageType === 'random' ? 'random' : 'fixed'
   const streamerAttack = {
     rewardId: typeof sa.rewardId === 'string' ? sa.rewardId : '',
     customText: typeof sa.customText === 'string' ? sa.customText : '',
     enabled: typeof sa.enabled === 'boolean' ? sa.enabled : true,
-    damage: isInRange(Number(sa.damage), 1, 1000) ? Number(sa.damage) || 15 : 15,
+    damageType: streamerDamageType,
+    damage: isInRange(Number(sa.damage), 1, MAX_NUM) ? Number(sa.damage) || 15 : 15,
+    damageMin: isInRange(Number(sa.damageMin), 1, MAX_NUM) ? Number(sa.damageMin) || 10 : 10,
+    damageMax: isInRange(Number(sa.damageMax), 1, MAX_NUM) ? Number(sa.damageMax) || 25 : 25,
+    damageRandomStep: isInRange(Number(sa.damageRandomStep), 1, MAX_NUM) ? Number(sa.damageRandomStep) || 1 : 1,
     missEnabled: typeof sa.missEnabled === 'boolean' ? sa.missEnabled : false,
     missProbability: isInRange(Number(sa.missProbability), 0, 100) ? Number(sa.missProbability) || 0 : 0,
     missSoundEnabled: typeof sa.missSoundEnabled === 'boolean' ? sa.missSoundEnabled : false,
@@ -778,12 +803,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     missSoundVolume: isInRange(Number(sa.missSoundVolume), 0, 1) ? Number(sa.missSoundVolume) || 0.7 : 0.7,
     criticalEnabled: typeof sa.criticalEnabled === 'boolean' ? sa.criticalEnabled : false,
     criticalProbability: isInRange(Number(sa.criticalProbability), 0, 100) ? Number(sa.criticalProbability) || 0 : 0,
-    criticalMultiplier: isInRange(Number(sa.criticalMultiplier), 1, 10) ? Number(sa.criticalMultiplier) || 2 : 2,
+    criticalMultiplier: isInRange(Number(sa.criticalMultiplier), 1, MAX_NUM) ? Number(sa.criticalMultiplier) || 2 : 2,
     bleedEnabled: typeof sa.bleedEnabled === 'boolean' ? sa.bleedEnabled : false,
     bleedProbability: isInRange(Number(sa.bleedProbability), 0, 100) ? Number(sa.bleedProbability) || 0 : 0,
-    bleedDamage: isInRange(Number(sa.bleedDamage), 1, 1000) ? Number(sa.bleedDamage) || 5 : 5,
-    bleedDuration: isInRange(Number(sa.bleedDuration), 1, 600) ? Number(sa.bleedDuration) || 10 : 10,
-    bleedInterval: isInRange(Number(sa.bleedInterval), 0.1, 60) ? Number(sa.bleedInterval) || 1 : 1,
+    bleedDamage: isInRange(Number(sa.bleedDamage), 1, MAX_NUM) ? Number(sa.bleedDamage) || 5 : 5,
+    bleedDuration: isInRange(Number(sa.bleedDuration), 1, MAX_NUM) ? Number(sa.bleedDuration) || 10 : 10,
+    bleedInterval: isInRange(Number(sa.bleedInterval), 0.1, MAX_NUM) ? Number(sa.bleedInterval) || 1 : 1,
     bleedSoundEnabled: typeof sa.bleedSoundEnabled === 'boolean' ? sa.bleedSoundEnabled : false,
     bleedSoundUrl: typeof sa.bleedSoundUrl === 'string' ? sa.bleedSoundUrl : '',
     bleedSoundVolume: isInRange(Number(sa.bleedSoundVolume), 0, 1) ? Number(sa.bleedSoundVolume) || 0.7 : 0.7,
@@ -796,15 +821,20 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     survivalHp1Message: typeof sa.survivalHp1Message === 'string' ? sa.survivalHp1Message : '食いしばり!',
   }
   const viewerMaxHp = typeof pvpConfig.viewerMaxHp === 'number' && pvpConfig.viewerMaxHp > 0
-    ? Math.min(9999, Math.floor(pvpConfig.viewerMaxHp))
+    ? Math.floor(pvpConfig.viewerMaxHp)
     : 100
   const legacyAutoReply = typeof (pvpConfig as { autoReplyEnabled?: boolean }).autoReplyEnabled === 'boolean' ? (pvpConfig as { autoReplyEnabled: boolean }).autoReplyEnabled : true
   const vva = (pvpConfig.viewerVsViewerAttack as Record<string, unknown> | undefined) || {}
+  const viewerDamageType: 'fixed' | 'random' = vva.damageType === 'random' ? 'random' : 'fixed'
   const viewerVsViewerAttack = {
     rewardId: typeof vva.rewardId === 'string' ? vva.rewardId : '',
     customText: typeof vva.customText === 'string' ? vva.customText : '',
     enabled: typeof vva.enabled === 'boolean' ? vva.enabled : true,
-    damage: isInRange(Number(vva.damage), 1, 1000) ? Number(vva.damage) || 10 : 10,
+    damageType: viewerDamageType,
+    damage: (() => { const d = Number(vva.damage); return (!isNaN(d) && d >= 1) ? d : 10; })(),
+    damageMin: isInRange(Number(vva.damageMin), 1, MAX_NUM) ? Number(vva.damageMin) || 5 : 5,
+    damageMax: isInRange(Number(vva.damageMax), 1, MAX_NUM) ? Number(vva.damageMax) || 15 : 15,
+    damageRandomStep: isInRange(Number(vva.damageRandomStep), 1, MAX_NUM) ? Number(vva.damageRandomStep) || 1 : 1,
     missEnabled: typeof vva.missEnabled === 'boolean' ? vva.missEnabled : false,
     missProbability: isInRange(Number(vva.missProbability), 0, 100) ? Number(vva.missProbability) || 0 : 0,
     missSoundEnabled: typeof vva.missSoundEnabled === 'boolean' ? vva.missSoundEnabled : false,
@@ -812,12 +842,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     missSoundVolume: isInRange(Number(vva.missSoundVolume), 0, 1) ? Number(vva.missSoundVolume) || 0.7 : 0.7,
     criticalEnabled: typeof vva.criticalEnabled === 'boolean' ? vva.criticalEnabled : false,
     criticalProbability: isInRange(Number(vva.criticalProbability), 0, 100) ? Number(vva.criticalProbability) || 0 : 0,
-    criticalMultiplier: isInRange(Number(vva.criticalMultiplier), 1, 10) ? Number(vva.criticalMultiplier) || 2 : 2,
+    criticalMultiplier: isInRange(Number(vva.criticalMultiplier), 1, MAX_NUM) ? Number(vva.criticalMultiplier) || 2 : 2,
     bleedEnabled: typeof vva.bleedEnabled === 'boolean' ? vva.bleedEnabled : false,
     bleedProbability: isInRange(Number(vva.bleedProbability), 0, 100) ? Number(vva.bleedProbability) || 0 : 0,
-    bleedDamage: isInRange(Number(vva.bleedDamage), 1, 1000) ? Number(vva.bleedDamage) || 5 : 5,
-    bleedDuration: isInRange(Number(vva.bleedDuration), 1, 600) ? Number(vva.bleedDuration) || 10 : 10,
-    bleedInterval: isInRange(Number(vva.bleedInterval), 0.1, 60) ? Number(vva.bleedInterval) || 1 : 1,
+    bleedDamage: isInRange(Number(vva.bleedDamage), 1, MAX_NUM) ? Number(vva.bleedDamage) || 5 : 5,
+    bleedDuration: isInRange(Number(vva.bleedDuration), 1, MAX_NUM) ? Number(vva.bleedDuration) || 10 : 10,
+    bleedInterval: isInRange(Number(vva.bleedInterval), 0.1, MAX_NUM) ? Number(vva.bleedInterval) || 1 : 1,
     bleedSoundEnabled: typeof vva.bleedSoundEnabled === 'boolean' ? vva.bleedSoundEnabled : false,
     bleedSoundUrl: typeof vva.bleedSoundUrl === 'string' ? vva.bleedSoundUrl : '',
     bleedSoundVolume: isInRange(Number(vva.bleedSoundVolume), 0, 1) ? Number(vva.bleedSoundVolume) || 0.7 : 0.7,
@@ -859,15 +889,22 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       ? (pvpConfig.viewerHealCommand as string).replace(/[<>"']/g, '')
       : '!heal',
     viewerHealType: (pvpConfig.viewerHealType === 'random' ? 'random' : 'fixed') as 'fixed' | 'random',
-    viewerHealAmount: isInRange(Number(pvpConfig.viewerHealAmount), 1, 1000) ? Number(pvpConfig.viewerHealAmount) || 20 : 20,
-    viewerHealMin: isInRange(Number(pvpConfig.viewerHealMin), 1, 1000) ? Number(pvpConfig.viewerHealMin) || 10 : 10,
-    viewerHealMax: isInRange(Number(pvpConfig.viewerHealMax), 1, 1000) ? Number(pvpConfig.viewerHealMax) || 30 : 30,
-    viewerHealRandomStep: isInRange(Number(pvpConfig.viewerHealRandomStep), 1, 1000) ? Math.floor(Number(pvpConfig.viewerHealRandomStep)) || 1 : 1,
+    viewerHealAmount: isInRange(Number(pvpConfig.viewerHealAmount), 1, 999999) ? Number(pvpConfig.viewerHealAmount) || 20 : 20,
+    viewerHealMin: isInRange(Number(pvpConfig.viewerHealMin), 1, 999999) ? Number(pvpConfig.viewerHealMin) || 10 : 10,
+    viewerHealMax: isInRange(Number(pvpConfig.viewerHealMax), 1, 999999) ? Number(pvpConfig.viewerHealMax) || 30 : 30,
+    viewerHealRandomStep: isInRange(Number(pvpConfig.viewerHealRandomStep), 1, 999999) ? Math.floor(Number(pvpConfig.viewerHealRandomStep)) || 1 : 1,
     viewerHealWhenZeroEnabled: typeof pvpConfig.viewerHealWhenZeroEnabled === 'boolean' ? pvpConfig.viewerHealWhenZeroEnabled : true,
     attackMode: (pvpConfig.attackMode === 'streamer_only' ? 'streamer_only' : 'both') as 'streamer_only' | 'both',
     viewerAttackViewerCommand: typeof pvpConfig.viewerAttackViewerCommand === 'string' && isValidLength(pvpConfig.viewerAttackViewerCommand, 1, 50)
       ? (pvpConfig.viewerAttackViewerCommand as string).replace(/[<>"']/g, '')
       : '!attack',
+    streamerHealOnAttackEnabled: typeof pvpConfig.streamerHealOnAttackEnabled === 'boolean' ? pvpConfig.streamerHealOnAttackEnabled : false,
+    streamerHealOnAttackProbability: isInRange(Number(pvpConfig.streamerHealOnAttackProbability), 0, 100) ? Number(pvpConfig.streamerHealOnAttackProbability) || 10 : 10,
+    streamerHealOnAttackType: (pvpConfig.streamerHealOnAttackType === 'random' ? 'random' : 'fixed') as 'fixed' | 'random',
+    streamerHealOnAttackAmount: isInRange(Number(pvpConfig.streamerHealOnAttackAmount), 1, 999999) ? Number(pvpConfig.streamerHealOnAttackAmount) || 10 : 10,
+    streamerHealOnAttackMin: isInRange(Number(pvpConfig.streamerHealOnAttackMin), 1, 999999) ? Number(pvpConfig.streamerHealOnAttackMin) || 5 : 5,
+    streamerHealOnAttackMax: isInRange(Number(pvpConfig.streamerHealOnAttackMax), 1, 999999) ? Number(pvpConfig.streamerHealOnAttackMax) || 20 : 20,
+    streamerHealOnAttackRandomStep: isInRange(Number(pvpConfig.streamerHealOnAttackRandomStep), 1, 999999) ? Number(pvpConfig.streamerHealOnAttackRandomStep) || 1 : 1,
     viewerVsViewerAttack,
   }
 

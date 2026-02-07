@@ -18,7 +18,16 @@ export interface AttackConfig {
   rewardId: string
   customText: string // チャットメッセージで判定するカスタムテキスト（App Access Token用）
   enabled: boolean
+  /** ダメージタイプ: 固定 or ランダム（回復量の healType と同様） */
+  damageType?: 'fixed' | 'random'
+  /** 固定時のダメージ量。ランダム時は damageMin〜damageMax の範囲で刻みに従い決定 */
   damage: number
+  /** ランダム時の最小ダメージ */
+  damageMin?: number
+  /** ランダム時の最大ダメージ */
+  damageMax?: number
+  /** ランダム時の刻み（1のときは最小〜最大の連続値。50なら 50,100,150... のいずれか） */
+  damageRandomStep?: number
   missEnabled: boolean
   missProbability: number // 0-100
   missSoundEnabled: boolean // ミス効果音の有効/無効
@@ -201,6 +210,20 @@ export interface PvPConfig {
   viewerAttackViewerCommand: string
   /** 視聴者同士の攻撃時のダメージ・ミス・クリティカル等の設定 */
   viewerVsViewerAttack: AttackConfig
+  /** 視聴者が攻撃したときに一定確率で配信者HPが回復する（攻撃が「反転」して回復になる） */
+  streamerHealOnAttackEnabled: boolean
+  /** 上記の発生確率（0-100） */
+  streamerHealOnAttackProbability: number
+  /** 上記の回復量タイプ（固定 or ランダム） */
+  streamerHealOnAttackType?: 'fixed' | 'random'
+  /** 固定時の回復量 */
+  streamerHealOnAttackAmount: number
+  /** ランダム時の最小回復量 */
+  streamerHealOnAttackMin?: number
+  /** ランダム時の最大回復量 */
+  streamerHealOnAttackMax?: number
+  /** ランダム時の刻み（1のときは最小～最大の連続値） */
+  streamerHealOnAttackRandomStep?: number
 }
 
 export interface ExternalWindowConfig {

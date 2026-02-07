@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { loadOverlayConfig, saveOverlayConfig, getDefaultConfig, validateAndSanitizeConfig } from '../../utils/overlayConfig'
+import { loadOverlayConfig, loadOverlayConfigFromFile, saveOverlayConfig, getDefaultConfig, validateAndSanitizeConfig } from '../../utils/overlayConfig'
 import { isValidUrl } from '../../utils/security'
 import type { OverlayConfig } from '../../types/overlay'
 import './OverlaySettings.css'
@@ -93,6 +93,26 @@ export function OverlaySettings() {
   const handleReset = () => {
     if (confirm('設定をデフォルト値にリセットしますか？')) {
       setConfig(getDefaultConfig())
+    }
+  }
+
+  const [loadingFromFile, setLoadingFromFile] = useState(false)
+  /** JSONファイルから設定を再読み込み（ローカルストレージを無視） */
+  const handleLoadFromFile = async () => {
+    try {
+      setLoadingFromFile(true)
+      setMessage(null)
+      const loadedConfig = await loadOverlayConfigFromFile()
+      setConfig(loadedConfig)
+      setInputValues({})
+      setMessage('JSONファイルから設定を読み込みました')
+      setTimeout(() => setMessage(null), 3000)
+    } catch (error) {
+      console.error('JSONファイルの読み込みに失敗しました', error)
+      setMessage('❌ JSONファイルの読み込みに失敗しました')
+      setTimeout(() => setMessage(null), 5000)
+    } finally {
+      setLoadingFromFile(false)
     }
   }
 
@@ -360,42 +380,98 @@ export function OverlaySettings() {
                 </div>
                 <div className="settings-row">
                   <label>
-                    ダメージ:
-                    <input
-                      type="text"
-                      value={inputValues['attack.damage'] ?? String(config.attack.damage)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'attack.damage': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseInt(value))) {
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, damage: 10 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['attack.damage']
-                            return next
-                          })
-                        } else {
-                          const num = parseInt(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              attack: { ...config.attack, damage: num },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['attack.damage']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
+                    ダメージタイプ:
+                    <select
+                      value={config.attack.damageType ?? 'fixed'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: { ...config.attack, damageType: e.target.value as 'fixed' | 'random' },
+                        })
+                      }
+                    >
+                      <option value="fixed">固定</option>
+                      <option value="random">ランダム</option>
+                    </select>
                   </label>
+                  {config.attack.damageType === 'random' ? (
+                    <>
+                      <label>
+                        ダメージ（最小）:
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={inputValues['attack.damageMin'] ?? String(config.attack.damageMin ?? 5)}
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'attack.damageMin': e.target.value }))}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            const num = value === '' ? 5 : parseInt(value, 10)
+                            if (!isNaN(num) && num >= 1) {
+                              setConfig((prev) => prev ? { ...prev, attack: { ...prev.attack, damageMin: num } } : prev)
+                              setInputValues((prev) => { const next = { ...prev }; delete next['attack.damageMin']; return next })
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        ダメージ（最大）:
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={inputValues['attack.damageMax'] ?? String(config.attack.damageMax ?? 15)}
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'attack.damageMax': e.target.value }))}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            const num = value === '' ? 15 : parseInt(value, 10)
+                            if (!isNaN(num) && num >= 1) {
+                              setConfig((prev) => prev ? { ...prev, attack: { ...prev.attack, damageMax: num } } : prev)
+                              setInputValues((prev) => { const next = { ...prev }; delete next['attack.damageMax']; return next })
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        刻み（50・100など。1のときは最小～最大の連続値）:
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={inputValues['attack.damageRandomStep'] ?? String(config.attack.damageRandomStep ?? 1)}
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'attack.damageRandomStep': e.target.value }))}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            const num = value === '' ? 1 : parseInt(value, 10)
+                            if (!isNaN(num) && num >= 1) {
+                              setConfig((prev) => prev ? { ...prev, attack: { ...prev.attack, damageRandomStep: num } } : prev)
+                              setInputValues((prev) => { const next = { ...prev }; delete next['attack.damageRandomStep']; return next })
+                            }
+                          }}
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <label>
+                      ダメージ:
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={inputValues['attack.damage'] ?? String(config.attack.damage)}
+                        onChange={(e) => setInputValues((prev) => ({ ...prev, 'attack.damage': e.target.value }))}
+                        onBlur={(e) => {
+                          const value = e.target.value.trim()
+                          if (value === '' || isNaN(parseInt(value))) {
+                            setConfig({ ...config, attack: { ...config.attack, damage: 10 } })
+                            setInputValues((prev) => { const next = { ...prev }; delete next['attack.damage']; return next })
+                          } else {
+                            const num = parseInt(value, 10)
+                            if (!isNaN(num) && num >= 1) {
+                              setConfig((prev) => prev ? { ...prev, attack: { ...prev.attack, damage: num } } : prev)
+                              setInputValues((prev) => { const next = { ...prev }; delete next['attack.damage']; return next })
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  )}
                   <label>
                     <input
                       type="checkbox"
@@ -995,9 +1071,8 @@ export function OverlaySettings() {
                       <label>
                         HPが1残る確率（0-100）:
                         <input
-                          type="number"
-                          min={0}
-                          max={100}
+                          type="text"
+                          inputMode="numeric"
                           value={inputValues['attack.survivalHp1Probability'] ?? String(config.attack.survivalHp1Probability)}
                           onChange={(e) => {
                             setInputValues((prev) => ({ ...prev, 'attack.survivalHp1Probability': e.target.value }))
@@ -1275,15 +1350,14 @@ export function OverlaySettings() {
                       <label>
                         刻み（50・100など。1のときは最小～最大の連続値）:
                         <input
-                          type="number"
-                          min={1}
-                          max={1000}
+                          type="text"
+                          inputMode="numeric"
                           value={inputValues['heal.healRandomStep'] ?? String(config.heal.healRandomStep ?? 1)}
                           onChange={(e) => setInputValues((prev) => ({ ...prev, 'heal.healRandomStep': e.target.value }))}
                           onBlur={(e) => {
                             const value = e.target.value.trim()
                             const num = value === '' ? 1 : parseInt(value, 10)
-                            if (!isNaN(num) && num >= 1 && num <= 1000) {
+                            if (!isNaN(num) && num >= 1) {
                               setConfig({ ...config, heal: { ...config.heal, healRandomStep: num } })
                               setInputValues((prev) => { const next = { ...prev }; delete next['heal.healRandomStep']; return next })
                             }
@@ -1527,18 +1601,14 @@ export function OverlaySettings() {
                     <label>
                       回復量:
                       <input
-                        type="number"
-                        min={1}
-                        max={1000}
-                        value={config.retry.streamerHealAmount ?? 20}
-                        onChange={(e) => {
-                          const num = Number(e.target.value)
-                          if (!isNaN(num) && num >= 1 && num <= 1000) {
-                            setConfig({
-                              ...config,
-                              retry: { ...config.retry, streamerHealAmount: num },
-                            })
-                          }
+                        type="text"
+                        inputMode="numeric"
+                        value={inputValues['retry.streamerHealAmount'] ?? String(config.retry.streamerHealAmount ?? 20)}
+                        onChange={(e) => setInputValues((prev) => ({ ...prev, 'retry.streamerHealAmount': e.target.value }))}
+                        onBlur={(e) => {
+                          const num = Number(e.target.value.trim())
+                          setConfig({ ...config, retry: { ...config.retry, streamerHealAmount: (!isNaN(num) && num >= 1) ? num : 20 } })
+                          setInputValues((prev) => { const next = { ...prev }; delete next['retry.streamerHealAmount']; return next })
                         }}
                       />
                     </label>
@@ -1547,54 +1617,42 @@ export function OverlaySettings() {
                       <label>
                         回復量（最小）:
                         <input
-                          type="number"
-                          min={1}
-                          max={1000}
-                          value={config.retry.streamerHealMin ?? 10}
-                          onChange={(e) => {
-                            const num = Number(e.target.value)
-                            if (!isNaN(num) && num >= 1 && num <= 1000) {
-                              setConfig({
-                                ...config,
-                                retry: { ...config.retry, streamerHealMin: num },
-                              })
-                            }
+                          type="text"
+                          inputMode="numeric"
+                          value={inputValues['retry.streamerHealMin'] ?? String(config.retry.streamerHealMin ?? 10)}
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'retry.streamerHealMin': e.target.value }))}
+                          onBlur={(e) => {
+                            const num = Number(e.target.value.trim())
+                            setConfig({ ...config, retry: { ...config.retry, streamerHealMin: (!isNaN(num) && num >= 1) ? num : 10 } })
+                            setInputValues((prev) => { const next = { ...prev }; delete next['retry.streamerHealMin']; return next })
                           }}
                         />
                       </label>
                       <label>
                         回復量（最大）:
                         <input
-                          type="number"
-                          min={1}
-                          max={1000}
-                          value={config.retry.streamerHealMax ?? 30}
-                          onChange={(e) => {
-                            const num = Number(e.target.value)
-                            if (!isNaN(num) && num >= 1 && num <= 1000) {
-                              setConfig({
-                                ...config,
-                                retry: { ...config.retry, streamerHealMax: num },
-                              })
-                            }
+                          type="text"
+                          inputMode="numeric"
+                          value={inputValues['retry.streamerHealMax'] ?? String(config.retry.streamerHealMax ?? 30)}
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'retry.streamerHealMax': e.target.value }))}
+                          onBlur={(e) => {
+                            const num = Number(e.target.value.trim())
+                            setConfig({ ...config, retry: { ...config.retry, streamerHealMax: (!isNaN(num) && num >= 1) ? num : 30 } })
+                            setInputValues((prev) => { const next = { ...prev }; delete next['retry.streamerHealMax']; return next })
                           }}
                         />
                       </label>
                       <label>
                         刻み（50・100など。1のときは最小～最大の連続値）:
                         <input
-                          type="number"
-                          min={1}
-                          max={1000}
-                          value={config.retry.streamerHealRandomStep ?? 1}
-                          onChange={(e) => {
-                            const num = Number(e.target.value)
-                            if (!isNaN(num) && num >= 1 && num <= 1000) {
-                              setConfig({
-                                ...config,
-                                retry: { ...config.retry, streamerHealRandomStep: num },
-                              })
-                            }
+                          type="text"
+                          inputMode="numeric"
+                          value={inputValues['retry.streamerHealRandomStep'] ?? String(config.retry.streamerHealRandomStep ?? 1)}
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'retry.streamerHealRandomStep': e.target.value }))}
+                          onBlur={(e) => {
+                            const num = Number(e.target.value.trim())
+                            setConfig({ ...config, retry: { ...config.retry, streamerHealRandomStep: (!isNaN(num) && num >= 1) ? Math.floor(num) : 1 } })
+                            setInputValues((prev) => { const next = { ...prev }; delete next['retry.streamerHealRandomStep']; return next })
                           }}
                         />
                       </label>
@@ -1732,9 +1790,8 @@ export function OverlaySettings() {
                       <label>
                         ユーザー側の最大HP:
                         <input
-                          type="number"
-                          min={1}
-                          max={9999}
+                          type="text"
+                          inputMode="numeric"
                           value={inputValues['pvp.viewerMaxHp'] ?? String(config.pvp.viewerMaxHp ?? 100)}
                           onChange={(e) => {
                             const value = e.target.value
@@ -1743,21 +1800,15 @@ export function OverlaySettings() {
                           onBlur={(e) => {
                             const value = e.target.value.trim()
                             const num = value === '' ? 100 : parseInt(value, 10)
-                            if (!isNaN(num) && num >= 1 && num <= 9999) {
-                              setConfig({
-                                ...config,
-                                pvp: { ...config.pvp, viewerMaxHp: num },
-                              })
+                            if (!isNaN(num) && num >= 1) {
+                              setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerMaxHp: num } } : prev)
                               setInputValues((prev) => {
                                 const next = { ...prev }
                                 delete next['pvp.viewerMaxHp']
                                 return next
                               })
                             } else {
-                              setConfig({
-                                ...config,
-                                pvp: { ...config.pvp, viewerMaxHp: config.pvp.viewerMaxHp ?? 100 },
-                              })
+                              setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerMaxHp: prev.pvp.viewerMaxHp ?? 100 } } : prev)
                               setInputValues((prev) => {
                                 const next = { ...prev }
                                 delete next['pvp.viewerMaxHp']
@@ -1805,6 +1856,129 @@ export function OverlaySettings() {
                         ランダムなユーザーにカウンターする（視聴者が攻撃したとき）
                       </label>
                     </div>
+                    <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                      視聴者攻撃時に配信者が回復（反転回復）
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.streamerHealOnAttackEnabled ?? false}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, streamerHealOnAttackEnabled: e.target.checked },
+                            })
+                          }
+                        />
+                        視聴者が攻撃したときに一定確率で配信者HPが回復する（攻撃が回復に反転）
+                      </label>
+                    </div>
+                    {(config.pvp.streamerHealOnAttackEnabled ?? false) && (
+                      <>
+                        <div className="settings-row">
+                          <label>
+                            発生確率 (%):
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={inputValues['pvp.streamerHealOnAttackProbability'] ?? String(config.pvp.streamerHealOnAttackProbability ?? 10)}
+                              onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerHealOnAttackProbability': e.target.value }))}
+                              onBlur={(e) => {
+                                const num = Number(e.target.value.trim())
+                                if (!isNaN(num) && num >= 0 && num <= 100) {
+                                  setConfig({ ...config, pvp: { ...config.pvp, streamerHealOnAttackProbability: num } })
+                                  setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerHealOnAttackProbability']; return next })
+                                }
+                              }}
+                            />
+                          </label>
+                          <label>
+                            回復量タイプ:
+                            <select
+                              value={config.pvp.streamerHealOnAttackType ?? 'fixed'}
+                              onChange={(e) =>
+                                setConfig({ ...config, pvp: { ...config.pvp, streamerHealOnAttackType: e.target.value as 'fixed' | 'random' } })
+                              }
+                            >
+                              <option value="fixed">固定</option>
+                              <option value="random">ランダム</option>
+                            </select>
+                          </label>
+                        </div>
+                        <div className="settings-row">
+                          {(config.pvp.streamerHealOnAttackType ?? 'fixed') === 'random' ? (
+                            <>
+                              <label>
+                                回復量（最小）:
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={inputValues['pvp.streamerHealOnAttackMin'] ?? String(config.pvp.streamerHealOnAttackMin ?? 5)}
+                                  onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerHealOnAttackMin': e.target.value }))}
+                                  onBlur={(e) => {
+                                    const num = Number(e.target.value.trim())
+                                    if (!isNaN(num) && num >= 1) {
+                                      setConfig({ ...config, pvp: { ...config.pvp, streamerHealOnAttackMin: num } })
+                                      setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerHealOnAttackMin']; return next })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
+                                回復量（最大）:
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={inputValues['pvp.streamerHealOnAttackMax'] ?? String(config.pvp.streamerHealOnAttackMax ?? 20)}
+                                  onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerHealOnAttackMax': e.target.value }))}
+                                  onBlur={(e) => {
+                                    const num = Number(e.target.value.trim())
+                                    if (!isNaN(num) && num >= 1) {
+                                      setConfig({ ...config, pvp: { ...config.pvp, streamerHealOnAttackMax: num } })
+                                      setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerHealOnAttackMax']; return next })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
+                                刻み（1のときは最小～最大の連続値）:
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={inputValues['pvp.streamerHealOnAttackRandomStep'] ?? String(config.pvp.streamerHealOnAttackRandomStep ?? 1)}
+                                  onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerHealOnAttackRandomStep': e.target.value }))}
+                                  onBlur={(e) => {
+                                    const num = Number(e.target.value.trim())
+                                    if (!isNaN(num) && num >= 1) {
+                                      setConfig({ ...config, pvp: { ...config.pvp, streamerHealOnAttackRandomStep: num } })
+                                      setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerHealOnAttackRandomStep']; return next })
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </>
+                          ) : (
+                            <label>
+                              回復量:
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={inputValues['pvp.streamerHealOnAttackAmount'] ?? String(config.pvp.streamerHealOnAttackAmount ?? 10)}
+                                onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerHealOnAttackAmount': e.target.value }))}
+                                onBlur={(e) => {
+                                  const num = Number(e.target.value.trim())
+                                  if (!isNaN(num) && num >= 1) {
+                                    setConfig({ ...config, pvp: { ...config.pvp, streamerHealOnAttackAmount: num } })
+                                    setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerHealOnAttackAmount']; return next })
+                                  }
+                                }}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      </>
+                    )}
                     <div className="settings-row">
                       <label>
                         <input
@@ -1876,27 +2050,95 @@ export function OverlaySettings() {
                         </div>
                         <div className="settings-row">
                           <label>
-                            視聴者同士攻撃のダメージ:
-                            <input
-                              type="number"
-                              min={1}
-                              max={1000}
-                              value={config.pvp.viewerVsViewerAttack?.damage ?? 10}
+                            視聴者同士攻撃のダメージタイプ:
+                            <select
+                              value={config.pvp.viewerVsViewerAttack?.damageType ?? 'fixed'}
                               onChange={(e) => {
-                                const num = Number(e.target.value)
-                                if (!isNaN(num) && num >= 1 && num <= 1000) {
+                                const base = config.pvp.viewerVsViewerAttack ?? getDefaultConfig().pvp.viewerVsViewerAttack
+                                setConfig({
+                                  ...config,
+                                  pvp: { ...config.pvp, viewerVsViewerAttack: { ...base, damageType: e.target.value as 'fixed' | 'random' } },
+                                })
+                              }}
+                            >
+                              <option value="fixed">固定</option>
+                              <option value="random">ランダム</option>
+                            </select>
+                          </label>
+                          {(config.pvp.viewerVsViewerAttack?.damageType ?? 'fixed') === 'random' ? (
+                            <>
+                              <label>
+                                ダメージ（最小）:
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={inputValues['pvp.viewerVsViewerAttack.damageMin'] ?? String(config.pvp.viewerVsViewerAttack?.damageMin ?? 5)}
+                                  onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.viewerVsViewerAttack.damageMin': e.target.value }))}
+                                  onBlur={(e) => {
+                                    const num = Number(e.target.value.trim())
+                                    if (!isNaN(num) && num >= 1) {
+                                      setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerVsViewerAttack: { ...prev.pvp.viewerVsViewerAttack, damageMin: num } } } : prev)
+                                      setInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerVsViewerAttack.damageMin']; return next })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
+                                ダメージ（最大）:
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={inputValues['pvp.viewerVsViewerAttack.damageMax'] ?? String(config.pvp.viewerVsViewerAttack?.damageMax ?? 15)}
+                                  onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.viewerVsViewerAttack.damageMax': e.target.value }))}
+                                  onBlur={(e) => {
+                                    const num = Number(e.target.value.trim())
+                                    if (!isNaN(num) && num >= 1) {
+                                      setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerVsViewerAttack: { ...prev.pvp.viewerVsViewerAttack, damageMax: num } } } : prev)
+                                      setInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerVsViewerAttack.damageMax']; return next })
+                                    }
+                                  }}
+                                />
+                              </label>
+                              <label>
+                                刻み（1のときは最小～最大の連続値）:
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={inputValues['pvp.viewerVsViewerAttack.damageRandomStep'] ?? String(config.pvp.viewerVsViewerAttack?.damageRandomStep ?? 1)}
+                                  onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.viewerVsViewerAttack.damageRandomStep': e.target.value }))}
+                                  onBlur={(e) => {
+                                    const num = Number(e.target.value.trim())
+                                    if (!isNaN(num) && num >= 1) {
+                                      setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerVsViewerAttack: { ...prev.pvp.viewerVsViewerAttack, damageRandomStep: num } } } : prev)
+                                      setInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerVsViewerAttack.damageRandomStep']; return next })
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </>
+                          ) : (
+                            <label>
+                              ダメージ（下限1、上限なし）:
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={inputValues['pvp.viewerVsViewerAttack.damage'] ?? String(config.pvp.viewerVsViewerAttack?.damage ?? 10)}
+                                onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.viewerVsViewerAttack.damage': e.target.value }))}
+                                onBlur={(e) => {
+                                  const num = Number(e.target.value.trim())
                                   const base = config.pvp.viewerVsViewerAttack ?? getDefaultConfig().pvp.viewerVsViewerAttack
                                   setConfig({
                                     ...config,
                                     pvp: {
                                       ...config.pvp,
-                                      viewerVsViewerAttack: { ...base, damage: num },
+                                      viewerVsViewerAttack: { ...base, damage: (!isNaN(num) && num >= 1) ? num : 10 },
                                     },
                                   })
-                                }
-                              }}
-                            />
-                          </label>
+                                  setInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerVsViewerAttack.damage']; return next })
+                                }}
+                              />
+                            </label>
+                          )}
                         </div>
                       </>
                     )}
@@ -1971,18 +2213,14 @@ export function OverlaySettings() {
                         <label>
                           回復量:
                           <input
-                            type="number"
-                            min={1}
-                            max={1000}
-                            value={config.pvp.viewerHealAmount ?? 20}
-                            onChange={(e) => {
-                              const num = Number(e.target.value)
-                              if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                setConfig({
-                                  ...config,
-                                  pvp: { ...config.pvp, viewerHealAmount: num },
-                                })
-                              }
+                            type="text"
+                            inputMode="numeric"
+                            value={inputValues['pvp.viewerHealAmount'] ?? String(config.pvp.viewerHealAmount ?? 20)}
+                            onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.viewerHealAmount': e.target.value }))}
+                            onBlur={(e) => {
+                              const num = Number(e.target.value.trim())
+                              setConfig({ ...config, pvp: { ...config.pvp, viewerHealAmount: (!isNaN(num) && num >= 1) ? num : 20 } })
+                              setInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerHealAmount']; return next })
                             }}
                           />
                         </label>
@@ -1991,54 +2229,42 @@ export function OverlaySettings() {
                           <label>
                             回復量（最小）:
                             <input
-                              type="number"
-                              min={1}
-                              max={1000}
-                              value={config.pvp.viewerHealMin ?? 10}
-                              onChange={(e) => {
-                                const num = Number(e.target.value)
-                                if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                  setConfig({
-                                    ...config,
-                                    pvp: { ...config.pvp, viewerHealMin: num },
-                                  })
-                                }
+                              type="text"
+                              inputMode="numeric"
+                              value={inputValues['pvp.viewerHealMin'] ?? String(config.pvp.viewerHealMin ?? 10)}
+                              onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.viewerHealMin': e.target.value }))}
+                              onBlur={(e) => {
+                                const num = Number(e.target.value.trim())
+                                setConfig({ ...config, pvp: { ...config.pvp, viewerHealMin: (!isNaN(num) && num >= 1) ? num : 10 } })
+                                setInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerHealMin']; return next })
                               }}
                             />
                           </label>
                           <label>
                             回復量（最大）:
                             <input
-                              type="number"
-                              min={1}
-                              max={1000}
-                              value={config.pvp.viewerHealMax ?? 30}
-                              onChange={(e) => {
-                                const num = Number(e.target.value)
-                                if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                  setConfig({
-                                    ...config,
-                                    pvp: { ...config.pvp, viewerHealMax: num },
-                                  })
-                                }
+                              type="text"
+                              inputMode="numeric"
+                              value={inputValues['pvp.viewerHealMax'] ?? String(config.pvp.viewerHealMax ?? 30)}
+                              onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.viewerHealMax': e.target.value }))}
+                              onBlur={(e) => {
+                                const num = Number(e.target.value.trim())
+                                setConfig({ ...config, pvp: { ...config.pvp, viewerHealMax: (!isNaN(num) && num >= 1) ? num : 30 } })
+                                setInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerHealMax']; return next })
                               }}
                             />
                           </label>
                           <label>
                             刻み（50・100など。1のときは最小～最大の連続値）:
                             <input
-                              type="number"
-                              min={1}
-                              max={1000}
-                              value={config.pvp.viewerHealRandomStep ?? 1}
-                              onChange={(e) => {
-                                const num = Number(e.target.value)
-                                if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                  setConfig({
-                                    ...config,
-                                    pvp: { ...config.pvp, viewerHealRandomStep: num },
-                                  })
-                                }
+                              type="text"
+                              inputMode="numeric"
+                              value={inputValues['pvp.viewerHealRandomStep'] ?? String(config.pvp.viewerHealRandomStep ?? 1)}
+                              onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.viewerHealRandomStep': e.target.value }))}
+                              onBlur={(e) => {
+                                const num = Number(e.target.value.trim())
+                                setConfig({ ...config, pvp: { ...config.pvp, viewerHealRandomStep: (!isNaN(num) && num >= 1) ? Math.floor(num) : 1 } })
+                                setInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerHealRandomStep']; return next })
                               }}
                             />
                           </label>
@@ -2063,34 +2289,103 @@ export function OverlaySettings() {
                     </div>
                     <div className="settings-row">
                       <label>
-                        ダメージ:
-                        <input
-                          type="number"
-                          min={1}
-                          max={1000}
-                          value={inputValues['pvp.streamerAttack.damage'] ?? String(config.pvp.streamerAttack.damage)}
-                          onChange={(e) => {
-                            setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.damage': e.target.value }))
-                            const num = Number(e.target.value)
-                            if (!isNaN(num) && num >= 1 && num <= 1000) {
-                              setConfig({
-                                ...config,
-                                pvp: {
-                                  ...config.pvp,
-                                  streamerAttack: { ...config.pvp.streamerAttack, damage: num },
-                                },
-                              })
-                            }
-                          }}
-                          onBlur={() => {
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['pvp.streamerAttack.damage']
-                              return next
+                        ダメージタイプ:
+                        <select
+                          value={config.pvp.streamerAttack.damageType ?? 'fixed'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                streamerAttack: { ...config.pvp.streamerAttack, damageType: e.target.value as 'fixed' | 'random' },
+                              },
                             })
-                          }}
-                        />
+                          }
+                        >
+                          <option value="fixed">固定</option>
+                          <option value="random">ランダム</option>
+                        </select>
                       </label>
+                      {(config.pvp.streamerAttack.damageType ?? 'fixed') === 'random' ? (
+                        <>
+                          <label>
+                            ダメージ（最小）:
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={inputValues['pvp.streamerAttack.damageMin'] ?? String(config.pvp.streamerAttack.damageMin ?? 10)}
+                              onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.damageMin': e.target.value }))}
+                              onBlur={(e) => {
+                                const num = Number(e.target.value.trim())
+                                if (!isNaN(num) && num >= 1) {
+                                  setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, streamerAttack: { ...prev.pvp.streamerAttack, damageMin: num } } } : prev)
+                                  setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerAttack.damageMin']; return next })
+                                }
+                              }}
+                            />
+                          </label>
+                          <label>
+                            ダメージ（最大）:
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={inputValues['pvp.streamerAttack.damageMax'] ?? String(config.pvp.streamerAttack.damageMax ?? 25)}
+                              onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.damageMax': e.target.value }))}
+                              onBlur={(e) => {
+                                const num = Number(e.target.value.trim())
+                                if (!isNaN(num) && num >= 1) {
+                                  setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, streamerAttack: { ...prev.pvp.streamerAttack, damageMax: num } } } : prev)
+                                  setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerAttack.damageMax']; return next })
+                                }
+                              }}
+                            />
+                          </label>
+                          <label>
+                            刻み（1のときは最小～最大の連続値）:
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={inputValues['pvp.streamerAttack.damageRandomStep'] ?? String(config.pvp.streamerAttack.damageRandomStep ?? 1)}
+                              onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.damageRandomStep': e.target.value }))}
+                              onBlur={(e) => {
+                                const num = Number(e.target.value.trim())
+                                if (!isNaN(num) && num >= 1) {
+                                  setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, streamerAttack: { ...prev.pvp.streamerAttack, damageRandomStep: num } } } : prev)
+                                  setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerAttack.damageRandomStep']; return next })
+                                }
+                              }}
+                            />
+                          </label>
+                        </>
+                      ) : (
+                        <label>
+                          ダメージ:
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={inputValues['pvp.streamerAttack.damage'] ?? String(config.pvp.streamerAttack.damage)}
+                            onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.damage': e.target.value }))}
+                            onBlur={(e) => {
+                              const num = Number(e.target.value.trim())
+                              const damage = (!isNaN(num) && num >= 1) ? num : undefined
+                              setConfig((prev) => {
+                                if (!prev?.pvp?.streamerAttack) return prev
+                                return {
+                                  ...prev,
+                                  pvp: {
+                                    ...prev.pvp,
+                                    streamerAttack: {
+                                      ...prev.pvp.streamerAttack,
+                                      damage: damage ?? prev.pvp.streamerAttack.damage,
+                                    },
+                                  },
+                                }
+                              })
+                              setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerAttack.damage']; return next })
+                            }}
+                          />
+                        </label>
+                      )}
                       <label>
                         <input
                           type="checkbox"
@@ -2110,29 +2405,20 @@ export function OverlaySettings() {
                       <label>
                         ミス確率（0-100）:
                         <input
-                          type="number"
-                          min={0}
-                          max={100}
+                          type="text"
+                          inputMode="numeric"
                           value={inputValues['pvp.streamerAttack.missProbability'] ?? String(config.pvp.streamerAttack.missProbability)}
-                          onChange={(e) => {
-                            setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.missProbability': e.target.value }))
-                            const num = Number(e.target.value)
-                            if (!isNaN(num) && num >= 0 && num <= 100) {
-                              setConfig({
-                                ...config,
-                                pvp: {
-                                  ...config.pvp,
-                                  streamerAttack: { ...config.pvp.streamerAttack, missProbability: num },
-                                },
-                              })
-                            }
-                          }}
-                          onBlur={() => {
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['pvp.streamerAttack.missProbability']
-                              return next
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.missProbability': e.target.value }))}
+                          onBlur={(e) => {
+                            const num = Number(e.target.value.trim())
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                streamerAttack: { ...config.pvp.streamerAttack, missProbability: (!isNaN(num) && num >= 0 && num <= 100) ? num : config.pvp.streamerAttack.missProbability },
+                              },
                             })
+                            setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerAttack.missProbability']; return next })
                           }}
                         />
                       </label>
@@ -2157,59 +2443,40 @@ export function OverlaySettings() {
                       <label>
                         クリティカル確率（0-100）:
                         <input
-                          type="number"
-                          min={0}
-                          max={100}
+                          type="text"
+                          inputMode="numeric"
                           value={inputValues['pvp.streamerAttack.criticalProbability'] ?? String(config.pvp.streamerAttack.criticalProbability)}
-                          onChange={(e) => {
-                            setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.criticalProbability': e.target.value }))
-                            const num = Number(e.target.value)
-                            if (!isNaN(num) && num >= 0 && num <= 100) {
-                              setConfig({
-                                ...config,
-                                pvp: {
-                                  ...config.pvp,
-                                  streamerAttack: { ...config.pvp.streamerAttack, criticalProbability: num },
-                                },
-                              })
-                            }
-                          }}
-                          onBlur={() => {
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['pvp.streamerAttack.criticalProbability']
-                              return next
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.criticalProbability': e.target.value }))}
+                          onBlur={(e) => {
+                            const num = Number(e.target.value.trim())
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                streamerAttack: { ...config.pvp.streamerAttack, criticalProbability: (!isNaN(num) && num >= 0 && num <= 100) ? num : config.pvp.streamerAttack.criticalProbability },
+                              },
                             })
+                            setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerAttack.criticalProbability']; return next })
                           }}
                         />
                       </label>
                       <label>
                         倍率:
                         <input
-                          type="number"
-                          min={1}
-                          max={10}
-                          step={0.1}
+                          type="text"
+                          inputMode="decimal"
                           value={inputValues['pvp.streamerAttack.criticalMultiplier'] ?? String(config.pvp.streamerAttack.criticalMultiplier)}
-                          onChange={(e) => {
-                            setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.criticalMultiplier': e.target.value }))
-                            const num = Number(e.target.value)
-                            if (!isNaN(num) && num >= 1 && num <= 10) {
-                              setConfig({
-                                ...config,
-                                pvp: {
-                                  ...config.pvp,
-                                  streamerAttack: { ...config.pvp.streamerAttack, criticalMultiplier: num },
-                                },
-                              })
-                            }
-                          }}
-                          onBlur={() => {
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['pvp.streamerAttack.criticalMultiplier']
-                              return next
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.criticalMultiplier': e.target.value }))}
+                          onBlur={(e) => {
+                            const num = Number(e.target.value.trim())
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                streamerAttack: { ...config.pvp.streamerAttack, criticalMultiplier: (!isNaN(num) && num >= 1) ? num : config.pvp.streamerAttack.criticalMultiplier },
+                              },
                             })
+                            setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerAttack.criticalMultiplier']; return next })
                           }}
                         />
                       </label>
@@ -2234,29 +2501,20 @@ export function OverlaySettings() {
                       <label>
                         確率（0-100）:
                         <input
-                          type="number"
-                          min={0}
-                          max={100}
+                          type="text"
+                          inputMode="numeric"
                           value={inputValues['pvp.streamerAttack.survivalHp1Probability'] ?? String(config.pvp.streamerAttack.survivalHp1Probability)}
-                          onChange={(e) => {
-                            setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.survivalHp1Probability': e.target.value }))
-                            const num = Number(e.target.value)
-                            if (!isNaN(num) && num >= 0 && num <= 100) {
-                              setConfig({
-                                ...config,
-                                pvp: {
-                                  ...config.pvp,
-                                  streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Probability: num },
-                                },
-                              })
-                            }
-                          }}
-                          onBlur={() => {
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['pvp.streamerAttack.survivalHp1Probability']
-                              return next
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.streamerAttack.survivalHp1Probability': e.target.value }))}
+                          onBlur={(e) => {
+                            const num = Number(e.target.value.trim())
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Probability: (!isNaN(num) && num >= 0 && num <= 100) ? num : config.pvp.streamerAttack.survivalHp1Probability },
+                              },
                             })
+                            setInputValues((prev) => { const next = { ...prev }; delete next['pvp.streamerAttack.survivalHp1Probability']; return next })
                           }}
                         />
                       </label>
@@ -3247,13 +3505,10 @@ export function OverlaySettings() {
               const jsonConfig = JSON.parse(text)
               const validated = validateAndSanitizeConfig(jsonConfig)
 
-              // 設定を更新
+              // 設定を更新。保存するには「設定を保存」を押す
               setConfig(validated)
-              // 入力値を初期化
               setInputValues({})
-              // ローカルストレージにも保存
-              localStorage.setItem('overlay-config', JSON.stringify(validated))
-              setMessage('✅ 設定ファイルを読み込みました')
+              setMessage('✅ 設定ファイルを読み込みました。保存するには「設定を保存」を押してください。')
               setTimeout(() => setMessage(null), 3000)
               console.log('✅ 設定ファイルを読み込みました')
             } catch (error) {
@@ -3280,7 +3535,16 @@ export function OverlaySettings() {
             fileInputRef.current?.click()
           }}
         >
-          設定を再読み込み
+          設定を再読み込み（ファイル選択）
+        </button>
+        <button
+          type="button"
+          className="settings-action-secondary"
+          onClick={handleLoadFromFile}
+          disabled={loadingFromFile}
+          title="public/config/overlay-config.json の内容でフォームを上書きします"
+        >
+          {loadingFromFile ? '読み込み中...' : 'JSONファイルから読み込み'}
         </button>
         <button type="button" className="settings-action-reset" onClick={handleReset}>
           リセット
@@ -3299,7 +3563,7 @@ export function OverlaySettings() {
             <strong>本番環境:</strong> 「設定を保存」ボタンをクリックすると、JSONファイルがダウンロードされます。ダウンロードしたファイルを <code>public/config/overlay-config.json</code> に配置してください
           </li>
           <li>
-            <strong>設定の読み込み優先順位:</strong> ローカルストレージ → JSONファイル → デフォルト設定
+            <strong>設定の保存先:</strong> JSONファイルのみ。読み込みは JSONファイル → デフォルト設定。同じ内容を再読み込みする場合は「JSONファイルから読み込み」を押してください。
           </li>
         </ul>
         <p>

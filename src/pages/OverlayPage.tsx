@@ -20,7 +20,7 @@ import { twitchChat } from '../utils/twitchChat'
 import type { TwitchChatMessage } from '../types/twitch'
 import { saveOverlayConfig, validateAndSanitizeConfig, getDefaultConfig } from '../utils/overlayConfig'
 import { twitchApi } from '../utils/twitchApi'
-import type { OverlayConfig } from '../types/overlay'
+import type { OverlayConfig, AttackConfig } from '../types/overlay'
 import type { ChannelPointEvent } from '../types/overlay'
 import './OverlayPage.css'
 
@@ -31,6 +31,33 @@ function getRandomHealAmount(min: number, max: number, step: number): number {
   if (steps < 1) return min
   const index = Math.floor(Math.random() * steps)
   return min + index * step
+}
+
+/** ランダムダメージを計算（getRandomHealAmount と同じ仕様） */
+function getRandomDamageAmount(min: number, max: number, step: number): number {
+  return getRandomHealAmount(min, max, step)
+}
+
+/** AttackConfig から今回の攻撃で使うダメージ1つを決定（固定 or ランダム） */
+function getAttackDamage(ac: AttackConfig): number {
+  if (ac.damageType === 'random' && ac.damageMin != null && ac.damageMax != null && ac.damageRandomStep != null) {
+    return getRandomDamageAmount(ac.damageMin, ac.damageMax, ac.damageRandomStep)
+  }
+  return ac.damage
+}
+
+/** 反転回復の回復量を決定（固定 or ランダム） */
+function getStreamerHealOnAttackAmount(pvp: {
+  streamerHealOnAttackType?: 'fixed' | 'random'
+  streamerHealOnAttackAmount: number
+  streamerHealOnAttackMin?: number
+  streamerHealOnAttackMax?: number
+  streamerHealOnAttackRandomStep?: number
+}): number {
+  if (pvp.streamerHealOnAttackType === 'random' && pvp.streamerHealOnAttackMin != null && pvp.streamerHealOnAttackMax != null && pvp.streamerHealOnAttackRandomStep != null) {
+    return getRandomHealAmount(pvp.streamerHealOnAttackMin, pvp.streamerHealOnAttackMax, pvp.streamerHealOnAttackRandomStep)
+  }
+  return pvp.streamerHealOnAttackAmount ?? 10
 }
 
 export function OverlayPage() {
@@ -96,7 +123,8 @@ export function OverlayPage() {
   const damageEffectEndTimerRef = useRef<number | null>(null)
   const healEffectStartTimerRef = useRef<number | null>(null)
   const healEffectEndTimerRef = useRef<number | null>(null)
-
+  /** 反転回復を攻撃モーション終了後に実行するためのタイマー */
+  const streamerHealOnAttackTimerRef = useRef<number | null>(null)
   // 回避（ミス）時の外部ウィンドウ・WebMの左右にずれて戻るエフェクト
   const [dodgeEffectActive, setDodgeEffectActive] = useState(false)
   const dodgeEffectTimerRef = useRef<number | null>(null)
@@ -387,6 +415,7 @@ export function OverlayPage() {
         window.clearTimeout(damageEffectEndTimerRef.current)
         damageEffectEndTimerRef.current = null
       }
+      // 反転回復タイマーは currentHP 変更時にクリアしない（攻撃→減る→遅延で回復の流れを維持。アンマウント時のみクリア）
       // クリーンアップ：回復エフェクトタイマー
       if (healEffectStartTimerRef.current !== null) {
         window.clearTimeout(healEffectStartTimerRef.current)
@@ -398,6 +427,16 @@ export function OverlayPage() {
       }
     }
   }, [currentHP])
+
+  // アンマウント時のみ：反転回復タイマーをクリア（currentHP の effect ではクリアしない）
+  useEffect(() => {
+    return () => {
+      if (streamerHealOnAttackTimerRef.current !== null) {
+        window.clearTimeout(streamerHealOnAttackTimerRef.current)
+        streamerHealOnAttackTimerRef.current = null
+      }
+    }
+  }, [])
 
   // テストモード用の連打タイマー管理
   const repeatTimerRef = useRef<number | null>(null)
@@ -515,6 +554,14 @@ export function OverlayPage() {
         }
 
         if (shouldDamage) {
+          // 反転回復の判定（この攻撃で「HPが減ったあとに回復」するか。0なら通常ダメージのみ）
+          let reverseHealAmount = 0
+          if (config.pvp?.streamerHealOnAttackEnabled && (config.pvp.streamerHealOnAttackProbability ?? 0) > 0) {
+            const roll = Math.random() * 100
+            if (roll < (config.pvp.streamerHealOnAttackProbability ?? 0)) {
+              reverseHealAmount = getStreamerHealOnAttackAmount(config.pvp)
+            }
+          }
           // 配信者HPを0にした「倒した」表示用：視聴者が攻撃したときだけ攻撃者を記録
           if (event.userId && user?.id && event.userId !== user.id) {
             lastStreamerAttackerRef.current = {
@@ -524,13 +571,14 @@ export function OverlayPage() {
           } else if (!event.userId || event.userId === user?.id) {
             lastStreamerAttackerRef.current = null
           }
-          // クリティカル判定
-          let finalDamage = config.attack.damage
+          // クリティカル判定（今回の攻撃のベースダメージは getAttackDamage で決定）
+          const baseDamage = getAttackDamage(config.attack)
+          let finalDamage = baseDamage
           let isCritical = false
           if (config.attack.criticalEnabled) {
             const criticalRoll = Math.random() * 100
             if (criticalRoll < config.attack.criticalProbability) {
-              finalDamage = Math.floor(config.attack.damage * config.attack.criticalMultiplier)
+              finalDamage = Math.floor(baseDamage * config.attack.criticalMultiplier)
               isCritical = true
             }
           }
@@ -640,11 +688,22 @@ export function OverlayPage() {
 
               bleedTimersRef.current.set(bleedId, { intervalTimer, durationTimer })
               console.log(`[出血ダメージ開始] タイマーを設定しました。intervalTimer: ${intervalTimer}, durationTimer: ${durationTimer}`)
-            } else {
-              console.log(`[出血ダメージ判定] 失敗: ${bleedRoll.toFixed(2)} >= ${config.attack.bleedProbability}`)
+} else {
+            console.log(`[出血ダメージ判定] 失敗: ${bleedRoll.toFixed(2)} >= ${config.attack.bleedProbability}`)
             }
           } else {
             console.log(`[出血ダメージ判定] bleedEnabled: false`)
+          }
+          // 反転回復: この攻撃のモーション後（durationMs後）に回復（1回の攻撃フローで「減る→回復」を完結）
+          if (reverseHealAmount > 0) {
+            const durationMs = config.animation?.duration ?? 500
+            streamerHealOnAttackTimerRef.current = window.setTimeout(() => {
+              streamerHealOnAttackTimerRef.current = null
+              setDamageEffectActive(false)
+              increaseHP(reverseHealAmount)
+              if (config.heal?.effectEnabled) showHealEffect()
+              if (config.heal?.soundEnabled) playHealSound()
+            }, durationMs)
           }
         } else {
           // MISSアニメーション表示
@@ -679,7 +738,7 @@ export function OverlayPage() {
             targetUserName = userIdToDisplayNameRef.current.get(picked) ?? (picked === event.userId ? (event.userName ?? event.userId) : picked)
           }
           const sa = config.pvp.streamerAttack
-          const result = applyViewerDamage(targetUserId, sa.damage, sa)
+          const result = applyViewerDamage(targetUserId, getAttackDamage(sa), sa)
           const hp = result.newHP
           const max = viewerMaxHP
           const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
@@ -704,7 +763,7 @@ export function OverlayPage() {
         }
       }
     },
-    [config, reduceHP, showMiss, triggerDodgeEffect, playMissSound, user?.id, applyViewerDamage, ensureViewerHP, getViewerUserIds, viewerMaxHP]
+    [config, reduceHP, increaseHP, showHealEffect, showMiss, triggerDodgeEffect, playMissSound, playHealSound, user?.id, applyViewerDamage, ensureViewerHP, getViewerUserIds, viewerMaxHP]
   )
 
   // 回復イベントハンドラ（チャンネルポイント・カスタムテキスト用。event に userId/userName があれば {username} に使用）
@@ -884,7 +943,6 @@ export function OverlayPage() {
       stopRepeat()
       return
     }
-
     // ミス判定
     let shouldDamage = true
     if (config.attack.missEnabled) {
@@ -895,13 +953,22 @@ export function OverlayPage() {
     }
 
     if (shouldDamage) {
-      // クリティカル判定
-      let finalDamage = config.attack.damage
+      // 反転回復の判定（この攻撃で「HPが減ったあとに回復」するか。0なら通常ダメージのみ）
+      let reverseHealAmount = 0
+      if (config.pvp?.streamerHealOnAttackEnabled && (config.pvp.streamerHealOnAttackProbability ?? 0) > 0) {
+        const roll = Math.random() * 100
+        if (roll < (config.pvp.streamerHealOnAttackProbability ?? 0)) {
+          reverseHealAmount = getStreamerHealOnAttackAmount(config.pvp)
+        }
+      }
+      // クリティカル判定（今回の攻撃のベースダメージは getAttackDamage で決定）
+      const baseDamage = getAttackDamage(config.attack)
+      let finalDamage = baseDamage
       let isCritical = false
       if (config.attack.criticalEnabled) {
         const criticalRoll = Math.random() * 100
         if (criticalRoll < config.attack.criticalProbability) {
-          finalDamage = Math.floor(config.attack.damage * config.attack.criticalMultiplier)
+          finalDamage = Math.floor(baseDamage * config.attack.criticalMultiplier)
           isCritical = true
         }
       }
@@ -1015,6 +1082,17 @@ export function OverlayPage() {
       } else {
         console.log(`[テストモード 出血ダメージ判定] bleedEnabled: false`)
       }
+      // 反転回復: この攻撃のモーション後（durationMs後）に回復（1回の攻撃フローで「減る→回復」を完結）
+      if (reverseHealAmount > 0) {
+        const durationMs = config.animation?.duration ?? 500
+        streamerHealOnAttackTimerRef.current = window.setTimeout(() => {
+          streamerHealOnAttackTimerRef.current = null
+          setDamageEffectActive(false)
+          increaseHP(reverseHealAmount)
+          if (config.heal?.effectEnabled) showHealEffect()
+          if (config.heal?.soundEnabled) playHealSound()
+        }, durationMs)
+      }
     } else {
       // ミス時
       showMiss(config.animation.duration)
@@ -1025,7 +1103,7 @@ export function OverlayPage() {
         playMissSound()
       }
     }
-  }, [config, isTestMode, currentHP, reduceHP, showMiss, showCritical, triggerDodgeEffect, playMissSound, playAttackSound, playBleedSound, stopRepeat])
+  }, [config, isTestMode, currentHP, reduceHP, increaseHP, showHealEffect, showMiss, showCritical, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, stopRepeat])
 
   const handleTestHeal = useCallback(() => {
     if (!config || !isTestMode) return
@@ -1165,7 +1243,7 @@ export function OverlayPage() {
             commandMatched = true
             ensureViewerHP(targetUserId)
             const sa = config.pvp.streamerAttack
-            const result = applyViewerDamage(targetUserId, sa.damage, sa)
+            const result = applyViewerDamage(targetUserId, getAttackDamage(sa), sa)
             const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
             const reply = tpl
               .replace(/\{username\}/g, targetDisplayName)
@@ -1245,7 +1323,7 @@ export function OverlayPage() {
                   commandMatched = true
                   ensureViewerHP(targetUserId)
                   const vva = config.pvp.viewerVsViewerAttack
-                  const result = applyViewerDamage(targetUserId, vva.damage, vva)
+                  const result = applyViewerDamage(targetUserId, getAttackDamage(vva), vva)
                   const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
                   const reply = tpl
                     .replace(/\{username\}/g, targetDisplayName)
@@ -1996,7 +2074,7 @@ export function OverlayPage() {
                           setTestInputValues((prev) => ({ ...prev, maxHP: e.target.value }))
                           const value = Number(e.target.value)
                           if (!isNaN(value) && value > 0) {
-                            updateConfigLocal({ hp: { ...config.hp, max: value, current: Math.min(config.hp.current, value) } })
+                            updateConfigLocal({ hp: { max: value } })
                           }
                         }}
                         onBlur={() => {
@@ -2018,7 +2096,7 @@ export function OverlayPage() {
                           setTestInputValues((prev) => ({ ...prev, currentHP: e.target.value }))
                           const value = Number(e.target.value)
                           if (!isNaN(value) && value >= 0 && value <= config.hp.max) {
-                            updateConfigLocal({ hp: { ...config.hp, current: value } })
+                            updateConfigLocal({ hp: { current: value } })
                           }
                         }}
                         onBlur={() => {
@@ -2036,13 +2114,12 @@ export function OverlayPage() {
                         type="number"
                         className="test-settings-input"
                         min="1"
-                        max="100"
                         value={testInputValues.gaugeCount ?? config.hp.gaugeCount}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, gaugeCount: e.target.value }))
                           const value = Number(e.target.value)
-                          if (!isNaN(value) && value >= 1 && value <= 100) {
-                            updateConfigLocal({ hp: { ...config.hp, gaugeCount: value } })
+                          if (!isNaN(value) && value >= 1) {
+                            updateConfigLocal({ hp: { gaugeCount: value } })
                           }
                         }}
                         onBlur={() => {
@@ -2064,7 +2141,7 @@ export function OverlayPage() {
                           setTestInputValues((prev) => ({ ...prev, hpGaugeX: e.target.value }))
                           const value = Number(e.target.value)
                           if (!isNaN(value)) {
-                            updateConfigLocal({ hp: { ...config.hp, x: value } })
+                            updateConfigLocal({ hp: { x: value } })
                           }
                         }}
                         onBlur={() => {
@@ -2086,7 +2163,7 @@ export function OverlayPage() {
                           setTestInputValues((prev) => ({ ...prev, hpGaugeY: e.target.value }))
                           const value = Number(e.target.value)
                           if (!isNaN(value)) {
-                            updateConfigLocal({ hp: { ...config.hp, y: value } })
+                            updateConfigLocal({ hp: { y: value } })
                           }
                         }}
                         onBlur={() => {
@@ -2104,13 +2181,12 @@ export function OverlayPage() {
                         type="number"
                         className="test-settings-input"
                         min="100"
-                        max="5000"
                         value={testInputValues.hpGaugeWidth ?? config.hp.width}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, hpGaugeWidth: e.target.value }))
                           const value = Number(e.target.value)
-                          if (!isNaN(value) && value >= 100 && value <= 5000) {
-                            updateConfigLocal({ hp: { ...config.hp, width: value } })
+                          if (!isNaN(value) && value >= 1) {
+                            updateConfigLocal({ hp: { width: value } })
                           }
                         }}
                         onBlur={() => {
@@ -2128,13 +2204,12 @@ export function OverlayPage() {
                         type="number"
                         className="test-settings-input"
                         min="20"
-                        max="500"
                         value={testInputValues.hpGaugeHeight ?? config.hp.height}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, hpGaugeHeight: e.target.value }))
                           const value = Number(e.target.value)
-                          if (!isNaN(value) && value >= 20 && value <= 500) {
-                            updateConfigLocal({ hp: { ...config.hp, height: value } })
+                          if (!isNaN(value) && value >= 1) {
+                            updateConfigLocal({ hp: { height: value } })
                           }
                         }}
                         onBlur={() => {
@@ -2147,142 +2222,153 @@ export function OverlayPage() {
                       />
                     </div>
                     <div className="test-settings-section">
-                      <label className="test-settings-label">攻撃ダメージ</label>
-                      <input
-                        type="number"
-                        className="test-settings-input"
-                        value={testInputValues.attackDamage ?? config.attack.damage}
-                        onChange={(e) => {
-                          setTestInputValues((prev) => ({ ...prev, attackDamage: e.target.value }))
-                          const value = Number(e.target.value)
-                          if (!isNaN(value) && value > 0) {
-                            updateConfigLocal({ attack: { ...config.attack, damage: value } })
-                          }
-                        }}
-                        onBlur={() => {
-                          setTestInputValues((prev => {
-                            const newValues = { ...prev }
-                            delete newValues.attackDamage
-                            return newValues
-                          }))
-                        }}
-                      />
+                      <label className="test-settings-label">ダメージタイプ</label>
+                      <select
+                        className="test-settings-select"
+                        value={config.attack.damageType ?? 'fixed'}
+                        onChange={(e) => updateConfigLocal({ attack: { damageType: e.target.value as 'fixed' | 'random' } })}
+                      >
+                        <option value="fixed">固定</option>
+                        <option value="random">ランダム</option>
+                      </select>
                     </div>
+                    {(config.attack.damageType ?? 'fixed') === 'random' ? (
+                      <>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">ダメージ（最小）</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="test-settings-input"
+                            value={testInputValues.attackDamageMin ?? config.attack.damageMin ?? 5}
+                            onChange={(e) => setTestInputValues((prev) => ({ ...prev, attackDamageMin: e.target.value }))}
+                            onBlur={(e) => {
+                              const value = Number(e.target.value.trim())
+                              if (!isNaN(value) && value >= 1) updateConfigLocal({ attack: { damageMin: value } })
+                              setTestInputValues((prev) => { const next = { ...prev }; delete next.attackDamageMin; return next })
+                            }}
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">ダメージ（最大）</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="test-settings-input"
+                            value={testInputValues.attackDamageMax ?? config.attack.damageMax ?? 15}
+                            onChange={(e) => setTestInputValues((prev) => ({ ...prev, attackDamageMax: e.target.value }))}
+                            onBlur={(e) => {
+                              const value = Number(e.target.value.trim())
+                              if (!isNaN(value) && value >= 1) updateConfigLocal({ attack: { damageMax: value } })
+                              setTestInputValues((prev) => { const next = { ...prev }; delete next.attackDamageMax; return next })
+                            }}
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">刻み（1で連続値）</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="test-settings-input"
+                            value={testInputValues.attackDamageRandomStep ?? config.attack.damageRandomStep ?? 1}
+                            onChange={(e) => setTestInputValues((prev) => ({ ...prev, attackDamageRandomStep: e.target.value }))}
+                            onBlur={(e) => {
+                              const value = Number(e.target.value.trim())
+                              if (!isNaN(value) && value >= 1) updateConfigLocal({ attack: { damageRandomStep: value } })
+                              setTestInputValues((prev) => { const next = { ...prev }; delete next.attackDamageRandomStep; return next })
+                            }}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="test-settings-section">
+                        <label className="test-settings-label">攻撃ダメージ</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="test-settings-input"
+                          value={testInputValues.attackDamage ?? config.attack.damage}
+                          onChange={(e) => setTestInputValues((prev) => ({ ...prev, attackDamage: e.target.value }))}
+                          onBlur={(e) => {
+                            const value = Number(e.target.value.trim())
+                            if (!isNaN(value) && value >= 1) updateConfigLocal({ attack: { damage: value } })
+                            setTestInputValues((prev) => { const next = { ...prev }; delete next.attackDamage; return next })
+                          }}
+                        />
+                      </div>
+                    )}
                     <div className="test-settings-section">
                       <label className="test-settings-label">ミス確率 (%)</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         className="test-settings-input"
-                        min="0"
-                        max="100"
                         value={testInputValues.missProbability ?? config.attack.missProbability}
-                        onChange={(e) => {
-                          setTestInputValues((prev) => ({ ...prev, missProbability: e.target.value }))
-                          const value = Number(e.target.value)
-                          if (!isNaN(value) && value >= 0 && value <= 100) {
-                            updateConfigLocal({ attack: { ...config.attack, missProbability: value } })
-                          }
-                        }}
-                        onBlur={() => {
-                          setTestInputValues((prev => {
-                            const newValues = { ...prev }
-                            delete newValues.missProbability
-                            return newValues
-                          }))
+                        onChange={(e) => setTestInputValues((prev) => ({ ...prev, missProbability: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value.trim())
+                          if (!isNaN(value) && value >= 0 && value <= 100) updateConfigLocal({ attack: { missProbability: value } })
+                          setTestInputValues((prev) => { const next = { ...prev }; delete next.missProbability; return next })
                         }}
                       />
                     </div>
                     <div className="test-settings-section">
                       <label className="test-settings-label">クリティカル確率 (%)</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         className="test-settings-input"
-                        min="0"
-                        max="100"
                         value={testInputValues.criticalProbability ?? config.attack.criticalProbability}
-                        onChange={(e) => {
-                          setTestInputValues((prev) => ({ ...prev, criticalProbability: e.target.value }))
-                          const value = Number(e.target.value)
-                          if (!isNaN(value) && value >= 0 && value <= 100) {
-                            updateConfigLocal({ attack: { ...config.attack, criticalProbability: value } })
-                          }
-                        }}
-                        onBlur={() => {
-                          setTestInputValues((prev => {
-                            const newValues = { ...prev }
-                            delete newValues.criticalProbability
-                            return newValues
-                          }))
+                        onChange={(e) => setTestInputValues((prev) => ({ ...prev, criticalProbability: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value.trim())
+                          if (!isNaN(value) && value >= 0 && value <= 100) updateConfigLocal({ attack: { criticalProbability: value } })
+                          setTestInputValues((prev) => { const next = { ...prev }; delete next.criticalProbability; return next })
                         }}
                       />
                     </div>
                     <div className="test-settings-section">
                       <label className="test-settings-label">クリティカル倍率</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         className="test-settings-input"
-                        step="0.1"
-                        min="1"
                         value={testInputValues.criticalMultiplier ?? config.attack.criticalMultiplier}
-                        onChange={(e) => {
-                          setTestInputValues((prev) => ({ ...prev, criticalMultiplier: e.target.value }))
-                          const value = Number(e.target.value)
-                          if (!isNaN(value) && value >= 1) {
-                            updateConfigLocal({ attack: { ...config.attack, criticalMultiplier: value } })
-                          }
-                        }}
-                        onBlur={() => {
-                          setTestInputValues((prev => {
-                            const newValues = { ...prev }
-                            delete newValues.criticalMultiplier
-                            return newValues
-                          }))
+                        onChange={(e) => setTestInputValues((prev) => ({ ...prev, criticalMultiplier: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value.trim())
+                          if (!isNaN(value) && value >= 1) updateConfigLocal({ attack: { criticalMultiplier: value } })
+                          setTestInputValues((prev) => { const next = { ...prev }; delete next.criticalMultiplier; return next })
                         }}
                       />
                     </div>
                     <div className="test-settings-section">
                       <label className="test-settings-label">出血確率 (%)</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         className="test-settings-input"
-                        min="0"
-                        max="100"
                         value={testInputValues.bleedProbability ?? config.attack.bleedProbability}
-                        onChange={(e) => {
-                          setTestInputValues((prev) => ({ ...prev, bleedProbability: e.target.value }))
-                          const value = Number(e.target.value)
-                          if (!isNaN(value) && value >= 0 && value <= 100) {
-                            updateConfigLocal({ attack: { ...config.attack, bleedProbability: value } })
-                          }
-                        }}
-                        onBlur={() => {
-                          setTestInputValues((prev => {
-                            const newValues = { ...prev }
-                            delete newValues.bleedProbability
-                            return newValues
-                          }))
+                        onChange={(e) => setTestInputValues((prev) => ({ ...prev, bleedProbability: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value.trim())
+                          if (!isNaN(value) && value >= 0 && value <= 100) updateConfigLocal({ attack: { bleedProbability: value } })
+                          setTestInputValues((prev) => { const next = { ...prev }; delete next.bleedProbability; return next })
                         }}
                       />
                     </div>
                     <div className="test-settings-section">
                       <label className="test-settings-label">出血ダメージ</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         className="test-settings-input"
                         value={testInputValues.bleedDamage ?? config.attack.bleedDamage}
-                        onChange={(e) => {
-                          setTestInputValues((prev) => ({ ...prev, bleedDamage: e.target.value }))
-                          const value = Number(e.target.value)
-                          if (!isNaN(value) && value > 0) {
-                            updateConfigLocal({ attack: { ...config.attack, bleedDamage: value } })
-                          }
-                        }}
-                        onBlur={() => {
-                          setTestInputValues((prev => {
-                            const newValues = { ...prev }
-                            delete newValues.bleedDamage
-                            return newValues
-                          }))
+                        onChange={(e) => setTestInputValues((prev) => ({ ...prev, bleedDamage: e.target.value }))}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value.trim())
+                          if (!isNaN(value) && value > 0) updateConfigLocal({ attack: { bleedDamage: value } })
+                          setTestInputValues((prev) => { const next = { ...prev }; delete next.bleedDamage; return next })
                         }}
                       />
                     </div>
@@ -2290,22 +2376,15 @@ export function OverlayPage() {
                       <div className="test-settings-section">
                         <label className="test-settings-label">回復量 (固定)</label>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
                           className="test-settings-input"
                           value={testInputValues.healAmount ?? config.heal.healAmount}
-                          onChange={(e) => {
-                            setTestInputValues((prev) => ({ ...prev, healAmount: e.target.value }))
-                            const value = Number(e.target.value)
-                            if (!isNaN(value) && value > 0) {
-                              updateConfigLocal({ heal: { ...config.heal, healAmount: value } })
-                            }
-                          }}
-                          onBlur={() => {
-                            setTestInputValues((prev => {
-                              const newValues = { ...prev }
-                              delete newValues.healAmount
-                              return newValues
-                            }))
+                          onChange={(e) => setTestInputValues((prev) => ({ ...prev, healAmount: e.target.value }))}
+                          onBlur={(e) => {
+                            const value = Number(e.target.value.trim())
+                            if (!isNaN(value) && value > 0) updateConfigLocal({ heal: { healAmount: value } })
+                            setTestInputValues((prev) => { const next = { ...prev }; delete next.healAmount; return next })
                           }}
                         />
                       </div>
@@ -2314,60 +2393,45 @@ export function OverlayPage() {
                         <div className="test-settings-section">
                           <label className="test-settings-label">回復量 (最小)</label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             className="test-settings-input"
                             value={testInputValues.healMin ?? config.heal.healMin}
-                            onChange={(e) => {
-                              setTestInputValues((prev) => ({ ...prev, healMin: e.target.value }))
-                              const value = Number(e.target.value)
-                              if (!isNaN(value) && value > 0) {
-                                updateConfigLocal({ heal: { ...config.heal, healMin: value } })
-                              }
-                            }}
-                            onBlur={() => {
-                              setTestInputValues((prev => {
-                                const newValues = { ...prev }
-                                delete newValues.healMin
-                                return newValues
-                              }))
+                            onChange={(e) => setTestInputValues((prev) => ({ ...prev, healMin: e.target.value }))}
+                            onBlur={(e) => {
+                              const value = Number(e.target.value.trim())
+                              if (!isNaN(value) && value > 0) updateConfigLocal({ heal: { healMin: value } })
+                              setTestInputValues((prev) => { const next = { ...prev }; delete next.healMin; return next })
                             }}
                           />
                         </div>
                         <div className="test-settings-section">
                           <label className="test-settings-label">回復量 (最大)</label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             className="test-settings-input"
                             value={testInputValues.healMax ?? config.heal.healMax}
-                            onChange={(e) => {
-                              setTestInputValues((prev) => ({ ...prev, healMax: e.target.value }))
-                              const value = Number(e.target.value)
-                              if (!isNaN(value) && value > 0) {
-                                updateConfigLocal({ heal: { ...config.heal, healMax: value } })
-                              }
-                            }}
-                            onBlur={() => {
-                              setTestInputValues((prev => {
-                                const newValues = { ...prev }
-                                delete newValues.healMax
-                                return newValues
-                              }))
+                            onChange={(e) => setTestInputValues((prev) => ({ ...prev, healMax: e.target.value }))}
+                            onBlur={(e) => {
+                              const value = Number(e.target.value.trim())
+                              if (!isNaN(value) && value > 0) updateConfigLocal({ heal: { healMax: value } })
+                              setTestInputValues((prev) => { const next = { ...prev }; delete next.healMax; return next })
                             }}
                           />
                         </div>
                         <div className="test-settings-section">
                           <label className="test-settings-label">刻み（50・100など。1のときは最小～最大の連続値）</label>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             className="test-settings-input"
-                            min={1}
-                            max={1000}
-                            value={config.heal.healRandomStep ?? 1}
-                            onChange={(e) => {
-                              const num = Number(e.target.value)
-                              if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                updateConfigLocal({ heal: { ...config.heal, healRandomStep: num } })
-                              }
+                            value={testInputValues.healRandomStep ?? config.heal.healRandomStep ?? 1}
+                            onChange={(e) => setTestInputValues((prev) => ({ ...prev, healRandomStep: e.target.value }))}
+                            onBlur={(e) => {
+                              const num = Number(e.target.value.trim())
+                              if (!isNaN(num) && num >= 1) updateConfigLocal({ heal: { healRandomStep: num } })
+                              setTestInputValues((prev) => { const next = { ...prev }; delete next.healRandomStep; return next })
                             }}
                           />
                         </div>
@@ -2379,7 +2443,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.display.showMaxHp}
                         onChange={(e) => {
-                          updateConfigLocal({ display: { ...config.display, showMaxHp: e.target.checked } })
+                          updateConfigLocal({ display: { showMaxHp: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2389,13 +2453,12 @@ export function OverlayPage() {
                         type="number"
                         className="test-settings-input"
                         min="8"
-                        max="200"
                         value={testInputValues.fontSize ?? config.display.fontSize}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, fontSize: e.target.value }))
                           const value = Number(e.target.value)
-                          if (!isNaN(value) && value >= 8 && value <= 200) {
-                            updateConfigLocal({ display: { ...config.display, fontSize: value } })
+                          if (!isNaN(value) && value >= 1) {
+                            updateConfigLocal({ display: { fontSize: value } })
                           }
                         }}
                         onBlur={() => {
@@ -2417,13 +2480,12 @@ export function OverlayPage() {
                         type="number"
                         className="test-settings-input"
                         min="0"
-                        max="10000"
                         value={testInputValues.animationDuration ?? config.animation.duration}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, animationDuration: e.target.value }))
                           const value = Number(e.target.value)
-                          if (!isNaN(value) && value >= 0 && value <= 10000) {
-                            updateConfigLocal({ animation: { ...config.animation, duration: value } })
+                          if (!isNaN(value) && value >= 0) {
+                            updateConfigLocal({ animation: { duration: value } })
                           }
                         }}
                         onBlur={() => {
@@ -2441,7 +2503,7 @@ export function OverlayPage() {
                         className="test-settings-select"
                         value={config.animation.easing}
                         onChange={(e) => {
-                          updateConfigLocal({ animation: { ...config.animation, easing: e.target.value } })
+                          updateConfigLocal({ animation: { easing: e.target.value } })
                         }}
                       >
                         <option value="linear">linear</option>
@@ -2461,7 +2523,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.attack.missEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ attack: { ...config.attack, missEnabled: e.target.checked } })
+                          updateConfigLocal({ attack: { missEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2471,7 +2533,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.attack.criticalEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ attack: { ...config.attack, criticalEnabled: e.target.checked } })
+                          updateConfigLocal({ attack: { criticalEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2481,7 +2543,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.attack.bleedEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ attack: { ...config.attack, bleedEnabled: e.target.checked } })
+                          updateConfigLocal({ attack: { bleedEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2493,13 +2555,12 @@ export function OverlayPage() {
                             type="number"
                             className="test-settings-input"
                             min="1"
-                            max="300"
                             value={testInputValues.bleedDuration ?? config.attack.bleedDuration}
                             onChange={(e) => {
                               setTestInputValues((prev) => ({ ...prev, bleedDuration: e.target.value }))
                               const value = Number(e.target.value)
-                              if (!isNaN(value) && value >= 1 && value <= 300) {
-                                updateConfigLocal({ attack: { ...config.attack, bleedDuration: value } })
+                              if (!isNaN(value) && value >= 1) {
+                                updateConfigLocal({ attack: { bleedDuration: value } })
                               }
                             }}
                             onBlur={() => {
@@ -2518,13 +2579,12 @@ export function OverlayPage() {
                             className="test-settings-input"
                             step="0.1"
                             min="0.1"
-                            max="60"
                             value={testInputValues.bleedInterval ?? config.attack.bleedInterval}
                             onChange={(e) => {
                               setTestInputValues((prev) => ({ ...prev, bleedInterval: e.target.value }))
                               const value = Number(e.target.value)
-                              if (!isNaN(value) && value >= 0.1 && value <= 60) {
-                                updateConfigLocal({ attack: { ...config.attack, bleedInterval: value } })
+                              if (!isNaN(value) && value >= 0.1) {
+                                updateConfigLocal({ attack: { bleedInterval: value } })
                               }
                             }}
                             onBlur={() => {
@@ -2544,7 +2604,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.attack.soundEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ attack: { ...config.attack, soundEnabled: e.target.checked } })
+                          updateConfigLocal({ attack: { soundEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2554,7 +2614,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.attack.filterEffectEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ attack: { ...config.attack, filterEffectEnabled: e.target.checked } })
+                          updateConfigLocal({ attack: { filterEffectEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2564,7 +2624,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.attack.survivalHp1Enabled}
                         onChange={(e) => {
-                          updateConfigLocal({ attack: { ...config.attack, survivalHp1Enabled: e.target.checked } })
+                          updateConfigLocal({ attack: { survivalHp1Enabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2582,7 +2642,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, survivalHp1Probability: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value) && value >= 0 && value <= 100) {
-                                updateConfigLocal({ attack: { ...config.attack, survivalHp1Probability: value } })
+                                updateConfigLocal({ attack: { survivalHp1Probability: value } })
                               }
                             }}
                             onBlur={() => {
@@ -2602,7 +2662,7 @@ export function OverlayPage() {
                             placeholder="食いしばり!"
                             value={config.attack.survivalHp1Message}
                             onChange={(e) => {
-                              updateConfigLocal({ attack: { ...config.attack, survivalHp1Message: e.target.value } })
+                              updateConfigLocal({ attack: { survivalHp1Message: e.target.value } })
                             }}
                           />
                         </div>
@@ -2618,7 +2678,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.heal.effectEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ heal: { ...config.heal, effectEnabled: e.target.checked } })
+                          updateConfigLocal({ heal: { effectEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2628,7 +2688,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.heal.healWhenZeroEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ heal: { ...config.heal, healWhenZeroEnabled: e.target.checked } })
+                          updateConfigLocal({ heal: { healWhenZeroEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2638,7 +2698,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.heal.soundEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ heal: { ...config.heal, soundEnabled: e.target.checked } })
+                          updateConfigLocal({ heal: { soundEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2648,7 +2708,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.heal.filterEffectEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ heal: { ...config.heal, filterEffectEnabled: e.target.checked } })
+                          updateConfigLocal({ heal: { filterEffectEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2665,7 +2725,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.pvp.enabled}
                         onChange={(e) => {
-                          updateConfigLocal({ pvp: { ...config.pvp, enabled: e.target.checked } })
+                          updateConfigLocal({ pvp: { enabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -2676,7 +2736,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.counterOnAttackTargetAttacker ?? true}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, counterOnAttackTargetAttacker: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { counterOnAttackTargetAttacker: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -2684,15 +2744,128 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.counterOnAttackTargetRandom ?? false}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, counterOnAttackTargetRandom: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { counterOnAttackTargetRandom: e.target.checked } })}
                           />
                         </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">視聴者攻撃時に配信者回復（反転回復）</label>
+                          <input
+                            type="checkbox"
+                            checked={config.pvp.streamerHealOnAttackEnabled ?? false}
+                            onChange={(e) => updateConfigLocal({ pvp: { streamerHealOnAttackEnabled: e.target.checked } })}
+                          />
+                        </div>
+                        {(config.pvp.streamerHealOnAttackEnabled ?? false) && (
+                          <>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">反転回復の確率 (%)</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                className="test-settings-input"
+                                value={testInputValues.pvpStreamerHealOnAttackProb ?? config.pvp.streamerHealOnAttackProbability ?? 10}
+                                onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStreamerHealOnAttackProb: e.target.value }))}
+                                onBlur={(e) => {
+                                  const num = Number(e.target.value.trim())
+                                  if (!isNaN(num) && num >= 0 && num <= 100) {
+                                    updateConfigLocal({ pvp: { streamerHealOnAttackProbability: num } })
+                                  }
+                                  setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStreamerHealOnAttackProb; return next })
+                                }}
+                              />
+                            </div>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">反転回復の回復量タイプ</label>
+                              <select
+                                className="test-settings-select"
+                                value={config.pvp.streamerHealOnAttackType ?? 'fixed'}
+                                onChange={(e) => updateConfigLocal({ pvp: { streamerHealOnAttackType: e.target.value as 'fixed' | 'random' } })}
+                              >
+                                <option value="fixed">固定</option>
+                                <option value="random">ランダム</option>
+                              </select>
+                            </div>
+                            {(config.pvp.streamerHealOnAttackType ?? 'fixed') === 'random' ? (
+                              <>
+                                <div className="test-settings-section">
+                                  <label className="test-settings-label">反転回復（最小）</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="test-settings-input"
+                                    value={testInputValues.pvpStreamerHealOnAttackMin ?? config.pvp.streamerHealOnAttackMin ?? 5}
+                                    onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStreamerHealOnAttackMin: e.target.value }))}
+                                    onBlur={(e) => {
+                                      const num = Number(e.target.value.trim())
+                                      if (!isNaN(num) && num >= 1) {
+                                        updateConfigLocal({ pvp: { streamerHealOnAttackMin: num } })
+                                      }
+                                      setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStreamerHealOnAttackMin; return next })
+                                    }}
+                                  />
+                                </div>
+                                <div className="test-settings-section">
+                                  <label className="test-settings-label">反転回復（最大）</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="test-settings-input"
+                                    value={testInputValues.pvpStreamerHealOnAttackMax ?? config.pvp.streamerHealOnAttackMax ?? 20}
+                                    onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStreamerHealOnAttackMax: e.target.value }))}
+                                    onBlur={(e) => {
+                                      const num = Number(e.target.value.trim())
+                                      if (!isNaN(num) && num >= 1) {
+                                        updateConfigLocal({ pvp: { streamerHealOnAttackMax: num } })
+                                      }
+                                      setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStreamerHealOnAttackMax; return next })
+                                    }}
+                                  />
+                                </div>
+                                <div className="test-settings-section">
+                                  <label className="test-settings-label">刻み（1で連続値）</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="test-settings-input"
+                                    value={testInputValues.pvpStreamerHealOnAttackStep ?? config.pvp.streamerHealOnAttackRandomStep ?? 1}
+                                    onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStreamerHealOnAttackStep: e.target.value }))}
+                                    onBlur={(e) => {
+                                      const num = Number(e.target.value.trim())
+                                      if (!isNaN(num) && num >= 1) {
+                                        updateConfigLocal({ pvp: { streamerHealOnAttackRandomStep: num } })
+                                      }
+                                      setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStreamerHealOnAttackStep; return next })
+                                    }}
+                                  />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="test-settings-section">
+                                <label className="test-settings-label">反転回復の回復量</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  className="test-settings-input"
+                                  value={testInputValues.pvpStreamerHealOnAttackAmount ?? config.pvp.streamerHealOnAttackAmount ?? 10}
+                                  onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStreamerHealOnAttackAmount: e.target.value }))}
+                                  onBlur={(e) => {
+                                    const num = Number(e.target.value.trim())
+                                    if (!isNaN(num) && num >= 1) {
+                                      updateConfigLocal({ pvp: { streamerHealOnAttackAmount: num } })
+                                    }
+                                    setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStreamerHealOnAttackAmount; return next })
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </>
+                        )}
                         <div className="test-settings-section">
                           <label className="test-settings-label">コマンドでユーザー名指定</label>
                           <input
                             type="checkbox"
                             checked={config.pvp.counterCommandAcceptsUsername ?? false}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, counterCommandAcceptsUsername: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { counterCommandAcceptsUsername: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -2701,13 +2874,12 @@ export function OverlayPage() {
                             type="number"
                             className="test-settings-input"
                             min={1}
-                            max={9999}
                             value={testInputValues.pvpViewerMaxHp ?? config.pvp.viewerMaxHp ?? 100}
                             onChange={(e) => {
                               setTestInputValues((prev) => ({ ...prev, pvpViewerMaxHp: e.target.value }))
                               const num = Number(e.target.value)
-                              if (!isNaN(num) && num >= 1 && num <= 9999) {
-                                updateConfigLocal({ pvp: { ...config.pvp, viewerMaxHp: num } })
+                              if (!isNaN(num) && num >= 1) {
+                                updateConfigLocal({ pvp: { viewerMaxHp: num } })
                               }
                             }}
                             onBlur={() => {
@@ -2725,7 +2897,7 @@ export function OverlayPage() {
                             type="text"
                             className="test-settings-input"
                             value={config.pvp.counterCommand}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, counterCommand: e.target.value } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { counterCommand: e.target.value } })}
                             placeholder="!counter"
                           />
                         </div>
@@ -2734,7 +2906,7 @@ export function OverlayPage() {
                           <select
                             className="test-settings-select"
                             value={config.pvp.attackMode ?? 'both'}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, attackMode: e.target.value as 'streamer_only' | 'both' } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { attackMode: e.target.value as 'streamer_only' | 'both' } })}
                           >
                             <option value="streamer_only">配信者 vs 視聴者のみ</option>
                             <option value="both">両方（視聴者同士の攻撃も有効）</option>
@@ -2748,32 +2920,94 @@ export function OverlayPage() {
                                 type="text"
                                 className="test-settings-input"
                                 value={config.pvp.viewerAttackViewerCommand ?? '!attack'}
-                                onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, viewerAttackViewerCommand: e.target.value } })}
+                                onChange={(e) => updateConfigLocal({ pvp: { viewerAttackViewerCommand: e.target.value } })}
                                 placeholder="!attack"
                               />
                             </div>
                             <div className="test-settings-section">
-                              <label className="test-settings-label">視聴者同士攻撃のダメージ</label>
-                              <input
-                                type="number"
-                                min={1}
-                                max={1000}
-                                className="test-settings-input"
-                                value={config.pvp.viewerVsViewerAttack?.damage ?? 10}
-                                onChange={(e) => {
-                                  const num = Number(e.target.value)
-                                  if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                    const base = config.pvp.viewerVsViewerAttack ?? getDefaultConfig().pvp.viewerVsViewerAttack
-                                    updateConfigLocal({
-                                      pvp: {
-                                        ...config.pvp,
-                                        viewerVsViewerAttack: { ...base, damage: num },
-                                      },
-                                    })
-                                  }
-                                }}
-                              />
+                              <label className="test-settings-label">視聴者同士攻撃のダメージタイプ</label>
+                              <select
+                                className="test-settings-select"
+                                value={config.pvp.viewerVsViewerAttack?.damageType ?? 'fixed'}
+                                onChange={(e) => updateConfigLocal({ pvp: { viewerVsViewerAttack: { damageType: e.target.value as 'fixed' | 'random' } } })}
+                              >
+                                <option value="fixed">固定</option>
+                                <option value="random">ランダム</option>
+                              </select>
                             </div>
+                            {(config.pvp.viewerVsViewerAttack?.damageType ?? 'fixed') === 'random' ? (
+                              <>
+                                <div className="test-settings-section">
+                                  <label className="test-settings-label">ダメージ（最小）</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="test-settings-input"
+                                    value={testInputValues['pvp.viewerVsViewerAttack.damageMin'] ?? config.pvp.viewerVsViewerAttack?.damageMin ?? 5}
+                                    onChange={(e) => setTestInputValues((prev) => ({ ...prev, 'pvp.viewerVsViewerAttack.damageMin': e.target.value }))}
+                                    onBlur={(e) => {
+                                      const num = Number(e.target.value.trim())
+                                      if (!isNaN(num) && num >= 1) {
+                                        updateConfigLocal({ pvp: { viewerVsViewerAttack: { damageMin: num } } })
+                                      }
+                                      setTestInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerVsViewerAttack.damageMin']; return next })
+                                    }}
+                                  />
+                                </div>
+                                <div className="test-settings-section">
+                                  <label className="test-settings-label">ダメージ（最大）</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="test-settings-input"
+                                    value={testInputValues['pvp.viewerVsViewerAttack.damageMax'] ?? config.pvp.viewerVsViewerAttack?.damageMax ?? 15}
+                                    onChange={(e) => setTestInputValues((prev) => ({ ...prev, 'pvp.viewerVsViewerAttack.damageMax': e.target.value }))}
+                                    onBlur={(e) => {
+                                      const num = Number(e.target.value.trim())
+                                      if (!isNaN(num) && num >= 1) {
+                                        updateConfigLocal({ pvp: { viewerVsViewerAttack: { damageMax: num } } })
+                                      }
+                                      setTestInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerVsViewerAttack.damageMax']; return next })
+                                    }}
+                                  />
+                                </div>
+                                <div className="test-settings-section">
+                                  <label className="test-settings-label">刻み（1で連続値）</label>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    className="test-settings-input"
+                                    value={testInputValues['pvp.viewerVsViewerAttack.damageRandomStep'] ?? config.pvp.viewerVsViewerAttack?.damageRandomStep ?? 1}
+                                    onChange={(e) => setTestInputValues((prev) => ({ ...prev, 'pvp.viewerVsViewerAttack.damageRandomStep': e.target.value }))}
+                                    onBlur={(e) => {
+                                      const num = Number(e.target.value.trim())
+                                      if (!isNaN(num) && num >= 1) {
+                                        updateConfigLocal({ pvp: { viewerVsViewerAttack: { damageRandomStep: num } } })
+                                      }
+                                      setTestInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerVsViewerAttack.damageRandomStep']; return next })
+                                    }}
+                                  />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="test-settings-section">
+                                <label className="test-settings-label">視聴者同士攻撃のダメージ（下限1）</label>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  className="test-settings-input"
+                                  value={testInputValues['pvp.viewerVsViewerAttack.damage'] ?? String(config.pvp.viewerVsViewerAttack?.damage ?? 10)}
+                                  onChange={(e) => setTestInputValues((prev) => ({ ...prev, 'pvp.viewerVsViewerAttack.damage': e.target.value }))}
+                                  onBlur={(e) => {
+                                    const num = Number(e.target.value.trim())
+                                    if (!isNaN(num) && num >= 1) {
+                                      updateConfigLocal({ pvp: { viewerVsViewerAttack: { damage: num } } })
+                                    }
+                                    setTestInputValues((prev) => { const next = { ...prev }; delete next['pvp.viewerVsViewerAttack.damage']; return next })
+                                  }}
+                                />
+                              </div>
+                            )}
                           </>
                         )}
                         <div className="test-settings-section">
@@ -2782,7 +3016,7 @@ export function OverlayPage() {
                             type="text"
                             className="test-settings-input"
                             value={config.pvp.hpCheckCommand}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, hpCheckCommand: e.target.value } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { hpCheckCommand: e.target.value } })}
                             placeholder="!hp"
                           />
                         </div>
@@ -2792,7 +3026,7 @@ export function OverlayPage() {
                             type="text"
                             className="test-settings-input"
                             value={config.pvp.viewerFullHealCommand ?? '!fullheal'}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, viewerFullHealCommand: e.target.value } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { viewerFullHealCommand: e.target.value } })}
                             placeholder="!fullheal"
                           />
                         </div>
@@ -2802,7 +3036,7 @@ export function OverlayPage() {
                             type="text"
                             className="test-settings-input"
                             value={config.pvp.viewerHealCommand ?? '!heal'}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, viewerHealCommand: e.target.value } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { viewerHealCommand: e.target.value } })}
                             placeholder="!heal"
                           />
                         </div>
@@ -2811,7 +3045,7 @@ export function OverlayPage() {
                           <select
                             className="test-settings-select"
                             value={config.pvp.viewerHealType ?? 'fixed'}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, viewerHealType: e.target.value as 'fixed' | 'random' } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { viewerHealType: e.target.value as 'fixed' | 'random' } })}
                           >
                             <option value="fixed">固定</option>
                             <option value="random">ランダム</option>
@@ -2824,12 +3058,11 @@ export function OverlayPage() {
                               type="number"
                               className="test-settings-input"
                               min={1}
-                              max={1000}
                               value={config.pvp.viewerHealAmount ?? 20}
                               onChange={(e) => {
                                 const num = Number(e.target.value)
-                                if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                  updateConfigLocal({ pvp: { ...config.pvp, viewerHealAmount: num } })
+                                if (!isNaN(num) && num >= 1) {
+                                  updateConfigLocal({ pvp: { viewerHealAmount: num } })
                                 }
                               }}
                             />
@@ -2842,12 +3075,11 @@ export function OverlayPage() {
                                 type="number"
                                 className="test-settings-input"
                                 min={1}
-                                max={1000}
                                 value={config.pvp.viewerHealMin ?? 10}
                                 onChange={(e) => {
                                   const num = Number(e.target.value)
-                                  if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                    updateConfigLocal({ pvp: { ...config.pvp, viewerHealMin: num } })
+                                  if (!isNaN(num) && num >= 1) {
+                                    updateConfigLocal({ pvp: { viewerHealMin: num } })
                                   }
                                 }}
                               />
@@ -2858,12 +3090,11 @@ export function OverlayPage() {
                                 type="number"
                                 className="test-settings-input"
                                 min={1}
-                                max={1000}
                                 value={config.pvp.viewerHealMax ?? 30}
                                 onChange={(e) => {
                                   const num = Number(e.target.value)
-                                  if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                    updateConfigLocal({ pvp: { ...config.pvp, viewerHealMax: num } })
+                                  if (!isNaN(num) && num >= 1) {
+                                    updateConfigLocal({ pvp: { viewerHealMax: num } })
                                   }
                                 }}
                               />
@@ -2874,12 +3105,11 @@ export function OverlayPage() {
                                 type="number"
                                 className="test-settings-input"
                                 min={1}
-                                max={1000}
                                 value={config.pvp.viewerHealRandomStep ?? 1}
                                 onChange={(e) => {
                                   const num = Number(e.target.value)
-                                  if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                    updateConfigLocal({ pvp: { ...config.pvp, viewerHealRandomStep: num } })
+                                  if (!isNaN(num) && num >= 1) {
+                                    updateConfigLocal({ pvp: { viewerHealRandomStep: num } })
                                   }
                                 }}
                               />
@@ -2891,7 +3121,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.viewerHealWhenZeroEnabled ?? true}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, viewerHealWhenZeroEnabled: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { viewerHealWhenZeroEnabled: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-divider"></div>
@@ -2899,35 +3129,102 @@ export function OverlayPage() {
                           <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>配信者（カウンター）攻撃</label>
                         </div>
                         <div className="test-settings-section">
-                          <label className="test-settings-label">受けるダメージ</label>
-                          <input
-                            type="number"
-                            className="test-settings-input"
-                            min={1}
-                            max={1000}
-                            value={testInputValues.pvpStreamerDamage ?? config.pvp.streamerAttack.damage}
-                            onChange={(e) => {
-                              setTestInputValues((prev) => ({ ...prev, pvpStreamerDamage: e.target.value }))
-                              const num = Number(e.target.value)
-                              if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                updateConfigLocal({ pvp: { ...config.pvp, streamerAttack: { ...config.pvp.streamerAttack, damage: num } } })
-                              }
-                            }}
-                            onBlur={() => {
-                              setTestInputValues((prev) => {
-                                const next = { ...prev }
-                                delete next.pvpStreamerDamage
-                                return next
+                          <label className="test-settings-label">ダメージタイプ</label>
+                          <select
+                            className="test-settings-select"
+                            value={config.pvp.streamerAttack.damageType ?? 'fixed'}
+                            onChange={(e) =>
+                              updateConfigLocal({
+                                pvp: { streamerAttack: { damageType: e.target.value as 'fixed' | 'random' } },
                               })
-                            }}
-                          />
+                            }
+                          >
+                            <option value="fixed">固定</option>
+                            <option value="random">ランダム</option>
+                          </select>
                         </div>
+                        {(config.pvp.streamerAttack.damageType ?? 'fixed') === 'random' ? (
+                          <>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">ダメージ（最小）</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                className="test-settings-input"
+                                value={testInputValues.pvpStreamerDamageMin ?? config.pvp.streamerAttack.damageMin ?? 10}
+                                onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStreamerDamageMin: e.target.value }))}
+                                onBlur={(e) => {
+                                  const num = Number(e.target.value.trim())
+                                  if (!isNaN(num) && num >= 1) {
+                                    updateConfigLocal({ pvp: { streamerAttack: { damageMin: num } } })
+                                  }
+                                  setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStreamerDamageMin; return next })
+                                }}
+                              />
+                            </div>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">ダメージ（最大）</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                className="test-settings-input"
+                                value={testInputValues.pvpStreamerDamageMax ?? config.pvp.streamerAttack.damageMax ?? 25}
+                                onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStreamerDamageMax: e.target.value }))}
+                                onBlur={(e) => {
+                                  const num = Number(e.target.value.trim())
+                                  if (!isNaN(num) && num >= 1) {
+                                    updateConfigLocal({ pvp: { streamerAttack: { damageMax: num } } })
+                                  }
+                                  // 次フレームでクリアし、setConfig 反映後の config を表示させる
+                                  setTimeout(() => {
+                                    setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStreamerDamageMax; return next })
+                                  }, 0)
+                                }}
+                              />
+                            </div>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">刻み（1で連続値）</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                className="test-settings-input"
+                                value={testInputValues.pvpStreamerDamageRandomStep ?? config.pvp.streamerAttack.damageRandomStep ?? 1}
+                                onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStreamerDamageRandomStep: e.target.value }))}
+                                onBlur={(e) => {
+                                  const num = Number(e.target.value.trim())
+                                  if (!isNaN(num) && num >= 1) {
+                                    updateConfigLocal({ pvp: { streamerAttack: { damageRandomStep: num } } })
+                                  }
+                                  setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStreamerDamageRandomStep; return next })
+                                }}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <div className="test-settings-section">
+                            <label className="test-settings-label">受けるダメージ</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="test-settings-input"
+                              value={testInputValues.pvpStreamerDamage ?? config.pvp.streamerAttack.damage}
+                              onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStreamerDamage: e.target.value }))}
+                              onBlur={(e) => {
+                                const num = Number(e.target.value.trim())
+                                if (!isNaN(num) && num >= 1) {
+                                  updateConfigLocal({ pvp: { streamerAttack: { damage: num } } })
+                                }
+                                setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStreamerDamage; return next })
+                              }}
+                            />
+                          </div>
+                        )}
                         <div className="test-settings-section">
                           <label className="test-settings-label">ミスあり</label>
                           <input
                             type="checkbox"
                             checked={config.pvp.streamerAttack.missEnabled}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, streamerAttack: { ...config.pvp.streamerAttack, missEnabled: e.target.checked } } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { streamerAttack: { missEnabled: e.target.checked } } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -2942,7 +3239,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, pvpStreamerMissProb: e.target.value }))
                               const num = Number(e.target.value)
                               if (!isNaN(num) && num >= 0 && num <= 100) {
-                                updateConfigLocal({ pvp: { ...config.pvp, streamerAttack: { ...config.pvp.streamerAttack, missProbability: num } } })
+                                updateConfigLocal({ pvp: { streamerAttack: { missProbability: num } } })
                               }
                             }}
                             onBlur={() => {
@@ -2959,7 +3256,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.streamerAttack.criticalEnabled}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, streamerAttack: { ...config.pvp.streamerAttack, criticalEnabled: e.target.checked } } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { streamerAttack: { criticalEnabled: e.target.checked } } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -2974,7 +3271,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, pvpStreamerCritProb: e.target.value }))
                               const num = Number(e.target.value)
                               if (!isNaN(num) && num >= 0 && num <= 100) {
-                                updateConfigLocal({ pvp: { ...config.pvp, streamerAttack: { ...config.pvp.streamerAttack, criticalProbability: num } } })
+                                updateConfigLocal({ pvp: { streamerAttack: { criticalProbability: num } } })
                               }
                             }}
                             onBlur={() => {
@@ -2998,7 +3295,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, pvpStreamerCritMult: e.target.value }))
                               const num = Number(e.target.value)
                               if (!isNaN(num) && num >= 1) {
-                                updateConfigLocal({ pvp: { ...config.pvp, streamerAttack: { ...config.pvp.streamerAttack, criticalMultiplier: num } } })
+                                updateConfigLocal({ pvp: { streamerAttack: { criticalMultiplier: num } } })
                               }
                             }}
                             onBlur={() => {
@@ -3015,7 +3312,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.streamerAttack.survivalHp1Enabled}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Enabled: e.target.checked } } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { streamerAttack: { survivalHp1Enabled: e.target.checked } } })}
                           />
                         </div>
                         {config.pvp.streamerAttack.survivalHp1Enabled && (
@@ -3031,7 +3328,7 @@ export function OverlayPage() {
                                 setTestInputValues((prev) => ({ ...prev, pvpStreamerSurvProb: e.target.value }))
                                 const num = Number(e.target.value)
                                 if (!isNaN(num) && num >= 0 && num <= 100) {
-                                  updateConfigLocal({ pvp: { ...config.pvp, streamerAttack: { ...config.pvp.streamerAttack, survivalHp1Probability: num } } })
+                                  updateConfigLocal({ pvp: { streamerAttack: { survivalHp1Probability: num } } })
                                 }
                               }}
                               onBlur={() => {
@@ -3074,7 +3371,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.retry.streamerAutoReplyEnabled ?? true}
-                            onChange={(e) => updateConfigLocal({ retry: { ...config.retry, streamerAutoReplyEnabled: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ retry: { streamerAutoReplyEnabled: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -3083,7 +3380,7 @@ export function OverlayPage() {
                             type="text"
                             className="test-settings-input"
                             value={config.hp.messageWhenZeroHp ?? '配信者を {attacker} が倒しました！'}
-                            onChange={(e) => updateConfigLocal({ hp: { ...config.hp, messageWhenZeroHp: e.target.value } })}
+                            onChange={(e) => updateConfigLocal({ hp: { messageWhenZeroHp: e.target.value } })}
                             placeholder="配信者を {attacker} が倒しました！"
                           />
                         </div>
@@ -3092,7 +3389,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.heal.autoReplyEnabled ?? false}
-                            onChange={(e) => updateConfigLocal({ heal: { ...config.heal, autoReplyEnabled: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ heal: { autoReplyEnabled: e.target.checked } })}
                           />
                         </div>
                         {config.heal.autoReplyEnabled && (
@@ -3101,7 +3398,7 @@ export function OverlayPage() {
                             <input
                               type="text"
                               value={config.heal.autoReplyMessageTemplate ?? '配信者の残りHP: {hp}/{max}'}
-                              onChange={(e) => updateConfigLocal({ heal: { ...config.heal, autoReplyMessageTemplate: e.target.value } })}
+                              onChange={(e) => updateConfigLocal({ heal: { autoReplyMessageTemplate: e.target.value } })}
                               placeholder="配信者の残りHP: {hp}/{max} または {username} の残りHP: {hp}/{max}"
                               className="test-settings-input"
                               style={{ width: '100%', marginTop: '0.25rem' }}
@@ -3117,7 +3414,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.autoReplyAttackCounter ?? true}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, autoReplyAttackCounter: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyAttackCounter: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -3125,7 +3422,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.autoReplyWhenViewerZeroHp ?? true}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, autoReplyWhenViewerZeroHp: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyWhenViewerZeroHp: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -3133,7 +3430,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.autoReplyHpCheck ?? true}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, autoReplyHpCheck: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyHpCheck: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -3141,7 +3438,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.autoReplyFullHeal ?? true}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, autoReplyFullHeal: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyFullHeal: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -3149,7 +3446,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.autoReplyHeal ?? true}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, autoReplyHeal: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyHeal: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -3157,7 +3454,7 @@ export function OverlayPage() {
                           <input
                             type="checkbox"
                             checked={config.pvp.autoReplyBlockedByZeroHp ?? true}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, autoReplyBlockedByZeroHp: e.target.checked } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyBlockedByZeroHp: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -3166,7 +3463,7 @@ export function OverlayPage() {
                             type="text"
                             className="test-settings-input"
                             value={config.pvp.autoReplyMessageTemplate}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, autoReplyMessageTemplate: e.target.value } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyMessageTemplate: e.target.value } })}
                             placeholder="{username} の残りHP: {hp}/{max}"
                           />
                         </div>
@@ -3176,7 +3473,7 @@ export function OverlayPage() {
                             type="text"
                             className="test-settings-input"
                             value={config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, messageWhenAttackBlockedByZeroHp: e.target.value } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { messageWhenAttackBlockedByZeroHp: e.target.value } })}
                             placeholder="HPが0なので攻撃できません。"
                           />
                         </div>
@@ -3186,7 +3483,7 @@ export function OverlayPage() {
                             type="text"
                             className="test-settings-input"
                             value={config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, messageWhenHealBlockedByZeroHp: e.target.value } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { messageWhenHealBlockedByZeroHp: e.target.value } })}
                             placeholder="HPが0なので回復できません。"
                           />
                         </div>
@@ -3196,7 +3493,7 @@ export function OverlayPage() {
                             type="text"
                             className="test-settings-input"
                             value={config.pvp.messageWhenViewerZeroHp ?? '視聴者 {username} のHPが0になりました。'}
-                            onChange={(e) => updateConfigLocal({ pvp: { ...config.pvp, messageWhenViewerZeroHp: e.target.value } })}
+                            onChange={(e) => updateConfigLocal({ pvp: { messageWhenViewerZeroHp: e.target.value } })}
                             placeholder="視聴者 {username} のHPが0になりました。"
                           />
                         </div>
@@ -3217,7 +3514,7 @@ export function OverlayPage() {
                         value={testInputValues.retryCommand ?? config.retry.command}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, retryCommand: e.target.value }))
-                          updateConfigLocal({ retry: { ...config.retry, command: e.target.value } })
+                          updateConfigLocal({ retry: { command: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev => {
@@ -3237,7 +3534,7 @@ export function OverlayPage() {
                         value={testInputValues.retryFullHealCommand ?? config.retry.fullHealCommand ?? '!fullheal'}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, retryFullHealCommand: e.target.value }))
-                          updateConfigLocal({ retry: { ...config.retry, fullHealCommand: e.target.value } })
+                          updateConfigLocal({ retry: { fullHealCommand: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev) => {
@@ -3257,7 +3554,7 @@ export function OverlayPage() {
                         value={testInputValues.fullResetAllCommand ?? config.retry.fullResetAllCommand ?? '!resetall'}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, fullResetAllCommand: e.target.value }))
-                          updateConfigLocal({ retry: { ...config.retry, fullResetAllCommand: e.target.value } })
+                          updateConfigLocal({ retry: { fullResetAllCommand: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev) => {
@@ -3277,7 +3574,7 @@ export function OverlayPage() {
                         value={testInputValues.streamerHealCommand ?? config.retry.streamerHealCommand ?? '!heal'}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, streamerHealCommand: e.target.value }))
-                          updateConfigLocal({ retry: { ...config.retry, streamerHealCommand: e.target.value } })
+                          updateConfigLocal({ retry: { streamerHealCommand: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev) => {
@@ -3294,7 +3591,7 @@ export function OverlayPage() {
                       <select
                         className="test-settings-select"
                         value={config.retry.streamerHealType ?? 'fixed'}
-                        onChange={(e) => updateConfigLocal({ retry: { ...config.retry, streamerHealType: e.target.value as 'fixed' | 'random' } })}
+                        onChange={(e) => updateConfigLocal({ retry: { streamerHealType: e.target.value as 'fixed' | 'random' } })}
                       >
                         <option value="fixed">固定</option>
                         <option value="random">ランダム</option>
@@ -3307,12 +3604,11 @@ export function OverlayPage() {
                           type="number"
                           className="test-settings-input"
                           min={1}
-                          max={1000}
                           value={config.retry.streamerHealAmount ?? 20}
                           onChange={(e) => {
                             const num = Number(e.target.value)
-                            if (!isNaN(num) && num >= 1 && num <= 1000) {
-                              updateConfigLocal({ retry: { ...config.retry, streamerHealAmount: num } })
+                            if (!isNaN(num) && num >= 1) {
+                              updateConfigLocal({ retry: { streamerHealAmount: num } })
                             }
                           }}
                         />
@@ -3325,12 +3621,11 @@ export function OverlayPage() {
                             type="number"
                             className="test-settings-input"
                             min={1}
-                            max={1000}
                             value={config.retry.streamerHealMin ?? 10}
                             onChange={(e) => {
                               const num = Number(e.target.value)
-                              if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                updateConfigLocal({ retry: { ...config.retry, streamerHealMin: num } })
+                              if (!isNaN(num) && num >= 1) {
+                                updateConfigLocal({ retry: { streamerHealMin: num } })
                               }
                             }}
                           />
@@ -3341,12 +3636,11 @@ export function OverlayPage() {
                             type="number"
                             className="test-settings-input"
                             min={1}
-                            max={1000}
                             value={config.retry.streamerHealMax ?? 30}
                             onChange={(e) => {
                               const num = Number(e.target.value)
-                              if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                updateConfigLocal({ retry: { ...config.retry, streamerHealMax: num } })
+                              if (!isNaN(num) && num >= 1) {
+                                updateConfigLocal({ retry: { streamerHealMax: num } })
                               }
                             }}
                           />
@@ -3357,12 +3651,11 @@ export function OverlayPage() {
                             type="number"
                             className="test-settings-input"
                             min={1}
-                            max={1000}
                             value={config.retry.streamerHealRandomStep ?? 1}
                             onChange={(e) => {
                               const num = Number(e.target.value)
-                              if (!isNaN(num) && num >= 1 && num <= 1000) {
-                                updateConfigLocal({ retry: { ...config.retry, streamerHealRandomStep: num } })
+                              if (!isNaN(num) && num >= 1) {
+                                updateConfigLocal({ retry: { streamerHealRandomStep: num } })
                               }
                             }}
                           />
@@ -3374,7 +3667,7 @@ export function OverlayPage() {
                       <input
                         type="checkbox"
                         checked={config.retry.streamerHealWhenZeroEnabled ?? true}
-                        onChange={(e) => updateConfigLocal({ retry: { ...config.retry, streamerHealWhenZeroEnabled: e.target.checked } })}
+                        onChange={(e) => updateConfigLocal({ retry: { streamerHealWhenZeroEnabled: e.target.checked } })}
                       />
                     </div>
                     <div className="test-settings-section">
@@ -3383,7 +3676,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.retry.enabled}
                         onChange={(e) => {
-                          updateConfigLocal({ retry: { ...config.retry, enabled: e.target.checked } })
+                          updateConfigLocal({ retry: { enabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -3393,7 +3686,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.retry.soundEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ retry: { ...config.retry, soundEnabled: e.target.checked } })
+                          updateConfigLocal({ retry: { soundEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -3407,7 +3700,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.zeroHpImage.enabled}
                         onChange={(e) => {
-                          updateConfigLocal({ zeroHpImage: { ...config.zeroHpImage, enabled: e.target.checked } })
+                          updateConfigLocal({ zeroHpImage: { enabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -3420,7 +3713,7 @@ export function OverlayPage() {
                           value={testInputValues.zeroHpImageUrl ?? config.zeroHpImage.imageUrl}
                           onChange={(e) => {
                             setTestInputValues((prev) => ({ ...prev, zeroHpImageUrl: e.target.value }))
-                            updateConfigLocal({ zeroHpImage: { ...config.zeroHpImage, imageUrl: e.target.value } })
+                            updateConfigLocal({ zeroHpImage: { imageUrl: e.target.value } })
                           }}
                           onBlur={() => {
                             setTestInputValues((prev => {
@@ -3443,7 +3736,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.zeroHpSound.enabled}
                         onChange={(e) => {
-                          updateConfigLocal({ zeroHpSound: { ...config.zeroHpSound, enabled: e.target.checked } })
+                          updateConfigLocal({ zeroHpSound: { enabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -3457,7 +3750,7 @@ export function OverlayPage() {
                             value={testInputValues.zeroHpSoundUrl ?? config.zeroHpSound.soundUrl}
                             onChange={(e) => {
                               setTestInputValues((prev) => ({ ...prev, zeroHpSoundUrl: e.target.value }))
-                              updateConfigLocal({ zeroHpSound: { ...config.zeroHpSound, soundUrl: e.target.value } })
+                              updateConfigLocal({ zeroHpSound: { soundUrl: e.target.value } })
                             }}
                             onBlur={() => {
                               setTestInputValues((prev => {
@@ -3482,7 +3775,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, zeroHpSoundVolume: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value) && value >= 0 && value <= 1) {
-                                updateConfigLocal({ zeroHpSound: { ...config.zeroHpSound, volume: value } })
+                                updateConfigLocal({ zeroHpSound: { volume: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3506,7 +3799,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.zeroHpEffect.enabled}
                         onChange={(e) => {
-                          updateConfigLocal({ zeroHpEffect: { ...config.zeroHpEffect, enabled: e.target.checked } })
+                          updateConfigLocal({ zeroHpEffect: { enabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -3520,7 +3813,7 @@ export function OverlayPage() {
                             value={testInputValues.zeroHpEffectVideoUrl ?? config.zeroHpEffect.videoUrl}
                             onChange={(e) => {
                               setTestInputValues((prev) => ({ ...prev, zeroHpEffectVideoUrl: e.target.value }))
-                              updateConfigLocal({ zeroHpEffect: { ...config.zeroHpEffect, videoUrl: e.target.value } })
+                              updateConfigLocal({ zeroHpEffect: { videoUrl: e.target.value } })
                             }}
                             onBlur={() => {
                               setTestInputValues((prev => {
@@ -3538,13 +3831,12 @@ export function OverlayPage() {
                             type="number"
                             className="test-settings-input"
                             min="100"
-                            max="60000"
                             value={testInputValues.zeroHpEffectDuration ?? config.zeroHpEffect.duration}
                             onChange={(e) => {
                               setTestInputValues((prev) => ({ ...prev, zeroHpEffectDuration: e.target.value }))
                               const value = Number(e.target.value)
-                              if (!isNaN(value) && value >= 100 && value <= 60000) {
-                                updateConfigLocal({ zeroHpEffect: { ...config.zeroHpEffect, duration: value } })
+                              if (!isNaN(value) && value >= 1) {
+                                updateConfigLocal({ zeroHpEffect: { duration: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3565,7 +3857,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.webmLoop.enabled}
                         onChange={(e) => {
-                          updateConfigLocal({ webmLoop: { ...config.webmLoop, enabled: e.target.checked } })
+                          updateConfigLocal({ webmLoop: { enabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -3579,7 +3871,7 @@ export function OverlayPage() {
                             value={testInputValues.webmLoopVideoUrl ?? config.webmLoop.videoUrl}
                             onChange={(e) => {
                               setTestInputValues((prev) => ({ ...prev, webmLoopVideoUrl: e.target.value }))
-                              updateConfigLocal({ webmLoop: { ...config.webmLoop, videoUrl: e.target.value } })
+                              updateConfigLocal({ webmLoop: { videoUrl: e.target.value } })
                             }}
                             onBlur={() => {
                               setTestInputValues((prev => {
@@ -3597,7 +3889,7 @@ export function OverlayPage() {
                             type="checkbox"
                             checked={config.webmLoop.loop}
                             onChange={(e) => {
-                              updateConfigLocal({ webmLoop: { ...config.webmLoop, loop: e.target.checked } })
+                              updateConfigLocal({ webmLoop: { loop: e.target.checked } })
                             }}
                           />
                         </div>
@@ -3611,7 +3903,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, webmLoopX: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value)) {
-                                updateConfigLocal({ webmLoop: { ...config.webmLoop, x: value } })
+                                updateConfigLocal({ webmLoop: { x: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3633,7 +3925,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, webmLoopY: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value)) {
-                                updateConfigLocal({ webmLoop: { ...config.webmLoop, y: value } })
+                                updateConfigLocal({ webmLoop: { y: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3655,7 +3947,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, webmLoopWidth: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value) && value > 0) {
-                                updateConfigLocal({ webmLoop: { ...config.webmLoop, width: value } })
+                                updateConfigLocal({ webmLoop: { width: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3677,7 +3969,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, webmLoopHeight: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value) && value > 0) {
-                                updateConfigLocal({ webmLoop: { ...config.webmLoop, height: value } })
+                                updateConfigLocal({ webmLoop: { height: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3702,7 +3994,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, webmLoopOpacity: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value) && value >= 0 && value <= 1) {
-                                updateConfigLocal({ webmLoop: { ...config.webmLoop, opacity: value } })
+                                updateConfigLocal({ webmLoop: { opacity: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3723,7 +4015,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.externalWindow.enabled}
                         onChange={(e) => {
-                          updateConfigLocal({ externalWindow: { ...config.externalWindow, enabled: e.target.checked } })
+                          updateConfigLocal({ externalWindow: { enabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -3739,7 +4031,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, externalWindowX: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value)) {
-                                updateConfigLocal({ externalWindow: { ...config.externalWindow, x: value } })
+                                updateConfigLocal({ externalWindow: { x: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3761,7 +4053,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, externalWindowY: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value)) {
-                                updateConfigLocal({ externalWindow: { ...config.externalWindow, y: value } })
+                                updateConfigLocal({ externalWindow: { y: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3783,7 +4075,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, externalWindowWidth: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value) && value > 0) {
-                                updateConfigLocal({ externalWindow: { ...config.externalWindow, width: value } })
+                                updateConfigLocal({ externalWindow: { width: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3805,7 +4097,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, externalWindowHeight: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value) && value > 0) {
-                                updateConfigLocal({ externalWindow: { ...config.externalWindow, height: value } })
+                                updateConfigLocal({ externalWindow: { height: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3830,7 +4122,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, externalWindowOpacity: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value) && value >= 0 && value <= 1) {
-                                updateConfigLocal({ externalWindow: { ...config.externalWindow, opacity: value } })
+                                updateConfigLocal({ externalWindow: { opacity: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3852,7 +4144,7 @@ export function OverlayPage() {
                               setTestInputValues((prev) => ({ ...prev, externalWindowZIndex: e.target.value }))
                               const value = Number(e.target.value)
                               if (!isNaN(value)) {
-                                updateConfigLocal({ externalWindow: { ...config.externalWindow, zIndex: value } })
+                                updateConfigLocal({ externalWindow: { zIndex: value } })
                               }
                             }}
                             onBlur={() => {
@@ -3885,7 +4177,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.attack.filterEffectEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ attack: { ...config.attack, filterEffectEnabled: e.target.checked } })
+                          updateConfigLocal({ attack: { filterEffectEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -3903,7 +4195,7 @@ export function OverlayPage() {
                             onChange={(e) => {
                               const value = Number(e.target.value)
                               updateConfigLocal({
-                                damageEffectFilter: { ...config.damageEffectFilter, sepia: value },
+                                damageEffectFilter: { sepia: value },
                               })
                             }}
                           />
@@ -3921,7 +4213,7 @@ export function OverlayPage() {
                             onChange={(e) => {
                               const value = Number(e.target.value)
                               updateConfigLocal({
-                                damageEffectFilter: { ...config.damageEffectFilter, hueRotate: value },
+                                damageEffectFilter: { hueRotate: value },
                               })
                             }}
                           />
@@ -3939,7 +4231,7 @@ export function OverlayPage() {
                             onChange={(e) => {
                               const value = Number(e.target.value)
                               updateConfigLocal({
-                                damageEffectFilter: { ...config.damageEffectFilter, saturate: value },
+                                damageEffectFilter: { saturate: value },
                               })
                             }}
                           />
@@ -3957,7 +4249,7 @@ export function OverlayPage() {
                             onChange={(e) => {
                               const value = Number(e.target.value)
                               updateConfigLocal({
-                                damageEffectFilter: { ...config.damageEffectFilter, brightness: value },
+                                damageEffectFilter: { brightness: value },
                               })
                             }}
                           />
@@ -3975,7 +4267,7 @@ export function OverlayPage() {
                             onChange={(e) => {
                               const value = Number(e.target.value)
                               updateConfigLocal({
-                                damageEffectFilter: { ...config.damageEffectFilter, contrast: value },
+                                damageEffectFilter: { contrast: value },
                               })
                             }}
                           />
@@ -3993,7 +4285,7 @@ export function OverlayPage() {
                         type="checkbox"
                         checked={config.heal.filterEffectEnabled}
                         onChange={(e) => {
-                          updateConfigLocal({ heal: { ...config.heal, filterEffectEnabled: e.target.checked } })
+                          updateConfigLocal({ heal: { filterEffectEnabled: e.target.checked } })
                         }}
                       />
                     </div>
@@ -4011,7 +4303,7 @@ export function OverlayPage() {
                             onChange={(e) => {
                               const value = Number(e.target.value)
                               updateConfigLocal({
-                                healEffectFilter: { ...config.healEffectFilter, sepia: value },
+                                healEffectFilter: { sepia: value },
                               })
                             }}
                           />
@@ -4029,7 +4321,7 @@ export function OverlayPage() {
                             onChange={(e) => {
                               const value = Number(e.target.value)
                               updateConfigLocal({
-                                healEffectFilter: { ...config.healEffectFilter, hueRotate: value },
+                                healEffectFilter: { hueRotate: value },
                               })
                             }}
                           />
@@ -4047,7 +4339,7 @@ export function OverlayPage() {
                             onChange={(e) => {
                               const value = Number(e.target.value)
                               updateConfigLocal({
-                                healEffectFilter: { ...config.healEffectFilter, saturate: value },
+                                healEffectFilter: { saturate: value },
                               })
                             }}
                           />
@@ -4065,7 +4357,7 @@ export function OverlayPage() {
                             onChange={(e) => {
                               const value = Number(e.target.value)
                               updateConfigLocal({
-                                healEffectFilter: { ...config.healEffectFilter, brightness: value },
+                                healEffectFilter: { brightness: value },
                               })
                             }}
                           />
@@ -4083,7 +4375,7 @@ export function OverlayPage() {
                             onChange={(e) => {
                               const value = Number(e.target.value)
                               updateConfigLocal({
-                                healEffectFilter: { ...config.healEffectFilter, contrast: value },
+                                healEffectFilter: { contrast: value },
                               })
                             }}
                           />
@@ -4101,7 +4393,7 @@ export function OverlayPage() {
                         type="color"
                         value={config.gaugeColors.lastGauge}
                         onChange={(e) => {
-                          updateConfigLocal({ gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value } })
+                          updateConfigLocal({ gaugeColors: { lastGauge: e.target.value } })
                         }}
                         style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
                       />
@@ -4111,7 +4403,7 @@ export function OverlayPage() {
                         value={testInputValues.gaugeColorLast ?? config.gaugeColors.lastGauge}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, gaugeColorLast: e.target.value }))
-                          updateConfigLocal({ gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value } })
+                          updateConfigLocal({ gaugeColors: { lastGauge: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev => {
@@ -4130,7 +4422,7 @@ export function OverlayPage() {
                         type="color"
                         value={config.gaugeColors.secondGauge}
                         onChange={(e) => {
-                          updateConfigLocal({ gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value } })
+                          updateConfigLocal({ gaugeColors: { secondGauge: e.target.value } })
                         }}
                         style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
                       />
@@ -4140,7 +4432,7 @@ export function OverlayPage() {
                         value={testInputValues.gaugeColorSecond ?? config.gaugeColors.secondGauge}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, gaugeColorSecond: e.target.value }))
-                          updateConfigLocal({ gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value } })
+                          updateConfigLocal({ gaugeColors: { secondGauge: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev => {
@@ -4159,7 +4451,7 @@ export function OverlayPage() {
                         type="color"
                         value={config.gaugeColors.patternColor1}
                         onChange={(e) => {
-                          updateConfigLocal({ gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value } })
+                          updateConfigLocal({ gaugeColors: { patternColor1: e.target.value } })
                         }}
                         style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
                       />
@@ -4169,7 +4461,7 @@ export function OverlayPage() {
                         value={testInputValues.gaugeColorPattern1 ?? config.gaugeColors.patternColor1}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, gaugeColorPattern1: e.target.value }))
-                          updateConfigLocal({ gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value } })
+                          updateConfigLocal({ gaugeColors: { patternColor1: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev => {
@@ -4188,7 +4480,7 @@ export function OverlayPage() {
                         type="color"
                         value={config.gaugeColors.patternColor2}
                         onChange={(e) => {
-                          updateConfigLocal({ gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value } })
+                          updateConfigLocal({ gaugeColors: { patternColor2: e.target.value } })
                         }}
                         style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
                       />
@@ -4198,7 +4490,7 @@ export function OverlayPage() {
                         value={testInputValues.gaugeColorPattern2 ?? config.gaugeColors.patternColor2}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, gaugeColorPattern2: e.target.value }))
-                          updateConfigLocal({ gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value } })
+                          updateConfigLocal({ gaugeColors: { patternColor2: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev => {
@@ -4221,7 +4513,7 @@ export function OverlayPage() {
                         type="color"
                         value={config.damageColors.normal}
                         onChange={(e) => {
-                          updateConfigLocal({ damageColors: { ...config.damageColors, normal: e.target.value } })
+                          updateConfigLocal({ damageColors: { normal: e.target.value } })
                         }}
                         style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
                       />
@@ -4231,7 +4523,7 @@ export function OverlayPage() {
                         value={testInputValues.damageColorNormal ?? config.damageColors.normal}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, damageColorNormal: e.target.value }))
-                          updateConfigLocal({ damageColors: { ...config.damageColors, normal: e.target.value } })
+                          updateConfigLocal({ damageColors: { normal: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev => {
@@ -4250,7 +4542,7 @@ export function OverlayPage() {
                         type="color"
                         value={config.damageColors.critical}
                         onChange={(e) => {
-                          updateConfigLocal({ damageColors: { ...config.damageColors, critical: e.target.value } })
+                          updateConfigLocal({ damageColors: { critical: e.target.value } })
                         }}
                         style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
                       />
@@ -4260,7 +4552,7 @@ export function OverlayPage() {
                         value={testInputValues.damageColorCritical ?? config.damageColors.critical}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, damageColorCritical: e.target.value }))
-                          updateConfigLocal({ damageColors: { ...config.damageColors, critical: e.target.value } })
+                          updateConfigLocal({ damageColors: { critical: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev => {
@@ -4279,7 +4571,7 @@ export function OverlayPage() {
                         type="color"
                         value={config.damageColors.bleed}
                         onChange={(e) => {
-                          updateConfigLocal({ damageColors: { ...config.damageColors, bleed: e.target.value } })
+                          updateConfigLocal({ damageColors: { bleed: e.target.value } })
                         }}
                         style={{ width: '60px', height: '30px', marginLeft: '0.5rem' }}
                       />
@@ -4289,7 +4581,7 @@ export function OverlayPage() {
                         value={testInputValues.damageColorBleed ?? config.damageColors.bleed}
                         onChange={(e) => {
                           setTestInputValues((prev) => ({ ...prev, damageColorBleed: e.target.value }))
-                          updateConfigLocal({ damageColors: { ...config.damageColors, bleed: e.target.value } })
+                          updateConfigLocal({ damageColors: { bleed: e.target.value } })
                         }}
                         onBlur={() => {
                           setTestInputValues((prev => {
@@ -4340,10 +4632,8 @@ export function OverlayPage() {
                             const jsonConfig = JSON.parse(text)
                             const validated = validateAndSanitizeConfig(jsonConfig)
 
-                            // 設定を更新（完全な設定を適用）
+                            // 設定を更新（完全な設定を適用）。保存するには「設定を保存」を押す
                             updateConfigLocal(validated as Partial<OverlayConfig>)
-                            // ローカルストレージにも保存
-                            localStorage.setItem('overlay-config', JSON.stringify(validated))
                             console.log('✅ 設定ファイルを読み込みました')
                           } catch (error) {
                             console.error('❌ 設定ファイルの読み込みに失敗しました:', error)
