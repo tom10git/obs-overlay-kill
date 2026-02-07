@@ -110,6 +110,57 @@ export function OverlayPage() {
   const [showSaveDialog, setShowSaveDialog] = useState(false) // 保存成功ダイアログの表示/非表示
   const fileInputRef = useRef<HTMLInputElement>(null) // ファイル選択用のinput要素の参照
 
+  // テストモード設定ウィンドウのサイズ・位置（上下左右の端でリサイズ）
+  const [testPanelSize, setTestPanelSize] = useState({ right: 20, bottom: 20, width: 420, height: 400 })
+  const [testPanelResize, setTestPanelResize] = useState<{
+    edge: 'n' | 's' | 'e' | 'w'
+    startX: number
+    startY: number
+    startW: number
+    startH: number
+    startRight: number
+    startBottom: number
+  } | null>(null)
+
+  useEffect(() => {
+    if (!testPanelResize) return
+    const minW = 320
+    const minH = 280
+    const onMove = (e: MouseEvent) => {
+      const maxW = Math.floor(window.innerWidth * 0.95)
+      const maxH = Math.floor(window.innerHeight * 0.85)
+      const dx = e.clientX - testPanelResize.startX
+      const dy = e.clientY - testPanelResize.startY
+      setTestPanelSize((prev) => {
+        let { width, height, right, bottom } = prev
+        switch (testPanelResize.edge) {
+          case 'e':
+            width = Math.min(maxW, Math.max(minW, testPanelResize.startW + dx))
+            break
+          case 'w':
+            width = Math.min(maxW, Math.max(minW, testPanelResize.startW - dx))
+            right = testPanelResize.startRight + (testPanelResize.startW - width)
+            break
+          case 's':
+            height = Math.min(maxH, Math.max(minH, testPanelResize.startH + dy))
+            break
+          case 'n':
+            height = Math.min(maxH, Math.max(minH, testPanelResize.startH - dy))
+            bottom = testPanelResize.startBottom + (testPanelResize.startH - height)
+            break
+        }
+        return { width, height, right, bottom }
+      })
+    }
+    const onUp = () => setTestPanelResize(null)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [testPanelResize])
+
   // 外部ウィンドウキャプチャの管理
   const [externalStream, setExternalStream] = useState<MediaStream | null>(null)
   const externalVideoRef = useRef<HTMLVideoElement>(null)
@@ -2016,18 +2067,27 @@ export function OverlayPage() {
           >
             テスト
           </button>
-          <div className="test-controls">
-            <div className="test-controls-header">
-              <button
-                className="test-settings-toggle"
-                onClick={() => setShowTestSettings(!showTestSettings)}
-                title={showTestSettings ? '設定を隠す' : '設定を表示'}
-              >
-                {showTestSettings ? '▼' : '▶'} 設定
-              </button>
-            </div>
-            {showTestSettings && config && (
-              <div className="test-settings-panel">
+          <div
+            className="test-controls"
+            style={{
+              right: testPanelSize.right,
+              bottom: testPanelSize.bottom,
+              width: testPanelSize.width,
+              height: testPanelSize.height,
+            }}
+          >
+            <div className="test-controls-inner">
+              <div className="test-controls-header">
+                <button
+                  className="test-settings-toggle"
+                  onClick={() => setShowTestSettings(!showTestSettings)}
+                  title={showTestSettings ? '設定を隠す' : '設定を表示'}
+                >
+                  {showTestSettings ? '▼' : '▶'} 設定
+                </button>
+              </div>
+              {showTestSettings && config && (
+                <div className="test-settings-panel">
                 <div className="test-settings-tabs">
                   <button
                     type="button"
@@ -4720,6 +4780,71 @@ export function OverlayPage() {
                 全員全回復
               </button>
             </div>
+            </div>
+            <div
+              className="test-settings-resize-handle test-settings-resize-handle--n"
+              title="上端でドラッグしてリサイズ"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                setTestPanelResize({
+                  edge: 'n',
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  startW: testPanelSize.width,
+                  startH: testPanelSize.height,
+                  startRight: testPanelSize.right,
+                  startBottom: testPanelSize.bottom,
+                })
+              }}
+            />
+            <div
+              className="test-settings-resize-handle test-settings-resize-handle--s"
+              title="下端でドラッグしてリサイズ"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                setTestPanelResize({
+                  edge: 's',
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  startW: testPanelSize.width,
+                  startH: testPanelSize.height,
+                  startRight: testPanelSize.right,
+                  startBottom: testPanelSize.bottom,
+                })
+              }}
+            />
+            <div
+              className="test-settings-resize-handle test-settings-resize-handle--e"
+              title="右端でドラッグしてリサイズ"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                setTestPanelResize({
+                  edge: 'e',
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  startW: testPanelSize.width,
+                  startH: testPanelSize.height,
+                  startRight: testPanelSize.right,
+                  startBottom: testPanelSize.bottom,
+                })
+              }}
+            />
+            <div
+              className="test-settings-resize-handle test-settings-resize-handle--w"
+              title="左端でドラッグしてリサイズ"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                setTestPanelResize({
+                  edge: 'w',
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  startW: testPanelSize.width,
+                  startH: testPanelSize.height,
+                  startRight: testPanelSize.right,
+                  startBottom: testPanelSize.bottom,
+                })
+              }}
+            />
           </div>
         </div>
       )}
