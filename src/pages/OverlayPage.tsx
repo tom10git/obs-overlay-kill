@@ -921,7 +921,7 @@ export function OverlayPage() {
 
           // 必殺技判定（視聴者側の攻撃のみ、0.001%の確率）
           let isFinishingMove = false
-          if (attackerUserId && config.pvp?.enabled && config.pvp?.viewerFinishingMoveEnabled) {
+          if (attackerUserId && config.pvp?.viewerFinishingMoveEnabled) {
             const finishingMoveRoll = Math.random() * 100000 // 0.001% = 0.001 = 1/100000
             if (finishingMoveRoll < (config.pvp.viewerFinishingMoveProbability ?? 0.001) * 1000) {
               isFinishingMove = true
@@ -1347,7 +1347,7 @@ export function OverlayPage() {
       }
       // クリティカル判定（今回の攻撃のベースダメージは getAttackDamage で決定）
       // テストモードでは、テスト用のユーザーID（'test-user'）でバフを考慮する
-      const testUserId = config.pvp?.enabled && config.pvp?.strengthBuffTarget === 'individual' ? 'test-user' : undefined
+      const testUserId = config.pvp?.strengthBuffTarget === 'individual' ? 'test-user' : undefined
       const baseDamage = getAttackDamage(
         config.attack,
         testUserId,
@@ -1511,8 +1511,8 @@ export function OverlayPage() {
       stopRepeat()
       return
     }
-    if (!config.pvp?.enabled || !config.pvp.viewerFinishingMoveEnabled) {
-      console.log('[テストモード] 必殺技設定が無効のため発動しません（pvp.enabled / viewerFinishingMoveEnabled を確認）')
+    if (!config.pvp?.viewerFinishingMoveEnabled) {
+      console.log('[テストモード] 必殺技設定が無効のため発動しません（viewerFinishingMoveEnabled を確認）')
       return
     }
 
@@ -1647,7 +1647,7 @@ export function OverlayPage() {
 
   // テストモード用のバフ付与ハンドラ
   const handleTestStrengthBuff = useCallback(() => {
-    if (!isTestMode || !config || !config.pvp?.enabled) return
+    if (!isTestMode || !config) return
     const durationSeconds = config.pvp.strengthBuffDuration ?? 300
     const durationMinutes = Math.round(durationSeconds / 60)
     const target = config.pvp.strengthBuffTarget ?? 'individual'
@@ -1990,11 +1990,10 @@ export function OverlayPage() {
         }
       }
 
-      // PvP: ストレングスバフコマンド（視聴者が実行するとストレングス効果を付与）
+      // ストレングスバフコマンド（視聴者が実行するとストレングス効果を付与）
       if (
         !commandMatched &&
-        config.pvp?.enabled &&
-        config.pvp.strengthBuffCommand &&
+        config.pvp?.strengthBuffCommand &&
         config.pvp.strengthBuffCommand.length > 0 &&
         user?.id &&
         message.user.id !== user.id
@@ -2041,11 +2040,10 @@ export function OverlayPage() {
         }
       }
 
-      // PvP: バフ確認コマンド（視聴者が自分のバフ状態を確認）
+      // バフ確認コマンド（視聴者が自分のバフ状態を確認）
       if (
         !commandMatched &&
-        config.pvp?.enabled &&
-        config.pvp.strengthBuffCheckCommand &&
+        config.pvp?.strengthBuffCheckCommand &&
         config.pvp.strengthBuffCheckCommand.length > 0 &&
         user?.id &&
         message.user.id !== user.id
@@ -3989,181 +3987,6 @@ export function OverlayPage() {
                             </div>
                             <div className="test-settings-divider"></div>
                             <div className="test-settings-section">
-                              <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>必殺技設定</label>
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">必殺技を有効にする</label>
-                              <input
-                                type="checkbox"
-                                checked={config.pvp.viewerFinishingMoveEnabled ?? true}
-                                onChange={(e) => updateConfigLocal({ pvp: { viewerFinishingMoveEnabled: e.target.checked } })}
-                              />
-                            </div>
-                            {config.pvp.viewerFinishingMoveEnabled && (
-                              <>
-                                <div className="test-settings-section">
-                                  <label className="test-settings-label">必殺技発動確率 (%)</label>
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    className="test-settings-input"
-                                    value={testInputValues.viewerFinishingMoveProbability ?? (config.pvp.viewerFinishingMoveProbability ?? 0.001).toFixed(3)}
-                                    onChange={(e) => setTestInputValues((prev) => ({ ...prev, viewerFinishingMoveProbability: e.target.value }))}
-                                    onBlur={(e) => {
-                                      const num = Number(e.target.value.trim())
-                                      if (!isNaN(num) && num >= 0 && num <= 100) {
-                                        updateConfigLocal({ pvp: { viewerFinishingMoveProbability: num } })
-                                      }
-                                      setTestInputValues((prev) => { const next = { ...prev }; delete next.viewerFinishingMoveProbability; return next })
-                                    }}
-                                    placeholder="0.001"
-                                  />
-                                </div>
-                                <div className="test-settings-section">
-                                  <label className="test-settings-label">必殺技ダメージ倍率</label>
-                                  <input
-                                    type="number"
-                                    className="test-settings-input"
-                                    min={1}
-                                    value={config.pvp.viewerFinishingMoveMultiplier ?? 10}
-                                    onChange={(e) => {
-                                      const num = Number(e.target.value)
-                                      if (!isNaN(num) && num >= 1) {
-                                        updateConfigLocal({ pvp: { viewerFinishingMoveMultiplier: num } })
-                                      }
-                                    }}
-                                  />
-                                </div>
-                                <div className="test-settings-section">
-                                  <label className="test-settings-label">必殺技発動時の自動返信</label>
-                                  <input
-                                    type="checkbox"
-                                    checked={config.pvp.autoReplyViewerFinishingMove ?? true}
-                                    onChange={(e) => updateConfigLocal({ pvp: { autoReplyViewerFinishingMove: e.target.checked } })}
-                                  />
-                                </div>
-                                {config.pvp.autoReplyViewerFinishingMove && (
-                                  <div className="test-settings-section">
-                                    <label className="test-settings-label">必殺技発動メッセージ（{'{username}'} {'{damage}'} で置換）</label>
-                                    <input
-                                      type="text"
-                                      className="test-settings-input"
-                                      value={config.pvp.messageWhenViewerFinishingMove ?? '{username} が必殺技を繰り出した！ ダメージ: {damage}'}
-                                      onChange={(e) => updateConfigLocal({ pvp: { messageWhenViewerFinishingMove: e.target.value } })}
-                                      placeholder="{username} が必殺技を繰り出した！ ダメージ: {damage}"
-                                    />
-                                  </div>
-                                )}
-                              </>
-                            )}
-                            <div className="test-settings-divider"></div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>ストレングスバフ設定</label>
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">バフ対象</label>
-                              <select
-                                className="test-settings-input"
-                                value={config.pvp.strengthBuffTarget ?? 'individual'}
-                                onChange={(e) => updateConfigLocal({ pvp: { strengthBuffTarget: e.target.value as 'individual' | 'all' } })}
-                              >
-                                <option value="individual">個人用（実行したユーザーのみ）</option>
-                                <option value="all">全員用（すべてのユーザーに適用）</option>
-                              </select>
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">ストレングスバフコマンド</label>
-                              <input
-                                type="text"
-                                className="test-settings-input"
-                                value={config.pvp.strengthBuffCommand ?? '!strength'}
-                                onChange={(e) => updateConfigLocal({ pvp: { strengthBuffCommand: e.target.value } })}
-                                placeholder="!strength"
-                              />
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">バフ確認コマンド</label>
-                              <input
-                                type="text"
-                                className="test-settings-input"
-                                value={config.pvp.strengthBuffCheckCommand ?? '!buff'}
-                                onChange={(e) => updateConfigLocal({ pvp: { strengthBuffCheckCommand: e.target.value } })}
-                                placeholder="!buff"
-                              />
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">バフ効果時間（分）</label>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                className="test-settings-input"
-                                value={testInputValues.pvpStrengthBuffDuration ?? Math.round((config.pvp.strengthBuffDuration ?? 300) / 60)}
-                                onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStrengthBuffDuration: e.target.value }))}
-                                onBlur={(e) => {
-                                  const num = Number(e.target.value.trim())
-                                  if (!isNaN(num) && num >= 1) {
-                                    updateConfigLocal({ pvp: { strengthBuffDuration: num * 60 } })
-                                  }
-                                  setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStrengthBuffDuration; return next })
-                                }}
-                                placeholder="5"
-                              />
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">バフコマンド実行時の自動返信</label>
-                              <input
-                                type="checkbox"
-                                checked={config.pvp.autoReplyStrengthBuff ?? true}
-                                onChange={(e) => updateConfigLocal({ pvp: { autoReplyStrengthBuff: e.target.checked } })}
-                              />
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">バフ確認コマンド実行時の自動返信</label>
-                              <input
-                                type="checkbox"
-                                checked={config.pvp.autoReplyStrengthBuffCheck ?? true}
-                                onChange={(e) => updateConfigLocal({ pvp: { autoReplyStrengthBuffCheck: e.target.checked } })}
-                              />
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">バフ効果音を有効にする</label>
-                              <input
-                                type="checkbox"
-                                checked={config.pvp.strengthBuffSoundEnabled ?? false}
-                                onChange={(e) => updateConfigLocal({ pvp: { strengthBuffSoundEnabled: e.target.checked } })}
-                              />
-                            </div>
-                            {config.pvp.strengthBuffSoundEnabled && (
-                              <>
-                                <div className="test-settings-section">
-                                  <label className="test-settings-label">バフ効果音URL</label>
-                                  <input
-                                    type="text"
-                                    className="test-settings-input"
-                                    value={config.pvp.strengthBuffSoundUrl ?? ''}
-                                    onChange={(e) => updateConfigLocal({ pvp: { strengthBuffSoundUrl: e.target.value } })}
-                                    placeholder="空欄の場合は効果音なし"
-                                  />
-                                </div>
-                                <div className="test-settings-section">
-                                  <label className="test-settings-label">バフ効果音音量 (%)</label>
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    step="1"
-                                    className="test-settings-range"
-                                    value={Math.round((config.pvp.strengthBuffSoundVolume ?? 0.7) * 100)}
-                                    onChange={(e) => updateConfigLocal({ pvp: { strengthBuffSoundVolume: Number(e.target.value) / 100 } })}
-                                  />
-                                  <span className="test-settings-range-value">
-                                    {Math.round((config.pvp.strengthBuffSoundVolume ?? 0.7) * 100)}%
-                                  </span>
-                                </div>
-                              </>
-                            )}
-                            <div className="test-settings-divider"></div>
-                            <div className="test-settings-section">
                               <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>配信者（カウンター）攻撃</label>
                             </div>
                             <div className="test-settings-section">
@@ -4381,7 +4204,186 @@ export function OverlayPage() {
                             )}
                           </>
                         )}
+                      </>
+                    )}
+                    {/* 必殺技設定とストレングスバフ設定はPvPモード無効でも表示 */}
+                    {testSettingsTab === 'user' && (
+                      <>
                         <div className="test-settings-divider"></div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>必殺技設定</label>
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">必殺技を有効にする</label>
+                          <input
+                            type="checkbox"
+                            checked={config.pvp.viewerFinishingMoveEnabled ?? true}
+                            onChange={(e) => updateConfigLocal({ pvp: { viewerFinishingMoveEnabled: e.target.checked } })}
+                          />
+                        </div>
+                        {config.pvp.viewerFinishingMoveEnabled && (
+                          <>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">必殺技発動確率 (%)</label>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                className="test-settings-input"
+                                value={testInputValues.viewerFinishingMoveProbability ?? (config.pvp.viewerFinishingMoveProbability ?? 0.001).toFixed(3)}
+                                onChange={(e) => setTestInputValues((prev) => ({ ...prev, viewerFinishingMoveProbability: e.target.value }))}
+                                onBlur={(e) => {
+                                  const num = Number(e.target.value.trim())
+                                  if (!isNaN(num) && num >= 0 && num <= 100) {
+                                    updateConfigLocal({ pvp: { viewerFinishingMoveProbability: num } })
+                                  }
+                                  setTestInputValues((prev) => { const next = { ...prev }; delete next.viewerFinishingMoveProbability; return next })
+                                }}
+                                placeholder="0.001"
+                              />
+                            </div>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">必殺技ダメージ倍率</label>
+                              <input
+                                type="number"
+                                className="test-settings-input"
+                                min={1}
+                                value={config.pvp.viewerFinishingMoveMultiplier ?? 10}
+                                onChange={(e) => {
+                                  const num = Number(e.target.value)
+                                  if (!isNaN(num) && num >= 1) {
+                                    updateConfigLocal({ pvp: { viewerFinishingMoveMultiplier: num } })
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">必殺技発動時の自動返信</label>
+                              <input
+                                type="checkbox"
+                                checked={config.pvp.autoReplyViewerFinishingMove ?? true}
+                                onChange={(e) => updateConfigLocal({ pvp: { autoReplyViewerFinishingMove: e.target.checked } })}
+                              />
+                            </div>
+                            {config.pvp.autoReplyViewerFinishingMove && (
+                              <div className="test-settings-section">
+                                <label className="test-settings-label">必殺技発動メッセージ（{'{username}'} {'{damage}'} で置換）</label>
+                                <input
+                                  type="text"
+                                  className="test-settings-input"
+                                  value={config.pvp.messageWhenViewerFinishingMove ?? '{username} が必殺技を繰り出した！ ダメージ: {damage}'}
+                                  onChange={(e) => updateConfigLocal({ pvp: { messageWhenViewerFinishingMove: e.target.value } })}
+                                  placeholder="{username} が必殺技を繰り出した！ ダメージ: {damage}"
+                                />
+                              </div>
+                            )}
+                          </>
+                        )}
+                        <div className="test-settings-divider"></div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>ストレングスバフ設定</label>
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">バフ対象</label>
+                          <select
+                            className="test-settings-input"
+                            value={config.pvp.strengthBuffTarget ?? 'individual'}
+                            onChange={(e) => updateConfigLocal({ pvp: { strengthBuffTarget: e.target.value as 'individual' | 'all' } })}
+                          >
+                            <option value="individual">個人用（実行したユーザーのみ）</option>
+                            <option value="all">全員用（すべてのユーザーに適用）</option>
+                          </select>
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">ストレングスバフコマンド</label>
+                          <input
+                            type="text"
+                            className="test-settings-input"
+                            value={config.pvp.strengthBuffCommand ?? '!strength'}
+                            onChange={(e) => updateConfigLocal({ pvp: { strengthBuffCommand: e.target.value } })}
+                            placeholder="!strength"
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">バフ確認コマンド</label>
+                          <input
+                            type="text"
+                            className="test-settings-input"
+                            value={config.pvp.strengthBuffCheckCommand ?? '!buff'}
+                            onChange={(e) => updateConfigLocal({ pvp: { strengthBuffCheckCommand: e.target.value } })}
+                            placeholder="!buff"
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">バフ効果時間（分）</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="test-settings-input"
+                            value={testInputValues.pvpStrengthBuffDuration ?? Math.round((config.pvp.strengthBuffDuration ?? 300) / 60)}
+                            onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStrengthBuffDuration: e.target.value }))}
+                            onBlur={(e) => {
+                              const num = Number(e.target.value.trim())
+                              if (!isNaN(num) && num >= 1) {
+                                updateConfigLocal({ pvp: { strengthBuffDuration: num * 60 } })
+                              }
+                              setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStrengthBuffDuration; return next })
+                            }}
+                            placeholder="5"
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">バフコマンド実行時の自動返信</label>
+                          <input
+                            type="checkbox"
+                            checked={config.pvp.autoReplyStrengthBuff ?? true}
+                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyStrengthBuff: e.target.checked } })}
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">バフ確認コマンド実行時の自動返信</label>
+                          <input
+                            type="checkbox"
+                            checked={config.pvp.autoReplyStrengthBuffCheck ?? true}
+                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyStrengthBuffCheck: e.target.checked } })}
+                          />
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">バフ効果音を有効にする</label>
+                          <input
+                            type="checkbox"
+                            checked={config.pvp.strengthBuffSoundEnabled ?? false}
+                            onChange={(e) => updateConfigLocal({ pvp: { strengthBuffSoundEnabled: e.target.checked } })}
+                          />
+                        </div>
+                        {config.pvp.strengthBuffSoundEnabled && (
+                          <>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">バフ効果音URL</label>
+                              <input
+                                type="text"
+                                className="test-settings-input"
+                                value={config.pvp.strengthBuffSoundUrl ?? ''}
+                                onChange={(e) => updateConfigLocal({ pvp: { strengthBuffSoundUrl: e.target.value } })}
+                                placeholder="空欄の場合は効果音なし"
+                              />
+                            </div>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">バフ効果音音量 (%)</label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                step="1"
+                                className="test-settings-range"
+                                value={Math.round((config.pvp.strengthBuffSoundVolume ?? 0.7) * 100)}
+                                onChange={(e) => updateConfigLocal({ pvp: { strengthBuffSoundVolume: Number(e.target.value) / 100 } })}
+                              />
+                              <span className="test-settings-range-value">
+                                {Math.round((config.pvp.strengthBuffSoundVolume ?? 0.7) * 100)}%
+                              </span>
+                            </div>
+                          </>
+                        )}
                       </>
                     )}
                     {testSettingsTab === 'autoReply' && (
@@ -5756,7 +5758,7 @@ export function OverlayPage() {
                   </button>
                   <button
                     className="test-button test-attack"
-                    disabled={currentHP <= 0 || !config?.pvp?.enabled || !(config?.pvp?.viewerFinishingMoveEnabled ?? true)}
+                    disabled={currentHP <= 0 || !(config?.pvp?.viewerFinishingMoveEnabled ?? true)}
                     onClick={handleTestFinishingMove}
                     title="必殺技を確定発動（隠し機能の確認用）"
                   >

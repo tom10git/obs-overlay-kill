@@ -394,7 +394,7 @@ export function HPGauge({
         />
       </div>
       {/* バフ表示 */}
-      {(isAllBuffed || buffedUserIds.length > 0) && config.pvp?.enabled && (
+      {(isAllBuffed || buffedUserIds.length > 0) && (
         <div className="hp-gauge-buff-indicator">
           {isAllBuffed ? (
             // 全員用バフ：絵文字アイコン + カウントダウン
