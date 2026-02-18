@@ -89,13 +89,22 @@ class TwitchChatClient {
             message: message,
             timestamp: tags['tmi-sent-ts'] ? parseInt(tags['tmi-sent-ts']) : Date.now(),
             channel: ch.replace('#', ''),
-            emotes: tags.emotes
-              ? tags.emotes.map((emote: any) => ({
-                id: emote.id,
-                name: emote.name,
-                positions: emote.positions,
-              }))
-              : undefined,
+            // tmi.js の tags.emotes は { [emoteId]: ['start-end', ...] } の形式
+            emotes: (() => {
+              const raw = tags.emotes
+              if (!raw || typeof raw !== 'object') return undefined
+              return Object.entries(raw).map(([id, positions]) => {
+                const arr = (Array.isArray(positions) ? positions : [positions]) as string[]
+                return {
+                  id,
+                  name: id,
+                  positions: arr.map((p: string) => {
+                    const [start, end] = p.split('-').map(Number)
+                    return { start, end }
+                  }),
+                }
+              })
+            })(),
           }
 
           this.messageCallbacks.forEach((callback) => {

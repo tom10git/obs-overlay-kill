@@ -17,6 +17,7 @@ import { useSound } from '../hooks/useSound'
 import { getAdminUsername } from '../config/admin'
 import { useTwitchUser } from '../hooks/useTwitchUser'
 import { twitchChat } from '../utils/twitchChat'
+import { stripEmotesFromMessage } from '../utils/chatMessage'
 import type { TwitchChatMessage } from '../types/twitch'
 import { saveOverlayConfig, validateAndSanitizeConfig, getDefaultConfig } from '../utils/overlayConfig'
 import { twitchApi } from '../utils/twitchApi'
@@ -1247,7 +1248,9 @@ export function OverlayPage() {
         return
       }
 
-      const messageText = message.message.trim()
+      // スタンプ（emote）を除去した文字列でコマンド判定（「!attack Kappa」などでも実行される）
+      const normalizedMessage = stripEmotesFromMessage(message.message, message.emotes)
+      const messageText = normalizedMessage.trim()
       const messageLower = messageText.toLowerCase()
       const attackCustomText = config.attack.customText?.trim()
       const healCustomText = config.heal.customText?.trim()
