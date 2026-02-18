@@ -200,50 +200,14 @@ export function HPGauge({
         }
         // 動画を確実に最初から再生
         setShowZeroHpEffect(true)
-        // 次のフレームで動画をリセットして再生（DOM更新を待つ）
-        requestAnimationFrame(() => {
+        // 表示後にタイマーを設定（指定時間後に非表示）
+        effectTimerRef.current = window.setTimeout(() => {
+          setShowZeroHpEffect(false)
           if (videoRef.current) {
-            const video = videoRef.current
-            video.currentTime = 0 // 確実に最初に戻す
-
-            // 動画の読み込み状態を確認してから再生
-            const tryPlay = () => {
-              if (video.readyState >= 2) {
-                // データが読み込まれている場合は即座に再生
-                video.play().catch((error) => {
-                  console.warn('動画の再生に失敗しました:', error)
-                  // 再生に失敗した場合、少し待ってからリトライ
-                  setTimeout(() => {
-                    video.load() // 動画を再読み込み
-                    video.play().catch((err) => {
-                      console.warn('動画の再生リトライに失敗しました:', err)
-                    })
-                  }, 100)
-                })
-              } else {
-                // データがまだ読み込まれていない場合、読み込みを待つ
-                const onLoadedData = () => {
-                  video.play().catch((error) => {
-                    console.warn('動画の再生に失敗しました:', error)
-                  })
-                  video.removeEventListener('loadeddata', onLoadedData)
-                }
-                video.addEventListener('loadeddata', onLoadedData)
-                video.load() // 動画を明示的に読み込む
-              }
-            }
-
-            tryPlay()
+            videoRef.current.pause()
           }
-          // 表示後にタイマーを設定（指定時間後に非表示）
-          effectTimerRef.current = window.setTimeout(() => {
-            setShowZeroHpEffect(false)
-            if (videoRef.current) {
-              videoRef.current.pause()
-            }
-            effectTimerRef.current = null
-          }, Math.max(100, config.zeroHpEffect.duration))
-        })
+          effectTimerRef.current = null
+        }, Math.max(100, config.zeroHpEffect.duration))
       }
       // 画像を少し遅延させて表示（エフェクトより後に表示）
       if (config.zeroHpImage.enabled && zeroHpImageUrl.length > 0) {
@@ -303,6 +267,54 @@ export function HPGauge({
     zeroHpImageUrl,
     zeroHpEffectVideoUrl,
   ])
+
+  // showZeroHpEffectがtrueになったときに動画を再生
+  useEffect(() => {
+    if (showZeroHpEffect && config.zeroHpEffect.enabled && zeroHpEffectVideoUrl.length > 0) {
+      // DOM更新を待つため、次のフレームで実行
+      requestAnimationFrame(() => {
+        if (videoRef.current) {
+          const video = videoRef.current
+          video.currentTime = 0 // 確実に最初に戻す
+
+          // 動画の読み込み状態を確認してから再生
+          const tryPlay = () => {
+            if (video.readyState >= 2) {
+              // データが読み込まれている場合は即座に再生
+              video.play().catch((error) => {
+                console.warn('[HP0動画エフェクト] 動画の再生に失敗しました:', error)
+                // 再生に失敗した場合、少し待ってからリトライ
+                setTimeout(() => {
+                  video.load() // 動画を再読み込み
+                  video.play().catch((err) => {
+                    console.warn('[HP0動画エフェクト] 動画の再生リトライに失敗しました:', err)
+                  })
+                }, 100)
+              })
+            } else {
+              // データがまだ読み込まれていない場合、読み込みを待つ
+              const onLoadedData = () => {
+                video.play().catch((error) => {
+                  console.warn('[HP0動画エフェクト] 動画の再生に失敗しました:', error)
+                })
+                video.removeEventListener('loadeddata', onLoadedData)
+              }
+              video.addEventListener('loadeddata', onLoadedData)
+              video.load() // 動画を明示的に読み込む
+            }
+          }
+
+          tryPlay()
+        } else {
+          console.warn('[HP0動画エフェクト] videoRef.currentがnullです')
+        }
+      })
+    } else if (!showZeroHpEffect && videoRef.current) {
+      // エフェクトが非表示になったら動画を停止
+      videoRef.current.pause()
+      videoRef.current.currentTime = 0
+    }
+  }, [showZeroHpEffect, config.zeroHpEffect.enabled, zeroHpEffectVideoUrl])
 
   // クリーンアップ（コンポーネントのアンマウント時のみ実行）
   useEffect(() => {

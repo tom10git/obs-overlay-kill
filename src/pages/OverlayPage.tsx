@@ -4535,6 +4535,66 @@ export function OverlayPage() {
                                 placeholder="視聴者 {username} のHPが0になりました。"
                               />
                             </div>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">バフコマンド実行時の自動返信</label>
+                              <input
+                                type="checkbox"
+                                checked={config.pvp.autoReplyStrengthBuff ?? true}
+                                onChange={(e) => updateConfigLocal({ pvp: { autoReplyStrengthBuff: e.target.checked } })}
+                              />
+                            </div>
+                            {config.pvp.autoReplyStrengthBuff && (
+                              <div className="test-settings-section">
+                                <label className="test-settings-label">バフ付与時の自動返信メッセージ（{'{username}'} で視聴者名、{'{duration}'} で効果時間（分）に置換）</label>
+                                <input
+                                  type="text"
+                                  className="test-settings-input"
+                                  value={config.pvp.messageWhenStrengthBuffActivated ?? '{username} にストレングス効果を付与しました！（効果時間: {duration}分）'}
+                                  onChange={(e) => updateConfigLocal({ pvp: { messageWhenStrengthBuffActivated: e.target.value } })}
+                                  placeholder="{username} にストレングス効果を付与しました！（効果時間: {duration}分）"
+                                />
+                              </div>
+                            )}
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">バフ確認コマンド実行時の自動返信</label>
+                              <input
+                                type="checkbox"
+                                checked={config.pvp.autoReplyStrengthBuffCheck ?? true}
+                                onChange={(e) => updateConfigLocal({ pvp: { autoReplyStrengthBuffCheck: e.target.checked } })}
+                              />
+                            </div>
+                            {config.pvp.autoReplyStrengthBuffCheck && (
+                              <div className="test-settings-section">
+                                <label className="test-settings-label">バフ確認時の自動返信メッセージ（{'{username}'} で視聴者名、{'{remaining}'} で残り時間（分）、{'{duration}'} で効果時間（分）に置換）</label>
+                                <input
+                                  type="text"
+                                  className="test-settings-input"
+                                  value={config.pvp.messageWhenStrengthBuffCheck ?? '{username} のストレングス効果: 残り {remaining}分 / 効果時間 {duration}分'}
+                                  onChange={(e) => updateConfigLocal({ pvp: { messageWhenStrengthBuffCheck: e.target.value } })}
+                                  placeholder="{username} のストレングス効果: 残り {remaining}分 / 効果時間 {duration}分"
+                                />
+                              </div>
+                            )}
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">必殺技発動時の自動返信</label>
+                              <input
+                                type="checkbox"
+                                checked={config.pvp.autoReplyViewerFinishingMove ?? true}
+                                onChange={(e) => updateConfigLocal({ pvp: { autoReplyViewerFinishingMove: e.target.checked } })}
+                              />
+                            </div>
+                            {config.pvp.autoReplyViewerFinishingMove && (
+                              <div className="test-settings-section">
+                                <label className="test-settings-label">必殺技発動時の自動返信メッセージ（{'{username}'} で視聴者名、{'{damage}'} でダメージに置換）</label>
+                                <input
+                                  type="text"
+                                  className="test-settings-input"
+                                  value={config.pvp.messageWhenViewerFinishingMove ?? '{username} が必殺技を繰り出した！ ダメージ: {damage}'}
+                                  onChange={(e) => updateConfigLocal({ pvp: { messageWhenViewerFinishingMove: e.target.value } })}
+                                  placeholder="{username} が必殺技を繰り出した！ ダメージ: {damage}"
+                                />
+                              </div>
+                            )}
                           </>
                         )}
                       </>
