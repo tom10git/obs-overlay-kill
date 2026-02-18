@@ -180,6 +180,22 @@ const DEFAULT_CONFIG: OverlayConfig = {
     streamerHealOnAttackMin: 5,
     streamerHealOnAttackMax: 20,
     streamerHealOnAttackRandomStep: 1,
+    strengthBuffCommand: '!strength',
+    strengthBuffCheckCommand: '!buff',
+    strengthBuffDuration: 300,
+    strengthBuffTarget: 'individual',
+    autoReplyStrengthBuff: true,
+    autoReplyStrengthBuffCheck: true,
+    messageWhenStrengthBuffActivated: '{username} にストレングス効果を付与しました！（効果時間: {duration}秒）',
+    messageWhenStrengthBuffCheck: '{username} のストレングス効果: 残り {remaining}秒 / 効果時間 {duration}秒',
+    strengthBuffSoundEnabled: false,
+    strengthBuffSoundUrl: '',
+    strengthBuffSoundVolume: 0.7,
+    viewerFinishingMoveEnabled: true,
+    viewerFinishingMoveProbability: 0.001,
+    viewerFinishingMoveMultiplier: 10,
+    messageWhenViewerFinishingMove: '{username} が必殺技を繰り出した！ ダメージ: {damage}',
+    autoReplyViewerFinishingMove: true,
     viewerVsViewerAttack: {
       rewardId: '',
       customText: '',
@@ -905,6 +921,39 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     streamerHealOnAttackMin: isInRange(Number(pvpConfig.streamerHealOnAttackMin), 1, 999999) ? Number(pvpConfig.streamerHealOnAttackMin) || 5 : 5,
     streamerHealOnAttackMax: isInRange(Number(pvpConfig.streamerHealOnAttackMax), 1, 999999) ? Number(pvpConfig.streamerHealOnAttackMax) || 20 : 20,
     streamerHealOnAttackRandomStep: isInRange(Number(pvpConfig.streamerHealOnAttackRandomStep), 1, 999999) ? Number(pvpConfig.streamerHealOnAttackRandomStep) || 1 : 1,
+    strengthBuffCommand: typeof pvpConfig.strengthBuffCommand === 'string' && isValidLength(pvpConfig.strengthBuffCommand, 1, 50)
+      ? (pvpConfig.strengthBuffCommand as string).replace(/[<>"']/g, '')
+      : '!strength',
+    strengthBuffCheckCommand: typeof pvpConfig.strengthBuffCheckCommand === 'string' && isValidLength(pvpConfig.strengthBuffCheckCommand, 1, 50)
+      ? (pvpConfig.strengthBuffCheckCommand as string).replace(/[<>"']/g, '')
+      : '!buff',
+    strengthBuffDuration: isInRange(Number(pvpConfig.strengthBuffDuration), 1, 999999) ? Number(pvpConfig.strengthBuffDuration) || 300 : 300,
+    strengthBuffTarget: (pvpConfig.strengthBuffTarget === 'all' ? 'all' : 'individual') as 'individual' | 'all',
+    autoReplyStrengthBuff: typeof pvpConfig.autoReplyStrengthBuff === 'boolean' ? pvpConfig.autoReplyStrengthBuff : true,
+    autoReplyStrengthBuffCheck: typeof pvpConfig.autoReplyStrengthBuffCheck === 'boolean' ? pvpConfig.autoReplyStrengthBuffCheck : true,
+    messageWhenStrengthBuffActivated: typeof pvpConfig.messageWhenStrengthBuffActivated === 'string' ? pvpConfig.messageWhenStrengthBuffActivated : '{username} にストレングス効果を付与しました！（効果時間: {duration}秒）',
+    messageWhenStrengthBuffCheck: typeof pvpConfig.messageWhenStrengthBuffCheck === 'string' ? pvpConfig.messageWhenStrengthBuffCheck : '{username} のストレングス効果: 残り {remaining}秒 / 効果時間 {duration}秒',
+    strengthBuffSoundEnabled: typeof pvpConfig.strengthBuffSoundEnabled === 'boolean' ? pvpConfig.strengthBuffSoundEnabled : false,
+    strengthBuffSoundUrl: typeof pvpConfig.strengthBuffSoundUrl === 'string'
+      ? (pvpConfig.strengthBuffSoundUrl.trim() === '' || isValidUrl(pvpConfig.strengthBuffSoundUrl)
+        ? pvpConfig.strengthBuffSoundUrl.trim()
+        : '')
+      : '',
+    strengthBuffSoundVolume: (() => {
+      if (typeof pvpConfig.strengthBuffSoundVolume === 'number' && !isNaN(pvpConfig.strengthBuffSoundVolume) && pvpConfig.strengthBuffSoundVolume >= 0 && pvpConfig.strengthBuffSoundVolume <= 1) {
+        return pvpConfig.strengthBuffSoundVolume
+      }
+      const num = Number(pvpConfig.strengthBuffSoundVolume)
+      if (!isNaN(num) && num >= 0 && num <= 1) {
+        return num
+      }
+      return 0.7
+    })(),
+    viewerFinishingMoveEnabled: typeof pvpConfig.viewerFinishingMoveEnabled === 'boolean' ? pvpConfig.viewerFinishingMoveEnabled : true,
+    viewerFinishingMoveProbability: isInRange(Number(pvpConfig.viewerFinishingMoveProbability), 0, 100) ? Number(pvpConfig.viewerFinishingMoveProbability) || 0.001 : 0.001,
+    viewerFinishingMoveMultiplier: isInRange(Number(pvpConfig.viewerFinishingMoveMultiplier), 1, MAX_NUM) ? Number(pvpConfig.viewerFinishingMoveMultiplier) || 10 : 10,
+    messageWhenViewerFinishingMove: typeof pvpConfig.messageWhenViewerFinishingMove === 'string' ? pvpConfig.messageWhenViewerFinishingMove : '{username} が必殺技を繰り出した！ ダメージ: {damage}',
+    autoReplyViewerFinishingMove: typeof pvpConfig.autoReplyViewerFinishingMove === 'boolean' ? pvpConfig.autoReplyViewerFinishingMove : true,
     viewerVsViewerAttack,
   }
 

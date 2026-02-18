@@ -6,6 +6,14 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { loadOverlayConfig, saveOverlayConfig, getDefaultConfig } from '../utils/overlayConfig'
 import type { OverlayConfig } from '../types/overlay'
 
+type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends (infer U)[]
+    ? DeepPartial<U>[]
+    : T[K] extends object
+      ? DeepPartial<T[K]>
+      : T[K]
+}
+
 interface UseHPGaugeOptions {
   broadcasterId: string
   channel: string
@@ -24,8 +32,8 @@ interface UseHPGaugeResult {
   reduceHP: (amount: number) => void
   increaseHP: (amount: number) => void
   resetHP: () => void
-  updateConfig: (newConfig: Partial<OverlayConfig>) => Promise<void>
-  updateConfigLocal: (newConfig: Partial<OverlayConfig>) => void
+  updateConfig: (newConfig: DeepPartial<OverlayConfig>) => Promise<void>
+  updateConfigLocal: (newConfig: DeepPartial<OverlayConfig>) => void
   saveConfig: () => Promise<void>
   reloadConfig: () => Promise<void>
 }
@@ -77,6 +85,11 @@ export function useHPGauge({
       setConfig((prev) => {
         if (!prev) {
           console.warn('[reduceHP] configがnullです')
+          return prev
+        }
+        // HPが0以下の場合は何もしない（HPが上昇するバグを防ぐ）
+        if (prev.hp.current <= 0) {
+          console.log(`[reduceHP] HPが0以下のため、ダメージを適用しません（現在HP: ${prev.hp.current}）`)
           return prev
         }
         let newHP = prev.hp.current - amount
@@ -160,7 +173,7 @@ export function useHPGauge({
 
   // 設定を更新（リアルタイム反映用、保存は行わない）
   const updateConfigLocal = useCallback(
-    (newConfig: Partial<OverlayConfig>) => {
+    (newConfig: DeepPartial<OverlayConfig>) => {
       setConfig((prev) => {
         if (!prev) return prev
         return {
@@ -227,7 +240,7 @@ export function useHPGauge({
 
   // 設定を更新（後方互換性のため残す）
   const updateConfig = useCallback(
-    async (newConfig: Partial<OverlayConfig>) => {
+    async (newConfig: DeepPartial<OverlayConfig>) => {
       updateConfigLocal(newConfig)
       setConfig((prev) => {
         if (!prev) return prev

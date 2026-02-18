@@ -17,6 +17,7 @@ export interface ApplyViewerDamageResult {
   miss: boolean
   critical: boolean
   survivalHp1: boolean
+  finishingMove?: boolean
 }
 
 /**
@@ -109,10 +110,12 @@ export function useViewerHP(config: OverlayConfig | null) {
   )
 
   const applyViewerDamage = useCallback(
-    (userId: string, baseDamage: number, attack: AttackConfig): ApplyViewerDamageResult => {
+    (userId: string, baseDamage: number, attack: AttackConfig, finishingMove?: boolean): ApplyViewerDamageResult => {
       // ref から現在HPを読んで同期的に計算（setState の updater は非同期のため return が undefined になるのを防ぐ）
       const state = viewerHpMapRef.current[userId] ?? { current: maxHP, max: maxHP }
       const result = resolveAttackDamage(state.current, baseDamage, attack)
+      // 必殺技フラグを追加
+      const resultWithFinishingMove = { ...result, finishingMove: finishingMove ?? false }
       setViewerHpMap((prev) => {
         const next = {
           ...prev,
@@ -121,7 +124,7 @@ export function useViewerHP(config: OverlayConfig | null) {
         viewerHpMapRef.current = next
         return next
       })
-      return result
+      return resultWithFinishingMove
     },
     [maxHP]
   )

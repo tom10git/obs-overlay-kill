@@ -224,6 +224,38 @@ export interface PvPConfig {
   streamerHealOnAttackMax?: number
   /** ランダム時の刻み（1のときは最小～最大の連続値） */
   streamerHealOnAttackRandomStep?: number
+  /** ストレングスバフコマンド（視聴者が実行するとストレングス効果を付与） */
+  strengthBuffCommand: string
+  /** バフ確認コマンド（視聴者が自分のバフ状態を確認） */
+  strengthBuffCheckCommand: string
+  /** ストレングスバフの効果時間（秒、デフォルト300秒=5分）。UIでは分単位で設定される */
+  strengthBuffDuration: number
+  /** ストレングスバフの対象（個人用 or 全員用） */
+  strengthBuffTarget: 'individual' | 'all'
+  /** ストレングスバフコマンド実行時の自動返信の有無 */
+  autoReplyStrengthBuff: boolean
+  /** バフ確認コマンド実行時の自動返信の有無 */
+  autoReplyStrengthBuffCheck: boolean
+  /** ストレングスバフが有効になったときの自動返信メッセージ。{username} {duration} で置換 */
+  messageWhenStrengthBuffActivated: string
+  /** バフ確認時の自動返信メッセージ。{username} {remaining} {duration} で置換 */
+  messageWhenStrengthBuffCheck: string
+  /** ストレングスバフ効果音の有効/無効 */
+  strengthBuffSoundEnabled: boolean
+  /** ストレングスバフ効果音のURL */
+  strengthBuffSoundUrl: string
+  /** ストレングスバフ効果音の音量（0-1） */
+  strengthBuffSoundVolume: number
+  /** 視聴者側の攻撃で必殺技を発動する（隠し機能） */
+  viewerFinishingMoveEnabled: boolean
+  /** 必殺技の発動確率（0-100、デフォルト0.001） */
+  viewerFinishingMoveProbability: number
+  /** 必殺技のダメージ倍率（デフォルト10倍） */
+  viewerFinishingMoveMultiplier: number
+  /** 必殺技発動時の自動返信メッセージ。{username} {damage} で置換 */
+  messageWhenViewerFinishingMove: string
+  /** 必殺技発動時の自動返信の有無 */
+  autoReplyViewerFinishingMove: boolean
 }
 
 export interface ExternalWindowConfig {

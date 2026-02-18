@@ -2158,6 +2158,193 @@ export function OverlaySettings() {
                         />
                       </label>
                     </div>
+                    <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                      ストレングスバフ設定
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        ストレングスバフコマンド（視聴者が実行するとストレングス効果を付与）:
+                        <input
+                          type="text"
+                          value={config.pvp.strengthBuffCommand ?? '!strength'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, strengthBuffCommand: e.target.value },
+                            })
+                          }
+                          placeholder="!strength"
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        バフ確認コマンド（視聴者が自分のバフ状態を確認）:
+                        <input
+                          type="text"
+                          value={config.pvp.strengthBuffCheckCommand ?? '!buff'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, strengthBuffCheckCommand: e.target.value },
+                            })
+                          }
+                          placeholder="!buff"
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        ストレングスバフの効果時間（秒）:
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={inputValues['pvp.strengthBuffDuration'] ?? String(config.pvp.strengthBuffDuration ?? 300)}
+                          onChange={(e) => setInputValues((prev) => ({ ...prev, 'pvp.strengthBuffDuration': e.target.value }))}
+                          onBlur={(e) => {
+                            const num = Number(e.target.value.trim())
+                            setConfig({ ...config, pvp: { ...config.pvp, strengthBuffDuration: (!isNaN(num) && num >= 1) ? num : 300 } })
+                            setInputValues((prev) => { const next = { ...prev }; delete next['pvp.strengthBuffDuration']; return next })
+                          }}
+                          placeholder="300"
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.autoReplyStrengthBuff ?? true}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, autoReplyStrengthBuff: e.target.checked },
+                            })
+                          }
+                        />
+                        ストレングスバフコマンド実行時の自動返信を有効にする
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.autoReplyStrengthBuffCheck ?? true}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, autoReplyStrengthBuffCheck: e.target.checked },
+                            })
+                          }
+                        />
+                        バフ確認コマンド実行時の自動返信を有効にする
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        ストレングスバフ有効時の自動返信メッセージ:
+                        <input
+                          type="text"
+                          value={config.pvp.messageWhenStrengthBuffActivated ?? '{username} にストレングス効果を付与しました！（効果時間: {duration}秒）'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, messageWhenStrengthBuffActivated: e.target.value },
+                            })
+                          }
+                          placeholder="{username} にストレングス効果を付与しました！（効果時間: {duration}秒）"
+                        />
+                        <small style={{ display: 'block', marginTop: '4px', color: '#888' }}>
+                          {'{username} で視聴者名、{duration} で効果時間（秒）に置換されます'}
+                        </small>
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        バフ確認時の自動返信メッセージ:
+                        <input
+                          type="text"
+                          value={config.pvp.messageWhenStrengthBuffCheck ?? '{username} のストレングス効果: 残り {remaining}秒 / 効果時間 {duration}秒'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, messageWhenStrengthBuffCheck: e.target.value },
+                            })
+                          }
+                          placeholder="{username} のストレングス効果: 残り {remaining}秒 / 効果時間 {duration}秒"
+                        />
+                        <small style={{ display: 'block', marginTop: '4px', color: '#888' }}>
+                          {'{username} で視聴者名、{remaining} で残り時間（秒）、{duration} で効果時間（秒）に置換されます'}
+                        </small>
+                      </label>
+                    </div>
+                    <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
+                      ストレングスバフ効果音設定
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.strengthBuffSoundEnabled ?? false}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, strengthBuffSoundEnabled: e.target.checked },
+                            })
+                          }
+                        />
+                        ストレングスバフ効果音を有効にする
+                      </label>
+                    </div>
+                    {config.pvp.strengthBuffSoundEnabled && (
+                      <>
+                        <div className="settings-row">
+                          <label>
+                            効果音URL:
+                            <input
+                              type="text"
+                              value={config.pvp.strengthBuffSoundUrl ?? ''}
+                              onChange={(e) => {
+                                const url = e.target.value
+                                if (url === '' || isValidUrl(url)) {
+                                  setConfig({
+                                    ...config,
+                                    pvp: { ...config.pvp, strengthBuffSoundUrl: url },
+                                  })
+                                  if (url && !isValidUrl(url)) {
+                                    setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                                    setTimeout(() => setMessage(null), 3000)
+                                  }
+                                } else {
+                                  setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                                  setTimeout(() => setMessage(null), 3000)
+                                }
+                              }}
+                              placeholder="空欄の場合は効果音なし"
+                            />
+                          </label>
+                          <label>
+                            音量:
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.1"
+                              value={config.pvp.strengthBuffSoundVolume ?? 0.7}
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: { ...config.pvp, strengthBuffSoundVolume: Number(e.target.value) },
+                                })
+                              }
+                            />
+                            <span style={{ marginLeft: '8px', minWidth: '40px', display: 'inline-block' }}>
+                              {Math.round((config.pvp.strengthBuffSoundVolume ?? 0.7) * 100)}%
+                            </span>
+                          </label>
+                        </div>
+                      </>
+                    )}
                     <div className="settings-row">
                       <label>
                         全回復コマンド（視聴者側・実行した視聴者のHPを最大まで回復）:
