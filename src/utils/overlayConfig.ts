@@ -196,6 +196,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     viewerFinishingMoveMultiplier: 10,
     messageWhenViewerFinishingMove: '{username} が必殺技を繰り出した！ ダメージ: {damage}',
     autoReplyViewerFinishingMove: true,
+    finishingMoveText: '必殺技！',
     viewerVsViewerAttack: {
       rewardId: '',
       customText: '',
@@ -954,6 +955,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     viewerFinishingMoveMultiplier: isInRange(Number(pvpConfig.viewerFinishingMoveMultiplier), 1, MAX_NUM) ? Number(pvpConfig.viewerFinishingMoveMultiplier) || 10 : 10,
     messageWhenViewerFinishingMove: typeof pvpConfig.messageWhenViewerFinishingMove === 'string' ? pvpConfig.messageWhenViewerFinishingMove : '{username} が必殺技を繰り出した！ ダメージ: {damage}',
     autoReplyViewerFinishingMove: typeof pvpConfig.autoReplyViewerFinishingMove === 'boolean' ? pvpConfig.autoReplyViewerFinishingMove : true,
+    finishingMoveText: typeof pvpConfig.finishingMoveText === 'string' && pvpConfig.finishingMoveText.trim().length > 0 ? pvpConfig.finishingMoveText.trim() : '必殺技！',
     viewerVsViewerAttack,
   }
 

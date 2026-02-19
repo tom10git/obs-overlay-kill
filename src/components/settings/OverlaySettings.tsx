@@ -2725,6 +2725,106 @@ export function OverlaySettings() {
                     </div>
                   </>
                 )}
+                <div className="settings-row" style={{ marginTop: '1rem', fontWeight: 'bold' }}>
+                  必殺技設定
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.pvp.viewerFinishingMoveEnabled ?? true}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, viewerFinishingMoveEnabled: e.target.checked },
+                        })
+                      }
+                    />
+                    必殺技を有効にする
+                  </label>
+                </div>
+                {config.pvp.viewerFinishingMoveEnabled && (
+                  <>
+                    <div className="settings-row">
+                      <label>
+                        必殺技発動確率 (%):
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={inputValues['pvp.viewerFinishingMoveProbability'] ?? String(config.pvp.viewerFinishingMoveProbability ?? 0.001)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'pvp.viewerFinishingMoveProbability': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            const num = value === '' ? 0.001 : parseFloat(value)
+                            if (!isNaN(num) && num >= 0 && num <= 100) {
+                              setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerFinishingMoveProbability: num } } : prev)
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['pvp.viewerFinishingMoveProbability']
+                                return next
+                              })
+                            } else {
+                              setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerFinishingMoveProbability: prev.pvp.viewerFinishingMoveProbability ?? 0.001 } } : prev)
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['pvp.viewerFinishingMoveProbability']
+                                return next
+                              })
+                            }
+                          }}
+                        />
+                      </label>
+                      <label>
+                        必殺技ダメージ倍率:
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={inputValues['pvp.viewerFinishingMoveMultiplier'] ?? String(config.pvp.viewerFinishingMoveMultiplier ?? 10)}
+                          onChange={(e) => {
+                            setInputValues((prev) => ({ ...prev, 'pvp.viewerFinishingMoveMultiplier': e.target.value }))
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim()
+                            const num = value === '' ? 10 : parseFloat(value)
+                            if (!isNaN(num) && num >= 1) {
+                              setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerFinishingMoveMultiplier: num } } : prev)
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['pvp.viewerFinishingMoveMultiplier']
+                                return next
+                              })
+                            } else {
+                              setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerFinishingMoveMultiplier: prev.pvp.viewerFinishingMoveMultiplier ?? 10 } } : prev)
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next['pvp.viewerFinishingMoveMultiplier']
+                                return next
+                              })
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        必殺技表示テキスト:
+                        <input
+                          type="text"
+                          value={config.pvp.finishingMoveText ?? '必殺技！'}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, finishingMoveText: e.target.value },
+                            })
+                          }
+                          placeholder="必殺技！"
+                        />
+                      </label>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>

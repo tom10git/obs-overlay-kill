@@ -256,6 +256,8 @@ export interface PvPConfig {
   messageWhenViewerFinishingMove: string
   /** 必殺技発動時の自動返信の有無 */
   autoReplyViewerFinishingMove: boolean
+  /** 必殺技発動時に表示するテキスト（デフォルト: "必殺技！"） */
+  finishingMoveText: string
 }
 
 export interface ExternalWindowConfig {
