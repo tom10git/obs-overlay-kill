@@ -155,7 +155,7 @@ export function OverlayPage() {
   // UI表示の管理
   const [showTestControls, setShowTestControls] = useState(true)
   const [showTestSettings, setShowTestSettings] = useState(false)
-  const [testSettingsTab, setTestSettingsTab] = useState<'streamer' | 'user' | 'autoReply'>('streamer')
+  const [testSettingsTab, setTestSettingsTab] = useState<'basic' | 'commands' | 'autoReply' | 'effects'>('basic')
   const [testAutoReplySubTab, setTestAutoReplySubTab] = useState<'streamer' | 'viewer'>('streamer')
   const [testInputValues, setTestInputValues] = useState<Record<string, string>>({}) // 入力中の値を保持
   const [showSaveDialog, setShowSaveDialog] = useState(false) // 保存成功ダイアログの表示/非表示
@@ -603,6 +603,60 @@ export function OverlayPage() {
       : (config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。')
     sendAutoReply(msg, errorLabel)
   }, [config?.pvp?.autoReplyBlockedByZeroHp, config?.pvp?.messageWhenAttackBlockedByZeroHp, config?.pvp?.messageWhenHealBlockedByZeroHp, sendAutoReply])
+  const applyTestPreset = useCallback((preset: 'safe' | 'allOn') => {
+    if (preset === 'safe') {
+      updateConfigLocal({
+        pvp: {
+          enabled: true,
+          attackMode: 'streamer_only',
+          viewerFinishingMoveEnabled: false,
+          autoReplyAttackCounter: true,
+          autoReplyWhenViewerZeroHp: true,
+          autoReplyHpCheck: true,
+          autoReplyFullHeal: true,
+          autoReplyHeal: true,
+          autoReplyBlockedByZeroHp: true,
+          autoReplyStrengthBuff: true,
+          autoReplyStrengthBuffCheck: true,
+          autoReplyViewerFinishingMove: false,
+          strengthBuffSoundEnabled: false,
+        },
+        heal: { autoReplyEnabled: true },
+        retry: {
+          enabled: true,
+          streamerAutoReplyEnabled: true,
+          soundEnabled: false,
+        },
+      })
+      return
+    }
+
+    updateConfigLocal({
+      pvp: {
+        enabled: true,
+        attackMode: 'both',
+        viewerFinishingMoveEnabled: true,
+        autoReplyAttackCounter: true,
+        autoReplyWhenViewerZeroHp: true,
+        autoReplyHpCheck: true,
+        autoReplyFullHeal: true,
+        autoReplyHeal: true,
+        autoReplyBlockedByZeroHp: true,
+        autoReplyStrengthBuff: true,
+        autoReplyStrengthBuffCheck: true,
+        autoReplyViewerFinishingMove: true,
+        strengthBuffSoundEnabled: true,
+      },
+      heal: { autoReplyEnabled: true, soundEnabled: true },
+      retry: {
+        enabled: true,
+        streamerAutoReplyEnabled: true,
+        soundEnabled: true,
+      },
+      zeroHpSound: { enabled: true },
+      zeroHpEffect: { enabled: true },
+    })
+  }, [updateConfigLocal])
 
   // PvP: 視聴者ごとのHP（ゲージなし・数値のみ）
   const {
@@ -2769,30 +2823,89 @@ export function OverlayPage() {
                 </div>
                 {showTestSettings && config && (
                   <div className="test-settings-panel">
+                    <div className="test-settings-section">
+                      <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                        クイック設定（よく使う項目）
+                      </label>
+                    </div>
+                    <div className="test-settings-section" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button type="button" className="test-button test-save" style={{ width: 'auto', padding: '0.3rem 0.7rem' }} onClick={() => applyTestPreset('safe')}>
+                        プリセット: 配信向け（安全）
+                      </button>
+                      <button type="button" className="test-button test-reload" style={{ width: 'auto', padding: '0.3rem 0.7rem' }} onClick={() => applyTestPreset('allOn')}>
+                        プリセット: 検証向け（全部ON）
+                      </button>
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">誰が使う: 視聴者 / いつ: 攻撃コマンド入力時（`!attack`）</label>
+                      <input
+                        type="text"
+                        className="test-settings-input"
+                        value={config.pvp.viewerAttackViewerCommand ?? '!attack'}
+                        onChange={(e) => updateConfigLocal({ pvp: { viewerAttackViewerCommand: e.target.value } })}
+                        placeholder="!attack"
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">誰が使う: 視聴者 / いつ: バフ付与コマンド入力時（`!strength`）</label>
+                      <input
+                        type="text"
+                        className="test-settings-input"
+                        value={config.pvp.strengthBuffCommand ?? '!strength'}
+                        onChange={(e) => updateConfigLocal({ pvp: { strengthBuffCommand: e.target.value } })}
+                        placeholder="!strength"
+                      />
+                    </div>
+                    <div className="test-settings-section">
+                      <label className="test-settings-label">誰に効く: 視聴者 / いつ: `!strength` 実行時（バフ効果時間: 分）</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="test-settings-input"
+                        value={testInputValues.pvpStrengthBuffDuration ?? Math.round((config.pvp.strengthBuffDuration ?? 300) / 60)}
+                        onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStrengthBuffDuration: e.target.value }))}
+                        onBlur={(e) => {
+                          const num = Number(e.target.value.trim())
+                          if (!isNaN(num) && num >= 1) {
+                            updateConfigLocal({ pvp: { strengthBuffDuration: num * 60 } })
+                          }
+                          setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStrengthBuffDuration; return next })
+                        }}
+                        placeholder="5"
+                      />
+                    </div>
+                    <div className="test-settings-divider"></div>
                     <div className="test-settings-tabs">
                       <button
                         type="button"
-                        className={`test-settings-tab ${testSettingsTab === 'streamer' ? 'test-settings-tab-active' : ''}`}
-                        onClick={() => setTestSettingsTab('streamer')}
+                        className={`test-settings-tab ${testSettingsTab === 'basic' ? 'test-settings-tab-active' : ''}`}
+                        onClick={() => setTestSettingsTab('basic')}
                       >
-                        配信者側
+                        基本設定
                       </button>
                       <button
                         type="button"
-                        className={`test-settings-tab ${testSettingsTab === 'user' ? 'test-settings-tab-active' : ''}`}
-                        onClick={() => setTestSettingsTab('user')}
+                        className={`test-settings-tab ${testSettingsTab === 'commands' ? 'test-settings-tab-active' : ''}`}
+                        onClick={() => setTestSettingsTab('commands')}
                       >
-                        ユーザー側
+                        コマンド
                       </button>
                       <button
                         type="button"
                         className={`test-settings-tab ${testSettingsTab === 'autoReply' ? 'test-settings-tab-active' : ''}`}
                         onClick={() => setTestSettingsTab('autoReply')}
                       >
-                        自動返信設定
+                        自動返信
+                      </button>
+                      <button
+                        type="button"
+                        className={`test-settings-tab ${testSettingsTab === 'effects' ? 'test-settings-tab-active' : ''}`}
+                        onClick={() => setTestSettingsTab('effects')}
+                      >
+                        効果音・演出
                       </button>
                     </div>
-                    {testSettingsTab === 'streamer' && (
+                    {testSettingsTab === 'basic' && (
                       <>
                         <div className="test-settings-section">
                           <label className="test-settings-label">背景色</label>
@@ -3996,7 +4109,7 @@ export function OverlayPage() {
                         </div>
                       </>
                     )}
-                    {testSettingsTab === 'user' && (
+                    {testSettingsTab === 'commands' && (
                       <>
                         <div className="test-settings-section">
                           <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>PvPモード（配信者 vs 視聴者、配信者 vs 視聴者同士の攻撃）</label>
@@ -4196,16 +4309,6 @@ export function OverlayPage() {
                             </div>
                             {(config.pvp.attackMode ?? 'both') === 'both' && (
                               <>
-                                <div className="test-settings-section">
-                                  <label className="test-settings-label">視聴者同士攻撃コマンド</label>
-                                  <input
-                                    type="text"
-                                    className="test-settings-input"
-                                    value={config.pvp.viewerAttackViewerCommand ?? '!attack'}
-                                    onChange={(e) => updateConfigLocal({ pvp: { viewerAttackViewerCommand: e.target.value } })}
-                                    placeholder="!attack"
-                                  />
-                                </div>
                                 <div className="test-settings-section">
                                   <label className="test-settings-label">視聴者同士攻撃のダメージタイプ</label>
                                   <select
@@ -4628,7 +4731,7 @@ export function OverlayPage() {
                       </>
                     )}
                     {/* 必殺技設定とストレングスバフ設定はPvPモード無効でも表示 */}
-                    {testSettingsTab === 'user' && (
+                    {testSettingsTab === 'commands' && (
                       <>
                         <div className="test-settings-divider"></div>
                         <div className="test-settings-section">
@@ -4682,26 +4785,6 @@ export function OverlayPage() {
                               />
                             </div>
                             <div className="test-settings-section">
-                              <label className="test-settings-label">必殺技発動時の自動返信</label>
-                              <input
-                                type="checkbox"
-                                checked={config.pvp.autoReplyViewerFinishingMove ?? true}
-                                onChange={(e) => updateConfigLocal({ pvp: { autoReplyViewerFinishingMove: e.target.checked } })}
-                              />
-                            </div>
-                            {config.pvp.autoReplyViewerFinishingMove && (
-                              <div className="test-settings-section">
-                                <label className="test-settings-label">必殺技発動メッセージ（{'{username}'} {'{damage}'} で置換）</label>
-                                <input
-                                  type="text"
-                                  className="test-settings-input"
-                                  value={config.pvp.messageWhenViewerFinishingMove ?? '{username} が必殺技を繰り出した！ ダメージ: {damage}'}
-                                  onChange={(e) => updateConfigLocal({ pvp: { messageWhenViewerFinishingMove: e.target.value } })}
-                                  placeholder="{username} が必殺技を繰り出した！ ダメージ: {damage}"
-                                />
-                              </div>
-                            )}
-                            <div className="test-settings-section">
                               <label className="test-settings-label">必殺技表示テキスト</label>
                               <input
                                 type="text"
@@ -4729,16 +4812,6 @@ export function OverlayPage() {
                           </select>
                         </div>
                         <div className="test-settings-section">
-                          <label className="test-settings-label">ストレングスバフコマンド</label>
-                          <input
-                            type="text"
-                            className="test-settings-input"
-                            value={config.pvp.strengthBuffCommand ?? '!strength'}
-                            onChange={(e) => updateConfigLocal({ pvp: { strengthBuffCommand: e.target.value } })}
-                            placeholder="!strength"
-                          />
-                        </div>
-                        <div className="test-settings-section">
                           <label className="test-settings-label">バフ確認コマンド</label>
                           <input
                             type="text"
@@ -4746,40 +4819,6 @@ export function OverlayPage() {
                             value={config.pvp.strengthBuffCheckCommand ?? '!buff'}
                             onChange={(e) => updateConfigLocal({ pvp: { strengthBuffCheckCommand: e.target.value } })}
                             placeholder="!buff"
-                          />
-                        </div>
-                        <div className="test-settings-section">
-                          <label className="test-settings-label">バフ効果時間（分）</label>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            className="test-settings-input"
-                            value={testInputValues.pvpStrengthBuffDuration ?? Math.round((config.pvp.strengthBuffDuration ?? 300) / 60)}
-                            onChange={(e) => setTestInputValues((prev) => ({ ...prev, pvpStrengthBuffDuration: e.target.value }))}
-                            onBlur={(e) => {
-                              const num = Number(e.target.value.trim())
-                              if (!isNaN(num) && num >= 1) {
-                                updateConfigLocal({ pvp: { strengthBuffDuration: num * 60 } })
-                              }
-                              setTestInputValues((prev) => { const next = { ...prev }; delete next.pvpStrengthBuffDuration; return next })
-                            }}
-                            placeholder="5"
-                          />
-                        </div>
-                        <div className="test-settings-section">
-                          <label className="test-settings-label">バフコマンド実行時の自動返信</label>
-                          <input
-                            type="checkbox"
-                            checked={config.pvp.autoReplyStrengthBuff ?? true}
-                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyStrengthBuff: e.target.checked } })}
-                          />
-                        </div>
-                        <div className="test-settings-section">
-                          <label className="test-settings-label">バフ確認コマンド実行時の自動返信</label>
-                          <input
-                            type="checkbox"
-                            checked={config.pvp.autoReplyStrengthBuffCheck ?? true}
-                            onChange={(e) => updateConfigLocal({ pvp: { autoReplyStrengthBuffCheck: e.target.checked } })}
                           />
                         </div>
                         <div className="test-settings-section">
@@ -4842,23 +4881,25 @@ export function OverlayPage() {
                         {testAutoReplySubTab === 'streamer' && (
                           <>
                             <div className="test-settings-section">
-                              <label className="test-settings-label">配信者側の自動返信（配信者HP0時などにチャットへメッセージを送る）</label>
+                              <label className="test-settings-label">誰に送る: チャット全体 / いつ: 配信者イベント発生時（配信者側 自動返信ON/OFF）</label>
                               <input
                                 type="checkbox"
                                 checked={config.retry.streamerAutoReplyEnabled ?? true}
                                 onChange={(e) => updateConfigLocal({ retry: { streamerAutoReplyEnabled: e.target.checked } })}
                               />
                             </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">配信者HPが0になったときの自動返信（{'{attacker}'} で攻撃者名に置換）</label>
-                              <input
-                                type="text"
-                                className="test-settings-input"
-                                value={config.hp.messageWhenZeroHp ?? '配信者を {attacker} が倒しました！'}
-                                onChange={(e) => updateConfigLocal({ hp: { messageWhenZeroHp: e.target.value } })}
-                                placeholder="配信者を {attacker} が倒しました！"
-                              />
-                            </div>
+                            {config.retry.streamerAutoReplyEnabled && (
+                              <div className="test-settings-section">
+                                <label className="test-settings-label">誰に送る: チャット全体 / いつ: 配信者HPが0になったとき（{'{attacker}'} 置換可）</label>
+                                <input
+                                  type="text"
+                                  className="test-settings-input"
+                                  value={config.hp.messageWhenZeroHp ?? '配信者を {attacker} が倒しました！'}
+                                  onChange={(e) => updateConfigLocal({ hp: { messageWhenZeroHp: e.target.value } })}
+                                  placeholder="配信者を {attacker} が倒しました！"
+                                />
+                              </div>
+                            )}
                             <div className="test-settings-section">
                               <label className="test-settings-label">回復コマンド使用時にチャットへ自動返信（攻撃時と同様）</label>
                               <input
@@ -4932,46 +4973,54 @@ export function OverlayPage() {
                                 onChange={(e) => updateConfigLocal({ pvp: { autoReplyBlockedByZeroHp: e.target.checked } })}
                               />
                             </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">攻撃時自動返信メッセージ（{'{username}'} {'{hp}'} {'{max}'} で置換）</label>
-                              <input
-                                type="text"
-                                className="test-settings-input"
-                                value={config.pvp.autoReplyMessageTemplate}
-                                onChange={(e) => updateConfigLocal({ pvp: { autoReplyMessageTemplate: e.target.value } })}
-                                placeholder="{username} の残りHP: {hp}/{max}"
-                              />
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">攻撃ブロック時メッセージ</label>
-                              <input
-                                type="text"
-                                className="test-settings-input"
-                                value={config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'}
-                                onChange={(e) => updateConfigLocal({ pvp: { messageWhenAttackBlockedByZeroHp: e.target.value } })}
-                                placeholder="HPが0なので攻撃できません。"
-                              />
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">回復ブロック時メッセージ</label>
-                              <input
-                                type="text"
-                                className="test-settings-input"
-                                value={config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'}
-                                onChange={(e) => updateConfigLocal({ pvp: { messageWhenHealBlockedByZeroHp: e.target.value } })}
-                                placeholder="HPが0なので回復できません。"
-                              />
-                            </div>
-                            <div className="test-settings-section">
-                              <label className="test-settings-label">視聴者HPが0になったときの自動返信メッセージ（{'{username}'} で対象の表示名に置換）</label>
-                              <input
-                                type="text"
-                                className="test-settings-input"
-                                value={config.pvp.messageWhenViewerZeroHp ?? '視聴者 {username} のHPが0になりました。'}
-                                onChange={(e) => updateConfigLocal({ pvp: { messageWhenViewerZeroHp: e.target.value } })}
-                                placeholder="視聴者 {username} のHPが0になりました。"
-                              />
-                            </div>
+                            {config.pvp.autoReplyAttackCounter && (
+                              <div className="test-settings-section">
+                                <label className="test-settings-label">誰に送る: チャット全体 / いつ: 攻撃・カウンター後（{'{username}'} {'{hp}'} {'{max}'}）</label>
+                                <input
+                                  type="text"
+                                  className="test-settings-input"
+                                  value={config.pvp.autoReplyMessageTemplate}
+                                  onChange={(e) => updateConfigLocal({ pvp: { autoReplyMessageTemplate: e.target.value } })}
+                                  placeholder="{username} の残りHP: {hp}/{max}"
+                                />
+                              </div>
+                            )}
+                            {config.pvp.autoReplyBlockedByZeroHp && (
+                              <>
+                                <div className="test-settings-section">
+                                  <label className="test-settings-label">誰に送る: チャット全体 / いつ: HP0で攻撃をブロックしたとき</label>
+                                  <input
+                                    type="text"
+                                    className="test-settings-input"
+                                    value={config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'}
+                                    onChange={(e) => updateConfigLocal({ pvp: { messageWhenAttackBlockedByZeroHp: e.target.value } })}
+                                    placeholder="HPが0なので攻撃できません。"
+                                  />
+                                </div>
+                                <div className="test-settings-section">
+                                  <label className="test-settings-label">誰に送る: チャット全体 / いつ: HP0で回復をブロックしたとき</label>
+                                  <input
+                                    type="text"
+                                    className="test-settings-input"
+                                    value={config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'}
+                                    onChange={(e) => updateConfigLocal({ pvp: { messageWhenHealBlockedByZeroHp: e.target.value } })}
+                                    placeholder="HPが0なので回復できません。"
+                                  />
+                                </div>
+                              </>
+                            )}
+                            {config.pvp.autoReplyWhenViewerZeroHp && (
+                              <div className="test-settings-section">
+                                <label className="test-settings-label">誰に送る: チャット全体 / いつ: 視聴者HPが0になったとき（{'{username}'} 置換可）</label>
+                                <input
+                                  type="text"
+                                  className="test-settings-input"
+                                  value={config.pvp.messageWhenViewerZeroHp ?? '視聴者 {username} のHPが0になりました。'}
+                                  onChange={(e) => updateConfigLocal({ pvp: { messageWhenViewerZeroHp: e.target.value } })}
+                                  placeholder="視聴者 {username} のHPが0になりました。"
+                                />
+                              </div>
+                            )}
                             <div className="test-settings-section">
                               <label className="test-settings-label">バフコマンド実行時の自動返信</label>
                               <input
@@ -5036,7 +5085,7 @@ export function OverlayPage() {
                         )}
                       </>
                     )}
-                    {testSettingsTab === 'streamer' && (
+                    {testSettingsTab === 'effects' && (
                       <>
                         <div className="test-settings-section">
                           <label className="test-settings-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>リトライ設定</label>
