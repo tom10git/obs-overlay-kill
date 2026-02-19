@@ -408,30 +408,26 @@ export function HPGauge({
               )}
             </>
           ) : (
-            // 個人用バフ：ラベル + アイコン + 個人名 + カウントダウン
+            // 個人用バフ：ラベル + アイコン + ユーザーごとのカウントダウン
             <>
               <span className="hp-gauge-buff-label">ユーザーバフ：</span>
               <span className="hp-gauge-buff-emoji">💪</span>
-              <span className="hp-gauge-buff-users">
+              <span className="hp-gauge-buff-user-list">
                 {buffedUserIds
-                  .map((userId) => userIdToDisplayName.get(userId) || userId)
-                  .slice(0, 5)
-                  .join(', ')}
-                {buffedUserIds.length > 5 && ` +${buffedUserIds.length - 5}`}
+                  .map((userId) => {
+                    const displayName = userIdToDisplayName.get(userId) || userId
+                    const remaining = buffRemainingSecondsMap.get(userId)
+                    if (remaining === undefined || remaining <= 0) return null
+                    const minutes = Math.floor(remaining / 60)
+                    const seconds = Math.floor(remaining % 60).toString().padStart(2, '0')
+                    return (
+                      <span key={userId} className="hp-gauge-buff-user-entry">
+                        {displayName}: {minutes}:{seconds}
+                      </span>
+                    )
+                  })
+                  .filter((entry) => entry !== null)}
               </span>
-              {buffedUserIds.length > 0 && buffRemainingSecondsMap.size > 0 && (
-                <span className="hp-gauge-buff-timer">
-                  {(() => {
-                    // 最初のユーザーの残り時間を表示
-                    const firstUserId = buffedUserIds[0]
-                    const remaining = buffRemainingSecondsMap.get(firstUserId)
-                    if (remaining !== undefined && remaining > 0) {
-                      return `${Math.floor(remaining / 60)}:${(Math.floor(remaining % 60)).toString().padStart(2, '0')}`
-                    }
-                    return ''
-                  })()}
-                </span>
-              )}
             </>
           )}
         </div>

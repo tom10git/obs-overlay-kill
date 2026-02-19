@@ -71,9 +71,7 @@ class TwitchChatClient {
         this.connectedWithIdentity = !!clientOptions.identity
         this.client = new tmi.Client(clientOptions)
 
-        this.client.on('message', (ch: string, tags: any, message: string, self: boolean) => {
-          if (self) return
-
+        this.client.on('message', (ch: string, tags: any, message: string, _self: boolean) => {
           const chatMessage: TwitchChatMessage = {
             id: tags.id || `${Date.now()}-${Math.random()}`,
             user: {

@@ -107,3 +107,18 @@
   font-weight: bold;
   margin-left: 4px;
 }
+
+.hp-gauge-buff-user-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.hp-gauge-buff-user-entry {
+  font-size: 11px;
+  color: #fff;
+  white-space: nowrap;
+}
