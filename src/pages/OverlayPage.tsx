@@ -919,11 +919,13 @@ export function OverlayPage() {
             config.pvp?.strengthBuffTarget
           )
 
-          // 必殺技判定（視聴者側の攻撃のみ、0.001%の確率）
+          // 必殺技判定（視聴者側の攻撃のみ、確率は0-100%で小数点第2位まで設定可能）
           let isFinishingMove = false
           if (attackerUserId && config.pvp?.viewerFinishingMoveEnabled) {
-            const finishingMoveRoll = Math.random() * 100000 // 0.001% = 0.001 = 1/100000
-            if (finishingMoveRoll < (config.pvp.viewerFinishingMoveProbability ?? 0.001) * 1000) {
+            const probability = config.pvp.viewerFinishingMoveProbability ?? 0.01
+            const finishingMoveRoll = Math.random() * 10000 // 0-10000の範囲
+            const threshold = probability * 100 // 0.01% → 1, 1% → 100, 100% → 10000
+            if (finishingMoveRoll < threshold) {
               isFinishingMove = true
               // 必殺技ダメージ: 現在のHPの1/2（最低1）
               const finishingDamage = Math.max(1, Math.floor(currentHP / 2))
@@ -1345,20 +1347,40 @@ export function OverlayPage() {
           reverseHealAmount = getStreamerHealOnAttackAmount(config.pvp)
         }
       }
-      // クリティカル判定（今回の攻撃のベースダメージは getAttackDamage で決定）
-      // テストモードでは、テスト用のユーザーID（'test-user'）でバフを考慮する
-      const testUserId = config.pvp?.strengthBuffTarget === 'individual' ? 'test-user' : undefined
-      const baseDamage = getAttackDamage(
-        config.attack,
-        testUserId,
-        strengthBuffStartTimeRef,
-        config.pvp?.strengthBuffDuration,
-        strengthBuffAllStartTimeRef,
-        config.pvp?.strengthBuffTarget
-      )
+      // 必殺技判定（確率は0-100%で小数点第2位まで設定可能）
+      let isFinishingMove = false
+      let baseDamage = 0
+      if (config.pvp?.viewerFinishingMoveEnabled) {
+        const probability = config.pvp.viewerFinishingMoveProbability ?? 0.01
+        const finishingMoveRoll = Math.random() * 10000 // 0-10000の範囲
+        const threshold = probability * 100 // 0.01% → 1, 1% → 100, 100% → 10000
+        if (finishingMoveRoll < threshold) {
+          isFinishingMove = true
+          // 必殺技ダメージ: 現在のHPの1/2（最低1）
+          baseDamage = Math.max(1, Math.floor(currentHP / 2))
+          // 必殺技エフェクトを発動
+          showFinishingMoveEffect()
+        }
+      }
+      
+      // 必殺技が発動しなかった場合のみ通常のダメージ計算
+      if (!isFinishingMove) {
+        // テストモードでは、テスト用のユーザーID（'test-user'）でバフを考慮する
+        const testUserId = config.pvp?.strengthBuffTarget === 'individual' ? 'test-user' : undefined
+        baseDamage = getAttackDamage(
+          config.attack,
+          testUserId,
+          strengthBuffStartTimeRef,
+          config.pvp?.strengthBuffDuration,
+          strengthBuffAllStartTimeRef,
+          config.pvp?.strengthBuffTarget
+        )
+      }
+      
       let finalDamage = baseDamage
       let isCritical = false
-      if (config.attack.criticalEnabled) {
+      // 必殺技が発動した場合はクリティカルをスキップ
+      if (!isFinishingMove && config.attack.criticalEnabled) {
         const criticalRoll = Math.random() * 100
         if (criticalRoll < config.attack.criticalProbability) {
           finalDamage = Math.floor(baseDamage * config.attack.criticalMultiplier)
@@ -1386,11 +1408,25 @@ export function OverlayPage() {
       }
 
       // 出血ダメージ判定（別枠として計算）
-      if (config.attack.bleedEnabled) {
+      // 必殺技が発動した場合は必ず出血ダメージを適用
+      let shouldApplyBleed = false
+      if (isFinishingMove) {
+        shouldApplyBleed = true
+        console.log(`[テストモード 出血ダメージ判定] 必殺技発動により出血ダメージを適用`)
+      } else if (config.attack.bleedEnabled) {
         console.log(`[テストモード 出血ダメージ判定] bleedEnabled: true, bleedProbability: ${config.attack.bleedProbability}`)
         const bleedRoll = Math.random() * 100
         console.log(`[テストモード 出血ダメージ判定] ダイスロール: ${bleedRoll.toFixed(2)}`)
         if (bleedRoll < config.attack.bleedProbability) {
+          shouldApplyBleed = true
+        } else {
+          console.log(`[テストモード 出血ダメージ判定] 失敗: ${bleedRoll.toFixed(2)} >= ${config.attack.bleedProbability}`)
+        }
+      } else {
+        console.log(`[テストモード 出血ダメージ判定] bleedEnabled: false`)
+      }
+      
+      if (shouldApplyBleed) {
           // 出血ダメージを開始
           bleedIdRef.current += 1
           const bleedId = bleedIdRef.current
@@ -1471,11 +1507,6 @@ export function OverlayPage() {
 
           bleedTimersRef.current.set(bleedId, { intervalTimer, durationTimer })
           console.log(`[テストモード 出血ダメージ開始] タイマーを設定しました。intervalTimer: ${intervalTimer}, durationTimer: ${durationTimer}`)
-        } else {
-          console.log(`[テストモード 出血ダメージ判定] 失敗: ${bleedRoll.toFixed(2)} >= ${config.attack.bleedProbability}`)
-        }
-      } else {
-        console.log(`[テストモード 出血ダメージ判定] bleedEnabled: false`)
       }
       // 反転回復: この攻撃のモーション後（durationMs後）に回復（1回の攻撃フローで「減る→回復」を完結）
       // HPが0になった場合は反転回復を実行しない
@@ -1502,7 +1533,7 @@ export function OverlayPage() {
         playMissSound()
       }
     }
-  }, [config, isTestMode, currentHP, reduceHP, increaseHP, showHealEffect, showMiss, showCritical, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, stopRepeat])
+  }, [config, isTestMode, currentHP, reduceHP, increaseHP, showHealEffect, showMiss, showCritical, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, showFinishingMoveEffect, stopRepeat])
 
   const handleTestFinishingMove = useCallback(() => {
     if (!config || !isTestMode) return
@@ -1861,11 +1892,13 @@ export function OverlayPage() {
                   const attackerId = message.user.id
                   let baseDamage = getAttackDamage(vva, attackerId, strengthBuffStartTimeRef, config.pvp.strengthBuffDuration, strengthBuffAllStartTimeRef, config.pvp.strengthBuffTarget)
 
-                  // 必殺技判定（視聴者側の攻撃のみ、0.001%の確率）
+                  // 必殺技判定（視聴者側の攻撃のみ、確率は0-100%で小数点第2位まで設定可能）
                   let isFinishingMove = false
                   if (config.pvp?.viewerFinishingMoveEnabled) {
-                    const finishingMoveRoll = Math.random() * 100000 // 0.001% = 0.001 = 1/100000
-                    if (finishingMoveRoll < (config.pvp.viewerFinishingMoveProbability ?? 0.001) * 1000) {
+                    const probability = config.pvp.viewerFinishingMoveProbability ?? 0.01
+                    const finishingMoveRoll = Math.random() * 10000 // 0-10000の範囲
+                    const threshold = probability * 100 // 0.01% → 1, 1% → 100, 100% → 10000
+                    if (finishingMoveRoll < threshold) {
                       isFinishingMove = true
                       // 視聴者同士の攻撃では、対象の現在HPの1/2ダメージ
                       const targetHP = getViewerHPCurrent(targetUserId)?.current ?? viewerMaxHP
@@ -4767,19 +4800,23 @@ export function OverlayPage() {
                             <div className="test-settings-section">
                               <label className="test-settings-label">必殺技発動確率 (%)</label>
                               <input
-                                type="text"
+                                type="number"
                                 inputMode="numeric"
+                                step="0.01"
+                                min="0"
+                                max="100"
                                 className="test-settings-input"
-                                value={testInputValues.viewerFinishingMoveProbability ?? (config.pvp.viewerFinishingMoveProbability ?? 0.001).toFixed(3)}
+                                value={testInputValues.viewerFinishingMoveProbability ?? String(config.pvp.viewerFinishingMoveProbability ?? 0.01)}
                                 onChange={(e) => setTestInputValues((prev) => ({ ...prev, viewerFinishingMoveProbability: e.target.value }))}
                                 onBlur={(e) => {
                                   const num = Number(e.target.value.trim())
                                   if (!isNaN(num) && num >= 0 && num <= 100) {
-                                    updateConfigLocal({ pvp: { viewerFinishingMoveProbability: num } })
+                                    const rounded = Math.round(num * 100) / 100
+                                    updateConfigLocal({ pvp: { viewerFinishingMoveProbability: rounded } })
                                   }
                                   setTestInputValues((prev) => { const next = { ...prev }; delete next.viewerFinishingMoveProbability; return next })
                                 }}
-                                placeholder="0.001"
+                                placeholder="0.01"
                               />
                             </div>
                             <div className="test-settings-section">

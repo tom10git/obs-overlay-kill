@@ -192,11 +192,11 @@ const DEFAULT_CONFIG: OverlayConfig = {
     strengthBuffSoundUrl: '',
     strengthBuffSoundVolume: 0.7,
     viewerFinishingMoveEnabled: true,
-    viewerFinishingMoveProbability: 0.001,
+    viewerFinishingMoveProbability: 0.01,
+    finishingMoveText: '必殺技！',
     viewerFinishingMoveMultiplier: 10,
     messageWhenViewerFinishingMove: '{username} が必殺技を繰り出した！ ダメージ: {damage}',
     autoReplyViewerFinishingMove: true,
-    finishingMoveText: '必殺技！',
     viewerVsViewerAttack: {
       rewardId: '',
       customText: '',
@@ -951,7 +951,10 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       return 0.7
     })(),
     viewerFinishingMoveEnabled: typeof pvpConfig.viewerFinishingMoveEnabled === 'boolean' ? pvpConfig.viewerFinishingMoveEnabled : true,
-    viewerFinishingMoveProbability: isInRange(Number(pvpConfig.viewerFinishingMoveProbability), 0, 100) ? Number(pvpConfig.viewerFinishingMoveProbability) || 0.001 : 0.001,
+    viewerFinishingMoveProbability: (() => {
+      const n = Number(pvpConfig.viewerFinishingMoveProbability)
+      return isInRange(n, 0, 100) ? (Number.isFinite(n) ? Math.round(n * 100) / 100 : 0.01) : 0.01
+    })(),
     viewerFinishingMoveMultiplier: isInRange(Number(pvpConfig.viewerFinishingMoveMultiplier), 1, MAX_NUM) ? Number(pvpConfig.viewerFinishingMoveMultiplier) || 10 : 10,
     messageWhenViewerFinishingMove: typeof pvpConfig.messageWhenViewerFinishingMove === 'string' ? pvpConfig.messageWhenViewerFinishingMove : '{username} が必殺技を繰り出した！ ダメージ: {damage}',
     autoReplyViewerFinishingMove: typeof pvpConfig.autoReplyViewerFinishingMove === 'boolean' ? pvpConfig.autoReplyViewerFinishingMove : true,

@@ -2749,24 +2749,28 @@ export function OverlaySettings() {
                       <label>
                         必殺技発動確率 (%):
                         <input
-                          type="text"
+                          type="number"
                           inputMode="numeric"
-                          value={inputValues['pvp.viewerFinishingMoveProbability'] ?? String(config.pvp.viewerFinishingMoveProbability ?? 0.001)}
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={inputValues['pvp.viewerFinishingMoveProbability'] ?? String(config.pvp.viewerFinishingMoveProbability ?? 0.01)}
                           onChange={(e) => {
                             setInputValues((prev) => ({ ...prev, 'pvp.viewerFinishingMoveProbability': e.target.value }))
                           }}
                           onBlur={(e) => {
                             const value = e.target.value.trim()
-                            const num = value === '' ? 0.001 : parseFloat(value)
+                            const num = value === '' ? 0.01 : parseFloat(value)
                             if (!isNaN(num) && num >= 0 && num <= 100) {
-                              setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerFinishingMoveProbability: num } } : prev)
+                              const rounded = Math.round(num * 100) / 100
+                              setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerFinishingMoveProbability: rounded } } : prev)
                               setInputValues((prev) => {
                                 const next = { ...prev }
                                 delete next['pvp.viewerFinishingMoveProbability']
                                 return next
                               })
                             } else {
-                              setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerFinishingMoveProbability: prev.pvp.viewerFinishingMoveProbability ?? 0.001 } } : prev)
+                              setConfig((prev) => prev ? { ...prev, pvp: { ...prev.pvp, viewerFinishingMoveProbability: prev.pvp.viewerFinishingMoveProbability ?? 0.01 } } : prev)
                               setInputValues((prev) => {
                                 const next = { ...prev }
                                 delete next['pvp.viewerFinishingMoveProbability']
