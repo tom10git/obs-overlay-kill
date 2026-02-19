@@ -8,9 +8,10 @@ import { useHPGauge } from '../hooks/useHPGauge'
 import { useViewerHP } from '../hooks/useViewerHP'
 import { useChannelPointEvents } from '../hooks/useChannelPointEvents'
 import { useEventSubRedemptions } from '../hooks/useEventSubRedemptions'
-// import { useRetryCommand } from '../hooks/useRetryCommand' // リトライコマンドはメインのチャット監視処理に統合
 import { useTestEvents } from '../hooks/useTestEvents'
 import { useTwitchChat } from '../hooks/useTwitchChat'
+import { useAutoReply } from '../hooks/useAutoReply'
+import { useStrengthBuffState } from '../hooks/useStrengthBuffState'
 import { HPGauge } from '../components/overlay/HPGauge'
 import { DamageNumber } from '../components/overlay/DamageNumber'
 import { useSound } from '../hooks/useSound'
@@ -18,6 +19,8 @@ import { getAdminUsername } from '../config/admin'
 import { useTwitchUser } from '../hooks/useTwitchUser'
 import { twitchChat } from '../utils/twitchChat'
 import { stripEmotesFromMessage } from '../utils/chatMessage'
+import { isCommandMatch } from '../utils/commandMatch'
+import { fillTemplate } from '../utils/messageTemplate'
 import type { TwitchChatMessage } from '../types/twitch'
 import { saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
 import { twitchApi } from '../utils/twitchApi'
@@ -96,17 +99,7 @@ function getStreamerHealOnAttackAmount(pvp: {
 export function OverlayPage() {
   const username = getAdminUsername() || ''
   const { user, loading: userLoading } = useTwitchUser(username)
-  const sendAutoReply = useCallback((message: string, errorLabel: string) => {
-    if (!message.trim()) return
-    if (twitchChat.canSend()) {
-      twitchChat.say(username, message)
-      return
-    }
-    if (user?.id) {
-      twitchApi.sendChatMessage(user.id, message).catch((err) => console.error(errorLabel, err))
-    }
-  }, [username, user?.id])
-
+  const sendAutoReply = useAutoReply(username, user?.id)
   // MISS表示（短時間だけ表示してCSSアニメーションさせる）
   const [missVisible, setMissVisible] = useState(false)
   const missTimerRef = useRef<number | null>(null)
@@ -603,6 +596,13 @@ export function OverlayPage() {
       sendAutoReply(msg, '[PvP] 配信者HP0自動返信の送信失敗')
     },
   })
+  const sendPvpBlockedMessage = useCallback((type: 'attack' | 'heal', errorLabel: string) => {
+    if (!config?.pvp?.autoReplyBlockedByZeroHp) return
+    const msg = type === 'heal'
+      ? (config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。')
+      : (config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。')
+    sendAutoReply(msg, errorLabel)
+  }, [config?.pvp?.autoReplyBlockedByZeroHp, config?.pvp?.messageWhenAttackBlockedByZeroHp, config?.pvp?.messageWhenHealBlockedByZeroHp, sendAutoReply])
 
   // PvP: 視聴者ごとのHP（ゲージなし・数値のみ）
   const {
@@ -626,52 +626,18 @@ export function OverlayPage() {
   /** 全員用ストレングスバフの開始時刻（ミリ秒） */
   const strengthBuffAllStartTimeRef = useRef<number | null>(null)
   /** バフ表示用の状態（リアルタイム更新のため） */
-  const [buffedUserIdsState, setBuffedUserIdsState] = useState<string[]>([])
-  const [isAllBuffedState, setIsAllBuffedState] = useState(false)
-  const [allBuffRemainingSecondsState, setAllBuffRemainingSecondsState] = useState<number | undefined>(undefined)
-  const [buffRemainingSecondsMapState, setBuffRemainingSecondsMapState] = useState<Map<string, number>>(new Map())
-
-  // バフ状態を定期的に更新（1秒ごと）
-  useEffect(() => {
-    if (!config?.pvp?.enabled) {
-      setBuffedUserIdsState([])
-      setIsAllBuffedState(false)
-      setAllBuffRemainingSecondsState(undefined)
-      setBuffRemainingSecondsMapState(new Map())
-      return
-    }
-
-    const updateBuffState = () => {
-      const duration = config.pvp.strengthBuffDuration ?? 300
-      const buffedUsers: string[] = []
-      const remainingMap = new Map<string, number>()
-
-      strengthBuffStartTimeRef.current.forEach((startTime, userId) => {
-        const elapsed = (Date.now() - startTime) / 1000
-        const remaining = duration - elapsed
-        if (remaining > 0) {
-          buffedUsers.push(userId)
-          remainingMap.set(userId, remaining)
-        }
-      })
-      setBuffedUserIdsState(buffedUsers)
-      setBuffRemainingSecondsMapState(remainingMap)
-
-      if (config.pvp.strengthBuffTarget === 'all' && strengthBuffAllStartTimeRef.current) {
-        const elapsed = (Date.now() - strengthBuffAllStartTimeRef.current) / 1000
-        const remaining = duration - elapsed
-        setIsAllBuffedState(remaining > 0)
-        setAllBuffRemainingSecondsState(remaining > 0 ? remaining : undefined)
-      } else {
-        setIsAllBuffedState(false)
-        setAllBuffRemainingSecondsState(undefined)
-      }
-    }
-
-    updateBuffState()
-    const interval = setInterval(updateBuffState, 1000)
-    return () => clearInterval(interval)
-  }, [config?.pvp?.enabled, config?.pvp?.strengthBuffDuration, config?.pvp?.strengthBuffTarget])
+  const {
+    buffedUserIds: buffedUserIdsState,
+    isAllBuffed: isAllBuffedState,
+    allBuffRemainingSeconds: allBuffRemainingSecondsState,
+    buffRemainingSecondsMap: buffRemainingSecondsMapState,
+  } = useStrengthBuffState({
+    enabled: !!config?.pvp?.enabled,
+    durationSeconds: config?.pvp?.strengthBuffDuration ?? 300,
+    target: config?.pvp?.strengthBuffTarget ?? 'individual',
+    strengthBuffStartTimeRef,
+    strengthBuffAllStartTimeRef,
+  })
 
   // reduceHPを常に最新の状態で参照できるようにする
   useEffect(() => {
@@ -945,9 +911,10 @@ export function OverlayPage() {
               // 必殺技発動時のメッセージ
               if (config.pvp.autoReplyViewerFinishingMove && config.pvp.messageWhenViewerFinishingMove?.trim()) {
                 const attackerName = event.userName ?? event.userId ?? '視聴者'
-                const msg = config.pvp.messageWhenViewerFinishingMove
-                  .replace(/\{username\}/g, attackerName)
-                  .replace(/\{damage\}/g, String(finishingDamage))
+                const msg = fillTemplate(config.pvp.messageWhenViewerFinishingMove, {
+                  username: attackerName,
+                  damage: finishingDamage,
+                })
                 sendAutoReply(msg, '[PvP] 必殺技メッセージ送信失敗')
               }
             }
@@ -1129,15 +1096,12 @@ export function OverlayPage() {
           const hp = result.newHP
           const max = viewerMaxHP
           const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
-          const reply = tpl
-            .replace(/\{username\}/g, targetUserName)
-            .replace(/\{hp\}/g, String(hp))
-            .replace(/\{max\}/g, String(max))
+          const reply = fillTemplate(tpl, { username: targetUserName, hp, max })
           if (config.pvp.autoReplyAttackCounter) {
             sendAutoReply(reply, '[PvP] 攻撃時自動返信の送信失敗')
           }
           if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
-            const zeroMsg = config.pvp.messageWhenViewerZeroHp.replace(/\{username\}/g, targetUserName).trim()
+            const zeroMsg = fillTemplate(config.pvp.messageWhenViewerZeroHp, { username: targetUserName }).trim()
             if (zeroMsg) {
               sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
             }
@@ -1188,7 +1152,7 @@ export function OverlayPage() {
         if (config.heal.autoReplyEnabled && config.heal.autoReplyMessageTemplate?.trim()) {
           const tpl = config.heal.autoReplyMessageTemplate.trim()
           const nameForUsername = event.userId && user?.id && event.userId === user.id ? '配信者' : (event.userName ?? event.userId ?? '視聴者')
-          const reply = tpl.replace(/\{username\}/g, nameForUsername).replace(/\{hp\}/g, String(newHP)).replace(/\{max\}/g, String(maxHP))
+          const reply = fillTemplate(tpl, { username: nameForUsername, hp: newHP, max: maxHP })
           sendAutoReply(reply, '[回復] 自動返信の送信失敗')
         }
       }
@@ -1214,10 +1178,7 @@ export function OverlayPage() {
         const current = state?.current ?? viewerMaxHP
         if (current <= 0) {
           const isHeal = config?.heal.enabled && event.rewardId === config.heal.rewardId && config.heal.rewardId.length > 0
-          const msg = isHeal ? (config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。') : (config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。')
-          if (config.pvp.autoReplyBlockedByZeroHp) {
-            sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
-          }
+          sendPvpBlockedMessage(isHeal ? 'heal' : 'attack', '[PvP] HP0ブロックメッセージ送信失敗')
           return
         }
       }
@@ -1249,10 +1210,7 @@ export function OverlayPage() {
         const state = getViewerHPCurrent(event.userId) ?? getViewerHP(event.userId)
         const current = state?.current ?? viewerMaxHP
         if (current <= 0) {
-          const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
-          if (config.pvp.autoReplyBlockedByZeroHp) {
-            sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
-          }
+          sendPvpBlockedMessage('attack', '[PvP] HP0ブロックメッセージ送信失敗')
           return
         }
       }
@@ -1277,10 +1235,7 @@ export function OverlayPage() {
         const state = getViewerHPCurrent(event.userId) ?? getViewerHP(event.userId)
         const current = state?.current ?? viewerMaxHP
         if (current <= 0) {
-          const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
-          if (config.pvp.autoReplyBlockedByZeroHp) {
-            sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
-          }
+          sendPvpBlockedMessage('heal', '[PvP] HP0ブロックメッセージ送信失敗')
           return
         }
       }
@@ -1618,9 +1573,10 @@ export function OverlayPage() {
 
     // 必殺技発動時のメッセージ（チャット接続できる場合のみ送信）
     if (config.pvp.autoReplyViewerFinishingMove && config.pvp.messageWhenViewerFinishingMove?.trim() && username) {
-      const msg = config.pvp.messageWhenViewerFinishingMove
-        .replace(/\{username\}/g, 'test-user')
-        .replace(/\{damage\}/g, String(finishingDamage))
+      const msg = fillTemplate(config.pvp.messageWhenViewerFinishingMove, {
+        username: 'test-user',
+        damage: finishingDamage,
+      })
       sendAutoReply(msg, '[PvP] 必殺技メッセージ送信失敗')
     }
   }, [config, isTestMode, currentHP, reduceHP, playAttackSound, playBleedSound, showFinishingMoveEffect, sendAutoReply, stopRepeat, username])
@@ -1699,9 +1655,6 @@ export function OverlayPage() {
     attackEnabled: currentHP > 0,
   })
 
-  // リトライコマンドはメインのチャット監視処理に統合されているため、useRetryCommandは使用しない
-  // （重複処理を避けるため）
-
   // 有効なユーザートークン（リフレッシュ済みの可能性あり）を非同期取得してチャット接続に使用
   const [chatToken, setChatToken] = useState<string | null>(null)
   useEffect(() => {
@@ -1761,12 +1714,7 @@ export function OverlayPage() {
         user?.id &&
         message.user.id === user.id
       ) {
-        const cmdLower = config.pvp.counterCommand.toLowerCase().trim()
-        const isCounterMatch =
-          messageLower === cmdLower ||
-          messageLower.startsWith(cmdLower + ' ') ||
-          messageLower.startsWith(cmdLower + '\n') ||
-          messageLower.startsWith(cmdLower + '\t')
+        const isCounterMatch = isCommandMatch(messageLower, config.pvp.counterCommand)
         if (isCounterMatch) {
           let targetUserId: string | null = null
           let targetDisplayName: string = ''
@@ -1794,15 +1742,16 @@ export function OverlayPage() {
             const sa = config.pvp.streamerAttack
             const result = applyViewerDamage(targetUserId, getAttackDamage(sa, undefined, undefined, undefined, strengthBuffAllStartTimeRef, config.pvp?.strengthBuffTarget), sa)
             const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
-            const reply = tpl
-              .replace(/\{username\}/g, targetDisplayName)
-              .replace(/\{hp\}/g, String(result.newHP))
-              .replace(/\{max\}/g, String(viewerMaxHP))
+            const reply = fillTemplate(tpl, {
+              username: targetDisplayName,
+              hp: result.newHP,
+              max: viewerMaxHP,
+            })
             if (config.pvp.autoReplyAttackCounter) {
                   sendAutoReply(reply, '[PvP] チャット送信失敗')
             }
             if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
-              const zeroMsg = config.pvp.messageWhenViewerZeroHp.replace(/\{username\}/g, targetDisplayName).trim()
+                  const zeroMsg = fillTemplate(config.pvp.messageWhenViewerZeroHp, { username: targetDisplayName }).trim()
               if (zeroMsg) {
                     sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
               }
@@ -1821,12 +1770,7 @@ export function OverlayPage() {
         user?.id &&
         (message.user.id !== user.id || isTestMode)
       ) {
-        const cmdLower = viewerAttackViewerCmd.toLowerCase()
-        const isViewerAttackViewerMatch =
-          messageLower === cmdLower ||
-          messageLower.startsWith(cmdLower + ' ') ||
-          messageLower.startsWith(cmdLower + '\n') ||
-          messageLower.startsWith(cmdLower + '\t')
+        const isViewerAttackViewerMatch = isCommandMatch(messageLower, viewerAttackViewerCmd)
         if (isViewerAttackViewerMatch) {
           const parts = messageText.trim().split(/\s+/)
           const targetNamePart = parts.length >= 2 ? parts.slice(1).join(' ').trim().toLowerCase() : ''
@@ -1840,10 +1784,7 @@ export function OverlayPage() {
             const attackerState = getViewerHPCurrent(attackerIdForCommand) ?? getViewerHP(attackerIdForCommand)
             const attackerCurrent = attackerState?.current ?? viewerMaxHP
             if (attackerCurrent <= 0) {
-              if (config.pvp.autoReplyBlockedByZeroHp) {
-                const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
-                sendAutoReply(msg, '[PvP] 視聴者攻撃ブロック送信失敗')
-              }
+              sendPvpBlockedMessage('attack', '[PvP] 視聴者攻撃ブロック送信失敗')
             } else {
               handleAttackEvent({
                 rewardId: 'viewer-attack-command',
@@ -1863,10 +1804,7 @@ export function OverlayPage() {
             if (attackerCurrent <= 0) {
               processedChatMessagesRef.current.add(message.id)
               commandMatched = true
-              if (config.pvp.autoReplyBlockedByZeroHp) {
-                const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
-                sendAutoReply(msg, '[PvP] 視聴者同士攻撃ブロック送信失敗')
-              }
+              sendPvpBlockedMessage('attack', '[PvP] 視聴者同士攻撃ブロック送信失敗')
             } else {
               const looked = userLookupRef.current.get(targetNamePart)
               if (!looked) {
@@ -1910,9 +1848,10 @@ export function OverlayPage() {
                       // 必殺技発動時のメッセージ
                       if (config.pvp.autoReplyViewerFinishingMove && config.pvp.messageWhenViewerFinishingMove?.trim()) {
                         const attackerName = message.user.displayName || message.user.login
-                        const msg = config.pvp.messageWhenViewerFinishingMove
-                          .replace(/\{username\}/g, attackerName)
-                          .replace(/\{damage\}/g, String(finishingDamage))
+                        const msg = fillTemplate(config.pvp.messageWhenViewerFinishingMove, {
+                          username: attackerName,
+                          damage: finishingDamage,
+                        })
                         sendAutoReply(msg, '[PvP] 必殺技メッセージ送信失敗')
                       }
                     }
@@ -1925,15 +1864,16 @@ export function OverlayPage() {
                     isFinishingMove
                   )
                   const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
-                  const reply = tpl
-                    .replace(/\{username\}/g, targetDisplayName)
-                    .replace(/\{hp\}/g, String(result.newHP))
-                    .replace(/\{max\}/g, String(viewerMaxHP))
+                  const reply = fillTemplate(tpl, {
+                    username: targetDisplayName,
+                    hp: result.newHP,
+                    max: viewerMaxHP,
+                  })
                   if (config.pvp.autoReplyAttackCounter) {
                     sendAutoReply(reply, '[PvP] 視聴者同士攻撃返信の送信失敗')
                   }
                   if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
-                    const zeroMsg = config.pvp.messageWhenViewerZeroHp.replace(/\{username\}/g, targetDisplayName).trim()
+                    const zeroMsg = fillTemplate(config.pvp.messageWhenViewerZeroHp, { username: targetDisplayName }).trim()
                     if (zeroMsg) {
                       sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
                     }
@@ -1953,12 +1893,7 @@ export function OverlayPage() {
         user?.id &&
         message.user.id !== user.id
       ) {
-        const cmdLower = config.pvp.hpCheckCommand.toLowerCase().trim()
-        const isHpCheckMatch =
-          messageLower === cmdLower ||
-          messageLower.startsWith(cmdLower + ' ') ||
-          messageLower.startsWith(cmdLower + '\n') ||
-          messageLower.startsWith(cmdLower + '\t')
+        const isHpCheckMatch = isCommandMatch(messageLower, config.pvp.hpCheckCommand)
         if (isHpCheckMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
@@ -1968,10 +1903,7 @@ export function OverlayPage() {
           const max = state?.max ?? viewerMaxHP
           const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
           const displayName = message.user.displayName || message.user.login
-          const reply = tpl
-            .replace(/\{username\}/g, displayName)
-            .replace(/\{hp\}/g, String(hp))
-            .replace(/\{max\}/g, String(max))
+          const reply = fillTemplate(tpl, { username: displayName, hp, max })
           if (config.pvp.autoReplyHpCheck) {
             sendAutoReply(reply, '[PvP] HP確認チャット送信失敗')
           }
@@ -1987,12 +1919,7 @@ export function OverlayPage() {
         user?.id &&
         message.user.id !== user.id
       ) {
-        const viewerFullHealLower = config.pvp.viewerFullHealCommand.toLowerCase().trim()
-        const isViewerFullHealMatch =
-          messageLower === viewerFullHealLower ||
-          messageLower.startsWith(viewerFullHealLower + ' ') ||
-          messageLower.startsWith(viewerFullHealLower + '\n') ||
-          messageLower.startsWith(viewerFullHealLower + '\t')
+        const isViewerFullHealMatch = isCommandMatch(messageLower, config.pvp.viewerFullHealCommand)
         if (isViewerFullHealMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
@@ -2000,10 +1927,7 @@ export function OverlayPage() {
           setViewerHP(message.user.id, viewerMaxHP)
           const displayName = message.user.displayName || message.user.login
           const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
-          const reply = tpl
-            .replace(/\{username\}/g, displayName)
-            .replace(/\{hp\}/g, String(viewerMaxHP))
-            .replace(/\{max\}/g, String(viewerMaxHP))
+          const reply = fillTemplate(tpl, { username: displayName, hp: viewerMaxHP, max: viewerMaxHP })
           if (config.pvp.autoReplyFullHeal) {
             sendAutoReply(reply, '[PvP] 全回復返信の送信失敗')
           }
@@ -2018,12 +1942,7 @@ export function OverlayPage() {
         user?.id &&
         (message.user.id !== user.id || isTestMode)
       ) {
-        const strengthBuffLower = config.pvp.strengthBuffCommand.toLowerCase().trim()
-        const isStrengthBuffMatch =
-          messageLower === strengthBuffLower ||
-          messageLower.startsWith(strengthBuffLower + ' ') ||
-          messageLower.startsWith(strengthBuffLower + '\n') ||
-          messageLower.startsWith(strengthBuffLower + '\t')
+        const isStrengthBuffMatch = isCommandMatch(messageLower, config.pvp.strengthBuffCommand)
         if (isStrengthBuffMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
@@ -2051,9 +1970,10 @@ export function OverlayPage() {
           }
           if (config.pvp.autoReplyStrengthBuff) {
             const tpl = config.pvp.messageWhenStrengthBuffActivated || '{username} にストレングス効果を付与しました！（効果時間: {duration}分）'
-            const reply = tpl
-              .replace(/\{username\}/g, target === 'all' ? '全員' : displayName)
-              .replace(/\{duration\}/g, String(durationMinutes))
+            const reply = fillTemplate(tpl, {
+              username: target === 'all' ? '全員' : displayName,
+              duration: durationMinutes,
+            })
             sendAutoReply(reply, '[PvP] ストレングスバフ返信の送信失敗')
           }
         }
@@ -2067,12 +1987,7 @@ export function OverlayPage() {
         user?.id &&
         (message.user.id !== user.id || isTestMode)
       ) {
-        const buffCheckLower = config.pvp.strengthBuffCheckCommand.toLowerCase().trim()
-        const isBuffCheckMatch =
-          messageLower === buffCheckLower ||
-          messageLower.startsWith(buffCheckLower + ' ') ||
-          messageLower.startsWith(buffCheckLower + '\n') ||
-          messageLower.startsWith(buffCheckLower + '\t')
+        const isBuffCheckMatch = isCommandMatch(messageLower, config.pvp.strengthBuffCheckCommand)
         if (isBuffCheckMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
@@ -2110,10 +2025,11 @@ export function OverlayPage() {
             if (hasBuff) {
               const remainingMinutes = Math.round(remainingSeconds / 60)
               const tpl = config.pvp.messageWhenStrengthBuffCheck || '{username} のストレングス効果: 残り {remaining}分 / 効果時間 {duration}分'
-              const reply = tpl
-                .replace(/\{username\}/g, target === 'all' ? '全員' : displayName)
-                .replace(/\{remaining\}/g, String(remainingMinutes))
-                .replace(/\{duration\}/g, String(durationMinutes))
+              const reply = fillTemplate(tpl, {
+                username: target === 'all' ? '全員' : displayName,
+                remaining: remainingMinutes,
+                duration: durationMinutes,
+              })
               sendAutoReply(reply, '[PvP] バフ確認返信の送信失敗')
             } else {
               const reply = `${target === 'all' ? '全員' : displayName} には現在ストレングス効果が付与されていません。`
@@ -2132,12 +2048,7 @@ export function OverlayPage() {
         user?.id &&
         message.user.id !== user.id
       ) {
-        const viewerHealLower = viewerHealCmd.toLowerCase()
-        const isViewerHealMatch =
-          messageLower === viewerHealLower ||
-          messageLower.startsWith(viewerHealLower + ' ') ||
-          messageLower.startsWith(viewerHealLower + '\n') ||
-          messageLower.startsWith(viewerHealLower + '\t')
+        const isViewerHealMatch = isCommandMatch(messageLower, viewerHealCmd)
         if (isViewerHealMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
@@ -2145,11 +2056,8 @@ export function OverlayPage() {
           // ref から現在HPを読む（ensureViewerHP 直後でも setState の updater 内で ref が更新されている）
           const state = getViewerHPCurrent(message.user.id) ?? getViewerHP(message.user.id)
           const current = state?.current ?? viewerMaxHP
-          if (current <= 0 && !config.pvp.viewerHealWhenZeroEnabled) {
-            if (config.pvp.autoReplyBlockedByZeroHp) {
-              const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
-                sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
-            }
+            if (current <= 0 && !config.pvp.viewerHealWhenZeroEnabled) {
+              sendPvpBlockedMessage('heal', '[PvP] HP0ブロックメッセージ送信失敗')
           } else {
             let healAmount: number
             if ((config.pvp.viewerHealType ?? 'fixed') === 'random') {
@@ -2168,17 +2076,11 @@ export function OverlayPage() {
             const usePvpReply = !useHealReply && config.pvp.autoReplyHeal
             if (useHealReply) {
               const tpl = config.heal.autoReplyMessageTemplate!.trim()
-              const reply = tpl
-                .replace(/\{username\}/g, displayName)
-                .replace(/\{hp\}/g, String(newHP))
-                .replace(/\{max\}/g, String(viewerMaxHP))
+              const reply = fillTemplate(tpl, { username: displayName, hp: newHP, max: viewerMaxHP })
               sendAutoReply(reply, '[回復] 視聴者!heal 自動返信の送信失敗')
             } else if (usePvpReply) {
               const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
-              const reply = tpl
-                .replace(/\{username\}/g, displayName)
-                .replace(/\{hp\}/g, String(newHP))
-                .replace(/\{max\}/g, String(viewerMaxHP))
+              const reply = fillTemplate(tpl, { username: displayName, hp: newHP, max: viewerMaxHP })
               sendAutoReply(reply, '[PvP] 回復返信の送信失敗')
             }
           }
@@ -2213,10 +2115,7 @@ export function OverlayPage() {
             const state = getViewerHPCurrent(message.user.id) ?? getViewerHP(message.user.id)
             const current = state?.current ?? viewerMaxHP
             if (current <= 0) {
-              if (config.pvp.autoReplyBlockedByZeroHp) {
-                const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
-                sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
-              }
+              sendPvpBlockedMessage('attack', '[PvP] HP0ブロックメッセージ送信失敗')
             } else {
               handleAttackEvent({
                 rewardId: 'custom-text',
@@ -2263,10 +2162,7 @@ export function OverlayPage() {
             const state = getViewerHPCurrent(message.user.id) ?? getViewerHP(message.user.id)
             const current = state?.current ?? viewerMaxHP
             if (current <= 0) {
-              if (config.pvp.autoReplyBlockedByZeroHp) {
-                const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
-                sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
-              }
+              sendPvpBlockedMessage('heal', '[PvP] HP0ブロックメッセージ送信失敗')
             } else {
               // 配信者のHPが0の場合は回復をブロック
               if (currentHP <= 0) {
@@ -2293,12 +2189,7 @@ export function OverlayPage() {
         user?.id &&
         message.user.id === user.id
       ) {
-        const resetAllLower = config.retry.fullResetAllCommand.toLowerCase().trim()
-        const isResetAllMatch =
-          messageLower === resetAllLower ||
-          messageLower.startsWith(resetAllLower + ' ') ||
-          messageLower.startsWith(resetAllLower + '\n') ||
-          messageLower.startsWith(resetAllLower + '\t')
+        const isResetAllMatch = isCommandMatch(messageLower, config.retry.fullResetAllCommand)
         if (isResetAllMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
@@ -2318,12 +2209,7 @@ export function OverlayPage() {
         user?.id &&
         message.user.id === user.id
       ) {
-        const fullHealLower = config.retry.fullHealCommand.toLowerCase().trim()
-        const isFullHealMatch =
-          messageLower === fullHealLower ||
-          messageLower.startsWith(fullHealLower + ' ') ||
-          messageLower.startsWith(fullHealLower + '\n') ||
-          messageLower.startsWith(fullHealLower + '\t')
+        const isFullHealMatch = isCommandMatch(messageLower, config.retry.fullHealCommand)
         if (isFullHealMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
@@ -2342,12 +2228,7 @@ export function OverlayPage() {
         user?.id &&
         message.user.id === user.id
       ) {
-        const streamerHealLower = config.retry.streamerHealCommand.toLowerCase().trim()
-        const isStreamerHealMatch =
-          messageLower === streamerHealLower ||
-          messageLower.startsWith(streamerHealLower + ' ') ||
-          messageLower.startsWith(streamerHealLower + '\n') ||
-          messageLower.startsWith(streamerHealLower + '\t')
+        const isStreamerHealMatch = isCommandMatch(messageLower, config.retry.streamerHealCommand)
         if (isStreamerHealMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
@@ -2372,7 +2253,7 @@ export function OverlayPage() {
             // 回復時自動返信（攻撃コマンドと同様）。{username} は配信者なので「配信者」に置換
             if (config.heal.autoReplyEnabled && config.heal.autoReplyMessageTemplate?.trim()) {
               const tpl = config.heal.autoReplyMessageTemplate.trim()
-              const reply = tpl.replace(/\{username\}/g, '配信者').replace(/\{hp\}/g, String(newHP)).replace(/\{max\}/g, String(maxHP))
+              const reply = fillTemplate(tpl, { username: '配信者', hp: newHP, max: maxHP })
               sendAutoReply(reply, '[回復] !heal 自動返信の送信失敗')
             }
           }
@@ -2387,14 +2268,8 @@ export function OverlayPage() {
         config.retry.command &&
         config.retry.command.length > 0
       ) {
-        const retryCommandLower = config.retry.command.toLowerCase()
-
         // 完全一致、またはメッセージの開始
-        const isRetryMatch =
-          messageLower === retryCommandLower ||
-          messageLower.startsWith(retryCommandLower + ' ') ||
-          messageLower.startsWith(retryCommandLower + '\n') ||
-          messageLower.startsWith(retryCommandLower + '\t')
+        const isRetryMatch = isCommandMatch(messageLower, config.retry.command)
 
         if (isRetryMatch) {
           processedChatMessagesRef.current.add(message.id)
@@ -2423,7 +2298,7 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, username, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP, maxHP, increaseHP, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, setViewerHP, viewerMaxHP])
+  }, [chatMessages, config, isTestMode, username, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP, maxHP, increaseHP, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP])
 
   // body要素にoverflow:hiddenを適用
   useEffect(() => {

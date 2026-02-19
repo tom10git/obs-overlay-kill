@@ -81,24 +81,10 @@
   font-size: 12px;
 }
 
-.hp-gauge-buff-icon {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-}
-
 .hp-gauge-buff-emoji {
   font-size: 18px;
   line-height: 1;
   flex-shrink: 0;
-}
-
-.hp-gauge-buff-users {
-  font-size: 11px;
-  color: #fff;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .hp-gauge-buff-timer {
