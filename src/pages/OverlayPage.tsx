@@ -96,6 +96,16 @@ function getStreamerHealOnAttackAmount(pvp: {
 export function OverlayPage() {
   const username = getAdminUsername() || ''
   const { user, loading: userLoading } = useTwitchUser(username)
+  const sendAutoReply = useCallback((message: string, errorLabel: string) => {
+    if (!message.trim()) return
+    if (twitchChat.canSend()) {
+      twitchChat.say(username, message)
+      return
+    }
+    if (user?.id) {
+      twitchApi.sendChatMessage(user.id, message).catch((err) => console.error(errorLabel, err))
+    }
+  }, [username, user?.id])
 
   // MISS表示（短時間だけ表示してCSSアニメーションさせる）
   const [missVisible, setMissVisible] = useState(false)
@@ -590,8 +600,7 @@ export function OverlayPage() {
       const attackerName = lastStreamerAttackerRef.current?.userName ?? ''
       const msg = raw.replace(/\{attacker\}/g, attackerName).trim()
       if (!msg) return
-      if (twitchChat.canSend()) twitchChat.say(username, msg)
-      else if (user?.id) twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] 配信者HP0自動返信の送信失敗', err))
+      sendAutoReply(msg, '[PvP] 配信者HP0自動返信の送信失敗')
     },
   })
 
@@ -939,11 +948,7 @@ export function OverlayPage() {
                 const msg = config.pvp.messageWhenViewerFinishingMove
                   .replace(/\{username\}/g, attackerName)
                   .replace(/\{damage\}/g, String(finishingDamage))
-                if (twitchChat.canSend()) {
-                  twitchChat.say(username, msg)
-                } else if (user?.id) {
-                  twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] 必殺技メッセージ送信失敗', err))
-                }
+                sendAutoReply(msg, '[PvP] 必殺技メッセージ送信失敗')
               }
             }
           }
@@ -1129,23 +1134,18 @@ export function OverlayPage() {
             .replace(/\{hp\}/g, String(hp))
             .replace(/\{max\}/g, String(max))
           if (config.pvp.autoReplyAttackCounter) {
-            if (twitchChat.canSend()) {
-              twitchChat.say(username, reply)
-            } else if (user?.id) {
-              twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 攻撃時自動返信の送信失敗', err))
-            }
+            sendAutoReply(reply, '[PvP] 攻撃時自動返信の送信失敗')
           }
           if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
             const zeroMsg = config.pvp.messageWhenViewerZeroHp.replace(/\{username\}/g, targetUserName).trim()
             if (zeroMsg) {
-              if (twitchChat.canSend()) twitchChat.say(username, zeroMsg)
-              else if (user?.id) twitchApi.sendChatMessage(user.id, zeroMsg).catch((err) => console.error('[PvP] 視聴者HP0自動返信の送信失敗', err))
+              sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
             }
           }
         }
       }
     },
-    [config, reduceHP, increaseHP, showHealEffect, showMiss, showFinishingMoveEffect, triggerDodgeEffect, playMissSound, playHealSound, user?.id, applyViewerDamage, ensureViewerHP, getViewerUserIds, getViewerHPCurrent, viewerMaxHP]
+    [config, reduceHP, increaseHP, showHealEffect, showMiss, showFinishingMoveEffect, triggerDodgeEffect, playMissSound, playHealSound, sendAutoReply, user?.id, applyViewerDamage, ensureViewerHP, getViewerUserIds, getViewerHPCurrent, viewerMaxHP]
   )
 
   // 回復イベントハンドラ（チャンネルポイント・カスタムテキスト用。event に userId/userName があれば {username} に使用）
@@ -1189,15 +1189,11 @@ export function OverlayPage() {
           const tpl = config.heal.autoReplyMessageTemplate.trim()
           const nameForUsername = event.userId && user?.id && event.userId === user.id ? '配信者' : (event.userName ?? event.userId ?? '視聴者')
           const reply = tpl.replace(/\{username\}/g, nameForUsername).replace(/\{hp\}/g, String(newHP)).replace(/\{max\}/g, String(maxHP))
-          if (twitchChat.canSend()) {
-            twitchChat.say(username, reply)
-          } else if (user?.id) {
-            twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[回復] 自動返信の送信失敗', err))
-          }
+          sendAutoReply(reply, '[回復] 自動返信の送信失敗')
         }
       }
     },
-    [config, currentHP, maxHP, increaseHP, showHealEffect, playHealSound, user?.id, username, twitchChat, twitchApi]
+    [config, currentHP, maxHP, increaseHP, showHealEffect, playHealSound, sendAutoReply, user?.id]
   )
 
   // テストモードかどうか
@@ -1220,8 +1216,7 @@ export function OverlayPage() {
           const isHeal = config?.heal.enabled && event.rewardId === config.heal.rewardId && config.heal.rewardId.length > 0
           const msg = isHeal ? (config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。') : (config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。')
           if (config.pvp.autoReplyBlockedByZeroHp) {
-            if (twitchChat.canSend()) twitchChat.say(username, msg)
-            else if (user?.id) twitchApi.sendChatMessage(user.id, msg).catch(() => { })
+            sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
           }
           return
         }
@@ -1256,8 +1251,7 @@ export function OverlayPage() {
         if (current <= 0) {
           const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
           if (config.pvp.autoReplyBlockedByZeroHp) {
-            if (twitchChat.canSend()) twitchChat.say(username, msg)
-            else if (user?.id) twitchApi.sendChatMessage(user.id, msg).catch(() => { })
+            sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
           }
           return
         }
@@ -1285,8 +1279,7 @@ export function OverlayPage() {
         if (current <= 0) {
           const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
           if (config.pvp.autoReplyBlockedByZeroHp) {
-            if (twitchChat.canSend()) twitchChat.say(username, msg)
-            else if (user?.id) twitchApi.sendChatMessage(user.id, msg).catch(() => { })
+            sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
           }
           return
         }
@@ -1628,13 +1621,9 @@ export function OverlayPage() {
       const msg = config.pvp.messageWhenViewerFinishingMove
         .replace(/\{username\}/g, 'test-user')
         .replace(/\{damage\}/g, String(finishingDamage))
-      if (twitchChat.canSend()) {
-        twitchChat.say(username, msg)
-      } else if (user?.id) {
-        twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] 必殺技メッセージ送信失敗', err))
-      }
+      sendAutoReply(msg, '[PvP] 必殺技メッセージ送信失敗')
     }
-  }, [config, isTestMode, currentHP, reduceHP, playAttackSound, playBleedSound, showFinishingMoveEffect, stopRepeat, username, twitchChat, user?.id])
+  }, [config, isTestMode, currentHP, reduceHP, playAttackSound, playBleedSound, showFinishingMoveEffect, sendAutoReply, stopRepeat, username])
 
   const handleTestHeal = useCallback(() => {
     if (!config || !isTestMode) return
@@ -1810,17 +1799,12 @@ export function OverlayPage() {
               .replace(/\{hp\}/g, String(result.newHP))
               .replace(/\{max\}/g, String(viewerMaxHP))
             if (config.pvp.autoReplyAttackCounter) {
-              if (twitchChat.canSend()) {
-                twitchChat.say(username, reply)
-              } else {
-                twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] チャット送信失敗', err))
-              }
+                  sendAutoReply(reply, '[PvP] チャット送信失敗')
             }
             if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
               const zeroMsg = config.pvp.messageWhenViewerZeroHp.replace(/\{username\}/g, targetDisplayName).trim()
               if (zeroMsg) {
-                if (twitchChat.canSend()) twitchChat.say(username, zeroMsg)
-                else twitchApi.sendChatMessage(user.id, zeroMsg).catch((err) => console.error('[PvP] 視聴者HP0自動返信の送信失敗', err))
+                    sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
               }
             }
           }
@@ -1858,8 +1842,7 @@ export function OverlayPage() {
             if (attackerCurrent <= 0) {
               if (config.pvp.autoReplyBlockedByZeroHp) {
                 const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
-                if (twitchChat.canSend()) twitchChat.say(username, msg)
-                else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] 視聴者攻撃ブロック送信失敗', err))
+                sendAutoReply(msg, '[PvP] 視聴者攻撃ブロック送信失敗')
               }
             } else {
               handleAttackEvent({
@@ -1882,8 +1865,7 @@ export function OverlayPage() {
               commandMatched = true
               if (config.pvp.autoReplyBlockedByZeroHp) {
                 const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
-                if (twitchChat.canSend()) twitchChat.say(username, msg)
-                else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] 視聴者同士攻撃ブロック送信失敗', err))
+                sendAutoReply(msg, '[PvP] 視聴者同士攻撃ブロック送信失敗')
               }
             } else {
               const looked = userLookupRef.current.get(targetNamePart)
@@ -1931,11 +1913,7 @@ export function OverlayPage() {
                         const msg = config.pvp.messageWhenViewerFinishingMove
                           .replace(/\{username\}/g, attackerName)
                           .replace(/\{damage\}/g, String(finishingDamage))
-                        if (twitchChat.canSend()) {
-                          twitchChat.say(username, msg)
-                        } else if (user?.id) {
-                          twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] 必殺技メッセージ送信失敗', err))
-                        }
+                        sendAutoReply(msg, '[PvP] 必殺技メッセージ送信失敗')
                       }
                     }
                   }
@@ -1952,14 +1930,12 @@ export function OverlayPage() {
                     .replace(/\{hp\}/g, String(result.newHP))
                     .replace(/\{max\}/g, String(viewerMaxHP))
                   if (config.pvp.autoReplyAttackCounter) {
-                    if (twitchChat.canSend()) twitchChat.say(username, reply)
-                    else twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 視聴者同士攻撃返信の送信失敗', err))
+                    sendAutoReply(reply, '[PvP] 視聴者同士攻撃返信の送信失敗')
                   }
                   if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
                     const zeroMsg = config.pvp.messageWhenViewerZeroHp.replace(/\{username\}/g, targetDisplayName).trim()
                     if (zeroMsg) {
-                      if (twitchChat.canSend()) twitchChat.say(username, zeroMsg)
-                      else twitchApi.sendChatMessage(user.id, zeroMsg).catch((err) => console.error('[PvP] 視聴者HP0自動返信の送信失敗', err))
+                      sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
                     }
                   }
                 }
@@ -1997,11 +1973,7 @@ export function OverlayPage() {
             .replace(/\{hp\}/g, String(hp))
             .replace(/\{max\}/g, String(max))
           if (config.pvp.autoReplyHpCheck) {
-            if (twitchChat.canSend()) {
-              twitchChat.say(username, reply)
-            } else {
-              twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] HP確認チャット送信失敗', err))
-            }
+            sendAutoReply(reply, '[PvP] HP確認チャット送信失敗')
           }
         }
       }
@@ -2033,11 +2005,7 @@ export function OverlayPage() {
             .replace(/\{hp\}/g, String(viewerMaxHP))
             .replace(/\{max\}/g, String(viewerMaxHP))
           if (config.pvp.autoReplyFullHeal) {
-            if (twitchChat.canSend()) {
-              twitchChat.say(username, reply)
-            } else {
-              twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 全回復返信の送信失敗', err))
-            }
+            sendAutoReply(reply, '[PvP] 全回復返信の送信失敗')
           }
         }
       }
@@ -2086,11 +2054,7 @@ export function OverlayPage() {
             const reply = tpl
               .replace(/\{username\}/g, target === 'all' ? '全員' : displayName)
               .replace(/\{duration\}/g, String(durationMinutes))
-            if (twitchChat.canSend()) {
-              twitchChat.say(username, reply)
-            } else {
-              twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] ストレングスバフ返信の送信失敗', err))
-            }
+            sendAutoReply(reply, '[PvP] ストレングスバフ返信の送信失敗')
           }
         }
       }
@@ -2150,18 +2114,10 @@ export function OverlayPage() {
                 .replace(/\{username\}/g, target === 'all' ? '全員' : displayName)
                 .replace(/\{remaining\}/g, String(remainingMinutes))
                 .replace(/\{duration\}/g, String(durationMinutes))
-              if (twitchChat.canSend()) {
-                twitchChat.say(username, reply)
-              } else {
-                twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] バフ確認返信の送信失敗', err))
-              }
+              sendAutoReply(reply, '[PvP] バフ確認返信の送信失敗')
             } else {
               const reply = `${target === 'all' ? '全員' : displayName} には現在ストレングス効果が付与されていません。`
-              if (twitchChat.canSend()) {
-                twitchChat.say(username, reply)
-              } else {
-                twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] バフ確認返信の送信失敗', err))
-              }
+              sendAutoReply(reply, '[PvP] バフ確認返信の送信失敗')
             }
           }
         }
@@ -2192,8 +2148,7 @@ export function OverlayPage() {
           if (current <= 0 && !config.pvp.viewerHealWhenZeroEnabled) {
             if (config.pvp.autoReplyBlockedByZeroHp) {
               const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
-              if (twitchChat.canSend()) twitchChat.say(username, msg)
-              else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] HP0ブロックメッセージ送信失敗', err))
+                sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
             }
           } else {
             let healAmount: number
@@ -2217,16 +2172,14 @@ export function OverlayPage() {
                 .replace(/\{username\}/g, displayName)
                 .replace(/\{hp\}/g, String(newHP))
                 .replace(/\{max\}/g, String(viewerMaxHP))
-              if (twitchChat.canSend()) twitchChat.say(username, reply)
-              else twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[回復] 視聴者!heal 自動返信の送信失敗', err))
+              sendAutoReply(reply, '[回復] 視聴者!heal 自動返信の送信失敗')
             } else if (usePvpReply) {
               const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
               const reply = tpl
                 .replace(/\{username\}/g, displayName)
                 .replace(/\{hp\}/g, String(newHP))
                 .replace(/\{max\}/g, String(viewerMaxHP))
-              if (twitchChat.canSend()) twitchChat.say(username, reply)
-              else twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[PvP] 回復返信の送信失敗', err))
+              sendAutoReply(reply, '[PvP] 回復返信の送信失敗')
             }
           }
         }
@@ -2262,8 +2215,7 @@ export function OverlayPage() {
             if (current <= 0) {
               if (config.pvp.autoReplyBlockedByZeroHp) {
                 const msg = config.pvp.messageWhenAttackBlockedByZeroHp ?? 'HPが0なので攻撃できません。'
-                if (twitchChat.canSend()) twitchChat.say(username, msg)
-                else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] HP0ブロックメッセージ送信失敗', err))
+                sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
               }
             } else {
               handleAttackEvent({
@@ -2313,8 +2265,7 @@ export function OverlayPage() {
             if (current <= 0) {
               if (config.pvp.autoReplyBlockedByZeroHp) {
                 const msg = config.pvp.messageWhenHealBlockedByZeroHp ?? 'HPが0なので回復できません。'
-                if (twitchChat.canSend()) twitchChat.say(username, msg)
-                else twitchApi.sendChatMessage(user.id, msg).catch((err) => console.error('[PvP] HP0ブロックメッセージ送信失敗', err))
+                sendAutoReply(msg, '[PvP] HP0ブロックメッセージ送信失敗')
               }
             } else {
               // 配信者のHPが0の場合は回復をブロック
@@ -2422,8 +2373,7 @@ export function OverlayPage() {
             if (config.heal.autoReplyEnabled && config.heal.autoReplyMessageTemplate?.trim()) {
               const tpl = config.heal.autoReplyMessageTemplate.trim()
               const reply = tpl.replace(/\{username\}/g, '配信者').replace(/\{hp\}/g, String(newHP)).replace(/\{max\}/g, String(maxHP))
-              if (twitchChat.canSend()) twitchChat.say(username, reply)
-              else twitchApi.sendChatMessage(user.id, reply).catch((err) => console.error('[回復] !heal 自動返信の送信失敗', err))
+              sendAutoReply(reply, '[回復] !heal 自動返信の送信失敗')
             }
           }
         }
@@ -2473,7 +2423,7 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, username, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP, maxHP, increaseHP, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, setViewerHP, viewerMaxHP])
+  }, [chatMessages, config, isTestMode, username, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP, maxHP, increaseHP, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, setViewerHP, viewerMaxHP])
 
   // body要素にoverflow:hiddenを適用
   useEffect(() => {
@@ -6413,15 +6363,13 @@ export function OverlayPage() {
                   >
                     全員全回復
                   </button>
-                  {config.pvp?.enabled && (
-                    <button
-                      className="test-button test-strength"
-                      onClick={handleTestStrengthBuff}
-                      title="ストレングスバフを付与（テスト用ユーザーID: test-user）"
-                    >
-                      バフ付与
-                    </button>
-                  )}
+                  <button
+                    className="test-button test-strength"
+                    onClick={handleTestStrengthBuff}
+                    title="ストレングスバフを付与"
+                  >
+                    バフ付与
+                  </button>
                 </div>
               </div>
             </div>
