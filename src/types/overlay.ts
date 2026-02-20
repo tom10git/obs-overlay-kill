@@ -258,6 +258,12 @@ export interface PvPConfig {
   autoReplyViewerFinishingMove: boolean
   /** 必殺技発動時に表示するテキスト（デフォルト: "必殺技！"） */
   finishingMoveText: string
+  /** 必殺技効果音の有効/無効 */
+  finishingMoveSoundEnabled: boolean
+  /** 必殺技効果音のURL */
+  finishingMoveSoundUrl: string
+  /** 必殺技効果音の音量（0-1） */
+  finishingMoveSoundVolume: number
 }
 
 export interface ExternalWindowConfig {

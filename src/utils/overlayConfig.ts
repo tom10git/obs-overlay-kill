@@ -197,6 +197,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
     viewerFinishingMoveMultiplier: 10,
     messageWhenViewerFinishingMove: '{username} が必殺技を繰り出した！ ダメージ: {damage}',
     autoReplyViewerFinishingMove: true,
+    finishingMoveSoundEnabled: false,
+    finishingMoveSoundUrl: '',
+    finishingMoveSoundVolume: 0.7,
     viewerVsViewerAttack: {
       rewardId: '',
       customText: '',
@@ -959,6 +962,22 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     messageWhenViewerFinishingMove: typeof pvpConfig.messageWhenViewerFinishingMove === 'string' ? pvpConfig.messageWhenViewerFinishingMove : '{username} が必殺技を繰り出した！ ダメージ: {damage}',
     autoReplyViewerFinishingMove: typeof pvpConfig.autoReplyViewerFinishingMove === 'boolean' ? pvpConfig.autoReplyViewerFinishingMove : true,
     finishingMoveText: typeof pvpConfig.finishingMoveText === 'string' && pvpConfig.finishingMoveText.trim().length > 0 ? pvpConfig.finishingMoveText.trim() : '必殺技！',
+    finishingMoveSoundEnabled: typeof pvpConfig.finishingMoveSoundEnabled === 'boolean' ? pvpConfig.finishingMoveSoundEnabled : false,
+    finishingMoveSoundUrl: typeof pvpConfig.finishingMoveSoundUrl === 'string'
+      ? (pvpConfig.finishingMoveSoundUrl.trim() === '' || isValidUrl(pvpConfig.finishingMoveSoundUrl)
+        ? pvpConfig.finishingMoveSoundUrl.trim()
+        : '')
+      : '',
+    finishingMoveSoundVolume: (() => {
+      if (typeof pvpConfig.finishingMoveSoundVolume === 'number' && !isNaN(pvpConfig.finishingMoveSoundVolume) && pvpConfig.finishingMoveSoundVolume >= 0 && pvpConfig.finishingMoveSoundVolume <= 1) {
+        return pvpConfig.finishingMoveSoundVolume
+      }
+      const num = Number(pvpConfig.finishingMoveSoundVolume)
+      if (!isNaN(num) && num >= 0 && num <= 1) {
+        return num
+      }
+      return 0.7
+    })(),
     viewerVsViewerAttack,
   }
 

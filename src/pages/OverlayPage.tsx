@@ -117,6 +117,7 @@ export function OverlayPage() {
   const finishingMoveShakeTimerRef = useRef<number | null>(null)
   const finishingMoveFilterTimerRef = useRef<number | null>(null)
   const finishingMoveTextTimerRef = useRef<number | null>(null)
+  const playFinishingMoveSoundRef = useRef<() => void>(() => { })
 
   // 食いしばり（HP1残り）メッセージ表示
   const [survivalMessageVisible, setSurvivalMessageVisible] = useState(false)
@@ -327,6 +328,7 @@ export function OverlayPage() {
 
   // 必殺技エフェクト（派手な演出）
   const showFinishingMoveEffect = useCallback(() => {
+    playFinishingMoveSoundRef.current()
     // 0. 「必殺技！」テキスト表示
     setFinishingMoveTextVisible(false)
     requestAnimationFrame(() => setFinishingMoveTextVisible(true))
@@ -834,6 +836,10 @@ export function OverlayPage() {
     () => (config?.pvp?.strengthBuffSoundUrl?.trim() || ''),
     [config?.pvp?.strengthBuffSoundUrl]
   )
+  const finishingMoveSoundUrl = useMemo(
+    () => (config?.pvp?.finishingMoveSoundUrl?.trim() || ''),
+    [config?.pvp?.finishingMoveSoundUrl]
+  )
 
   const { play: playAttackSound } = useSound({
     src: attackSoundUrl,
@@ -870,6 +876,14 @@ export function OverlayPage() {
     enabled: config?.pvp?.strengthBuffSoundEnabled && !!strengthBuffSoundUrl,
     volume: config?.pvp?.strengthBuffSoundVolume || 0.7,
   })
+  const { play: playFinishingMoveSound } = useSound({
+    src: finishingMoveSoundUrl,
+    enabled: config?.pvp?.finishingMoveSoundEnabled && !!finishingMoveSoundUrl,
+    volume: config?.pvp?.finishingMoveSoundVolume || 0.7,
+  })
+  useEffect(() => {
+    playFinishingMoveSoundRef.current = playFinishingMoveSound
+  }, [playFinishingMoveSound])
 
   // HPが0になったときにすべての出血ダメージタイマーを停止
   useEffect(() => {
@@ -999,8 +1013,8 @@ export function OverlayPage() {
           if (isCritical) {
             showCritical(config.animation.duration)
           }
-          // 攻撃効果音を再生
-          if (config.attack.soundEnabled) {
+          // 必殺技時は通常の攻撃効果音を鳴らさない
+          if (config.attack.soundEnabled && !isFinishingMove) {
             playAttackSound()
           }
 
@@ -1365,7 +1379,7 @@ export function OverlayPage() {
           showFinishingMoveEffect()
         }
       }
-      
+
       // 必殺技が発動しなかった場合のみ通常のダメージ計算
       if (!isFinishingMove) {
         // テストモードでは、テスト用のユーザーID（'test-user'）でバフを考慮する
@@ -1379,7 +1393,7 @@ export function OverlayPage() {
           config.pvp?.strengthBuffTarget
         )
       }
-      
+
       let finalDamage = baseDamage
       let isCritical = false
       // 必殺技が発動した場合はクリティカルをスキップ
@@ -1405,8 +1419,8 @@ export function OverlayPage() {
       if (isCritical) {
         showCritical(config.animation.duration)
       }
-      // 攻撃効果音を再生
-      if (config.attack.soundEnabled) {
+      // 必殺技時は通常の攻撃効果音を鳴らさない
+      if (config.attack.soundEnabled && !isFinishingMove) {
         playAttackSound()
       }
 
@@ -1428,88 +1442,88 @@ export function OverlayPage() {
       } else {
         console.log(`[テストモード 出血ダメージ判定] bleedEnabled: false`)
       }
-      
+
       if (shouldApplyBleed) {
-          // 出血ダメージを開始
-          bleedIdRef.current += 1
-          const bleedId = bleedIdRef.current
-          const bleedDamage = config.attack.bleedDamage
-          const bleedInterval = config.attack.bleedInterval * 1000 // ミリ秒に変換
-          const bleedDuration = config.attack.bleedDuration * 1000 // ミリ秒に変換
+        // 出血ダメージを開始
+        bleedIdRef.current += 1
+        const bleedId = bleedIdRef.current
+        const bleedDamage = config.attack.bleedDamage
+        const bleedInterval = config.attack.bleedInterval * 1000 // ミリ秒に変換
+        const bleedDuration = config.attack.bleedDuration * 1000 // ミリ秒に変換
 
-          console.log(`[テストモード 出血ダメージ開始] ID: ${bleedId}, ダメージ: ${bleedDamage}, 間隔: ${bleedInterval}ms, 持続時間: ${bleedDuration}ms`)
-          console.log(`[テストモード 出血ダメージ開始] reduceHPRef.current:`, reduceHPRef.current)
-          console.log(`[テストモード 出血ダメージ開始] reduceHP:`, reduceHP)
+        console.log(`[テストモード 出血ダメージ開始] ID: ${bleedId}, ダメージ: ${bleedDamage}, 間隔: ${bleedInterval}ms, 持続時間: ${bleedDuration}ms`)
+        console.log(`[テストモード 出血ダメージ開始] reduceHPRef.current:`, reduceHPRef.current)
+        console.log(`[テストモード 出血ダメージ開始] reduceHP:`, reduceHP)
 
-          // 一定間隔でダメージを与えるタイマー
-          const intervalTimer = window.setInterval(() => {
-            console.log(`[テストモード 出血ダメージ適用] ID: ${bleedId}, ダメージ: ${bleedDamage}`)
-            console.log(`[テストモード 出血ダメージ適用] reduceHPRef.current:`, reduceHPRef.current)
-            const currentReduceHP = reduceHPRef.current
-            if (currentReduceHP && typeof currentReduceHP === 'function') {
-              console.log(`[テストモード 出血ダメージ適用] reduceHPRef.currentを呼び出します`)
-              currentReduceHP(bleedDamage)
+        // 一定間隔でダメージを与えるタイマー
+        const intervalTimer = window.setInterval(() => {
+          console.log(`[テストモード 出血ダメージ適用] ID: ${bleedId}, ダメージ: ${bleedDamage}`)
+          console.log(`[テストモード 出血ダメージ適用] reduceHPRef.current:`, reduceHPRef.current)
+          const currentReduceHP = reduceHPRef.current
+          if (currentReduceHP && typeof currentReduceHP === 'function') {
+            console.log(`[テストモード 出血ダメージ適用] reduceHPRef.currentを呼び出します`)
+            currentReduceHP(bleedDamage)
+            // 出血ダメージ効果音を再生
+            if (config.attack.bleedSoundEnabled) {
+              playBleedSound()
+            }
+            // 出血ダメージも表示（ランダムな方向に放射状に）
+            damageIdRef.current += 1
+            const testBleedDamageId = damageIdRef.current
+            const testBleedAngle = Math.random() * 360
+            const testBleedDistance = 80 + Math.random() * 60
+            setDamageNumbers((prev) => [...prev, {
+              id: testBleedDamageId,
+              amount: bleedDamage,
+              isCritical: false,
+              isBleed: true,
+              angle: testBleedAngle,
+              distance: testBleedDistance,
+            }])
+            setTimeout(() => {
+              setDamageNumbers((prev) => prev.filter((d) => d.id !== testBleedDamageId))
+            }, 1200)
+          } else {
+            console.error('[テストモード 出血ダメージエラー] reduceHPRef.currentが関数ではありません', currentReduceHP)
+            // フォールバック: reduceHPを直接使用
+            if (reduceHP && typeof reduceHP === 'function') {
+              console.log('[テストモード 出血ダメージ] フォールバック: reduceHPを直接使用')
+              reduceHP(bleedDamage)
               // 出血ダメージ効果音を再生
               if (config.attack.bleedSoundEnabled) {
                 playBleedSound()
               }
               // 出血ダメージも表示（ランダムな方向に放射状に）
               damageIdRef.current += 1
-              const testBleedDamageId = damageIdRef.current
-              const testBleedAngle = Math.random() * 360
-              const testBleedDistance = 80 + Math.random() * 60
+              const testBleedDamageId2 = damageIdRef.current
+              const testBleedAngle2 = Math.random() * 360
+              const testBleedDistance2 = 80 + Math.random() * 60
               setDamageNumbers((prev) => [...prev, {
-                id: testBleedDamageId,
+                id: testBleedDamageId2,
                 amount: bleedDamage,
                 isCritical: false,
                 isBleed: true,
-                angle: testBleedAngle,
-                distance: testBleedDistance,
+                angle: testBleedAngle2,
+                distance: testBleedDistance2,
               }])
               setTimeout(() => {
-                setDamageNumbers((prev) => prev.filter((d) => d.id !== testBleedDamageId))
+                setDamageNumbers((prev) => prev.filter((d) => d.id !== testBleedDamageId2))
               }, 1200)
             } else {
-              console.error('[テストモード 出血ダメージエラー] reduceHPRef.currentが関数ではありません', currentReduceHP)
-              // フォールバック: reduceHPを直接使用
-              if (reduceHP && typeof reduceHP === 'function') {
-                console.log('[テストモード 出血ダメージ] フォールバック: reduceHPを直接使用')
-                reduceHP(bleedDamage)
-                // 出血ダメージ効果音を再生
-                if (config.attack.bleedSoundEnabled) {
-                  playBleedSound()
-                }
-                // 出血ダメージも表示（ランダムな方向に放射状に）
-                damageIdRef.current += 1
-                const testBleedDamageId2 = damageIdRef.current
-                const testBleedAngle2 = Math.random() * 360
-                const testBleedDistance2 = 80 + Math.random() * 60
-                setDamageNumbers((prev) => [...prev, {
-                  id: testBleedDamageId2,
-                  amount: bleedDamage,
-                  isCritical: false,
-                  isBleed: true,
-                  angle: testBleedAngle2,
-                  distance: testBleedDistance2,
-                }])
-                setTimeout(() => {
-                  setDamageNumbers((prev) => prev.filter((d) => d.id !== testBleedDamageId2))
-                }, 1200)
-              } else {
-                console.error('[テストモード 出血ダメージエラー] reduceHPも関数ではありません', reduceHP)
-              }
+              console.error('[テストモード 出血ダメージエラー] reduceHPも関数ではありません', reduceHP)
             }
-          }, bleedInterval)
+          }
+        }, bleedInterval)
 
-          // 持続時間が終了したらタイマーをクリア
-          const durationTimer = window.setTimeout(() => {
-            console.log(`[テストモード 出血ダメージ終了] ID: ${bleedId}`)
-            window.clearInterval(intervalTimer)
-            bleedTimersRef.current.delete(bleedId)
-          }, bleedDuration)
+        // 持続時間が終了したらタイマーをクリア
+        const durationTimer = window.setTimeout(() => {
+          console.log(`[テストモード 出血ダメージ終了] ID: ${bleedId}`)
+          window.clearInterval(intervalTimer)
+          bleedTimersRef.current.delete(bleedId)
+        }, bleedDuration)
 
-          bleedTimersRef.current.set(bleedId, { intervalTimer, durationTimer })
-          console.log(`[テストモード 出血ダメージ開始] タイマーを設定しました。intervalTimer: ${intervalTimer}, durationTimer: ${durationTimer}`)
+        bleedTimersRef.current.set(bleedId, { intervalTimer, durationTimer })
+        console.log(`[テストモード 出血ダメージ開始] タイマーを設定しました。intervalTimer: ${intervalTimer}, durationTimer: ${durationTimer}`)
       }
       // 反転回復: この攻撃のモーション後（durationMs後）に回復（1回の攻撃フローで「減る→回復」を完結）
       // HPが0になった場合は反転回復を実行しない
@@ -1568,10 +1582,7 @@ export function OverlayPage() {
       setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
     }, 1500)
 
-    // 攻撃効果音を再生（通常攻撃と同じ）
-    if (config.attack.soundEnabled) {
-      playAttackSound()
-    }
+    // 必殺技専用SEを使うため、通常の攻撃効果音は鳴らさない
 
     // 出血デバフを確定付与（本番ロジックと同様に、必殺技時は確定で出血）
     const bleedEnabled = config.attack.bleedEnabled || true
@@ -1633,7 +1644,7 @@ export function OverlayPage() {
       })
       sendAutoReply(msg, '[PvP] 必殺技メッセージ送信失敗')
     }
-  }, [config, isTestMode, currentHP, reduceHP, playAttackSound, playBleedSound, showFinishingMoveEffect, sendAutoReply, stopRepeat, username])
+  }, [config, isTestMode, currentHP, reduceHP, playBleedSound, showFinishingMoveEffect, sendAutoReply, stopRepeat, username])
 
   const handleTestHeal = useCallback(() => {
     if (!config || !isTestMode) return
@@ -1679,7 +1690,7 @@ export function OverlayPage() {
   // テストモード用のバフ付与ハンドラ
   const handleTestStrengthBuff = useCallback(() => {
     if (!isTestMode || !config || !username) return
-    
+
     // !strengthコマンドをTwitchチャットに送信
     const strengthBuffCommand = config.pvp?.strengthBuffCommand ?? '!strength'
     if (twitchChat.canSend()) {
@@ -1802,12 +1813,12 @@ export function OverlayPage() {
               max: viewerMaxHP,
             })
             if (config.pvp.autoReplyAttackCounter) {
-                  sendAutoReply(reply, '[PvP] チャット送信失敗')
+              sendAutoReply(reply, '[PvP] チャット送信失敗')
             }
             if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
-                  const zeroMsg = fillTemplate(config.pvp.messageWhenViewerZeroHp, { username: targetDisplayName }).trim()
+              const zeroMsg = fillTemplate(config.pvp.messageWhenViewerZeroHp, { username: targetDisplayName }).trim()
               if (zeroMsg) {
-                    sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
+                sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
               }
             }
           }
@@ -2110,8 +2121,8 @@ export function OverlayPage() {
           // ref から現在HPを読む（ensureViewerHP 直後でも setState の updater 内で ref が更新されている）
           const state = getViewerHPCurrent(message.user.id) ?? getViewerHP(message.user.id)
           const current = state?.current ?? viewerMaxHP
-            if (current <= 0 && !config.pvp.viewerHealWhenZeroEnabled) {
-              sendPvpBlockedMessage('heal', '[PvP] HP0ブロックメッセージ送信失敗')
+          if (current <= 0 && !config.pvp.viewerHealWhenZeroEnabled) {
+            sendPvpBlockedMessage('heal', '[PvP] HP0ブロックメッセージ送信失敗')
           } else {
             let healAmount: number
             if ((config.pvp.viewerHealType ?? 'fixed') === 'random') {
@@ -4794,6 +4805,43 @@ export function OverlayPage() {
                                 placeholder="必殺技！"
                               />
                             </div>
+                            <div className="test-settings-section">
+                              <label className="test-settings-label">必殺技効果音を有効にする</label>
+                              <input
+                                type="checkbox"
+                                checked={config.pvp.finishingMoveSoundEnabled ?? false}
+                                onChange={(e) => updateConfigLocal({ pvp: { finishingMoveSoundEnabled: e.target.checked } })}
+                              />
+                            </div>
+                            {config.pvp.finishingMoveSoundEnabled && (
+                              <>
+                                <div className="test-settings-section">
+                                  <label className="test-settings-label">必殺技効果音URL</label>
+                                  <input
+                                    type="text"
+                                    className="test-settings-input"
+                                    value={config.pvp.finishingMoveSoundUrl ?? ''}
+                                    onChange={(e) => updateConfigLocal({ pvp: { finishingMoveSoundUrl: e.target.value } })}
+                                    placeholder="https://.../finishing-move.mp3"
+                                  />
+                                </div>
+                                <div className="test-settings-section">
+                                  <label className="test-settings-label">必殺技効果音音量 (%)</label>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                    className="test-settings-range"
+                                    value={Math.round((config.pvp.finishingMoveSoundVolume ?? 0.7) * 100)}
+                                    onChange={(e) => updateConfigLocal({ pvp: { finishingMoveSoundVolume: Number(e.target.value) / 100 } })}
+                                  />
+                                  <span className="test-settings-range-value">
+                                    {Math.round((config.pvp.finishingMoveSoundVolume ?? 0.7) * 100)}%
+                                  </span>
+                                </div>
+                              </>
+                            )}
                           </>
                         )}
                         <div className="test-settings-divider"></div>

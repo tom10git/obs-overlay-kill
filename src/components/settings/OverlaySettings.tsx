@@ -2827,6 +2827,56 @@ export function OverlaySettings() {
                         />
                       </label>
                     </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.pvp.finishingMoveSoundEnabled ?? false}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: { ...config.pvp, finishingMoveSoundEnabled: e.target.checked },
+                            })
+                          }
+                        />
+                        必殺技効果音を有効にする
+                      </label>
+                    </div>
+                    {config.pvp.finishingMoveSoundEnabled && (
+                      <div className="settings-row">
+                        <label>
+                          必殺技効果音URL:
+                          <input
+                            type="text"
+                            value={config.pvp.finishingMoveSoundUrl ?? ''}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                pvp: { ...config.pvp, finishingMoveSoundUrl: e.target.value },
+                              })
+                            }
+                            placeholder="https://.../finishing-move.mp3"
+                          />
+                        </label>
+                        <label>
+                          必殺技効果音音量:
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={config.pvp.finishingMoveSoundVolume ?? 0.7}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                pvp: { ...config.pvp, finishingMoveSoundVolume: parseFloat(e.target.value) || 0.7 },
+                              })
+                            }
+                          />
+                          {Math.round((config.pvp.finishingMoveSoundVolume ?? 0.7) * 100)}%
+                        </label>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
