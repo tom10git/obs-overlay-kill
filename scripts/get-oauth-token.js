@@ -19,7 +19,7 @@ function loadEnvConfig() {
   try {
     const envContent = readFileSync(envPath, 'utf-8')
     const config = {}
-    
+
     for (const line of envContent.split('\n')) {
       const trimmed = line.trim()
       if (trimmed && !trimmed.startsWith('#')) {
@@ -29,7 +29,7 @@ function loadEnvConfig() {
         }
       }
     }
-    
+
     return {
       clientId: config.VITE_TWITCH_CLIENT_ID,
       clientSecret: config.VITE_TWITCH_CLIENT_SECRET,
@@ -44,7 +44,7 @@ function loadEnvConfig() {
 function updateEnvFile(accessToken, refreshToken) {
   try {
     let envContent = readFileSync(envPath, 'utf-8')
-    
+
     // 既存のトークンを更新
     if (envContent.includes('VITE_TWITCH_ACCESS_TOKEN=')) {
       envContent = envContent.replace(
@@ -55,7 +55,7 @@ function updateEnvFile(accessToken, refreshToken) {
       // 存在しない場合は追加
       envContent += `\nVITE_TWITCH_ACCESS_TOKEN=${accessToken}`
     }
-    
+
     if (envContent.includes('VITE_TWITCH_REFRESH_TOKEN=')) {
       envContent = envContent.replace(
         /VITE_TWITCH_REFRESH_TOKEN=.*/,
@@ -64,7 +64,7 @@ function updateEnvFile(accessToken, refreshToken) {
     } else {
       envContent += `\nVITE_TWITCH_REFRESH_TOKEN=${refreshToken}`
     }
-    
+
     writeFileSync(envPath, envContent, 'utf-8')
     console.log('✅ .envファイルを更新しました')
   } catch (error) {
@@ -82,7 +82,7 @@ async function getTokenFromCode(code, clientId, clientSecret) {
     params.append('client_id', clientId)
     params.append('client_secret', clientSecret)
     params.append('redirect_uri', 'http://localhost:8888')
-    
+
     const response = await axios.post(
       'https://id.twitch.tv/oauth2/token',
       params.toString(),
@@ -92,7 +92,7 @@ async function getTokenFromCode(code, clientId, clientSecret) {
         },
       }
     )
-    
+
     return {
       accessToken: response.data.access_token,
       refreshToken: response.data.refresh_token,
@@ -115,7 +115,7 @@ function startAuthServer(clientId, clientSecret) {
       const url = new URL(req.url, `http://${req.headers.host}`)
       const code = url.searchParams.get('code')
       const error = url.searchParams.get('error')
-      
+
       if (error) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(`
@@ -157,7 +157,7 @@ function startAuthServer(clientId, clientSecret) {
         reject(new Error(`認証エラー: ${error}`))
         return
       }
-      
+
       if (code) {
         try {
           console.log('認証コードを取得しました。トークンを取得しています...')
@@ -166,9 +166,9 @@ function startAuthServer(clientId, clientSecret) {
             clientId,
             clientSecret
           )
-          
+
           updateEnvFile(accessToken, refreshToken)
-          
+
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
           res.end(`
             <!DOCTYPE html>
@@ -216,7 +216,7 @@ function startAuthServer(clientId, clientSecret) {
             </body>
             </html>
           `)
-          
+
           server.close()
           resolve({ accessToken, refreshToken })
         } catch (error) {
@@ -297,12 +297,12 @@ function startAuthServer(clientId, clientSecret) {
         `)
       }
     })
-    
+
     server.listen(8888, () => {
       console.log('✅ 認証サーバーを起動しました (http://localhost:8888)')
       console.log('ブラウザで認証を完了してください...')
     })
-    
+
     // タイムアウト設定（5分）
     setTimeout(() => {
       server.close()
@@ -317,23 +317,26 @@ async function main() {
   console.log('  OAuth認証トークン取得ツール')
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('')
-  
+
   const { clientId, clientSecret } = loadEnvConfig()
-  
+
   if (!clientId || !clientSecret) {
     console.error('❌ .envファイルにVITE_TWITCH_CLIENT_IDまたはVITE_TWITCH_CLIENT_SECRETが設定されていません')
     process.exit(1)
   }
-  
+
   console.log(`Client ID: ${clientId.substring(0, 10)}...`)
   console.log('')
-  
+
   // OAuth認証URLを生成
-  const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=http://localhost:8888&response_type=code&scope=channel:read:redemptions+channel:manage:redemptions`
-  
+  // channel:read:redemptions … チャンネルポイント引き換え取得
+  // channel:manage:redemptions … リワード管理
+  // user:write:chat … PvP時のチャット自動返信（Send Chat Message API）に必要
+  const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=http://localhost:8888&response_type=code&scope=channel:read:redemptions+channel:manage:redemptions+user:write:chat`
+
   console.log('ブラウザで認証URLを開いています...')
   console.log('')
-  
+
   // ブラウザで認証URLを開く（Windows）
   const { exec } = await import('child_process')
   exec(`start "" "${authUrl}"`, (error) => {
@@ -342,7 +345,7 @@ async function main() {
       console.log(authUrl)
     }
   })
-  
+
   // 認証サーバーを起動
   try {
     await startAuthServer(clientId, clientSecret)

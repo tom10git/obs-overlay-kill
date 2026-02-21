@@ -15,6 +15,16 @@ interface HPGaugeProps {
   maxHP: number
   gaugeCount: number
   config: OverlayConfig
+  /** バフが有効なユーザーIDのリスト（個人用バフ） */
+  buffedUserIds?: string[]
+  /** 全員用バフが有効かどうか */
+  isAllBuffed?: boolean
+  /** ユーザーIDから表示名へのマッピング */
+  userIdToDisplayName?: Map<string, string>
+  /** 全員用バフの残り時間（秒） */
+  allBuffRemainingSeconds?: number
+  /** 個人用バフの残り時間（ユーザーID → 残り秒数） */
+  buffRemainingSecondsMap?: Map<string, number>
 }
 
 /**
@@ -83,6 +93,11 @@ export function HPGauge({
   maxHP,
   gaugeCount,
   config,
+  buffedUserIds = [],
+  isAllBuffed = false,
+  userIdToDisplayName = new Map(),
+  allBuffRemainingSeconds,
+  buffRemainingSecondsMap = new Map(),
 }: HPGaugeProps) {
   // 各ゲージレイヤーを生成（上から順に減るように計算）
   const gaugeLayers = useMemo(() => {
@@ -185,23 +200,14 @@ export function HPGauge({
         }
         // 動画を確実に最初から再生
         setShowZeroHpEffect(true)
-        // 次のフレームで動画をリセットして再生（DOM更新を待つ）
-        requestAnimationFrame(() => {
+        // 表示後にタイマーを設定（指定時間後に非表示）
+        effectTimerRef.current = window.setTimeout(() => {
+          setShowZeroHpEffect(false)
           if (videoRef.current) {
-            videoRef.current.currentTime = 0 // 確実に最初に戻す
-            videoRef.current.play().catch((error) => {
-              console.warn('動画の再生に失敗しました:', error)
-            })
+            videoRef.current.pause()
           }
-          // 表示後にタイマーを設定（指定時間後に非表示）
-          effectTimerRef.current = window.setTimeout(() => {
-            setShowZeroHpEffect(false)
-            if (videoRef.current) {
-              videoRef.current.pause()
-            }
-            effectTimerRef.current = null
-          }, Math.max(100, config.zeroHpEffect.duration))
-        })
+          effectTimerRef.current = null
+        }, Math.max(100, config.zeroHpEffect.duration))
       }
       // 画像を少し遅延させて表示（エフェクトより後に表示）
       if (config.zeroHpImage.enabled && zeroHpImageUrl.length > 0) {
@@ -244,7 +250,13 @@ export function HPGauge({
     // 全回復時（0から最大HPに変化）も確実に更新される
     // 全回復時は、wasZeroBefore && !isZeroNow の条件で処理されるが、
     // その後に確実にprevHPRefを更新することで、その後の攻撃でHPが0になったときに検出できる
+    // デバッグ: prevHPRefの更新を確認
+    const prevHPBeforeUpdate = prevHPRef.current
     prevHPRef.current = currentHP
+    // HPが0になった瞬間を検出した場合、デバッグログを出力
+    if (prevHPBeforeUpdate > 0 && currentHP <= 0) {
+      console.log(`[HP0検出] prevHP: ${prevHPBeforeUpdate} -> currentHP: ${currentHP}, エフェクト表示: ${config.zeroHpEffect.enabled && zeroHpEffectVideoUrl.length > 0}`)
+    }
   }, [
     currentHP,
     config.zeroHpImage.enabled,
@@ -255,6 +267,54 @@ export function HPGauge({
     zeroHpImageUrl,
     zeroHpEffectVideoUrl,
   ])
+
+  // showZeroHpEffectがtrueになったときに動画を再生
+  useEffect(() => {
+    if (showZeroHpEffect && config.zeroHpEffect.enabled && zeroHpEffectVideoUrl.length > 0) {
+      // DOM更新を待つため、次のフレームで実行
+      requestAnimationFrame(() => {
+        if (videoRef.current) {
+          const video = videoRef.current
+          video.currentTime = 0 // 確実に最初に戻す
+
+          // 動画の読み込み状態を確認してから再生
+          const tryPlay = () => {
+            if (video.readyState >= 2) {
+              // データが読み込まれている場合は即座に再生
+              video.play().catch((error) => {
+                console.warn('[HP0動画エフェクト] 動画の再生に失敗しました:', error)
+                // 再生に失敗した場合、少し待ってからリトライ
+                setTimeout(() => {
+                  video.load() // 動画を再読み込み
+                  video.play().catch((err) => {
+                    console.warn('[HP0動画エフェクト] 動画の再生リトライに失敗しました:', err)
+                  })
+                }, 100)
+              })
+            } else {
+              // データがまだ読み込まれていない場合、読み込みを待つ
+              const onLoadedData = () => {
+                video.play().catch((error) => {
+                  console.warn('[HP0動画エフェクト] 動画の再生に失敗しました:', error)
+                })
+                video.removeEventListener('loadeddata', onLoadedData)
+              }
+              video.addEventListener('loadeddata', onLoadedData)
+              video.load() // 動画を明示的に読み込む
+            }
+          }
+
+          tryPlay()
+        } else {
+          console.warn('[HP0動画エフェクト] videoRef.currentがnullです')
+        }
+      })
+    } else if (!showZeroHpEffect && videoRef.current) {
+      // エフェクトが非表示になったら動画を停止
+      videoRef.current.pause()
+      videoRef.current.currentTime = 0
+    }
+  }, [showZeroHpEffect, config.zeroHpEffect.enabled, zeroHpEffectVideoUrl])
 
   // クリーンアップ（コンポーネントのアンマウント時のみ実行）
   useEffect(() => {
@@ -333,6 +393,45 @@ export function HPGauge({
           style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         />
       </div>
+      {/* バフ表示 */}
+      {(isAllBuffed || buffedUserIds.length > 0) && (
+        <div className="hp-gauge-buff-indicator">
+          {isAllBuffed ? (
+            // 全員用バフ：絵文字アイコン + カウントダウン
+            <>
+              <span className="hp-gauge-buff-label">ユーザーバフ：</span>
+              <span className="hp-gauge-buff-emoji">💪</span>
+              {allBuffRemainingSeconds !== undefined && allBuffRemainingSeconds > 0 && (
+                <span className="hp-gauge-buff-timer">
+                  {Math.floor(allBuffRemainingSeconds / 60)}:{(Math.floor(allBuffRemainingSeconds % 60)).toString().padStart(2, '0')}
+                </span>
+              )}
+            </>
+          ) : (
+            // 個人用バフ：ラベル + アイコン + ユーザーごとのカウントダウン
+            <>
+              <span className="hp-gauge-buff-label">ユーザーバフ：</span>
+              <span className="hp-gauge-buff-emoji">💪</span>
+              <span className="hp-gauge-buff-user-list">
+                {buffedUserIds
+                  .map((userId) => {
+                    const displayName = userIdToDisplayName.get(userId) || userId
+                    const remaining = buffRemainingSecondsMap.get(userId)
+                    if (remaining === undefined || remaining <= 0) return null
+                    const minutes = Math.floor(remaining / 60)
+                    const seconds = Math.floor(remaining % 60).toString().padStart(2, '0')
+                    return (
+                      <span key={userId} className="hp-gauge-buff-user-entry">
+                        {displayName}: {minutes}:{seconds}
+                      </span>
+                    )
+                  })
+                  .filter((entry) => entry !== null)}
+              </span>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

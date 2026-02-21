@@ -59,5 +59,17 @@ function configSavePlugin(): Plugin {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), configSavePlugin()],
+  // enforce: 'pre' で保存APIをViteの静的ファイルより先に処理し、POST /api/config/save が確実に届くようにする
+  plugins: [react(), { ...configSavePlugin(), enforce: 'pre' }],
+  server: {
+    proxy: {
+      // アプリ内OAuth: トークン取得をプロキシ（CORS回避）
+      '/api/oauth/token': {
+        target: 'https://id.twitch.tv',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/oauth\/token/, '/oauth2/token'),
+      },
+    },
+  },
 })

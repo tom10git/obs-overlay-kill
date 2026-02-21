@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { twitchChat } from '../utils/twitchChat'
 import type { TwitchChatMessage } from '../types/twitch'
+import type { TwitchChatConnectOptions } from '../utils/twitchChat'
 
 interface UseTwitchChatResult {
   messages: TwitchChatMessage[]
   isConnected: boolean
+  /** identity で接続しており say で送信可能か */
+  canSend: boolean
   error: Error | null
   connect: () => Promise<void>
   disconnect: () => void
@@ -13,10 +16,12 @@ interface UseTwitchChatResult {
 
 /**
  * Twitchチャットメッセージを取得するカスタムフック
+ * options に token と username を渡すと identity で接続し、送信可能になる（tmi.js の say で自動返信）
  */
 export function useTwitchChat(
   channel: string,
-  maxMessages: number = 100
+  maxMessages: number = 100,
+  options?: TwitchChatConnectOptions
 ): UseTwitchChatResult {
   const [messages, setMessages] = useState<TwitchChatMessage[]>([])
   const [isConnected, setIsConnected] = useState(false)
@@ -31,7 +36,7 @@ export function useTwitchChat(
 
     try {
       setError(null)
-      await twitchChat.connect(channel)
+      await twitchChat.connect(channel, options)
       setIsConnected(true)
 
       // メッセージコールバックを登録
@@ -48,7 +53,7 @@ export function useTwitchChat(
       setError(err instanceof Error ? err : new Error('Failed to connect to chat'))
       setIsConnected(false)
     }
-  }, [channel, maxMessages])
+  }, [channel, maxMessages, options?.token, options?.username])
 
   const disconnect = useCallback(() => {
     if (unsubscribeRef.current) {
@@ -76,6 +81,7 @@ export function useTwitchChat(
   return {
     messages,
     isConnected,
+    canSend: twitchChat.canSend(),
     error,
     connect,
     disconnect,

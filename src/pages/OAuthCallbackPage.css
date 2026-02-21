@@ -1,0 +1,68 @@
+.oauth-callback-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: #0e0e10;
+  color: #efeff1;
+}
+
+.oauth-callback-box {
+  max-width: 480px;
+  padding: 2rem;
+  background: #18181b;
+  border-radius: 8px;
+  border: 1px solid #3a3a3d;
+  text-align: center;
+}
+
+.oauth-callback-box h1 {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+}
+
+.oauth-callback-box p {
+  margin: 0.5rem 0;
+  color: #adadb8;
+}
+
+.oauth-callback-success {
+  border-color: #00a35c;
+}
+
+.oauth-callback-error {
+  border-color: #eb0400;
+}
+
+.oauth-callback-error p {
+  color: #efeff1;
+}
+
+.oauth-callback-hint {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: #adadb8;
+}
+
+.oauth-callback-hint code {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #26262c;
+  border-radius: 4px;
+  word-break: break-all;
+}
+
+.oauth-callback-link {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.5rem 1rem;
+  color: #a970ff;
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.oauth-callback-link:hover {
+  text-decoration: underline;
+}
