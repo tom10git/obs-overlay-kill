@@ -14,6 +14,7 @@ import { useAutoReply } from '../hooks/useAutoReply'
 import { useStrengthBuffState } from '../hooks/useStrengthBuffState'
 import { HPGauge } from '../components/overlay/HPGauge'
 import { DamageNumber } from '../components/overlay/DamageNumber'
+import { HealNumber } from '../components/overlay/HealNumber'
 import { useSound } from '../hooks/useSound'
 import { getAdminUsername } from '../config/admin'
 import { useTwitchUser } from '../hooks/useTwitchUser'
@@ -150,8 +151,16 @@ export function OverlayPage() {
   }>>([])
   const damageIdRef = useRef(0)
 
-  // 背景色の管理
-  const [backgroundColor, setBackgroundColor] = useState<'green' | 'dark-gray'>('green')
+  // 回復数値表示管理（HPゲージの外側に表示）
+  const [healNumbers, setHealNumbers] = useState<Array<{
+    id: number
+    amount: number,
+  }>>([])
+  const healIdRef = useRef(0)
+
+  // 背景色の管理（クロマキー用グリーン / ダークグレー / カスタム色）
+  const [backgroundColor, setBackgroundColor] = useState<'green' | 'dark-gray' | 'custom'>('green')
+  const [customChromaColor, setCustomChromaColor] = useState('#00ff00')
 
   // UI表示の管理
   const [showTestControls, setShowTestControls] = useState(true)
@@ -1122,6 +1131,15 @@ export function OverlayPage() {
               if (currentHP > 0) {
                 setDamageEffectActive(false)
                 increaseHP(reverseHealAmount)
+
+                // 回復数値を表示（反転回復ぶん）
+                healIdRef.current += 1
+                const healId = healIdRef.current
+                setHealNumbers((prev) => [...prev, { id: healId, amount: reverseHealAmount }])
+                setTimeout(() => {
+                  setHealNumbers((prev) => prev.filter((h) => h.id !== healId))
+                }, 1500)
+
                 if (config.heal?.effectEnabled) showHealEffect()
                 if (config.heal?.soundEnabled) playHealSound()
               }
@@ -1160,7 +1178,12 @@ export function OverlayPage() {
             targetUserName = userIdToDisplayNameRef.current.get(picked) ?? (picked === event.userId ? (event.userName ?? event.userId) : picked)
           }
           const sa = config.pvp.streamerAttack
-          const result = applyViewerDamage(targetUserId, getAttackDamage(sa, undefined, undefined, undefined, strengthBuffAllStartTimeRef, config.pvp?.strengthBuffTarget), sa)
+          const result = applyViewerDamage(
+            targetUserId,
+            // カウンター攻撃（配信者→視聴者）には視聴者バフを乗せない
+            getAttackDamage(sa),
+            sa
+          )
           const hp = result.newHP
           const max = viewerMaxHP
           const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
@@ -1208,6 +1231,15 @@ export function OverlayPage() {
 
         const newHP = Math.min(maxHP, currentHP + healAmount)
         increaseHP(healAmount)
+        // 回復数値を表示
+        healIdRef.current += 1
+        const healId = healIdRef.current
+        setHealNumbers((prev: Array<{ id: number; amount: number }>) => [...prev, { id: healId, amount: healAmount }])
+        // 1.5秒後に削除（アニメーション終了後）
+        setTimeout(() => {
+          setHealNumbers((prev: HealNumber[]) => prev.filter((h) => h.id !== healId))
+        }, 1500)
+
         // 回復エフェクトを表示（設定で有効な場合のみ）
         if (config.heal.effectEnabled) {
           showHealEffect()
@@ -1382,7 +1414,7 @@ export function OverlayPage() {
 
       // 必殺技が発動しなかった場合のみ通常のダメージ計算
       if (!isFinishingMove) {
-        // テストモードでは、テスト用のユーザーID（'test-user'）でバフを考慮する
+        // テストモードでは、配信者への攻撃として「test-user」のバフを反映する
         const testUserId = config.pvp?.strengthBuffTarget === 'individual' ? 'test-user' : undefined
         baseDamage = getAttackDamage(
           config.attack,
@@ -1535,6 +1567,15 @@ export function OverlayPage() {
           if (currentHP > 0) {
             setDamageEffectActive(false)
             increaseHP(reverseHealAmount)
+
+            // 回復数値を表示（テストモードの反転回復ぶん）
+            healIdRef.current += 1
+            const healId = healIdRef.current
+            setHealNumbers((prev) => [...prev, { id: healId, amount: reverseHealAmount }])
+            setTimeout(() => {
+              setHealNumbers((prev) => prev.filter((h) => h.id !== healId))
+            }, 1500)
+
             if (config.heal?.effectEnabled) showHealEffect()
             if (config.heal?.soundEnabled) playHealSound()
           }
@@ -1665,7 +1706,16 @@ export function OverlayPage() {
       healAmount = getRandomHealAmount(min, max, step)
     }
 
+    // HPを回復
     increaseHP(healAmount)
+
+    // 回復数値を表示（本番の回復ハンドラと同じ表現）
+    healIdRef.current += 1
+    const healId = healIdRef.current
+    setHealNumbers((prev: Array<{ id: number; amount: number }>) => [...prev, { id: healId, amount: healAmount }])
+    setTimeout(() => {
+      setHealNumbers((prev) => prev.filter((h) => h.id !== healId))
+    }, 1500)
     // 回復エフェクトを表示（設定で有効な場合のみ）
     if (config.heal.effectEnabled) {
       showHealEffect()
@@ -1674,7 +1724,7 @@ export function OverlayPage() {
     if (config.heal.soundEnabled) {
       playHealSound()
     }
-  }, [config, isTestMode, increaseHP, showHealEffect, playHealSound, playAttackSound, playMissSound, playBleedSound, reduceHP, showCritical, showMiss])
+  }, [config, isTestMode, currentHP, increaseHP, showHealEffect, playHealSound])
 
   const handleTestReset = useCallback(() => {
     if (!isTestMode || !config) return
@@ -1805,7 +1855,12 @@ export function OverlayPage() {
             commandMatched = true
             ensureViewerHP(targetUserId)
             const sa = config.pvp.streamerAttack
-            const result = applyViewerDamage(targetUserId, getAttackDamage(sa, undefined, undefined, undefined, strengthBuffAllStartTimeRef, config.pvp?.strengthBuffTarget), sa)
+          const result = applyViewerDamage(
+            targetUserId,
+            // カウンター攻撃（配信者→視聴者）には視聴者バフを乗せない
+            getAttackDamage(sa),
+            sa
+          )
             const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
             const reply = fillTemplate(tpl, {
               username: targetDisplayName,
@@ -1892,9 +1947,8 @@ export function OverlayPage() {
                   commandMatched = true
                   ensureViewerHP(targetUserId)
                   const vva = config.pvp.viewerVsViewerAttack
-                  // 視聴者同士の攻撃では、攻撃者のバフを考慮する
-                  const attackerId = attackerIdForCommand
-                  let baseDamage = getAttackDamage(vva, attackerId, strengthBuffStartTimeRef, config.pvp.strengthBuffDuration, strengthBuffAllStartTimeRef, config.pvp.strengthBuffTarget)
+                  // 視聴者同士の攻撃では、バフは配信者へのダメージにのみ影響させるため考慮しない
+                  let baseDamage = getAttackDamage(vva)
 
                   // 必殺技判定（視聴者側の攻撃のみ、確率は0-100%で小数点第2位まで設定可能）
                   let isFinishingMove = false
@@ -2446,7 +2500,12 @@ export function OverlayPage() {
     )
   }
 
-  const backgroundStyle = backgroundColor === 'green' ? '#00ff00' : '#1a1a1a'
+  const backgroundStyle =
+    backgroundColor === 'green'
+      ? '#00ff00'
+      : backgroundColor === 'dark-gray'
+        ? '#1a1a1a'
+        : customChromaColor
 
   return (
     <div className={`overlay-page ${finishingMoveFilterActive ? 'finishing-move-filter' : ''}`} style={{ background: backgroundStyle, backgroundColor: backgroundStyle }}>
@@ -2728,6 +2787,14 @@ export function OverlayPage() {
           damageColors={config.damageColors}
         />
       ))}
+      {healNumbers.map((heal) => (
+        <HealNumber
+          key={heal.id}
+          id={heal.id}
+          amount={heal.amount}
+          healColors={config.healColors}
+        />
+      ))}
       {/* テストモード時のみテストボタンを表示（開発環境） */}
       {isTestMode && import.meta.env.DEV && (
         <div className={`test-controls-wrapper ${showTestControls ? 'visible' : 'hidden'}`}>
@@ -2923,11 +2990,31 @@ export function OverlayPage() {
                           <select
                             className="test-settings-select"
                             value={backgroundColor}
-                            onChange={(e) => setBackgroundColor(e.target.value as 'green' | 'dark-gray')}
+                            onChange={(e) => setBackgroundColor(e.target.value as 'green' | 'dark-gray' | 'custom')}
                           >
                             <option value="green">グリーン（クロマキー用）</option>
                             <option value="dark-gray">濃いグレー</option>
+                            <option value="custom">カスタム（任意の色）</option>
                           </select>
+                          {backgroundColor === 'custom' && (
+                            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <input
+                                type="color"
+                                value={customChromaColor}
+                                onChange={(e) => setCustomChromaColor(e.target.value || '#00ff00')}
+                                className="test-settings-input"
+                                style={{ width: 40, padding: 0, border: 'none', background: 'transparent' }}
+                              />
+                              <input
+                                type="text"
+                                className="test-settings-input"
+                                value={customChromaColor}
+                                onChange={(e) => setCustomChromaColor(e.target.value || '#00ff00')}
+                                placeholder="#00ff00"
+                                style={{ width: 100 }}
+                              />
+                            </div>
+                          )}
                         </div>
                         <div className="test-settings-section">
                           <label className="test-settings-label">最大HP</label>
@@ -4102,6 +4189,24 @@ export function OverlayPage() {
                               value={config.damageColors.bleed}
                               onChange={(e) => updateConfigLocal({ damageColors: { bleed: e.target.value } })}
                               placeholder="#ff6666"
+                              style={{ width: 100 }}
+                            />
+                          </div>
+                        </div>
+                        <div className="test-settings-section">
+                          <label className="test-settings-label">回復数値</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input
+                              type="color"
+                              value={config.healColors.normal}
+                              onChange={(e) => updateConfigLocal({ healColors: { normal: e.target.value } })}
+                            />
+                            <input
+                              type="text"
+                              className="test-settings-input"
+                              value={config.healColors.normal}
+                              onChange={(e) => updateConfigLocal({ healColors: { normal: e.target.value } })}
+                              placeholder="#cc0000"
                               style={{ width: 100 }}
                             />
                           </div>

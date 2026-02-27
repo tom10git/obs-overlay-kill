@@ -126,6 +126,11 @@ export interface DamageColorConfig {
   bleed: string // 出血ダメージの色
 }
 
+/** 回復数値の色設定（現状1色のみ） */
+export interface HealNumberColorConfig {
+  normal: string // 回復数値の色
+}
+
 export interface ZeroHpImageConfig {
   enabled: boolean
   imageUrl: string
@@ -314,6 +319,7 @@ export interface OverlayConfig {
   healEffectFilter: EffectFilterConfig // 回復エフェクトのフィルター設定
   gaugeColors: GaugeColorConfig // HPゲージの色設定
   damageColors: DamageColorConfig // ダメージ値の色設定
+  healColors: HealNumberColorConfig // 回復値の色設定
 }
 
 export interface ChannelPointEvent {

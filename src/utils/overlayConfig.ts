@@ -279,6 +279,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
     critical: '#cc8800', // クリティカルダメージの色
     bleed: '#ff6666', // 出血ダメージの色
   },
+  healColors: {
+    normal: '#00ff88', // 回復数値の色（明るい緑）
+  },
 }
 
 /**
@@ -321,6 +324,7 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...validated.healEffectFilter },
       gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...validated.gaugeColors },
       damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
+      healColors: { ...DEFAULT_CONFIG.healColors, ...validated.healColors },
     }
   } catch (error) {
     console.error('設定ファイルの読み込みに失敗しました:', error)
@@ -365,6 +369,7 @@ export async function loadOverlayConfigFromFile(): Promise<OverlayConfig> {
       healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...validated.healEffectFilter },
       gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...validated.gaugeColors },
       damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
+      healColors: { ...DEFAULT_CONFIG.healColors, ...validated.healColors },
     }
   } catch (error) {
     console.error('設定ファイルの読み込みに失敗しました:', error)
@@ -803,6 +808,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     bleed: isValidColor(damageColorsConfig.bleed) ? (damageColorsConfig.bleed as string) : DEFAULT_CONFIG.damageColors.bleed,
   }
 
+  // 回復値色設定の検証
+  const healColorsConfig = (c.healColors as Record<string, unknown> | undefined) || {}
+  const healColors = {
+    normal: isValidColor(healColorsConfig.normal) ? (healColorsConfig.normal as string) : DEFAULT_CONFIG.healColors.normal,
+  }
+
   // PvP設定の検証（streamerAttack は attack と同じ構造）
   const pvpConfig = (c.pvp as Record<string, unknown> | undefined) || {}
   const sa = (pvpConfig.streamerAttack as Record<string, unknown> | undefined) || {}
@@ -999,6 +1010,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     healEffectFilter,
     gaugeColors,
     damageColors,
+    healColors,
   }
 }
 
