@@ -9,7 +9,7 @@ function configSavePlugin(): Plugin {
   return {
     name: 'config-save-api',
     configureServer(server) {
-      server.middlewares.use('/api/config/save', async (req, res, next) => {
+      server.middlewares.use('/api/config/save', async (req, res, _next) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
           res.end('Method Not Allowed')

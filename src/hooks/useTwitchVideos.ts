@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useMemo } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { twitchApi } from '../utils/twitchApi'
 import type { TwitchVideo } from '../types/twitch'
+import { twitchVideosQueryKey } from '../lib/queryKeys'
+
+const MAX_VIDEOS = 200
 
 interface UseTwitchVideosResult {
   videos: TwitchVideo[]
@@ -12,69 +16,34 @@ interface UseTwitchVideosResult {
 }
 
 /**
- * Twitchビデオ情報を取得するカスタムフック
+ * Twitchビデオ情報を取得するカスタムフック（TanStack Query infinite）
  */
-export function useTwitchVideos(
-  userId: string,
-  limit: number = 20
-): UseTwitchVideosResult {
-  const [videos, setVideos] = useState<TwitchVideo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-  const [cursor, setCursor] = useState<string | undefined>(undefined)
-  const [hasMore, setHasMore] = useState(false)
+export function useTwitchVideos(userId: string, limit: number = 20): UseTwitchVideosResult {
+  const q = useInfiniteQuery({
+    queryKey: twitchVideosQueryKey(userId, limit),
+    queryFn: ({ pageParam }) => twitchApi.getVideos(userId, limit, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.pagination?.cursor,
+    enabled: !!userId,
+  })
 
-  const fetchVideos = async (reset: boolean = false) => {
-    if (!userId) {
-      setLoading(false)
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-      const result = await twitchApi.getVideos(
-        userId,
-        limit,
-        reset ? undefined : cursor
-      )
-
-      if (reset) {
-        setVideos(result.data)
-      } else {
-        setVideos((prev) => {
-          // メモリ最適化: ビデオ配列のサイズを制限（最大200件）
-          const MAX_VIDEOS = 200
-          const updated = [...prev, ...result.data]
-          return updated.slice(0, MAX_VIDEOS)
-        })
-      }
-
-      setCursor(result.pagination?.cursor)
-      setHasMore(!!result.pagination?.cursor)
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchVideos(true)
-  }, [userId])
-
-  const loadMore = async () => {
-    if (!loading && hasMore) {
-      await fetchVideos(false)
-    }
-  }
+  const videos = useMemo(() => {
+    const flat = q.data?.pages.flatMap((p) => p.data) ?? []
+    return flat.slice(0, MAX_VIDEOS)
+  }, [q.data])
 
   return {
     videos,
-    loading,
-    error,
-    hasMore,
-    loadMore,
-    refetch: () => fetchVideos(true),
+    loading: q.isLoading,
+    error: q.error instanceof Error ? q.error : q.error ? new Error(String(q.error)) : null,
+    hasMore: !!q.hasNextPage && videos.length < MAX_VIDEOS,
+    loadMore: async () => {
+      if (q.hasNextPage && !q.isFetchingNextPage && videos.length < MAX_VIDEOS) {
+        await q.fetchNextPage()
+      }
+    },
+    refetch: async () => {
+      await q.refetch()
+    },
   }
 }

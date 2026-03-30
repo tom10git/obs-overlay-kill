@@ -11,3 +11,5 @@
   user-select: none;
   width: 100%;
 }
+
+/* 平行四辺形時の skew は HPDisplay のインライン transform（角度は設定値に追従） */

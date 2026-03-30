@@ -4,6 +4,7 @@
  */
 
 import { getTwitchClientId, getTwitchAccessToken } from '../config/auth'
+import { logger } from '../lib/logger'
 import type { ChannelPointEvent } from '../types/overlay'
 
 interface EventSubMessage {
@@ -78,14 +79,14 @@ class TwitchEventSubClient {
   async connect(options: EventSubClientOptions): Promise<void> {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       if (import.meta.env.DEV) {
-        console.log('📡 EventSub: 既に接続されています')
+        logger.debug('📡 EventSub: 既に接続されています')
       }
       return
     }
 
     if (this.isConnecting) {
       if (import.meta.env.DEV) {
-        console.log('📡 EventSub: 接続処理が進行中です')
+        logger.debug('📡 EventSub: 接続処理が進行中です')
       }
       return
     }
@@ -112,7 +113,7 @@ class TwitchEventSubClient {
 
         this.ws.onopen = () => {
           if (import.meta.env.DEV) {
-            console.log('📡 EventSub: WebSocket接続完了')
+            logger.debug('📡 EventSub: WebSocket接続完了')
           }
         }
 
@@ -121,12 +122,12 @@ class TwitchEventSubClient {
             const message: EventSubMessage = JSON.parse(event.data)
             this.handleMessage(message)
           } catch (error) {
-            console.error('❌ EventSub: メッセージの解析に失敗しました', error)
+            logger.error('❌ EventSub: メッセージの解析に失敗しました', error)
           }
         }
 
         this.ws.onerror = (error) => {
-          console.error('❌ EventSub: WebSocketエラー', error)
+          logger.error('❌ EventSub: WebSocketエラー', error)
           this.isConnecting = false
           if (this.options?.onError) {
             this.options.onError(new Error('WebSocket connection error'))
@@ -137,7 +138,7 @@ class TwitchEventSubClient {
         this.ws.onclose = (event) => {
           this.isConnecting = false
           if (import.meta.env.DEV) {
-            console.log('📡 EventSub: WebSocket切断', {
+            logger.debug('📡 EventSub: WebSocket切断', {
               コード: event.code,
               理由: event.reason,
               正常終了: event.wasClean,
@@ -158,11 +159,11 @@ class TwitchEventSubClient {
           // 自動再接続（意図的な切断でない場合）
           if (event.code !== 1000 && this.options) {
             if (import.meta.env.DEV) {
-              console.log('📡 EventSub: 2秒後に再接続を試みます...')
+              logger.debug('📡 EventSub: 2秒後に再接続を試みます...')
             }
             this.reconnectTimeout = window.setTimeout(() => {
               this.connect(this.options!).catch((err) => {
-                console.error('❌ EventSub: 再接続に失敗しました', err)
+                logger.error('❌ EventSub: 再接続に失敗しました', err)
               })
             }, 2000)
           }
@@ -187,7 +188,7 @@ class TwitchEventSubClient {
               if (this.sessionId) {
                 if (import.meta.env.DEV) {
                   if (import.meta.env.DEV) {
-                    console.log('📡 EventSub: セッション確立', this.sessionId)
+                    logger.debug('📡 EventSub: セッション確立', this.sessionId)
                   }
                 }
                 this.subscribeToRedemptions(options.broadcasterId, token)
@@ -213,7 +214,7 @@ class TwitchEventSubClient {
               }
             }
           } catch (error) {
-            console.error('❌ EventSub: Welcomeメッセージの解析に失敗しました', error)
+            logger.error('❌ EventSub: Welcomeメッセージの解析に失敗しました', error)
             reject(error)
           }
         }
@@ -266,10 +267,10 @@ class TwitchEventSubClient {
 
       const data = await response.json()
       if (import.meta.env.DEV) {
-        console.log('📡 EventSub: サブスクリプション作成完了', data.data?.[0]?.id)
+        logger.debug('📡 EventSub: サブスクリプション作成完了', data.data?.[0]?.id)
       }
     } catch (error) {
-      console.error('❌ EventSub: サブスクリプションの作成に失敗しました', error)
+      logger.error('❌ EventSub: サブスクリプションの作成に失敗しました', error)
       throw error
     }
   }
@@ -283,7 +284,7 @@ class TwitchEventSubClient {
     // 重複メッセージのチェック
     if (this.processedMessageIds.has(message_id)) {
       if (import.meta.env.DEV) {
-        console.log('📡 EventSub: 重複メッセージを無視', message_id)
+        logger.debug('📡 EventSub: 重複メッセージを無視', message_id)
       }
       return
     }
@@ -304,20 +305,21 @@ class TwitchEventSubClient {
       case 'session_keepalive':
         // Keepaliveメッセージ - 接続が維持されていることを確認
         if (import.meta.env.DEV) {
-          console.log('📡 EventSub: Keepalive受信')
+          logger.debug('📡 EventSub: Keepalive受信')
         }
         break
 
-      case 'session_reconnect':
+      case 'session_reconnect': {
         // 再接続が必要な場合
         const reconnectUrl = message.payload?.session?.reconnect_url
         if (reconnectUrl) {
-          console.warn('⚠️ EventSub: 再接続が必要です', reconnectUrl)
+          logger.warn('⚠️ EventSub: 再接続が必要です', reconnectUrl)
           // 再接続処理（現在の接続を閉じて新しいURLに接続）
           this.disconnect()
           // 再接続は自動的に行われる（oncloseハンドラーで）
         }
         break
+      }
 
       case 'notification':
         // イベント通知
@@ -326,7 +328,7 @@ class TwitchEventSubClient {
 
       case 'revocation':
         // サブスクリプションが取り消された場合
-        console.warn('⚠️ EventSub: サブスクリプションが取り消されました', message.payload?.subscription?.id)
+        logger.warn('⚠️ EventSub: サブスクリプションが取り消されました', message.payload?.subscription?.id)
         if (this.options?.onError) {
           this.options.onError(new Error('EventSub subscription revoked'))
         }
@@ -334,7 +336,7 @@ class TwitchEventSubClient {
 
       default:
         if (import.meta.env.DEV) {
-          console.log('📡 EventSub: 不明なメッセージタイプ', message_type)
+          logger.debug('📡 EventSub: 不明なメッセージタイプ', message_type)
         }
     }
   }
@@ -360,7 +362,7 @@ class TwitchEventSubClient {
       }
 
       if (import.meta.env.DEV) {
-        console.log('✅ EventSub: チャンネルポイント引き換えイベント受信', {
+        logger.debug('✅ EventSub: チャンネルポイント引き換えイベント受信', {
           イベントID: channelPointEvent.id,
           リワードID: channelPointEvent.rewardId,
           ユーザー名: channelPointEvent.userName,
@@ -372,7 +374,7 @@ class TwitchEventSubClient {
         try {
           this.options.onRedemption(channelPointEvent)
         } catch (error) {
-          console.error('❌ EventSub: 引き換えイベントコールバックでエラーが発生しました', error)
+          logger.error('❌ EventSub: 引き換えイベントコールバックでエラーが発生しました', error)
         }
       }
     }

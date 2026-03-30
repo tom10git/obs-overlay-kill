@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useMemo } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { twitchApi } from '../utils/twitchApi'
 import type { TwitchFollower } from '../types/twitch'
+import { twitchFollowersQueryKey } from '../lib/queryKeys'
+
+const MAX_FOLLOWERS = 500
 
 interface UseTwitchFollowersResult {
   followers: TwitchFollower[]
@@ -13,72 +17,40 @@ interface UseTwitchFollowersResult {
 }
 
 /**
- * Twitchフォロワー情報を取得するカスタムフック
+ * Twitchフォロワー情報を取得するカスタムフック（TanStack Query infinite）
  */
 export function useTwitchFollowers(
   broadcasterId: string,
   limit: number = 20
 ): UseTwitchFollowersResult {
-  const [followers, setFollowers] = useState<TwitchFollower[]>([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-  const [cursor, setCursor] = useState<string | undefined>(undefined)
-  const [hasMore, setHasMore] = useState(false)
+  const q = useInfiniteQuery({
+    queryKey: twitchFollowersQueryKey(broadcasterId, limit),
+    queryFn: ({ pageParam }) => twitchApi.getFollowers(broadcasterId, limit, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.pagination?.cursor,
+    enabled: !!broadcasterId,
+  })
 
-  const fetchFollowers = async (reset: boolean = false) => {
-    if (!broadcasterId) {
-      setLoading(false)
-      return
-    }
+  const followers = useMemo(() => {
+    const flat = q.data?.pages.flatMap((p) => p.data) ?? []
+    return flat.slice(0, MAX_FOLLOWERS)
+  }, [q.data])
 
-    try {
-      setLoading(true)
-      setError(null)
-      const result = await twitchApi.getFollowers(
-        broadcasterId,
-        limit,
-        reset ? undefined : cursor
-      )
-
-      if (reset) {
-        setFollowers(result.data)
-      } else {
-        setFollowers((prev) => {
-          // メモリ最適化: フォロワー配列のサイズを制限（最大500件）
-          const MAX_FOLLOWERS = 500
-          const updated = [...prev, ...result.data]
-          return updated.slice(0, MAX_FOLLOWERS)
-        })
-      }
-
-      setTotal(result.total)
-      setCursor(result.pagination?.cursor)
-      setHasMore(!!result.pagination?.cursor)
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchFollowers(true)
-  }, [broadcasterId])
-
-  const loadMore = async () => {
-    if (!loading && hasMore) {
-      await fetchFollowers(false)
-    }
-  }
+  const total = q.data?.pages[0]?.total ?? 0
 
   return {
     followers,
     total,
-    loading,
-    error,
-    hasMore,
-    loadMore,
-    refetch: () => fetchFollowers(true),
+    loading: q.isLoading,
+    error: q.error instanceof Error ? q.error : q.error ? new Error(String(q.error)) : null,
+    hasMore: !!q.hasNextPage && followers.length < MAX_FOLLOWERS,
+    loadMore: async () => {
+      if (q.hasNextPage && !q.isFetchingNextPage && followers.length < MAX_FOLLOWERS) {
+        await q.fetchNextPage()
+      }
+    },
+    refetch: async () => {
+      await q.refetch()
+    },
   }
 }

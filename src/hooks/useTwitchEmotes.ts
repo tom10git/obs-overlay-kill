@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { twitchApi } from '../utils/twitchApi'
 import type { TwitchEmote } from '../types/twitch'
+import { twitchEmotesQueryKey } from '../lib/queryKeys'
 
 interface UseTwitchEmotesResult {
   emotes: TwitchEmote[]
@@ -10,40 +11,21 @@ interface UseTwitchEmotesResult {
 }
 
 /**
- * Twitchエモート情報を取得するカスタムフック
+ * Twitchエモート情報を取得するカスタムフック（TanStack Query）
  */
 export function useTwitchEmotes(broadcasterId: string): UseTwitchEmotesResult {
-  const [emotes, setEmotes] = useState<TwitchEmote[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-
-  const fetchEmotes = async () => {
-    if (!broadcasterId) {
-      setLoading(false)
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-      const emotesData = await twitchApi.getEmotes(broadcasterId)
-      setEmotes(emotesData)
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'))
-      setEmotes([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchEmotes()
-  }, [broadcasterId])
+  const q = useQuery({
+    queryKey: twitchEmotesQueryKey(broadcasterId),
+    queryFn: () => twitchApi.getEmotes(broadcasterId),
+    enabled: !!broadcasterId,
+  })
 
   return {
-    emotes,
-    loading,
-    error,
-    refetch: fetchEmotes,
+    emotes: q.data ?? [],
+    loading: q.isLoading,
+    error: q.error instanceof Error ? q.error : q.error ? new Error(String(q.error)) : null,
+    refetch: async () => {
+      await q.refetch()
+    },
   }
 }

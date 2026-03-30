@@ -123,6 +123,18 @@
   color: #cccccc;
 }
 
+.settings-subsection-title {
+  margin: 1.25rem 0 0.75rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ccc;
+  letter-spacing: 0.02em;
+}
+
+.settings-subsection-title:first-child {
+  margin-top: 0;
+}
+
 .accordion-icon {
   display: inline-block;
   width: 1.2rem;
@@ -170,6 +182,52 @@
 
 .settings-row:last-child {
   margin-bottom: 0;
+}
+
+.settings-row--bleed-variants .settings-bleed-variants-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.settings-bleed-variant-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 0.65rem 0.75rem;
+  align-items: end;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-bleed-variant-row button.settings-action-secondary {
+  align-self: end;
+  justify-self: start;
+}
+
+.settings-bleed-variant-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: #fff;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+.settings-bleed-variant-row label input[type="text"],
+.settings-bleed-variant-row label select {
+  padding: 0.5rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.settings-bleed-variant-row label select:focus,
+.settings-bleed-variant-row label input[type="text"]:focus {
+  outline: none;
+  border-color: #ffffff;
 }
 
 .settings-row label {
@@ -267,8 +325,6 @@
   margin-top: 2rem;
   padding: 1.5rem;
   background-color: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 8px;
 }
 
 .settings-actions button {
@@ -470,4 +526,265 @@
 
 .settings-color-hex::placeholder {
   color: #666;
+}
+
+/* オーバーレイ埋め込み: ダークモード */
+.overlay-settings.overlay-settings--embedded {
+  padding: 0 1rem 1rem;
+  margin: 0;
+  max-width: none;
+  background: transparent;
+  color: #e5e5e5;
+}
+
+.overlay-settings--embedded.overlay-settings.loading {
+  color: #a3a3a3;
+}
+
+.overlay-settings-header--embedded h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #737373;
+}
+
+.overlay-settings--embedded .settings-message {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 8px;
+  background: #1f1f1f;
+  border: 1px solid #333;
+  color: #e5e5e5;
+  font-size: 0.8125rem;
+}
+
+.overlay-settings--embedded .settings-message.saving {
+  background: #262626;
+  border-color: #404040;
+  color: #d4d4d4;
+}
+
+.overlay-settings--embedded .settings-tabs {
+  display: flex;
+  gap: 0.2rem;
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+  background: #1a1a1a;
+  border-radius: 10px;
+  border: 1px solid #2a2a2a;
+}
+
+.overlay-settings--embedded .settings-tabs .settings-tab {
+  flex: 1;
+  justify-content: center;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #a3a3a3;
+  border-radius: 8px;
+  border: none;
+  margin-bottom: 0;
+}
+
+.overlay-settings--embedded .settings-tab:hover {
+  color: #e5e5e5;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.overlay-settings--embedded .settings-tab-active {
+  color: #fafafa !important;
+  background: #333 !important;
+  border-bottom: none !important;
+}
+
+.overlay-settings--embedded .settings-tabs--sub {
+  margin-bottom: 0.85rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  gap: 0.35rem;
+}
+
+.overlay-settings--embedded .settings-tabs--sub .settings-tab {
+  flex: initial;
+  background: #1f1f1f;
+  border: 1px solid #404040 !important;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.72rem;
+  color: #a3a3a3;
+}
+
+.overlay-settings--embedded .settings-tabs--sub .settings-tab:hover {
+  color: #e5e5e5;
+  background: #262626;
+}
+
+.overlay-settings--embedded .settings-tabs--sub .settings-tab-active {
+  background: #e5e5e5 !important;
+  color: #141414 !important;
+  border-color: #e5e5e5 !important;
+}
+
+.overlay-settings--embedded .settings-section {
+  background: #1a1a1a;
+  border: 1px solid #2e2e2e;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+
+.overlay-settings--embedded .settings-section h3,
+.overlay-settings--embedded .settings-section-header {
+  color: #f5f5f5;
+  border-bottom-color: #333;
+}
+
+.overlay-settings--embedded .settings-section-header:hover {
+  color: #fff;
+}
+
+.overlay-settings--embedded .accordion-icon {
+  color: #737373;
+}
+
+.overlay-settings--embedded .settings-subsection-title {
+  color: #a3a3a3;
+}
+
+.overlay-settings--embedded .settings-row label {
+  color: #d4d4d4;
+}
+
+.overlay-settings--embedded .settings-row label input[type="text"],
+.overlay-settings--embedded .settings-row label input[type="number"],
+.overlay-settings--embedded .settings-row label input[type="password"],
+.overlay-settings--embedded .settings-row label select,
+.overlay-settings--embedded .settings-row label textarea,
+.overlay-settings--embedded .settings-color-hex {
+  background: #141414;
+  color: #f5f5f5;
+  border: 1px solid #404040;
+  border-radius: 8px;
+}
+
+.overlay-settings--embedded .settings-row label input::placeholder,
+.overlay-settings--embedded .settings-row label textarea::placeholder {
+  color: #737373;
+}
+
+.overlay-settings--embedded .settings-row label input[type="range"] {
+  accent-color: #e5e5e5;
+}
+
+.overlay-settings--embedded .settings-row label input:focus,
+.overlay-settings--embedded .settings-row label select:focus,
+.overlay-settings--embedded .settings-row label textarea:focus,
+.overlay-settings--embedded .settings-color-hex:focus {
+  border-color: #737373;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+
+.overlay-settings--embedded .settings-hint {
+  background: #141414;
+  border-left-color: #737373;
+  color: #b3b3b3;
+}
+
+.overlay-settings--embedded .settings-hint p {
+  color: #e5e5e5;
+}
+
+.overlay-settings--embedded .settings-hint ul,
+.overlay-settings--embedded .settings-hint li {
+  color: #b3b3b3;
+}
+
+.overlay-settings--embedded .settings-hint code {
+  background: #262626;
+  color: #e5e5e5;
+  border-color: #404040;
+}
+
+.overlay-settings--embedded .settings-hint a {
+  color: #d4d4d4;
+}
+
+.overlay-settings--embedded .settings-color-row {
+  background: #141414;
+  border-color: #333;
+}
+
+.overlay-settings--embedded .settings-color-label {
+  color: #d4d4d4;
+}
+
+.overlay-settings--embedded .settings-color-picker {
+  background: #1f1f1f;
+  border-color: #404040;
+  border-radius: 10px;
+}
+
+.overlay-settings--embedded .password-toggle {
+  color: #a3a3a3;
+}
+
+.overlay-settings--embedded .password-toggle:hover {
+  color: #e5e5e5;
+}
+
+.settings-actions--embedded {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 1.25rem;
+  padding: 1rem 0 0.25rem;
+  background: transparent;
+}
+
+.settings-actions--embedded .settings-action-secondary,
+.settings-actions--embedded .settings-action-reset {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  border-radius: 8px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.settings-actions--embedded .settings-action-secondary {
+  background: #2a2a2a;
+  color: #f5f5f5;
+  border: 1px solid #454545;
+}
+
+.settings-actions--embedded .settings-action-secondary:hover:not(:disabled) {
+  background: #333;
+  border-color: #5a5a5a;
+}
+
+.settings-actions--embedded .settings-action-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-actions--embedded .settings-action-reset {
+  background: #1f1f1f;
+  color: #d4d4d4;
+  border: 1px solid #404040;
+}
+
+.settings-actions--embedded .settings-action-reset:hover {
+  color: #f5f5f5;
+  border-color: #525252;
+  background: #262626;
 }

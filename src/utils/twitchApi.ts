@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
+import { logger } from '../lib/logger'
 import { getTwitchClientId, getTwitchClientSecret, getTwitchConsoleClientId, getTwitchConsoleClientSecret, getTwitchAccessToken, getTwitchRefreshToken, setTwitchOAuthTokens } from '../config/auth'
 import type {
   TwitchUser,
@@ -81,7 +82,7 @@ class TwitchApiClient {
 
         if (status === 400) {
           const errorMessage = errorData?.message || 'Invalid client credentials'
-          console.error(
+          logger.error(
             '❌ Twitch API: アクセストークンの取得に失敗しました - 認証情報が無効です\n' +
             `エラー: ${errorMessage}\n` +
             `Client ID: ${clientId.substring(0, 10)}... (長さ: ${clientId.length})\n` +
@@ -92,7 +93,7 @@ class TwitchApiClient {
             '4. Twitchアプリケーションの正しい認証情報を使用していることを確認してください'
           )
         } else if (status === 401) {
-          console.error(
+          logger.error(
             '❌ Twitch API: アクセストークンの取得に失敗しました - 認証失敗\n' +
             'Client IDまたはClient Secretが正しくない可能性があります。\n' +
             '認証情報を以下で確認してください: https://dev.twitch.tv/console/apps'
@@ -101,18 +102,18 @@ class TwitchApiClient {
           const hint = getTwitchConsoleClientId() && getTwitchConsoleClientSecret()
             ? '（コンソール用アプリでリトライします）'
             : 'フォールバックするには .env に VITE_TWITCH_CONSOLE_CLIENT_ID と VITE_TWITCH_CONSOLE_CLIENT_SECRET を設定してください。'
-          console.error(
+          logger.error(
             `❌ Twitch API: アクセストークンの取得に失敗しました - HTTP 403 (invalid client secret)\n` +
             `トークン用アプリの Client Secret が無効です。${hint}`
           )
         } else {
-          console.error(
+          logger.error(
             `❌ Twitch API: アクセストークンの取得に失敗しました - HTTP ${status}\n`,
             errorData || error.message
           )
         }
       } else {
-        console.error('❌ Twitch API: アクセストークンの取得に失敗しました', error)
+        logger.error('❌ Twitch API: アクセストークンの取得に失敗しました', error)
       }
       throw error
     }
@@ -216,7 +217,7 @@ class TwitchApiClient {
         return await request(headers)
       } catch (firstError) {
         if (import.meta.env.DEV) {
-          console.warn(
+          logger.warn(
             '⚠️ コンソール用アプリでの取得に失敗したため、トークン用アプリでリトライします。',
             firstError
           )
@@ -225,7 +226,7 @@ class TwitchApiClient {
           const headers = await this.getHeaders()
           return await request(headers)
         } catch (retryError) {
-          console.error('❌ Twitch API: トークン用アプリでのリトライも失敗しました', retryError)
+          logger.error('❌ Twitch API: トークン用アプリでのリトライも失敗しました', retryError)
           throw retryError
         }
       }
@@ -237,7 +238,7 @@ class TwitchApiClient {
       return await request(headers)
     } catch (firstError) {
       if (this.isRetryableWithConsole(firstError)) {
-        console.warn(
+        logger.warn(
           '💡 トークン用アプリで認証に失敗しました。.env に次を設定するとコンソール用アプリでユーザー情報・ストリーム取得を試せます:\n' +
           '   VITE_TWITCH_CONSOLE_CLIENT_ID=...\n' +
           '   VITE_TWITCH_CONSOLE_CLIENT_SECRET=...'
@@ -267,7 +268,7 @@ class TwitchApiClient {
     refreshToken = refreshToken.replace(/^oauth:/i, '').trim()
 
     if (import.meta.env.DEV) {
-      console.log('🔄 Twitch API: トークンをリフレッシュ中', {
+      logger.debug('🔄 Twitch API: トークンをリフレッシュ中', {
         リフレッシュトークン長: refreshToken.length,
         リフレッシュトークン先頭: refreshToken.substring(0, 10) + '...',
       })
@@ -310,7 +311,7 @@ class TwitchApiClient {
         Date.now() + (response.data.expires_in - 300) * 1000
 
       if (import.meta.env.DEV) {
-        console.log('✅ Twitch API: ユーザーアクセストークンのリフレッシュ成功', {
+        logger.debug('✅ Twitch API: ユーザーアクセストークンのリフレッシュ成功', {
           トークン長: this.userAccessToken.length,
           有効期限: `${response.data.expires_in}秒`,
           期限切れ日時: new Date(this.userTokenExpiresAt).toISOString(),
@@ -320,9 +321,9 @@ class TwitchApiClient {
         // リフレッシュされたトークンを検証
         const validation = await this.validateOAuthToken(this.userAccessToken)
         if (!validation.valid) {
-          console.error('❌ リフレッシュされたトークンの検証に失敗しました')
+          logger.error('❌ リフレッシュされたトークンの検証に失敗しました')
         } else {
-          console.log('✅ Twitch API: リフレッシュされたトークンの検証成功', {
+          logger.debug('✅ Twitch API: リフレッシュされたトークンの検証成功', {
             ユーザーID: validation.userId,
             スコープ: validation.scopes,
           })
@@ -334,9 +335,9 @@ class TwitchApiClient {
       try {
         setTwitchOAuthTokens(this.userAccessToken!, newRefresh)
         if (import.meta.env.DEV && response.data.refresh_token && response.data.refresh_token !== refreshToken) {
-          console.log('🔄 新しいリフレッシュトークンを localStorage に保存しました')
+          logger.debug('🔄 新しいリフレッシュトークンを localStorage に保存しました')
         }
-      } catch (e) {
+      } catch {
         // localStorage が使えない環境では無視
       }
 
@@ -346,7 +347,7 @@ class TwitchApiClient {
         // リクエストが中断された場合の処理
         if (error.code === 'ECONNABORTED' || error.message?.includes('aborted') || error.message?.includes('canceled')) {
           const errorMessage = error.message || 'Request aborted'
-          console.error(
+          logger.error(
             '❌ Twitch API: ユーザーアクセストークンのリフレッシュに失敗しました - リクエストが中断されました\n' +
             '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
             `エラー: ${errorMessage}\n` +
@@ -371,7 +372,7 @@ class TwitchApiClient {
 
         // ネットワークエラーの場合
         if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
-          console.error(
+          logger.error(
             '❌ Twitch API: ユーザーアクセストークンのリフレッシュに失敗しました - ネットワークエラー\n' +
             '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
             `エラー: ${error.message}\n` +
@@ -401,7 +402,7 @@ class TwitchApiClient {
           const errorType = errorData?.error || 'unknown_error'
 
           if (import.meta.env.DEV) {
-            console.error('❌ Twitch API: リフレッシュトークンエラー詳細', {
+            logger.error('❌ Twitch API: リフレッシュトークンエラー詳細', {
               ステータス: status,
               エラー種別: errorType,
               メッセージ: errorMessage,
@@ -409,7 +410,7 @@ class TwitchApiClient {
             })
           }
 
-          console.error(
+          logger.error(
             '❌ Twitch API: ユーザーアクセストークンのリフレッシュに失敗しました - 無効なリフレッシュトークン (400)\n' +
             '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
             `エラー種別: ${errorType}\n` +
@@ -438,25 +439,25 @@ class TwitchApiClient {
           // リフレッシュトークンに "oauth:" プレフィックスが含まれている場合の警告
           const originalRefreshToken = getTwitchRefreshToken()
           if (originalRefreshToken && /^oauth:/i.test(originalRefreshToken)) {
-            console.warn(
+            logger.warn(
               '⚠️ 警告: VITE_TWITCH_REFRESH_TOKEN に "oauth:" プレフィックスが含まれています。\n' +
               'Twitch APIでは "oauth:" プレフィックスは不要です。.env ファイルから削除してください。\n' +
               '例: oauth:xxxxx → xxxxx'
             )
           }
         } else if (status === 401) {
-          console.error(
+          logger.error(
             '❌ Twitch API: ユーザーアクセストークンのリフレッシュに失敗しました - 認証失敗 (401)\n' +
             'Client ID または Client Secret が正しくない可能性があります。'
           )
         } else {
-          console.error(
+          logger.error(
             `❌ Twitch API: ユーザーアクセストークンのリフレッシュに失敗しました - HTTP ${status}\n`,
             errorData || error.message
           )
         }
       } else {
-        console.error('❌ Twitch API: ユーザーアクセストークンのリフレッシュに失敗しました', error)
+        logger.error('❌ Twitch API: ユーザーアクセストークンのリフレッシュに失敗しました', error)
       }
       throw error
     }
@@ -479,7 +480,7 @@ class TwitchApiClient {
         userId: response.data.user_id,
         clientId: response.data.client_id,
       }
-    } catch (error) {
+    } catch {
       return { valid: false }
     }
   }
@@ -514,10 +515,10 @@ class TwitchApiClient {
         const newToken = await this.refreshUserAccessToken()
         this.isRefreshing = false
         return newToken
-      } catch (error) {
+      } catch {
         this.isRefreshing = false
         // リフレッシュに失敗した場合は、環境変数のトークンを使用
-        console.warn(
+        logger.warn(
           '⚠️ Failed to refresh token, using token from environment variable.\n' +
           'This may cause authentication errors if the token is expired.'
         )
@@ -540,7 +541,7 @@ class TwitchApiClient {
 
     // トークンの長さチェック（通常30文字以上）
     if (userToken.length < 30) {
-      console.warn(
+      logger.warn(
         `⚠️ Warning: OAuth token length is ${userToken.length} characters, which seems too short.\n` +
         'Twitch OAuth tokens are typically 30+ characters long.\n' +
         'Please verify that VITE_TWITCH_ACCESS_TOKEN contains a valid user token.'
@@ -573,7 +574,7 @@ class TwitchApiClient {
 
       if (import.meta.env.DEV) {
         const isFromRefresh = this.userTokenExpiresAt > Date.now() && this.userAccessToken === userToken
-        console.log('🔑 Twitch API: OAuthユーザートークンを使用', {
+        logger.debug('🔑 Twitch API: OAuthユーザートークンを使用', {
           トークン長: userToken.length,
           トークン先頭: userToken.substring(0, 10) + '...',
           リフレッシュから取得: isFromRefresh,
@@ -583,14 +584,14 @@ class TwitchApiClient {
         // 開発環境ではトークンを検証（毎回検証して問題を早期発見）
         const validation = await this.validateOAuthToken(userToken)
         if (!validation.valid) {
-          console.error(
+          logger.error(
             '❌ OAuthトークンの検証に失敗しました。トークンが無効または期限切れの可能性があります。\n' +
             'VITE_TWITCH_REFRESH_TOKEN が設定されている場合、自動的にトークンをリフレッシュします。'
           )
         } else {
           const configuredClientId = getTwitchClientId()
           if (validation.clientId && configuredClientId && validation.clientId !== configuredClientId) {
-            console.error(
+            logger.error(
               '❌ OAuthトークンのclient_idが一致しません。\n' +
               `トークンは client_id=${validation.clientId} で発行されましたが、VITE_TWITCH_CLIENT_ID=${configuredClientId} です。\n` +
               'Twitchでは、Client-IdヘッダーがOAuthトークン内のclient_idと一致する必要があります。\n' +
@@ -599,13 +600,13 @@ class TwitchApiClient {
           }
           const hasRequiredScope = validation.scopes?.includes('channel:read:redemptions')
           if (!hasRequiredScope) {
-            console.warn(
+            logger.warn(
               '⚠️ 警告: OAuthトークンに必要なスコープがありません: channel:read:redemptions\n' +
               `現在のスコープ: ${validation.scopes?.join(', ') || 'なし'}\n` +
               '必要なスコープを含む新しいトークンを取得してください。'
             )
           } else {
-            console.log('✅ Twitch API: OAuthトークンの検証成功', {
+            logger.debug('✅ Twitch API: OAuthトークンの検証成功', {
               ユーザーID: validation.userId,
               スコープ: validation.scopes,
               クライアントID: validation.clientId,
@@ -618,10 +619,10 @@ class TwitchApiClient {
         'Client-ID': getTwitchClientId(),
         Authorization: `Bearer ${userToken}`,
       }
-    } catch (error) {
+    } catch {
       // ユーザートークンが取得できない場合は、App Access Tokenを試す
       // （ただし、チャンネルポイント関連のAPIでは動作しない可能性が高い）
-      console.error(
+      logger.error(
         '❌ Twitch API: ユーザーアクセストークンの取得に失敗しました\n' +
         'チャンネルポイントの引き換え履歴を取得するには、OAuth認証（ユーザートークン）が必要です。\n' +
         'App Access Tokenでは使用できません。\n' +
@@ -646,7 +647,7 @@ class TwitchApiClient {
         return response.data.data[0] || null
       })
     } catch (error) {
-      console.error('❌ Twitch API: ユーザー情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: ユーザー情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -665,7 +666,7 @@ class TwitchApiClient {
         return response.data.data
       })
     } catch (error) {
-      console.error('❌ Twitch API: ユーザー情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: ユーザー情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -688,7 +689,7 @@ class TwitchApiClient {
       if (axios.isAxiosError(error)) {
         if (error.code === 'ERR_NETWORK' || error.message.includes('CORS')) {
           if (import.meta.env.DEV) {
-            console.warn(
+            logger.warn(
               '⚠️ Twitch API: ストリーム情報取得時のCORSエラー（ブラウザでは正常です - オーバーレイではストリーム情報は使用されません）',
               error.message
             )
@@ -696,7 +697,7 @@ class TwitchApiClient {
           return null
         }
       }
-      console.error(
+      logger.error(
         '❌ Twitch API: ストリーム情報の取得に失敗しました',
         error
       )
@@ -718,7 +719,7 @@ class TwitchApiClient {
         return response.data.data
       })
     } catch (error) {
-      console.error('❌ Twitch API: ストリーム情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: ストリーム情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -737,7 +738,7 @@ class TwitchApiClient {
         return response.data.data[0] || null
       })
     } catch (error) {
-      console.error('❌ Twitch API: ゲーム情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: ゲーム情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -756,7 +757,7 @@ class TwitchApiClient {
         return response.data.data[0] || null
       })
     } catch (error) {
-      console.error('❌ Twitch API: チャンネル情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: チャンネル情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -775,7 +776,7 @@ class TwitchApiClient {
         return response.data.data[0] || null
       })
     } catch (error) {
-      console.error('❌ Twitch API: チャンネル情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: チャンネル情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -803,7 +804,7 @@ class TwitchApiClient {
         return response.data
       })
     } catch (error) {
-      console.error('❌ Twitch API: ビデオ情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: ビデオ情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -831,7 +832,7 @@ class TwitchApiClient {
         return response.data
       })
     } catch (error) {
-      console.error('❌ Twitch API: クリップ情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: クリップ情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -850,7 +851,7 @@ class TwitchApiClient {
         return response.data.data
       })
     } catch (error) {
-      console.error('❌ Twitch API: エモート情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: エモート情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -869,7 +870,7 @@ class TwitchApiClient {
         return response.data.data
       })
     } catch (error) {
-      console.error('❌ Twitch API: グローバルエモート情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: グローバルエモート情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -897,7 +898,7 @@ class TwitchApiClient {
         return response.data
       })
     } catch (error) {
-      console.error('❌ Twitch API: フォロワー情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: フォロワー情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -916,7 +917,7 @@ class TwitchApiClient {
         return response.data.data
       })
     } catch (error) {
-      console.error('Failed to get Twitch chat badges:', error)
+      logger.error('Failed to get Twitch chat badges:', error)
       throw error
     }
   }
@@ -935,7 +936,7 @@ class TwitchApiClient {
         return response.data.data
       })
     } catch (error) {
-      console.error('❌ Twitch API: グローバルチャットバッジ情報の取得に失敗しました', error)
+      logger.error('❌ Twitch API: グローバルチャットバッジ情報の取得に失敗しました', error)
       throw error
     }
   }
@@ -975,7 +976,7 @@ class TwitchApiClient {
 
           if (status === 401 && retryCount < maxRetries) {
             // 401エラーの場合、トークンを再検証してリフレッシュを試みる
-            console.warn(
+            logger.warn(
               `⚠️ Received 401 error, attempting to refresh token (attempt ${retryCount + 1}/${maxRetries + 1})...`
             )
 
@@ -990,7 +991,7 @@ class TwitchApiClient {
                 retryCount++
                 continue // リトライ
               } catch (refreshError) {
-                console.error('❌ Twitch API: トークンのリフレッシュに失敗しました', refreshError)
+                logger.error('❌ Twitch API: トークンのリフレッシュに失敗しました', refreshError)
               }
             }
 
@@ -999,7 +1000,7 @@ class TwitchApiClient {
           }
 
           if (status === 401) {
-            console.error(
+            logger.error(
               '❌ Twitch API: チャンネルポイントリワード情報の取得に失敗しました - 認証失敗 (401)\n' +
               '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
               'チャンネルポイントリワードを取得するには、OAuth認証（ユーザートークン）が必要です。\n' +
@@ -1018,13 +1019,13 @@ class TwitchApiClient {
               '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
             )
           } else {
-            console.error(
+            logger.error(
               `❌ Twitch API: チャンネルポイントリワード情報の取得に失敗しました - HTTP ${status}\n`,
               errorData || error.message
             )
           }
         } else {
-          console.error('❌ Twitch API: チャンネルポイントリワード情報の取得に失敗しました', error)
+          logger.error('❌ Twitch API: チャンネルポイントリワード情報の取得に失敗しました', error)
         }
         throw error
       }
@@ -1097,7 +1098,7 @@ class TwitchApiClient {
         }
 
         if (import.meta.env.DEV) {
-          console.log('📊 Twitch API: チャンネルポイント引き換え履歴を取得中', {
+          logger.debug('📊 Twitch API: チャンネルポイント引き換え履歴を取得中', {
             配信者ID: broadcasterId,
             リワードID: rewardId,
             ステータス: status || '未指定（IDフィルター使用）',
@@ -1117,7 +1118,7 @@ class TwitchApiClient {
         )
 
         if (import.meta.env.DEV) {
-          console.log('✅ Twitch API: チャンネルポイント引き換え履歴を取得完了', {
+          logger.debug('✅ Twitch API: チャンネルポイント引き換え履歴を取得完了', {
             取得件数: response.data.data.length,
             追加データあり: !!response.data.pagination?.cursor,
             ソート: sort,
@@ -1135,7 +1136,7 @@ class TwitchApiClient {
 
           if (status === 401 && retryCount < maxRetries) {
             // 401エラーの場合、トークンを再検証してリフレッシュを試みる
-            console.warn(
+            logger.warn(
               `⚠️ Received 401 error, attempting to refresh token (attempt ${retryCount + 1}/${maxRetries + 1})...`
             )
 
@@ -1150,7 +1151,7 @@ class TwitchApiClient {
                 retryCount++
                 continue // リトライ
               } catch (refreshError) {
-                console.error('❌ Twitch API: トークンのリフレッシュに失敗しました', refreshError)
+                logger.error('❌ Twitch API: トークンのリフレッシュに失敗しました', refreshError)
               }
             }
 
@@ -1159,7 +1160,7 @@ class TwitchApiClient {
           }
 
           if (status === 401) {
-            console.error(
+            logger.error(
               '❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました - 認証失敗 (401)\n' +
               '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
               'チャンネルポイントの引き換え履歴を取得するには、OAuth認証（ユーザートークン）が必要です。\n' +
@@ -1181,7 +1182,7 @@ class TwitchApiClient {
 
             // トークンに "oauth:" プレフィックスが含まれている場合の警告
             if (userToken && /^oauth:/i.test(userToken)) {
-              console.warn(
+              logger.warn(
                 '⚠️ 警告: VITE_TWITCH_ACCESS_TOKEN に "oauth:" プレフィックスが含まれています。\n' +
                 'Twitch APIでは "oauth:" プレフィックスは不要です。.env ファイルから削除してください。\n' +
                 '例: oauth:xxxxx → xxxxx'
@@ -1190,7 +1191,7 @@ class TwitchApiClient {
           } else if (status === 400) {
             // 公式API仕様に基づく400エラーの詳細メッセージ
             const errorMessage = errorData?.message || 'Bad Request'
-            console.error(
+            logger.error(
               '❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました - 不正なリクエスト (400)\n' +
               '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
               `エラー: ${errorMessage}\n\n` +
@@ -1206,7 +1207,7 @@ class TwitchApiClient {
               '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
             )
           } else if (status === 403) {
-            console.error(
+            logger.error(
               '❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました - アクセス拒否 (403)\n' +
               '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
               'このリワードへのアクセス権限がありません。\n\n' +
@@ -1219,7 +1220,7 @@ class TwitchApiClient {
               '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
             )
           } else if (status === 404) {
-            console.error(
+            logger.error(
               '❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました - 見つかりません (404)\n' +
               '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
               '指定されたリデンプションが見つかりませんでした。\n\n' +
@@ -1230,13 +1231,13 @@ class TwitchApiClient {
               '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
             )
           } else {
-            console.error(
+            logger.error(
               `❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました - HTTP ${status}\n`,
               errorData || error.message
             )
           }
         } else {
-          console.error('❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました', error)
+          logger.error('❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました', error)
         }
         throw error
       }
@@ -1269,7 +1270,7 @@ class TwitchApiClient {
       return messageId ? { messageId } : {}
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 401) {
-        console.error(
+        logger.error(
           '❌ Twitch チャット送信エラー (401)\n' +
           'チャットにメッセージを送るには OAuth トークンに user:write:chat スコープが必要です。\n' +
           'get-oauth-token.bat を再実行して新しいトークンを取得し、.env を更新してください。'

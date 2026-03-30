@@ -3,6 +3,7 @@
  */
 
 import { useCallback } from 'react'
+import { logger } from '../lib/logger'
 import type { ChannelPointEvent } from '../types/overlay'
 
 interface UseTestEventsOptions {
@@ -50,9 +51,7 @@ export function useTestEvents({
       status: 'UNFULFILLED',
     }
 
-    if (import.meta.env.DEV) {
-      console.log('🧪 テストモード: 攻撃イベントをトリガー', testEvent)
-    }
+    logger.debug('🧪 テストモード: 攻撃イベントをトリガー', testEvent)
     onAttackEvent(testEvent)
   }, [enabled, attackEnabled, attackRewardId, onAttackEvent])
 
@@ -71,18 +70,14 @@ export function useTestEvents({
       status: 'UNFULFILLED',
     }
 
-    if (import.meta.env.DEV) {
-      console.log('🧪 テストモード: 回復イベントをトリガー', testEvent)
-    }
+    logger.debug('🧪 テストモード: 回復イベントをトリガー', testEvent)
     onHealEvent(testEvent)
   }, [enabled, healEnabled, healRewardId, onHealEvent])
 
   // 全回復（リセット）をトリガー
   const triggerReset = useCallback(() => {
     if (!enabled || !onReset) return
-    if (import.meta.env.DEV) {
-      console.log('🧪 テストモード: 全回復（リセット）をトリガー')
-    }
+    logger.debug('🧪 テストモード: 全回復（リセット）をトリガー')
     onReset()
   }, [enabled, onReset])
 

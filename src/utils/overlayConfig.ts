@@ -2,11 +2,44 @@
  * オーバーレイ設定ファイルの読み込みと保存
  */
 
-import type { OverlayConfig } from '../types/overlay'
+import type {
+  AttackBleedVariant,
+  AttackDebuffKind,
+  GaugeDesign,
+  GaugeShapeConfig,
+  OverlayConfig,
+} from '../types/overlay'
+import { logger } from '../lib/logger'
 import { isValidUrl, isInRange, isValidLength } from './security'
 
 /** 確率以外の数値項目の上限（上限を設けないため十分大きな値） */
 const MAX_NUM = 999999
+
+/** ゲージ枠のデフォルト形状（HPGauge.css 従来値に相当） */
+export const DEFAULT_GAUGE_SHAPE: GaugeShapeConfig = {
+  skewDeg: 11,
+  defaultBorderRadiusPx: 28,
+  defaultBorderWhitePx: 6,
+  defaultBorderGrayPx: 12,
+  parallelogramBorderRadiusPx: 4,
+  parallelogramBorderWhitePx: 4,
+  parallelogramBorderGrayPx: 8,
+  parallelogramFramePaddingPx: 12,
+}
+
+function sanitizeGaugeShapeField(
+  raw: unknown,
+  min: number,
+  max: number,
+  fallback: number,
+  round: boolean
+): number {
+  if (raw === undefined || raw === null || raw === '') return fallback
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return fallback
+  const x = round ? Math.round(n) : Math.round(n * 1000) / 1000
+  return Math.min(max, Math.max(min, x))
+}
 
 const DEFAULT_CONFIG: OverlayConfig = {
   hp: {
@@ -33,6 +66,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     missSoundEnabled: false,
     missSoundUrl: '',
     missSoundVolume: 0.7,
+    missTextColor: '#ffffff',
     criticalEnabled: false,
     criticalProbability: 0,
     criticalMultiplier: 2.0,
@@ -44,6 +78,18 @@ const DEFAULT_CONFIG: OverlayConfig = {
     bleedSoundEnabled: false,
     bleedSoundUrl: '',
     bleedSoundVolume: 0.7,
+    dotPoisonSoundEnabled: false,
+    dotPoisonSoundUrl: '',
+    dotPoisonSoundVolume: 0.7,
+    dotBurnSoundEnabled: false,
+    dotBurnSoundUrl: '',
+    dotBurnSoundVolume: 0.7,
+    dotPoisonAttackSoundEnabled: false,
+    dotPoisonAttackSoundUrl: '',
+    dotPoisonAttackSoundVolume: 0.7,
+    dotBurnAttackSoundEnabled: false,
+    dotBurnAttackSoundUrl: '',
+    dotBurnAttackSoundVolume: 0.7,
     soundEnabled: false,
     soundUrl: '',
     soundVolume: 0.7,
@@ -94,10 +140,16 @@ const DEFAULT_CONFIG: OverlayConfig = {
   display: {
     showMaxHp: true,
     fontSize: 24,
+    gaugeDesign: 'default',
+    gaugeShape: { ...DEFAULT_GAUGE_SHAPE },
   },
   zeroHpImage: {
     enabled: true,
     imageUrl: '',
+    scale: 4,
+    offsetX: 0,
+    offsetY: 0,
+    backgroundColor: 'transparent',
   },
   zeroHpSound: {
     enabled: true,
@@ -128,6 +180,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
       missSoundEnabled: false,
       missSoundUrl: '',
       missSoundVolume: 0.7,
+      missTextColor: '#ffffff',
       criticalEnabled: false,
       criticalProbability: 0,
       criticalMultiplier: 2.0,
@@ -139,6 +192,18 @@ const DEFAULT_CONFIG: OverlayConfig = {
       bleedSoundEnabled: false,
       bleedSoundUrl: '',
       bleedSoundVolume: 0.7,
+      dotPoisonSoundEnabled: false,
+      dotPoisonSoundUrl: '',
+      dotPoisonSoundVolume: 0.7,
+      dotBurnSoundEnabled: false,
+      dotBurnSoundUrl: '',
+      dotBurnSoundVolume: 0.7,
+      dotPoisonAttackSoundEnabled: false,
+      dotPoisonAttackSoundUrl: '',
+      dotPoisonAttackSoundVolume: 0.7,
+      dotBurnAttackSoundEnabled: false,
+      dotBurnAttackSoundUrl: '',
+      dotBurnAttackSoundVolume: 0.7,
       soundEnabled: false,
       soundUrl: '',
       soundVolume: 0.7,
@@ -214,6 +279,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
       missSoundEnabled: false,
       missSoundUrl: '',
       missSoundVolume: 0.7,
+      missTextColor: '#ffffff',
       criticalEnabled: false,
       criticalProbability: 0,
       criticalMultiplier: 2.0,
@@ -225,6 +291,18 @@ const DEFAULT_CONFIG: OverlayConfig = {
       bleedSoundEnabled: false,
       bleedSoundUrl: '',
       bleedSoundVolume: 0.7,
+      dotPoisonSoundEnabled: false,
+      dotPoisonSoundUrl: '',
+      dotPoisonSoundVolume: 0.7,
+      dotBurnSoundEnabled: false,
+      dotBurnSoundUrl: '',
+      dotBurnSoundVolume: 0.7,
+      dotPoisonAttackSoundEnabled: false,
+      dotPoisonAttackSoundUrl: '',
+      dotPoisonAttackSoundVolume: 0.7,
+      dotBurnAttackSoundEnabled: false,
+      dotBurnAttackSoundUrl: '',
+      dotBurnAttackSoundVolume: 0.7,
       soundEnabled: false,
       soundUrl: '',
       soundVolume: 0.7,
@@ -234,15 +312,6 @@ const DEFAULT_CONFIG: OverlayConfig = {
       survivalHp1Message: '食いしばり!',
     },
   },
-  externalWindow: {
-    enabled: false,
-    x: 0,
-    y: 0,
-    width: 800,
-    height: 600,
-    opacity: 1.0,
-    zIndex: 1, // HPゲージより後ろに配置
-  },
   webmLoop: {
     enabled: false,
     x: 0,
@@ -250,7 +319,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     width: 800,
     height: 600,
     opacity: 1.0,
-    zIndex: 1, // 外部ウィンドウと同じz-index
+    zIndex: 1,
     videoUrl: '',
     loop: true,
   },
@@ -273,14 +342,23 @@ const DEFAULT_CONFIG: OverlayConfig = {
     secondGauge: '#FFA500', // 2ゲージ目 = オレンジ
     patternColor1: '#8000FF', // 3ゲージ目以降の交互パターン1（3, 5, 7, 9...ゲージ目）= 紫
     patternColor2: '#4aa3ff', // 3ゲージ目以降の交互パターン2（4, 6, 8, 10...ゲージ目）= 青
+    frameBackground: '#000000',
+    frameBorderInner: '#ffffff',
+    frameBorderOuter: '#808080',
   },
   damageColors: {
     normal: '#cc0000', // 通常ダメージの色
     critical: '#cc8800', // クリティカルダメージの色
-    bleed: '#ff6666', // 出血ダメージの色
+    bleed: '#ff6666', // 出血DOTの既定色
+    dotPoison: '#66dd88', // 毒DOTの既定色
+    dotBurn: '#ff9944', // 炎DOTの既定色
   },
   healColors: {
     normal: '#00ff88', // 回復数値の色（明るい緑）
+  },
+  obsCaptureGuide: {
+    enabled: false,
+    insetPx: 16,
   },
 }
 
@@ -292,7 +370,7 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
   try {
     const response = await fetch('/config/overlay-config.json')
     if (!response.ok) {
-      console.warn('設定ファイルが見つかりません。デフォルト設定を使用します。')
+      logger.warn('設定ファイルが見つかりません。デフォルト設定を使用します。')
       return DEFAULT_CONFIG
     }
     const config = await response.json()
@@ -307,7 +385,14 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       heal: { ...DEFAULT_CONFIG.heal, ...validated.heal },
       retry: { ...DEFAULT_CONFIG.retry, ...validated.retry },
       animation: { ...DEFAULT_CONFIG.animation, ...validated.animation },
-      display: { ...DEFAULT_CONFIG.display, ...validated.display },
+      display: {
+        ...DEFAULT_CONFIG.display,
+        ...validated.display,
+        gaugeShape: {
+          ...DEFAULT_CONFIG.display.gaugeShape,
+          ...validated.display.gaugeShape,
+        },
+      },
       zeroHpImage: { ...DEFAULT_CONFIG.zeroHpImage, ...validated.zeroHpImage },
       zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...validated.zeroHpSound },
       zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...validated.zeroHpEffect },
@@ -318,16 +403,16 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
         streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...validated.pvp.streamerAttack },
         viewerVsViewerAttack: { ...DEFAULT_CONFIG.pvp.viewerVsViewerAttack, ...(validated.pvp?.viewerVsViewerAttack || {}) },
       },
-      externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...validated.externalWindow },
       webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
       damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...validated.damageEffectFilter },
       healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...validated.healEffectFilter },
       gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...validated.gaugeColors },
       damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
       healColors: { ...DEFAULT_CONFIG.healColors, ...validated.healColors },
+      obsCaptureGuide: { ...DEFAULT_CONFIG.obsCaptureGuide, ...validated.obsCaptureGuide },
     }
   } catch (error) {
-    console.error('設定ファイルの読み込みに失敗しました:', error)
+    logger.error('設定ファイルの読み込みに失敗しました:', error)
     return DEFAULT_CONFIG
   }
 }
@@ -339,7 +424,7 @@ export async function loadOverlayConfigFromFile(): Promise<OverlayConfig> {
   try {
     const response = await fetch('/config/overlay-config.json')
     if (!response.ok) {
-      console.warn('設定ファイルが見つかりません。デフォルト設定を使用します。')
+      logger.warn('設定ファイルが見つかりません。デフォルト設定を使用します。')
       return DEFAULT_CONFIG
     }
     const config = await response.json()
@@ -352,7 +437,14 @@ export async function loadOverlayConfigFromFile(): Promise<OverlayConfig> {
       heal: { ...DEFAULT_CONFIG.heal, ...validated.heal },
       retry: { ...DEFAULT_CONFIG.retry, ...validated.retry },
       animation: { ...DEFAULT_CONFIG.animation, ...validated.animation },
-      display: { ...DEFAULT_CONFIG.display, ...validated.display },
+      display: {
+        ...DEFAULT_CONFIG.display,
+        ...validated.display,
+        gaugeShape: {
+          ...DEFAULT_CONFIG.display.gaugeShape,
+          ...validated.display.gaugeShape,
+        },
+      },
       zeroHpImage: { ...DEFAULT_CONFIG.zeroHpImage, ...validated.zeroHpImage },
       zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...validated.zeroHpSound },
       zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...validated.zeroHpEffect },
@@ -363,16 +455,16 @@ export async function loadOverlayConfigFromFile(): Promise<OverlayConfig> {
         streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...validated.pvp.streamerAttack },
         viewerVsViewerAttack: { ...DEFAULT_CONFIG.pvp.viewerVsViewerAttack, ...(validated.pvp?.viewerVsViewerAttack || {}) },
       },
-      externalWindow: { ...DEFAULT_CONFIG.externalWindow, ...validated.externalWindow },
       webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
       damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...validated.damageEffectFilter },
       healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...validated.healEffectFilter },
       gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...validated.gaugeColors },
       damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
       healColors: { ...DEFAULT_CONFIG.healColors, ...validated.healColors },
+      obsCaptureGuide: { ...DEFAULT_CONFIG.obsCaptureGuide, ...validated.obsCaptureGuide },
     }
   } catch (error) {
-    console.error('設定ファイルの読み込みに失敗しました:', error)
+    logger.error('設定ファイルの読み込みに失敗しました:', error)
     return DEFAULT_CONFIG
   }
 }
@@ -402,17 +494,17 @@ export async function saveOverlayConfig(config: OverlayConfig): Promise<boolean>
           try {
             const errorBody = await response.json()
             if (errorBody && typeof errorBody.error === 'string') errorMessage = errorBody.error
-          } catch (_) {
+          } catch {
             errorMessage = `HTTP ${response.status}`
           }
           throw new Error(errorMessage)
         }
 
         const result = await response.json().catch(() => ({ message: '設定を保存しました' }))
-        console.log('✅ 設定をJSONファイルに保存しました:', result.message)
+        logger.info('✅ 設定をJSONファイルに保存しました:', result.message)
         return true
       } catch (apiError) {
-        console.warn('API経由での保存に失敗しました。ダウンロード方式にフォールバックします:', apiError)
+        logger.warn('API経由での保存に失敗しました。ダウンロード方式にフォールバックします:', apiError)
         return downloadConfigAsJson(validated)
       }
     }
@@ -420,7 +512,7 @@ export async function saveOverlayConfig(config: OverlayConfig): Promise<boolean>
     // 本番環境ではダウンロード方式
     return downloadConfigAsJson(validated)
   } catch (error) {
-    console.error('設定の保存に失敗しました:', error)
+    logger.error('設定の保存に失敗しました:', error)
     return false
   }
 }
@@ -440,10 +532,10 @@ function downloadConfigAsJson(config: OverlayConfig): boolean {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    console.log('✅ 設定をJSONファイルとしてダウンロードしました')
+    logger.info('✅ 設定をJSONファイルとしてダウンロードしました')
     return true
   } catch (error) {
-    console.error('JSONファイルのダウンロードに失敗しました:', error)
+    logger.error('JSONファイルのダウンロードに失敗しました:', error)
     return false
   }
 }
@@ -458,6 +550,42 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   }
 
   const c = config as Record<string, unknown>
+  // 色の検証（#RGB / #RRGGBB）。attack など上位の検証より前に置く
+  const isValidColor = (color: unknown): boolean => {
+    if (typeof color !== 'string') return false
+    return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color)
+  }
+
+  const sanitizeDebuffKind = (raw: unknown): AttackDebuffKind => {
+    if (typeof raw === 'string') {
+      const s = raw.trim().toLowerCase()
+      if (s === 'poison' || s === 'burn' || s === 'bleed') return s
+    }
+    return 'bleed'
+  }
+
+  const sanitizeBleedVariants = (raw: unknown): AttackBleedVariant[] | undefined => {
+    if (!Array.isArray(raw)) return undefined
+    const out: AttackBleedVariant[] = []
+    for (const el of raw) {
+      if (!el || typeof el !== 'object') continue
+      const o = el as Record<string, unknown>
+      const weight = Number(o.weight)
+      const damage = Number(o.damage)
+      const duration = Number(o.duration)
+      const interval = Number(o.interval)
+      if (!isInRange(weight, 0, MAX_NUM) || weight <= 0) continue
+      if (!isInRange(damage, 1, MAX_NUM)) continue
+      if (!isInRange(duration, 1, MAX_NUM)) continue
+      if (!isInRange(interval, 0.1, MAX_NUM)) continue
+      const dc = typeof o.damageColor === 'string' ? o.damageColor.trim() : ''
+      const damageColor = dc !== '' && isValidColor(dc) ? dc : undefined
+      const debuffKind = sanitizeDebuffKind(o.debuffKind)
+      out.push({ weight, damage, duration, interval, damageColor, debuffKind })
+    }
+    return out.length > 0 ? out : undefined
+  }
+
   // HP設定の検証
   const hpConfig = (c.hp as Record<string, unknown> | undefined) || {}
   const hpMax = Number(hpConfig.max) || DEFAULT_CONFIG.hp.max
@@ -516,6 +644,9 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     missSoundVolume: isInRange(Number(attackConfig.missSoundVolume), 0, 1)
       ? Number(attackConfig.missSoundVolume) || 0.7
       : 0.7,
+    missTextColor: isValidColor(attackConfig.missTextColor)
+      ? (attackConfig.missTextColor as string)
+      : DEFAULT_CONFIG.attack.missTextColor,
     criticalEnabled: typeof attackConfig.criticalEnabled === 'boolean' ? attackConfig.criticalEnabled : false,
     criticalProbability: isInRange(Number(attackConfig.criticalProbability), 0, 100)
       ? Number(attackConfig.criticalProbability) || 0
@@ -536,6 +667,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     bleedInterval: isInRange(Number(attackConfig.bleedInterval), 0.1, MAX_NUM)
       ? Number(attackConfig.bleedInterval) || 1
       : 1,
+    bleedVariants: sanitizeBleedVariants(attackConfig.bleedVariants),
     bleedSoundEnabled: typeof attackConfig.bleedSoundEnabled === 'boolean' ? attackConfig.bleedSoundEnabled : false,
     bleedSoundUrl:
       typeof attackConfig.bleedSoundUrl === 'string' && isValidUrl(attackConfig.bleedSoundUrl)
@@ -543,6 +675,38 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
         : '',
     bleedSoundVolume: isInRange(Number(attackConfig.bleedSoundVolume), 0, 1)
       ? Number(attackConfig.bleedSoundVolume) || 0.7
+      : 0.7,
+    dotPoisonSoundEnabled: typeof attackConfig.dotPoisonSoundEnabled === 'boolean' ? attackConfig.dotPoisonSoundEnabled : false,
+    dotPoisonSoundUrl:
+      typeof attackConfig.dotPoisonSoundUrl === 'string' && isValidUrl(attackConfig.dotPoisonSoundUrl)
+        ? attackConfig.dotPoisonSoundUrl
+        : '',
+    dotPoisonSoundVolume: isInRange(Number(attackConfig.dotPoisonSoundVolume), 0, 1)
+      ? Number(attackConfig.dotPoisonSoundVolume) || 0.7
+      : 0.7,
+    dotBurnSoundEnabled: typeof attackConfig.dotBurnSoundEnabled === 'boolean' ? attackConfig.dotBurnSoundEnabled : false,
+    dotBurnSoundUrl:
+      typeof attackConfig.dotBurnSoundUrl === 'string' && isValidUrl(attackConfig.dotBurnSoundUrl)
+        ? attackConfig.dotBurnSoundUrl
+        : '',
+    dotBurnSoundVolume: isInRange(Number(attackConfig.dotBurnSoundVolume), 0, 1)
+      ? Number(attackConfig.dotBurnSoundVolume) || 0.7
+      : 0.7,
+    dotPoisonAttackSoundEnabled: typeof attackConfig.dotPoisonAttackSoundEnabled === 'boolean' ? attackConfig.dotPoisonAttackSoundEnabled : false,
+    dotPoisonAttackSoundUrl:
+      typeof attackConfig.dotPoisonAttackSoundUrl === 'string' && isValidUrl(attackConfig.dotPoisonAttackSoundUrl)
+        ? attackConfig.dotPoisonAttackSoundUrl
+        : '',
+    dotPoisonAttackSoundVolume: isInRange(Number(attackConfig.dotPoisonAttackSoundVolume), 0, 1)
+      ? Number(attackConfig.dotPoisonAttackSoundVolume) || 0.7
+      : 0.7,
+    dotBurnAttackSoundEnabled: typeof attackConfig.dotBurnAttackSoundEnabled === 'boolean' ? attackConfig.dotBurnAttackSoundEnabled : false,
+    dotBurnAttackSoundUrl:
+      typeof attackConfig.dotBurnAttackSoundUrl === 'string' && isValidUrl(attackConfig.dotBurnAttackSoundUrl)
+        ? attackConfig.dotBurnAttackSoundUrl
+        : '',
+    dotBurnAttackSoundVolume: isInRange(Number(attackConfig.dotBurnAttackSoundVolume), 0, 1)
+      ? Number(attackConfig.dotBurnAttackSoundVolume) || 0.7
       : 0.7,
     soundEnabled: typeof attackConfig.soundEnabled === 'boolean' ? attackConfig.soundEnabled : false,
     soundUrl:
@@ -642,11 +806,72 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
 
   // 表示設定の検証
   const displayConfig = (c.display as Record<string, unknown> | undefined) || {}
+  const gaugeDesignRaw = displayConfig.gaugeDesign
+  const gaugeDesign: GaugeDesign =
+    gaugeDesignRaw === 'parallelogram' || gaugeDesignRaw === 'default' ? gaugeDesignRaw : 'default'
+
+  const shapeRaw = (displayConfig.gaugeShape as Record<string, unknown> | undefined) || {}
+  const shapeDefaults = DEFAULT_CONFIG.display.gaugeShape
+  const gaugeShape: GaugeShapeConfig = {
+    skewDeg: sanitizeGaugeShapeField(shapeRaw.skewDeg, -60, 60, shapeDefaults.skewDeg, false),
+    defaultBorderRadiusPx: sanitizeGaugeShapeField(
+      shapeRaw.defaultBorderRadiusPx,
+      0,
+      200,
+      shapeDefaults.defaultBorderRadiusPx,
+      true
+    ),
+    defaultBorderWhitePx: sanitizeGaugeShapeField(
+      shapeRaw.defaultBorderWhitePx,
+      0,
+      80,
+      shapeDefaults.defaultBorderWhitePx,
+      true
+    ),
+    defaultBorderGrayPx: sanitizeGaugeShapeField(
+      shapeRaw.defaultBorderGrayPx,
+      0,
+      160,
+      shapeDefaults.defaultBorderGrayPx,
+      true
+    ),
+    parallelogramBorderRadiusPx: sanitizeGaugeShapeField(
+      shapeRaw.parallelogramBorderRadiusPx,
+      0,
+      80,
+      shapeDefaults.parallelogramBorderRadiusPx,
+      true
+    ),
+    parallelogramBorderWhitePx: sanitizeGaugeShapeField(
+      shapeRaw.parallelogramBorderWhitePx,
+      0,
+      80,
+      shapeDefaults.parallelogramBorderWhitePx,
+      true
+    ),
+    parallelogramBorderGrayPx: sanitizeGaugeShapeField(
+      shapeRaw.parallelogramBorderGrayPx,
+      0,
+      160,
+      shapeDefaults.parallelogramBorderGrayPx,
+      true
+    ),
+    parallelogramFramePaddingPx: sanitizeGaugeShapeField(
+      shapeRaw.parallelogramFramePaddingPx,
+      0,
+      200,
+      shapeDefaults.parallelogramFramePaddingPx,
+      true
+    ),
+  }
+
   const display = {
     showMaxHp: typeof displayConfig.showMaxHp === 'boolean' ? displayConfig.showMaxHp : true,
     fontSize: isInRange(Number(displayConfig.fontSize), 1, MAX_NUM)
       ? Number(displayConfig.fontSize) || 24
       : 24,
+    gaugeDesign,
+    gaugeShape,
   }
 
   // 画像URLの検証
@@ -657,6 +882,20 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       typeof zeroHpImageConfig.imageUrl === 'string' && isValidUrl(zeroHpImageConfig.imageUrl)
         ? zeroHpImageConfig.imageUrl
         : '',
+    // スケール倍率は 0.1 以上なら上限なし（異常値のみデフォルトにフォールバック）
+    scale: isInRange(Number(zeroHpImageConfig.scale), 0.1, MAX_NUM)
+      ? Number(zeroHpImageConfig.scale) || DEFAULT_CONFIG.zeroHpImage.scale
+      : DEFAULT_CONFIG.zeroHpImage.scale,
+    offsetX: isInRange(Number(zeroHpImageConfig.offsetX), -10000, 10000)
+      ? Number(zeroHpImageConfig.offsetX) || DEFAULT_CONFIG.zeroHpImage.offsetX
+      : DEFAULT_CONFIG.zeroHpImage.offsetX,
+    offsetY: isInRange(Number(zeroHpImageConfig.offsetY), -10000, 10000)
+      ? Number(zeroHpImageConfig.offsetY) || DEFAULT_CONFIG.zeroHpImage.offsetY
+      : DEFAULT_CONFIG.zeroHpImage.offsetY,
+    backgroundColor:
+      typeof zeroHpImageConfig.backgroundColor === 'string' && isValidLength(zeroHpImageConfig.backgroundColor, 1, 50)
+        ? (zeroHpImageConfig.backgroundColor as string)
+        : DEFAULT_CONFIG.zeroHpImage.backgroundColor,
   }
 
   // 音声URLの検証
@@ -689,30 +928,6 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   const testConfig = (c.test as Record<string, unknown> | undefined) || {}
   const test = {
     enabled: typeof testConfig.enabled === 'boolean' ? testConfig.enabled : false,
-  }
-
-  // 外部ウィンドウ設定の検証
-  const externalWindowConfig = (c.externalWindow as Record<string, unknown> | undefined) || {}
-  const externalWindow = {
-    enabled: typeof externalWindowConfig.enabled === 'boolean' ? externalWindowConfig.enabled : false,
-    x: isInRange(Number(externalWindowConfig.x), -10000, 10000)
-      ? Number(externalWindowConfig.x) || 0
-      : 0,
-    y: isInRange(Number(externalWindowConfig.y), -10000, 10000)
-      ? Number(externalWindowConfig.y) || 0
-      : 0,
-    width: isInRange(Number(externalWindowConfig.width), 1, MAX_NUM)
-      ? Number(externalWindowConfig.width) || 800
-      : 800,
-    height: isInRange(Number(externalWindowConfig.height), 1, MAX_NUM)
-      ? Number(externalWindowConfig.height) || 600
-      : 600,
-    opacity: isInRange(Number(externalWindowConfig.opacity), 0, 1)
-      ? Number(externalWindowConfig.opacity) || 1.0
-      : 1.0,
-    zIndex: isInRange(Number(externalWindowConfig.zIndex), -100, 100)
-      ? Number(externalWindowConfig.zIndex) || 1
-      : 1,
   }
 
   // WebMループ設定の検証
@@ -784,13 +999,6 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       : DEFAULT_CONFIG.healEffectFilter.contrast,
   }
 
-  // 色の検証関数（16進数カラーコード形式をチェック）
-  const isValidColor = (color: unknown): boolean => {
-    if (typeof color !== 'string') return false
-    // #RRGGBB または #RGB 形式をチェック
-    return /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color)
-  }
-
   // HPゲージ色設定の検証
   const gaugeColorsConfig = (c.gaugeColors as Record<string, unknown> | undefined) || {}
   const gaugeColors = {
@@ -798,6 +1006,15 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     secondGauge: isValidColor(gaugeColorsConfig.secondGauge) ? (gaugeColorsConfig.secondGauge as string) : DEFAULT_CONFIG.gaugeColors.secondGauge,
     patternColor1: isValidColor(gaugeColorsConfig.patternColor1) ? (gaugeColorsConfig.patternColor1 as string) : (isValidColor(gaugeColorsConfig.thirdGauge) ? (gaugeColorsConfig.thirdGauge as string) : DEFAULT_CONFIG.gaugeColors.patternColor1), // 後方互換性: thirdGaugeもチェック
     patternColor2: isValidColor(gaugeColorsConfig.patternColor2) ? (gaugeColorsConfig.patternColor2 as string) : (isValidColor(gaugeColorsConfig.fourthGauge) ? (gaugeColorsConfig.fourthGauge as string) : DEFAULT_CONFIG.gaugeColors.patternColor2), // 後方互換性: fourthGaugeもチェック
+    frameBackground: isValidColor(gaugeColorsConfig.frameBackground)
+      ? (gaugeColorsConfig.frameBackground as string)
+      : DEFAULT_CONFIG.gaugeColors.frameBackground,
+    frameBorderInner: isValidColor(gaugeColorsConfig.frameBorderInner)
+      ? (gaugeColorsConfig.frameBorderInner as string)
+      : DEFAULT_CONFIG.gaugeColors.frameBorderInner,
+    frameBorderOuter: isValidColor(gaugeColorsConfig.frameBorderOuter)
+      ? (gaugeColorsConfig.frameBorderOuter as string)
+      : DEFAULT_CONFIG.gaugeColors.frameBorderOuter,
   }
 
   // ダメージ値色設定の検証
@@ -806,12 +1023,29 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     normal: isValidColor(damageColorsConfig.normal) ? (damageColorsConfig.normal as string) : DEFAULT_CONFIG.damageColors.normal,
     critical: isValidColor(damageColorsConfig.critical) ? (damageColorsConfig.critical as string) : DEFAULT_CONFIG.damageColors.critical,
     bleed: isValidColor(damageColorsConfig.bleed) ? (damageColorsConfig.bleed as string) : DEFAULT_CONFIG.damageColors.bleed,
+    dotPoison: isValidColor(damageColorsConfig.dotPoison)
+      ? (damageColorsConfig.dotPoison as string)
+      : DEFAULT_CONFIG.damageColors.dotPoison,
+    dotBurn: isValidColor(damageColorsConfig.dotBurn)
+      ? (damageColorsConfig.dotBurn as string)
+      : DEFAULT_CONFIG.damageColors.dotBurn,
   }
 
   // 回復値色設定の検証
   const healColorsConfig = (c.healColors as Record<string, unknown> | undefined) || {}
   const healColors = {
     normal: isValidColor(healColorsConfig.normal) ? (healColorsConfig.normal as string) : DEFAULT_CONFIG.healColors.normal,
+  }
+
+  const obsCaptureGuideConfig = (c.obsCaptureGuide as Record<string, unknown> | undefined) || {}
+  const obsCaptureGuide = {
+    enabled:
+      typeof obsCaptureGuideConfig.enabled === 'boolean'
+        ? obsCaptureGuideConfig.enabled
+        : DEFAULT_CONFIG.obsCaptureGuide.enabled,
+    insetPx: isInRange(Number(obsCaptureGuideConfig.insetPx), 0, 400)
+      ? Math.max(0, Math.floor(Number(obsCaptureGuideConfig.insetPx)))
+      : DEFAULT_CONFIG.obsCaptureGuide.insetPx,
   }
 
   // PvP設定の検証（streamerAttack は attack と同じ構造）
@@ -832,6 +1066,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     missSoundEnabled: typeof sa.missSoundEnabled === 'boolean' ? sa.missSoundEnabled : false,
     missSoundUrl: typeof sa.missSoundUrl === 'string' ? sa.missSoundUrl : '',
     missSoundVolume: isInRange(Number(sa.missSoundVolume), 0, 1) ? Number(sa.missSoundVolume) || 0.7 : 0.7,
+    missTextColor: isValidColor(sa.missTextColor) ? (sa.missTextColor as string) : DEFAULT_CONFIG.pvp.streamerAttack.missTextColor,
     criticalEnabled: typeof sa.criticalEnabled === 'boolean' ? sa.criticalEnabled : false,
     criticalProbability: isInRange(Number(sa.criticalProbability), 0, 100) ? Number(sa.criticalProbability) || 0 : 0,
     criticalMultiplier: isInRange(Number(sa.criticalMultiplier), 1, MAX_NUM) ? Number(sa.criticalMultiplier) || 2 : 2,
@@ -840,9 +1075,22 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     bleedDamage: isInRange(Number(sa.bleedDamage), 1, MAX_NUM) ? Number(sa.bleedDamage) || 5 : 5,
     bleedDuration: isInRange(Number(sa.bleedDuration), 1, MAX_NUM) ? Number(sa.bleedDuration) || 10 : 10,
     bleedInterval: isInRange(Number(sa.bleedInterval), 0.1, MAX_NUM) ? Number(sa.bleedInterval) || 1 : 1,
+    bleedVariants: sanitizeBleedVariants(sa.bleedVariants),
     bleedSoundEnabled: typeof sa.bleedSoundEnabled === 'boolean' ? sa.bleedSoundEnabled : false,
     bleedSoundUrl: typeof sa.bleedSoundUrl === 'string' ? sa.bleedSoundUrl : '',
     bleedSoundVolume: isInRange(Number(sa.bleedSoundVolume), 0, 1) ? Number(sa.bleedSoundVolume) || 0.7 : 0.7,
+    dotPoisonSoundEnabled: typeof sa.dotPoisonSoundEnabled === 'boolean' ? sa.dotPoisonSoundEnabled : false,
+    dotPoisonSoundUrl: typeof sa.dotPoisonSoundUrl === 'string' ? sa.dotPoisonSoundUrl : '',
+    dotPoisonSoundVolume: isInRange(Number(sa.dotPoisonSoundVolume), 0, 1) ? Number(sa.dotPoisonSoundVolume) || 0.7 : 0.7,
+    dotBurnSoundEnabled: typeof sa.dotBurnSoundEnabled === 'boolean' ? sa.dotBurnSoundEnabled : false,
+    dotBurnSoundUrl: typeof sa.dotBurnSoundUrl === 'string' ? sa.dotBurnSoundUrl : '',
+    dotBurnSoundVolume: isInRange(Number(sa.dotBurnSoundVolume), 0, 1) ? Number(sa.dotBurnSoundVolume) || 0.7 : 0.7,
+    dotPoisonAttackSoundEnabled: typeof sa.dotPoisonAttackSoundEnabled === 'boolean' ? sa.dotPoisonAttackSoundEnabled : false,
+    dotPoisonAttackSoundUrl: typeof sa.dotPoisonAttackSoundUrl === 'string' ? sa.dotPoisonAttackSoundUrl : '',
+    dotPoisonAttackSoundVolume: isInRange(Number(sa.dotPoisonAttackSoundVolume), 0, 1) ? Number(sa.dotPoisonAttackSoundVolume) || 0.7 : 0.7,
+    dotBurnAttackSoundEnabled: typeof sa.dotBurnAttackSoundEnabled === 'boolean' ? sa.dotBurnAttackSoundEnabled : false,
+    dotBurnAttackSoundUrl: typeof sa.dotBurnAttackSoundUrl === 'string' ? sa.dotBurnAttackSoundUrl : '',
+    dotBurnAttackSoundVolume: isInRange(Number(sa.dotBurnAttackSoundVolume), 0, 1) ? Number(sa.dotBurnAttackSoundVolume) || 0.7 : 0.7,
     soundEnabled: typeof sa.soundEnabled === 'boolean' ? sa.soundEnabled : false,
     soundUrl: typeof sa.soundUrl === 'string' ? sa.soundUrl : '',
     soundVolume: isInRange(Number(sa.soundVolume), 0, 1) ? Number(sa.soundVolume) || 0.7 : 0.7,
@@ -871,6 +1119,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     missSoundEnabled: typeof vva.missSoundEnabled === 'boolean' ? vva.missSoundEnabled : false,
     missSoundUrl: typeof vva.missSoundUrl === 'string' ? vva.missSoundUrl : '',
     missSoundVolume: isInRange(Number(vva.missSoundVolume), 0, 1) ? Number(vva.missSoundVolume) || 0.7 : 0.7,
+    missTextColor: isValidColor(vva.missTextColor) ? (vva.missTextColor as string) : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.missTextColor,
     criticalEnabled: typeof vva.criticalEnabled === 'boolean' ? vva.criticalEnabled : false,
     criticalProbability: isInRange(Number(vva.criticalProbability), 0, 100) ? Number(vva.criticalProbability) || 0 : 0,
     criticalMultiplier: isInRange(Number(vva.criticalMultiplier), 1, MAX_NUM) ? Number(vva.criticalMultiplier) || 2 : 2,
@@ -879,9 +1128,22 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     bleedDamage: isInRange(Number(vva.bleedDamage), 1, MAX_NUM) ? Number(vva.bleedDamage) || 5 : 5,
     bleedDuration: isInRange(Number(vva.bleedDuration), 1, MAX_NUM) ? Number(vva.bleedDuration) || 10 : 10,
     bleedInterval: isInRange(Number(vva.bleedInterval), 0.1, MAX_NUM) ? Number(vva.bleedInterval) || 1 : 1,
+    bleedVariants: sanitizeBleedVariants(vva.bleedVariants),
     bleedSoundEnabled: typeof vva.bleedSoundEnabled === 'boolean' ? vva.bleedSoundEnabled : false,
     bleedSoundUrl: typeof vva.bleedSoundUrl === 'string' ? vva.bleedSoundUrl : '',
     bleedSoundVolume: isInRange(Number(vva.bleedSoundVolume), 0, 1) ? Number(vva.bleedSoundVolume) || 0.7 : 0.7,
+    dotPoisonSoundEnabled: typeof vva.dotPoisonSoundEnabled === 'boolean' ? vva.dotPoisonSoundEnabled : false,
+    dotPoisonSoundUrl: typeof vva.dotPoisonSoundUrl === 'string' ? vva.dotPoisonSoundUrl : '',
+    dotPoisonSoundVolume: isInRange(Number(vva.dotPoisonSoundVolume), 0, 1) ? Number(vva.dotPoisonSoundVolume) || 0.7 : 0.7,
+    dotBurnSoundEnabled: typeof vva.dotBurnSoundEnabled === 'boolean' ? vva.dotBurnSoundEnabled : false,
+    dotBurnSoundUrl: typeof vva.dotBurnSoundUrl === 'string' ? vva.dotBurnSoundUrl : '',
+    dotBurnSoundVolume: isInRange(Number(vva.dotBurnSoundVolume), 0, 1) ? Number(vva.dotBurnSoundVolume) || 0.7 : 0.7,
+    dotPoisonAttackSoundEnabled: typeof vva.dotPoisonAttackSoundEnabled === 'boolean' ? vva.dotPoisonAttackSoundEnabled : false,
+    dotPoisonAttackSoundUrl: typeof vva.dotPoisonAttackSoundUrl === 'string' ? vva.dotPoisonAttackSoundUrl : '',
+    dotPoisonAttackSoundVolume: isInRange(Number(vva.dotPoisonAttackSoundVolume), 0, 1) ? Number(vva.dotPoisonAttackSoundVolume) || 0.7 : 0.7,
+    dotBurnAttackSoundEnabled: typeof vva.dotBurnAttackSoundEnabled === 'boolean' ? vva.dotBurnAttackSoundEnabled : false,
+    dotBurnAttackSoundUrl: typeof vva.dotBurnAttackSoundUrl === 'string' ? vva.dotBurnAttackSoundUrl : '',
+    dotBurnAttackSoundVolume: isInRange(Number(vva.dotBurnAttackSoundVolume), 0, 1) ? Number(vva.dotBurnAttackSoundVolume) || 0.7 : 0.7,
     soundEnabled: typeof vva.soundEnabled === 'boolean' ? vva.soundEnabled : false,
     soundUrl: typeof vva.soundUrl === 'string' ? vva.soundUrl : '',
     soundVolume: isInRange(Number(vva.soundVolume), 0, 1) ? Number(vva.soundVolume) || 0.7 : 0.7,
@@ -1004,13 +1266,13 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     zeroHpEffect,
     test,
     pvp,
-    externalWindow,
     webmLoop,
     damageEffectFilter,
     healEffectFilter,
     gaugeColors,
     damageColors,
     healColors,
+    obsCaptureGuide,
   }
 }
 

@@ -29,7 +29,7 @@ function resolveAttackDamage(
   attack: AttackConfig
 ): ApplyViewerDamageResult {
   let appliedDamage = baseDamage
-  let miss = false
+  const miss = false
   let critical = false
   let survivalHp1 = false
 

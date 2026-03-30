@@ -1,21 +1,62 @@
-MIT License
+OBS Overlay Kill — 利用許諾・著作権表示
 
-Copyright (c) 2026 ttezuka-hub
+Copyright (c) 2026 Adelaide. 無断複製・再配布を禁じます。
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+本ファイルは、本リポジトリに含まれるソフトウェアおよび文書一式（ソースコード、ビルド成果物、配布用アーカイブ、スクリプト、画像・音声・動画その他同梱物。以下「本ソフトウェア」）に適用されます。
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+────────────────────────────────
+1. 付与される利用権
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+開発者 Adelaide（以下「ライセンサ」）は、あなた（以下「利用者」）に対し、ライセンサが公式に提供した入手経路を通じて本ソフトウェアの複製を入手した場合に限り、本ソフトウェアを**実行すること**（個人・法人を問わず）を、無償で非独占的に許諾します。
+
+本ソフトウェアの閲覧（ソースが提供されている場合に限る）についても、次条および第3条の制限に従う範囲でこれを許諾します。
+
+────────────────────────────────
+2. 禁止事項（再配布・改変）
+
+(1) 再配布の禁止
+利用者は、本ソフトウェアの全部又は一部を、ライセンサが公式に提供した入手経路を経由させることなく、第三者に対し譲渡、貸与、送信可能化、公衆送信、公表、アップロード、ホスティング、販売、共有その他これに類する行為をしてはなりません。
+ただし、ライセンサ自身がリポジトリその他の公式配布手段により本ソフトウェアを公開する行為は、この禁止の対象外です。
+
+(2) 改変の制限
+本ソフトウェアに対する変更は、**本ソフトウェアに実装された画面上の設定（設定 UI）によって利用者が行える範囲に限り**許諾されます。
+次の行為は許諾されません：ソースコードの改変、ビルド成果物の差し替え、付随スクリプト・設定ファイルの独自改変、リバースエンジニアリング、回避行為を伴う改変、機能の追加・削除・挙動の書き換え、その他設定 UI で達成できない一切の改変。
+
+(3) 権利の留保
+本条に明示的に付与されない一切の権利はライセンサに留保されます。
+
+────────────────────────────────
+3. 知的財産権・コンテンツ利用
+
+利用者は、本ソフトウェアを用いた配信、動画投稿、アーカイブの公開その他のコンテンツ配信において、第三者の知的財産権（著作権、商標権、意匠権、キャラクター・商業利用に関する権利、楽曲・映像・ゲーム映像・ロゴ等を含みますがこれらに限りません）に抵触し又はそのおそれのある利用を、収益の有無を問わず行ってはなりません。権利処理および許諾は利用者の責任です。
+
+────────────────────────────────
+4. 免責事項・責任制限
+
+本ソフトウェアは「現状有姿」で提供されます。ライセンサは、特定目的への適合性、未中断稼働、エラー不存在、セキュリティ、第三者サービスとの互換性について、一切保証しません。
+
+いかなる場合においても、ライセンサは、本ソフトウェアの利用又は利用不能に関連して生じた損害、利益喪失、データ喪失、業務中断、法令違反、第三者との紛争、プラットフォーム上の措置その他一切の請求について、契約・不法行為その他の法理論の如何を問わず、一切の責任を負いません。利用者は本ソフトウェアを自己責任において利用するものとします。
+
+一部の法域では上記の責任制限が認められない場合があります。その場合、ライセンサの責任は当該法域の法令が許す最大限の範囲で制限されます。
+
+────────────────────────────────
+5. 第三者サービス
+
+本ソフトウェアは Twitch 等の外部サービスと連携し得ます。利用者は、当該サービスの利用規約、ガイドライン、API 利用条件等を自己の責任で遵守するものとします。
+
+────────────────────────────────
+6. 反社会勢力の排除
+
+利用者は、自己が反社会的勢力に該当せず、かつその役員・実質的支配者も含めてこれに該当しないことを表明し、将来にわたっても該当しないことを確約します。
+
+────────────────────────────────
+7. 準拠法・分離可能性
+
+本ライセンスの準拠法は、日本法とします。本条のいずれかが無効又は執行不能とされた場合でも、残りの規定の有効性には影響しません。
+
+────────────────────────────────
+8. 規約の変更・README との関係
+
+ライセンサは、README.md の「利用規約（使用条件）」を更新することにより、利用条件を追加又は変更し得ます。**最新の README.md の利用規約も利用者を拘束します。** 本 LICENSE ファイルに明示されていない事項で README に記載がある場合、README の定めが補足として適用されます（両者が抵触する場合は、より制限的又はライセンサ保護に資する解釈を優先します）。変更後に本ソフトウェアの利用を継続した利用者は、変更後の条件に同意したものとみなされます。
+
+以上

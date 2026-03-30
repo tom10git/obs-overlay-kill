@@ -104,11 +104,7 @@
   z-index: 10001;
   font-weight: 900;
   letter-spacing: 0.08em;
-  color: #ffffff;
-  text-shadow:
-    0 2px 0 rgba(255, 255, 255, 0.55),
-    0 0 12px rgba(255, 255, 255, 0.65),
-    0 0 20px rgba(255, 255, 255, 1);
+  /* 色・発光は設定 attack.missTextColor（インライン） */
   font-size: 72px;
   pointer-events: none;
   animation: overlay-miss-pop 650ms ease-out both;
@@ -456,6 +452,61 @@
   border-radius: 0;
   max-height: 55vh;
   overflow-y: auto;
+}
+
+.test-settings-panel--embedded {
+  margin-bottom: 1rem;
+  padding: 0;
+  max-height: min(62vh, 720px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #0f0f0f;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.test-settings-panel--embedded .overlay-settings {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-color: #404040 #141414;
+}
+
+.test-settings-embedded-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid #2a2a2a;
+  background: #141414;
+  flex-shrink: 0;
+}
+
+.test-settings-embedded-toolbar .test-button.test-save {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e5e5e5;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: auto;
+}
+
+.test-settings-embedded-toolbar .test-button.test-save:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.test-settings-embedded-toolbar .test-button.test-reload {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e5e5e5;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: auto;
+}
+
+.test-settings-embedded-toolbar .test-button.test-reload:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .test-settings-tabs {
@@ -859,45 +910,6 @@
   margin: 0;
 }
 
-/* 外部ウィンドウコンテナ */
-.external-window-container {
-  position: fixed;
-  pointer-events: none;
-  z-index: 1;
-  transition: filter 0.1s ease;
-}
-
-/* エフェクト終了時にトランジションを無効化（色のちらつきを防ぐ） */
-.external-window-container:not(.damage-effect):not(.heal-effect) {
-  transition: filter 0s;
-}
-
-.external-window-container video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-}
-
-/* ダメージエフェクト（揺れアニメーション） */
-.external-window-container.damage-effect {
-  animation: damage-shake 0.5s ease-out;
-}
-
-/* 回復エフェクト（残像アニメーション） */
-.external-window-container.heal-effect {
-  animation: heal-afterimage 0.5s ease-out;
-}
-
-.external-window-container.heal-effect video {
-  animation: heal-afterimage 0.5s ease-out;
-}
-
-/* 回避（ミス）時: 左右に動いて元に戻る */
-.external-window-container.dodge-effect {
-  animation: overlay-dodge 0.58s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
 /* WebMループコンテナ */
 .webm-loop-container {
   position: fixed;
@@ -1079,7 +1091,6 @@
 }
 
 /* 必殺技エフェクト: 強力な画面シェイク */
-.external-window-container.finishing-move-shake,
 .webm-loop-container.finishing-move-shake {
   animation: finishing-move-shake 1.2s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
@@ -1303,4 +1314,79 @@
     border-width: 2px;
     filter: brightness(0.8) saturate(0.8);
   }
+}
+
+/* OBS ブラウザソースの切り取り範囲の目安（HP0 WebM とは独立したレイヤー・設定で ON/OFF） */
+.obs-capture-guide {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100050;
+  box-sizing: border-box;
+}
+
+.obs-capture-guide__frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgba(0, 236, 196, 0.5);
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.22),
+    inset 0 0 32px rgba(0, 236, 196, 0.04);
+}
+
+.obs-capture-guide__corner {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+}
+
+.obs-capture-guide__corner--tl {
+  top: -1px;
+  left: -1px;
+  border-top: 3px solid rgba(0, 242, 208, 0.9);
+  border-left: 3px solid rgba(0, 242, 208, 0.9);
+  border-radius: 4px 0 0 0;
+}
+
+.obs-capture-guide__corner--tr {
+  top: -1px;
+  right: -1px;
+  border-top: 3px solid rgba(0, 242, 208, 0.9);
+  border-right: 3px solid rgba(0, 242, 208, 0.9);
+  border-radius: 0 4px 0 0;
+}
+
+.obs-capture-guide__corner--bl {
+  bottom: -1px;
+  left: -1px;
+  border-bottom: 3px solid rgba(0, 242, 208, 0.9);
+  border-left: 3px solid rgba(0, 242, 208, 0.9);
+  border-radius: 0 0 0 4px;
+}
+
+.obs-capture-guide__corner--br {
+  bottom: -1px;
+  right: -1px;
+  border-right: 3px solid rgba(0, 242, 208, 0.9);
+  border-bottom: 3px solid rgba(0, 242, 208, 0.9);
+  border-radius: 0 0 4px 0;
+}
+
+.obs-capture-guide__label {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(224, 255, 250, 0.95);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.42);
+  border-radius: 4px;
+  border: 1px solid rgba(0, 242, 208, 0.35);
+  white-space: nowrap;
 }

@@ -2,11 +2,13 @@
  * HPゲージメインコンポーネント
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { HPGaugeLayer } from './HPGaugeLayer'
 import { HPDisplay } from './HPDisplay'
 import { getCssEasing } from '../../utils/animation'
 import type { OverlayConfig } from '../../types/overlay'
+import { DEFAULT_GAUGE_SHAPE } from '../../utils/overlayConfig'
+import { logger } from '../../lib/logger'
 import './HPGauge.css'
 import { useSound } from '../../hooks/useSound'
 
@@ -25,6 +27,13 @@ interface HPGaugeProps {
   allBuffRemainingSeconds?: number
   /** 個人用バフの残り時間（ユーザーID → 残り秒数） */
   buffRemainingSecondsMap?: Map<string, number>
+  /** ストレングスバフの効果時間（秒）。残り時間ゲージの全長に使用 */
+  buffDurationSeconds?: number
+  /** 被ダメージ時：ゲージを四方に揺らしつつ赤みがかった点滅 */
+  hitShakeActive?: boolean
+  /** 回避（ミス）時：ゲージを左右どちらかにずらして戻す */
+  dodgeSlideActive?: boolean
+  dodgeSlideDirection?: 'left' | 'right'
 }
 
 /**
@@ -98,7 +107,20 @@ export function HPGauge({
   userIdToDisplayName = new Map(),
   allBuffRemainingSeconds,
   buffRemainingSecondsMap = new Map(),
+  buffDurationSeconds = 300,
+  hitShakeActive = false,
+  dodgeSlideActive = false,
+  dodgeSlideDirection = 'left',
 }: HPGaugeProps) {
+  const buffDuration = Math.max(0.001, buffDurationSeconds)
+
+  const motionClassNames = [
+    'hp-gauge-motion-root',
+    dodgeSlideActive && `hp-gauge-motion-root--dodge-${dodgeSlideDirection}`,
+    !dodgeSlideActive && hitShakeActive && 'hp-gauge-motion-root--hit-shake',
+  ]
+    .filter(Boolean)
+    .join(' ')
   // 各ゲージレイヤーを生成（上から順に減るように計算）
   const gaugeLayers = useMemo(() => {
     const layers = []
@@ -255,7 +277,7 @@ export function HPGauge({
     prevHPRef.current = currentHP
     // HPが0になった瞬間を検出した場合、デバッグログを出力
     if (prevHPBeforeUpdate > 0 && currentHP <= 0) {
-      console.log(`[HP0検出] prevHP: ${prevHPBeforeUpdate} -> currentHP: ${currentHP}, エフェクト表示: ${config.zeroHpEffect.enabled && zeroHpEffectVideoUrl.length > 0}`)
+      logger.debug(`[HP0検出] prevHP: ${prevHPBeforeUpdate} -> currentHP: ${currentHP}, エフェクト表示: ${config.zeroHpEffect.enabled && zeroHpEffectVideoUrl.length > 0}`)
     }
   }, [
     currentHP,
@@ -282,12 +304,12 @@ export function HPGauge({
             if (video.readyState >= 2) {
               // データが読み込まれている場合は即座に再生
               video.play().catch((error) => {
-                console.warn('[HP0動画エフェクト] 動画の再生に失敗しました:', error)
+                logger.warn('[HP0動画エフェクト] 動画の再生に失敗しました:', error)
                 // 再生に失敗した場合、少し待ってからリトライ
                 setTimeout(() => {
                   video.load() // 動画を再読み込み
                   video.play().catch((err) => {
-                    console.warn('[HP0動画エフェクト] 動画の再生リトライに失敗しました:', err)
+                    logger.warn('[HP0動画エフェクト] 動画の再生リトライに失敗しました:', err)
                   })
                 }, 100)
               })
@@ -295,7 +317,7 @@ export function HPGauge({
               // データがまだ読み込まれていない場合、読み込みを待つ
               const onLoadedData = () => {
                 video.play().catch((error) => {
-                  console.warn('[HP0動画エフェクト] 動画の再生に失敗しました:', error)
+                  logger.warn('[HP0動画エフェクト] 動画の再生に失敗しました:', error)
                 })
                 video.removeEventListener('loadeddata', onLoadedData)
               }
@@ -306,7 +328,7 @@ export function HPGauge({
 
           tryPlay()
         } else {
-          console.warn('[HP0動画エフェクト] videoRef.currentがnullです')
+          logger.warn('[HP0動画エフェクト] videoRef.currentがnullです')
         }
       })
     } else if (!showZeroHpEffect && videoRef.current) {
@@ -338,6 +360,25 @@ export function HPGauge({
     }
   }, [])
 
+  const gaugeDesign = config.display.gaugeDesign ?? 'default'
+  const gs = config.display.gaugeShape ?? DEFAULT_GAUGE_SHAPE
+
+  const gc = config.gaugeColors
+  const wrapperStyle: CSSProperties = {
+    ...(gaugeDesign === 'parallelogram' ? { transform: `skewX(${-gs.skewDeg}deg)` } : {}),
+    ...({
+      '--gauge-default-radius': `${gs.defaultBorderRadiusPx}px`,
+      '--gauge-default-white': `${gs.defaultBorderWhitePx}px`,
+      '--gauge-default-gray': `${gs.defaultBorderGrayPx}px`,
+      '--gauge-para-radius': `${gs.parallelogramBorderRadiusPx}px`,
+      '--gauge-para-white': `${gs.parallelogramBorderWhitePx}px`,
+      '--gauge-para-gray': `${gs.parallelogramBorderGrayPx}px`,
+      '--gauge-frame-bg': gc.frameBackground,
+      '--gauge-border-inner': gc.frameBorderInner,
+      '--gauge-border-outer': gc.frameBorderOuter,
+    } as CSSProperties),
+  }
+
   return (
     <div
       className="hp-gauge-container"
@@ -348,14 +389,21 @@ export function HPGauge({
         transform: 'translate(-50%, -50%)',
       }}
     >
+      <div className={motionClassNames}>
       <div
-        className="hp-gauge-frame"
+        className={`hp-gauge-frame ${gaugeDesign === 'parallelogram' ? 'hp-gauge-frame--parallelogram' : ''}`}
         style={{
           maxWidth: `${config.hp.width}px`,
           height: `${config.hp.height}px`,
+          ...(gaugeDesign === 'parallelogram'
+            ? {
+                paddingLeft: `${gs.parallelogramFramePaddingPx}px`,
+                paddingRight: `${gs.parallelogramFramePaddingPx}px`,
+              }
+            : {}),
         }}
       >
-        <div className="hp-gauge-wrapper">
+        <div className={`hp-gauge-wrapper hp-gauge-wrapper--${gaugeDesign}`} style={wrapperStyle}>
           {gaugeLayers.map((layer) => (
             <HPGaugeLayer
               key={layer.id}
@@ -371,15 +419,74 @@ export function HPGauge({
             max={maxHP}
             fontSize={config.display.fontSize}
             showMaxHp={config.display.showMaxHp}
+            gaugeDesign={gaugeDesign}
+            gaugeSkewDeg={gs.skewDeg}
           />
         </div>
         <div
           className="hp-gauge-zero-image"
-          style={{ display: config.zeroHpImage.enabled && showZeroHpImage && zeroHpImageUrl.length > 0 ? 'flex' : 'none' }}
+          style={{
+            display: config.zeroHpImage.enabled && showZeroHpImage && zeroHpImageUrl.length > 0 ? 'flex' : 'none',
+            transform:
+              gaugeDesign === 'parallelogram'
+                ? `translate(${config.zeroHpImage.offsetX}px, ${config.zeroHpImage.offsetY}px) scale(${config.zeroHpImage.scale}) skewX(${gs.skewDeg}deg)`
+                : `translate(${config.zeroHpImage.offsetX}px, ${config.zeroHpImage.offsetY}px) scale(${config.zeroHpImage.scale})`,
+            backgroundColor: config.zeroHpImage.backgroundColor || 'transparent',
+          }}
         >
           <img src={zeroHpImageUrl} alt="KO" />
         </div>
       </div>
+      {/* バフ表示（残り時間をオレンジのゲージで表現） */}
+      {(isAllBuffed || buffedUserIds.length > 0) && (
+        <div className="hp-gauge-buff-indicator" style={{ maxWidth: config.hp.width }}>
+          {isAllBuffed ? (
+            allBuffRemainingSeconds !== undefined &&
+            allBuffRemainingSeconds > 0 && (
+              <div
+                className="hp-gauge-buff-gauge-track"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={Math.round(buffDuration)}
+                aria-valuenow={Math.max(0, Math.floor(allBuffRemainingSeconds))}
+                aria-label="全員バフの残り時間"
+              >
+                <div
+                  className="hp-gauge-buff-gauge-fill"
+                  style={{
+                    width: `${Math.max(0, Math.min(100, (allBuffRemainingSeconds / buffDuration) * 100))}%`,
+                  }}
+                />
+              </div>
+            )
+          ) : (
+            <div className="hp-gauge-buff-user-gauges">
+              {buffedUserIds.map((userId) => {
+                const displayName = userIdToDisplayName.get(userId) || userId
+                const remaining = buffRemainingSecondsMap.get(userId)
+                if (remaining === undefined || remaining <= 0) return null
+                const pct = Math.max(0, Math.min(100, (remaining / buffDuration) * 100))
+                return (
+                  <div key={userId} className="hp-gauge-buff-gauge-block hp-gauge-buff-gauge-block--user">
+                    <div
+                      className="hp-gauge-buff-gauge-track"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={Math.round(buffDuration)}
+                      aria-valuenow={Math.max(0, Math.floor(remaining))}
+                      aria-label={`${displayName}のバフ残り時間`}
+                    >
+                      <div className="hp-gauge-buff-gauge-fill" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+      </div>
+      {/* HP0 WebM は position:fixed のためモーションラッパー外（transform Containing Block を避ける） */}
       <div
         className="hp-gauge-zero-effect"
         style={{ display: config.zeroHpEffect.enabled && showZeroHpEffect && zeroHpEffectVideoUrl.length > 0 ? 'flex' : 'none' }}
@@ -393,45 +500,6 @@ export function HPGauge({
           style={{ width: '100%', height: '100%', objectFit: 'contain' }}
         />
       </div>
-      {/* バフ表示 */}
-      {(isAllBuffed || buffedUserIds.length > 0) && (
-        <div className="hp-gauge-buff-indicator">
-          {isAllBuffed ? (
-            // 全員用バフ：絵文字アイコン + カウントダウン
-            <>
-              <span className="hp-gauge-buff-label">ユーザーバフ：</span>
-              <span className="hp-gauge-buff-emoji">💪</span>
-              {allBuffRemainingSeconds !== undefined && allBuffRemainingSeconds > 0 && (
-                <span className="hp-gauge-buff-timer">
-                  {Math.floor(allBuffRemainingSeconds / 60)}:{(Math.floor(allBuffRemainingSeconds % 60)).toString().padStart(2, '0')}
-                </span>
-              )}
-            </>
-          ) : (
-            // 個人用バフ：ラベル + アイコン + ユーザーごとのカウントダウン
-            <>
-              <span className="hp-gauge-buff-label">ユーザーバフ：</span>
-              <span className="hp-gauge-buff-emoji">💪</span>
-              <span className="hp-gauge-buff-user-list">
-                {buffedUserIds
-                  .map((userId) => {
-                    const displayName = userIdToDisplayName.get(userId) || userId
-                    const remaining = buffRemainingSecondsMap.get(userId)
-                    if (remaining === undefined || remaining <= 0) return null
-                    const minutes = Math.floor(remaining / 60)
-                    const seconds = Math.floor(remaining % 60).toString().padStart(2, '0')
-                    return (
-                      <span key={userId} className="hp-gauge-buff-user-entry">
-                        {displayName}: {minutes}:{seconds}
-                      </span>
-                    )
-                  })
-                  .filter((entry) => entry !== null)}
-              </span>
-            </>
-          )}
-        </div>
-      )}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { logger } from '../lib/logger'
 import { twitchChat } from '../utils/twitchChat'
 import { twitchApi } from '../utils/twitchApi'
 
@@ -15,7 +16,9 @@ export function useAutoReply(channelName: string, broadcasterUserId?: string) {
       return
     }
     if (broadcasterUserId) {
-      twitchApi.sendChatMessage(broadcasterUserId, message).catch((err) => console.error(errorLabel, err))
+      twitchApi.sendChatMessage(broadcasterUserId, message).catch((err) => {
+        logger.error(errorLabel, err)
+      })
     }
   }, [channelName, broadcasterUserId])
 }

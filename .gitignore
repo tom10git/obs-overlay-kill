@@ -16,6 +16,8 @@ src/sounds/
 node_modules
 dist
 dist-ssr
+# 配布用にコピーしたビルド（release/README と .bat はコミットする）
+release/dist
 *.local
 
 # Environment variables

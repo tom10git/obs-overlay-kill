@@ -3,6 +3,8 @@
  * 環境変数から認証情報を読み取り、検証を行います
  */
 
+import { logger } from '../lib/logger'
+
 export interface TwitchAuthConfig {
   /** トークンジェネレーター用アプリの Client ID（TOKEN_APP 未設定時は CLIENT_ID を利用） */
   clientId: string
@@ -65,7 +67,7 @@ class AuthConfigManager {
 
     // Client IDの形式検証（トークン用アプリ）
     if (tokenAppId.length < 20 || /^[a-z_]+$/.test(tokenAppId)) {
-      console.warn(
+      logger.warn(
         `⚠️ Warning: トークン用 Client ID="${tokenAppId}" looks invalid.\n` +
         `Twitch Client IDs are typically 30+ character alphanumeric strings.\n` +
         `Get your Client ID from: https://dev.twitch.tv/console/apps`
@@ -73,7 +75,7 @@ class AuthConfigManager {
     }
 
     if (tokenAppSecret.length < 20) {
-      console.warn(
+      logger.warn(
         `⚠️ Warning: トークン用 Client Secret looks invalid.\n` +
         `Twitch Client Secrets are typically 30+ character alphanumeric strings.\n` +
         `Please check your .env file.`
@@ -82,7 +84,7 @@ class AuthConfigManager {
 
     // リフレッシュトークンの形式検証（通常30文字以上の英数字）
     if (twitchRefreshToken && twitchRefreshToken.length < 20) {
-      console.warn(
+      logger.warn(
         `⚠️ Warning: VITE_TWITCH_REFRESH_TOKEN looks invalid.\n` +
         `Twitch Refresh Tokens are typically 30+ character alphanumeric strings.\n` +
         `Please check your .env file.`
@@ -91,7 +93,7 @@ class AuthConfigManager {
 
     // リフレッシュトークンに "oauth:" プレフィックスが含まれている場合の警告
     if (twitchRefreshToken && /^oauth:/i.test(twitchRefreshToken)) {
-      console.warn(
+      logger.warn(
         `⚠️ Warning: VITE_TWITCH_REFRESH_TOKEN contains "oauth:" prefix.\n` +
         `Twitch API does not require "oauth:" prefix. Please remove it from your .env file.\n` +
         `Example: oauth:xxxxx → xxxxx`

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom'
 import { UserDetails } from './components/UserDetails'
 import { OverlayPage } from './pages/OverlayPage'
-import { OverlaySettings } from './components/settings/OverlaySettings'
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
 import { getAdminUsername } from './config/admin'
 import './App.css'
@@ -46,7 +45,6 @@ function MainApp() {
     if (defaultUsername && !searchLogin) {
       setSearchLogin(defaultUsername)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
@@ -56,7 +54,6 @@ function MainApp() {
         <nav className="main-nav">
           <NavLink to="/" end>ホーム</NavLink>
           <NavLink to="/overlay">オーバーレイ</NavLink>
-          <NavLink to="/settings">設定</NavLink>
         </nav>
         <div className="card">
           <TwitchOAuthSection />
@@ -126,28 +123,9 @@ function App() {
         <Route path="/" element={<MainApp />} />
         <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
         <Route path="/overlay" element={<OverlayPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
-  )
-}
-
-function SettingsPage() {
-  return (
-    <>
-      <div>
-        <h1>OBS Overlay Kill - 設定</h1>
-        <nav className="main-nav">
-          <NavLink to="/" end>ホーム</NavLink>
-          <NavLink to="/overlay">オーバーレイ</NavLink>
-          <NavLink to="/settings">設定</NavLink>
-        </nav>
-        <div className="card">
-          <OverlaySettings />
-        </div>
-      </div>
-    </>
   )
 }
 

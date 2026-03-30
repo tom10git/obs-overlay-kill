@@ -2,15 +2,64 @@
  * オーバーレイ設定UIコンポーネント
  */
 
-import { useState, useEffect, useRef } from 'react'
-import { loadOverlayConfig, loadOverlayConfigFromFile, saveOverlayConfig, getDefaultConfig, validateAndSanitizeConfig } from '../../utils/overlayConfig'
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useImperativeHandle,
+  forwardRef,
+  type SetStateAction,
+} from 'react'
+import { mergePendingFieldInputs } from '../../utils/mergePendingOverlayFieldInputs'
+import {
+  loadOverlayConfig,
+  loadOverlayConfigFromFile,
+  saveOverlayConfig,
+  getDefaultConfig,
+  validateAndSanitizeConfig,
+  DEFAULT_GAUGE_SHAPE,
+} from '../../utils/overlayConfig'
+import { logger } from '../../lib/logger'
 import { isValidUrl } from '../../utils/security'
-import type { OverlayConfig } from '../../types/overlay'
+import type { AttackBleedVariant, AttackDebuffKind, GaugeShapeConfig, OverlayConfig } from '../../types/overlay'
 import './OverlaySettings.css'
 
-export function OverlaySettings() {
-  const [config, setConfig] = useState<OverlayConfig | null>(null)
-  const [loading, setLoading] = useState(true)
+const GAUGE_SHAPE_FIELD_META: {
+  shapeKey: keyof GaugeShapeConfig
+  label: string
+  min: number
+  max: number
+  int: boolean
+}[] = [
+  { shapeKey: 'skewDeg', label: 'スキュー角度（度・平行四辺形）', min: -60, max: 60, int: false },
+  { shapeKey: 'defaultBorderRadiusPx', label: '既定デザイン・角丸（px）', min: 0, max: 200, int: true },
+  { shapeKey: 'defaultBorderWhitePx', label: '既定デザイン・白枠（px）', min: 0, max: 80, int: true },
+  { shapeKey: 'defaultBorderGrayPx', label: '既定デザイン・灰枠の外側（px）', min: 0, max: 160, int: true },
+  { shapeKey: 'parallelogramBorderRadiusPx', label: '平行四辺形・角丸（px）', min: 0, max: 80, int: true },
+  { shapeKey: 'parallelogramBorderWhitePx', label: '平行四辺形・白枠（px）', min: 0, max: 80, int: true },
+  { shapeKey: 'parallelogramBorderGrayPx', label: '平行四辺形・灰枠の外側（px）', min: 0, max: 160, int: true },
+  { shapeKey: 'parallelogramFramePaddingPx', label: '平行四辺形・左右余白（px）', min: 0, max: 200, int: true },
+]
+
+export type OverlaySettingsProps = {
+  /** 親が保持する設定（指定時は内部でJSONを読み込まず親と同期） */
+  config?: OverlayConfig | null
+  onConfigChange?: (next: OverlayConfig) => void
+  /** オーバーレイのテストパネル内表示用 */
+  embedded?: boolean
+}
+
+export type OverlaySettingsHandle = {
+  /** 未blurの数値テキストを config に取り込む（親の「設定を保存」から呼ぶ） */
+  flushPendingFieldInputs: () => OverlayConfig | null
+}
+
+export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettingsProps>(
+  function OverlaySettings({ config: controlledConfig, onConfigChange, embedded = false }, ref) {
+  const isControlled = onConfigChange != null
+  const [internalConfig, setInternalConfig] = useState<OverlayConfig | null>(null)
+  const [loading, setLoading] = useState(() => !isControlled)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -19,35 +68,65 @@ export function OverlaySettings() {
     heal: false,
     retry: false,
     pvp: false,
-    animation: false,
-    display: false,
-    zeroHpImage: false,
-    zeroHpSound: false,
-    zeroHpEffect: false,
+    /** アニメーション・HP表示・ゲージ色・ダメージ色 */
+    visual: false,
+    /** HP0時の画像・効果音・WebM */
+    hpZero: false,
+    /** OBS ブラウザソースの切り取り目安 */
+    obsCapture: false,
     test: false,
-    externalWindow: false,
-    gaugeColors: false,
-    damageColors: false,
   })
-  const [activeTab, setActiveTab] = useState<'streamer' | 'user' | 'autoReply'>('streamer')
+  const [activeTab, setActiveTab] = useState<'streamer' | 'user' | 'autoReply'>(() => {
+    const env = import.meta.env.VITE_OVERLAY_SETTINGS_TAB as string | undefined
+    if (env === 'user' || env === 'autoReply' || env === 'streamer') return env
+    return 'streamer'
+  })
   const [autoReplySubTab, setAutoReplySubTab] = useState<'streamer' | 'viewer'>('streamer')
   const [showAttackRewardId, setShowAttackRewardId] = useState(false)
   const [showHealRewardId, setShowHealRewardId] = useState(false)
   // 入力中の値を文字列として保持（空文字列を許可するため）
   const [inputValues, setInputValues] = useState<Record<string, string>>({})
+  const [loadingFromFile, setLoadingFromFile] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null) // ファイル選択用のinput要素の参照
 
+  const config = isControlled ? controlledConfig ?? null : internalConfig
+
+  const setConfig = useCallback(
+    (update: SetStateAction<OverlayConfig | null>) => {
+      if (isControlled) {
+        const prev = controlledConfig
+        if (prev == null) return
+        const next = typeof update === 'function' ? (update as (p: OverlayConfig | null) => OverlayConfig | null)(prev) : update
+        if (next) onConfigChange!(next)
+      } else {
+        setInternalConfig(update)
+      }
+    },
+    [isControlled, controlledConfig, onConfigChange]
+  )
+
   useEffect(() => {
+    if (!embedded || typeof window === 'undefined') return
+    const t = new URLSearchParams(window.location.search).get('settingsTab')
+    if (t === 'user' || t === 'streamer' || t === 'autoReply') {
+      setActiveTab(t)
+    }
+  }, [embedded])
+
+  useEffect(() => {
+    if (isControlled) {
+      setLoading(false)
+      return
+    }
     const loadConfig = async () => {
       try {
         setLoading(true)
         const loadedConfig = await loadOverlayConfig()
-        setConfig(loadedConfig)
-        // 設定が読み込まれたら、入力値を初期化
+        setInternalConfig(loadedConfig)
         setInputValues({})
       } catch (error) {
-        console.error('❌ 設定の読み込みに失敗しました', error)
-        setConfig(getDefaultConfig())
+        logger.error('❌ 設定の読み込みに失敗しました', error)
+        setInternalConfig(getDefaultConfig())
         setInputValues({})
       } finally {
         setLoading(false)
@@ -55,15 +134,36 @@ export function OverlaySettings() {
     }
 
     loadConfig()
-  }, [])
+  }, [isControlled])
+
+  const flushPendingToState = useCallback((): OverlayConfig | null => {
+    if (!config) return null
+    const merged = mergePendingFieldInputs(config, inputValues)
+    setInputValues({})
+    if (isControlled) {
+      onConfigChange!(merged)
+    } else {
+      setInternalConfig(merged)
+    }
+    return merged
+  }, [config, inputValues, isControlled, onConfigChange])
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flushPendingFieldInputs: flushPendingToState,
+    }),
+    [flushPendingToState]
+  )
 
   const handleSave = async () => {
-    if (!config) return
+    const merged = flushPendingToState()
+    if (!merged) return
 
     try {
       setSaving(true)
       setMessage(null)
-      const success = await saveOverlayConfig(config)
+      const success = await saveOverlayConfig(merged)
       if (success) {
         if (import.meta.env.DEV) {
           const message = '✅ 設定をJSONファイルに保存しました\n\n保存先: public/config/overlay-config.json'
@@ -82,7 +182,7 @@ export function OverlaySettings() {
     } catch (error) {
       const errorMessage = '❌ 設定の保存中にエラーが発生しました'
       setMessage(errorMessage)
-      console.error('❌ 設定の保存に失敗しました', error)
+      logger.error('❌ 設定の保存に失敗しました', error)
       alert(errorMessage)
     } finally {
       setSaving(false)
@@ -96,7 +196,6 @@ export function OverlaySettings() {
     }
   }
 
-  const [loadingFromFile, setLoadingFromFile] = useState(false)
   /** JSONファイルから設定を再読み込み（ローカルストレージを無視） */
   const handleLoadFromFile = async () => {
     try {
@@ -108,7 +207,7 @@ export function OverlaySettings() {
       setMessage('JSONファイルから設定を読み込みました')
       setTimeout(() => setMessage(null), 3000)
     } catch (error) {
-      console.error('JSONファイルの読み込みに失敗しました', error)
+      logger.error('JSONファイルの読み込みに失敗しました', error)
       setMessage('❌ JSONファイルの読み込みに失敗しました')
       setTimeout(() => setMessage(null), 5000)
     } finally {
@@ -128,10 +227,12 @@ export function OverlaySettings() {
   }
 
   return (
-    <div className="overlay-settings">
-      <header className="overlay-settings-header">
-        <h2>OBS Overlay 設定</h2>
-        <p className="overlay-settings-desc">HPゲージ・攻撃・回復・PvP・アニメーションなど、オーバーレイの動作を設定します。</p>
+    <div className={`overlay-settings${embedded ? ' overlay-settings--embedded' : ''}`}>
+      <header className={`overlay-settings-header${embedded ? ' overlay-settings-header--embedded' : ''}`}>
+        <h2>{embedded ? '設定' : 'OBS Overlay 設定'}</h2>
+        {!embedded && (
+          <p className="overlay-settings-desc">HPゲージ・攻撃・回復・PvP・アニメーションなど、オーバーレイの動作を設定します。</p>
+        )}
       </header>
 
       {message && (
@@ -292,6 +393,86 @@ export function OverlaySettings() {
                     />
                   </label>
                 </div>
+                <h4 className="settings-subsection-title">HPゲージの表示位置</h4>
+                <div className="settings-row">
+                  <label>
+                    位置X（px）:
+                    <input
+                      type="text"
+                      value={inputValues['hp.x'] ?? String(config.hp.x)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'hp.x': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || Number.isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, x: 0 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['hp.x']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value, 10)
+                          if (!Number.isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: { ...config.hp, x: Math.min(10000, Math.max(-10000, num)) },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['hp.x']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    位置Y（px）:
+                    <input
+                      type="text"
+                      value={inputValues['hp.y'] ?? String(config.hp.y)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'hp.y': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || Number.isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, y: 0 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['hp.y']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value, 10)
+                          if (!Number.isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: { ...config.hp, y: Math.min(10000, Math.max(-10000, num)) },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['hp.y']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  画面中央を基準としたオフセットです（右・下が正）。オーバーレイ全体の中央に合わせてゲージを置く場合は 0 / 0 です。
+                </p>
               </div>
             )}
           </div>
@@ -525,6 +706,42 @@ export function OverlaySettings() {
                     </label>
                   )}
                 </div>
+                {config.attack.missEnabled && (
+                  <div className="settings-color-grid">
+                    <div className="settings-color-row">
+                      <span className="settings-color-label">MISS（回避）表示の色</span>
+                      <div className="settings-color-inputs">
+                        <input
+                          type="color"
+                          className="settings-color-picker"
+                          value={
+                            /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(config.attack.missTextColor)
+                              ? config.attack.missTextColor
+                              : '#ffffff'
+                          }
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, missTextColor: e.target.value },
+                            })
+                          }
+                        />
+                        <input
+                          type="text"
+                          className="settings-color-hex"
+                          value={config.attack.missTextColor}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, missTextColor: e.target.value },
+                            })
+                          }
+                          placeholder="#ffffff"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {config.attack.missEnabled && (
                   <div className="settings-row">
                     <label>
@@ -870,6 +1087,296 @@ export function OverlaySettings() {
                   )}
                 </div>
                 {config.attack.bleedEnabled && (
+                  <div className="settings-row settings-row--bleed-variants">
+                    <div className="settings-bleed-variants-inner">
+                      <p className="settings-hint">
+                        持続ダメージ（DOT）バリエーション（任意）: 各行で種類（出血／毒／炎）と数値を指定します。1 行以上かつウェイトが正の行だけが抽選されます。未設定または行が空のときは、上の単一設定が使われ、種類は出血になります。行の「数値色」が空のときは、表示設定の出血／毒／炎の既定色が使われます。
+                      </p>
+                      {(config.attack.bleedVariants ?? []).map((row, idx) => (
+                        <div key={idx} className="settings-bleed-variant-row">
+                          <label>
+                            種類:
+                            <select
+                              value={row.debuffKind ?? 'bleed'}
+                              onChange={(e) => {
+                                const kind = e.target.value as AttackDebuffKind
+                                const variants = [...(config.attack.bleedVariants ?? [])]
+                                variants[idx] = { ...variants[idx], debuffKind: kind }
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, bleedVariants: variants },
+                                })
+                              }}
+                            >
+                              <option value="bleed">出血</option>
+                              <option value="poison">毒</option>
+                              <option value="burn">炎</option>
+                            </select>
+                          </label>
+                          <label>
+                            ウェイト:
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={
+                                inputValues[`attack.bleedVariants.${idx}.weight`] ?? String(row.weight)
+                              }
+                              onChange={(e) =>
+                                setInputValues((prev) => ({
+                                  ...prev,
+                                  [`attack.bleedVariants.${idx}.weight`]: e.target.value,
+                                }))
+                              }
+                              onBlur={(e) => {
+                                const value = e.target.value.trim()
+                                const variants = [...(config.attack.bleedVariants ?? [])]
+                                if (value === '' || isNaN(parseFloat(value))) {
+                                  variants[idx] = { ...variants[idx], weight: 1 }
+                                  setConfig({
+                                    ...config,
+                                    attack: { ...config.attack, bleedVariants: variants },
+                                  })
+                                } else {
+                                  const num = parseFloat(value)
+                                  if (!isNaN(num)) {
+                                    variants[idx] = { ...variants[idx], weight: Math.max(0, num) }
+                                    setConfig({
+                                      ...config,
+                                      attack: { ...config.attack, bleedVariants: variants },
+                                    })
+                                  }
+                                }
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next[`attack.bleedVariants.${idx}.weight`]
+                                  return next
+                                })
+                              }}
+                            />
+                          </label>
+                          <label>
+                            ティック:
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={
+                                inputValues[`attack.bleedVariants.${idx}.damage`] ?? String(row.damage)
+                              }
+                              onChange={(e) =>
+                                setInputValues((prev) => ({
+                                  ...prev,
+                                  [`attack.bleedVariants.${idx}.damage`]: e.target.value,
+                                }))
+                              }
+                              onBlur={(e) => {
+                                const value = e.target.value.trim()
+                                const variants = [...(config.attack.bleedVariants ?? [])]
+                                if (value === '' || isNaN(parseInt(value, 10))) {
+                                  variants[idx] = { ...variants[idx], damage: 1 }
+                                  setConfig({
+                                    ...config,
+                                    attack: { ...config.attack, bleedVariants: variants },
+                                  })
+                                } else {
+                                  const num = parseInt(value, 10)
+                                  if (!isNaN(num)) {
+                                    variants[idx] = { ...variants[idx], damage: Math.max(1, num) }
+                                    setConfig({
+                                      ...config,
+                                      attack: { ...config.attack, bleedVariants: variants },
+                                    })
+                                  }
+                                }
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next[`attack.bleedVariants.${idx}.damage`]
+                                  return next
+                                })
+                              }}
+                            />
+                          </label>
+                          <label>
+                            持続(秒):
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={
+                                inputValues[`attack.bleedVariants.${idx}.duration`] ??
+                                String(row.duration)
+                              }
+                              onChange={(e) =>
+                                setInputValues((prev) => ({
+                                  ...prev,
+                                  [`attack.bleedVariants.${idx}.duration`]: e.target.value,
+                                }))
+                              }
+                              onBlur={(e) => {
+                                const value = e.target.value.trim()
+                                const variants = [...(config.attack.bleedVariants ?? [])]
+                                if (value === '' || isNaN(parseFloat(value))) {
+                                  variants[idx] = { ...variants[idx], duration: 10 }
+                                  setConfig({
+                                    ...config,
+                                    attack: { ...config.attack, bleedVariants: variants },
+                                  })
+                                } else {
+                                  const num = parseFloat(value)
+                                  if (!isNaN(num)) {
+                                    variants[idx] = { ...variants[idx], duration: Math.max(1, num) }
+                                    setConfig({
+                                      ...config,
+                                      attack: { ...config.attack, bleedVariants: variants },
+                                    })
+                                  }
+                                }
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next[`attack.bleedVariants.${idx}.duration`]
+                                  return next
+                                })
+                              }}
+                            />
+                          </label>
+                          <label>
+                            間隔:
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={
+                                inputValues[`attack.bleedVariants.${idx}.interval`] ??
+                                String(row.interval)
+                              }
+                              onChange={(e) =>
+                                setInputValues((prev) => ({
+                                  ...prev,
+                                  [`attack.bleedVariants.${idx}.interval`]: e.target.value,
+                                }))
+                              }
+                              onBlur={(e) => {
+                                const value = e.target.value.trim()
+                                const variants = [...(config.attack.bleedVariants ?? [])]
+                                if (value === '' || isNaN(parseFloat(value))) {
+                                  variants[idx] = { ...variants[idx], interval: 1 }
+                                  setConfig({
+                                    ...config,
+                                    attack: { ...config.attack, bleedVariants: variants },
+                                  })
+                                } else {
+                                  const num = parseFloat(value)
+                                  if (!isNaN(num)) {
+                                    variants[idx] = { ...variants[idx], interval: Math.max(0.1, num) }
+                                    setConfig({
+                                      ...config,
+                                      attack: { ...config.attack, bleedVariants: variants },
+                                    })
+                                  }
+                                }
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next[`attack.bleedVariants.${idx}.interval`]
+                                  return next
+                                })
+                              }}
+                            />
+                          </label>
+                          <label>
+                            数値色:
+                            <input
+                              type="text"
+                              placeholder="種別の既定色を使用"
+                              value={
+                                inputValues[`attack.bleedVariants.${idx}.damageColor`] ??
+                                row.damageColor ??
+                                ''
+                              }
+                              onChange={(e) =>
+                                setInputValues((prev) => ({
+                                  ...prev,
+                                  [`attack.bleedVariants.${idx}.damageColor`]: e.target.value,
+                                }))
+                              }
+                              onBlur={(e) => {
+                                const raw = e.target.value.trim()
+                                const variants = [...(config.attack.bleedVariants ?? [])]
+                                const nextVal: AttackBleedVariant = { ...variants[idx] }
+                                if (raw === '') {
+                                  delete nextVal.damageColor
+                                } else {
+                                  nextVal.damageColor = raw
+                                }
+                                variants[idx] = nextVal
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, bleedVariants: variants },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next[`attack.bleedVariants.${idx}.damageColor`]
+                                  return next
+                                })
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="settings-action-secondary"
+                            onClick={() => {
+                              const prevList = config.attack.bleedVariants ?? []
+                              const nextList = prevList.filter((_, j) => j !== idx)
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                for (const k of Object.keys(next)) {
+                                  if (k.startsWith('attack.bleedVariants.')) delete next[k]
+                                }
+                                return next
+                              })
+                              setConfig({
+                                ...config,
+                                attack: {
+                                  ...config.attack,
+                                  bleedVariants: nextList.length > 0 ? nextList : undefined,
+                                },
+                              })
+                            }}
+                          >
+                            削除
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        className="settings-action-secondary"
+                        onClick={() => {
+                          const a = config.attack
+                          const row: AttackBleedVariant = {
+                            weight: 1,
+                            damage: a.bleedDamage,
+                            duration: a.bleedDuration,
+                            interval: a.bleedInterval,
+                            debuffKind: 'bleed',
+                          }
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            for (const k of Object.keys(next)) {
+                              if (k.startsWith('attack.bleedVariants.')) delete next[k]
+                            }
+                            return next
+                          })
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...a,
+                              bleedVariants: [...(a.bleedVariants ?? []), row],
+                            },
+                          })
+                        }}
+                      >
+                        バリエーション行を追加
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {config.attack.bleedEnabled && (
                   <div className="settings-row">
                     <label>
                       <input
@@ -953,6 +1460,171 @@ export function OverlaySettings() {
                     <code>https://...</code>
                   </p>
                 )}
+                {config.attack.bleedEnabled && (
+                  <>
+                    <p className="settings-hint">
+                      毒DOT・炎DOTのティック効果音（任意）: バリエーションで毒・炎が選ばれたときのみ鳴ります。ONかつURLがある場合のみ再生され、出血用の効果音とは別に指定してください。
+                    </p>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.attack.dotPoisonSoundEnabled}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, dotPoisonSoundEnabled: e.target.checked },
+                            })
+                          }
+                        />
+                        毒DOTの効果音を有効にする
+                      </label>
+                    </div>
+                    {config.attack.dotPoisonSoundEnabled && (
+                      <div className="settings-row">
+                        <label>
+                          毒DOT 効果音URL:
+                          <input
+                            type="text"
+                            value={config.attack.dotPoisonSoundUrl}
+                            onChange={(e) => {
+                              const url = e.target.value
+                              if (isValidUrl(url)) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, dotPoisonSoundUrl: url },
+                                })
+                              } else {
+                                setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                                setTimeout(() => setMessage(null), 3000)
+                              }
+                            }}
+                            placeholder="空欄の場合は鳴りません"
+                          />
+                        </label>
+                        <label>
+                          音量:
+                          <input
+                            type="text"
+                            value={inputValues['attack.dotPoisonSoundVolume'] ?? String(config.attack.dotPoisonSoundVolume)}
+                            onChange={(e) =>
+                              setInputValues((prev) => ({ ...prev, 'attack.dotPoisonSoundVolume': e.target.value }))
+                            }
+                            onBlur={(e) => {
+                              const value = e.target.value.trim()
+                              if (value === '' || isNaN(parseFloat(value))) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, dotPoisonSoundVolume: 0.7 },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.dotPoisonSoundVolume']
+                                  return next
+                                })
+                              } else {
+                                const num = parseFloat(value)
+                                if (!isNaN(num)) {
+                                  setConfig({
+                                    ...config,
+                                    attack: {
+                                      ...config.attack,
+                                      dotPoisonSoundVolume: Math.min(1, Math.max(0, num)),
+                                    },
+                                  })
+                                  setInputValues((prev) => {
+                                    const next = { ...prev }
+                                    delete next['attack.dotPoisonSoundVolume']
+                                    return next
+                                  })
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.attack.dotBurnSoundEnabled}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, dotBurnSoundEnabled: e.target.checked },
+                            })
+                          }
+                        />
+                        炎DOTの効果音を有効にする
+                      </label>
+                    </div>
+                    {config.attack.dotBurnSoundEnabled && (
+                      <div className="settings-row">
+                        <label>
+                          炎DOT 効果音URL:
+                          <input
+                            type="text"
+                            value={config.attack.dotBurnSoundUrl}
+                            onChange={(e) => {
+                              const url = e.target.value
+                              if (isValidUrl(url)) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, dotBurnSoundUrl: url },
+                                })
+                              } else {
+                                setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                                setTimeout(() => setMessage(null), 3000)
+                              }
+                            }}
+                            placeholder="空欄の場合は鳴りません"
+                          />
+                        </label>
+                        <label>
+                          音量:
+                          <input
+                            type="text"
+                            value={inputValues['attack.dotBurnSoundVolume'] ?? String(config.attack.dotBurnSoundVolume)}
+                            onChange={(e) =>
+                              setInputValues((prev) => ({ ...prev, 'attack.dotBurnSoundVolume': e.target.value }))
+                            }
+                            onBlur={(e) => {
+                              const value = e.target.value.trim()
+                              if (value === '' || isNaN(parseFloat(value))) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, dotBurnSoundVolume: 0.7 },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.dotBurnSoundVolume']
+                                  return next
+                                })
+                              } else {
+                                const num = parseFloat(value)
+                                if (!isNaN(num)) {
+                                  setConfig({
+                                    ...config,
+                                    attack: {
+                                      ...config.attack,
+                                      dotBurnSoundVolume: Math.min(1, Math.max(0, num)),
+                                    },
+                                  })
+                                  setInputValues((prev) => {
+                                    const next = { ...prev }
+                                    delete next['attack.dotBurnSoundVolume']
+                                    return next
+                                  })
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div className="settings-row">
                   <label>
                     <input
@@ -1034,6 +1706,177 @@ export function OverlaySettings() {
                     例: <code>src/sounds/attack.mp3</code>（public/sounds に配置）または{' '}
                     <code>https://...</code>
                   </p>
+                )}
+                {config.attack.bleedEnabled && (
+                  <>
+                    <p className="settings-hint">
+                      毒/炎DOTが付与された攻撃のときだけ、攻撃効果音を一時的に置き換えできます（未設定なら通常の攻撃効果音のまま）。
+                    </p>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.attack.dotPoisonAttackSoundEnabled}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, dotPoisonAttackSoundEnabled: e.target.checked },
+                            })
+                          }
+                        />
+                        毒攻撃SE（置き換え）を有効にする
+                      </label>
+                    </div>
+                    {config.attack.dotPoisonAttackSoundEnabled && (
+                      <div className="settings-row">
+                        <label>
+                          毒攻撃SE URL:
+                          <input
+                            type="text"
+                            value={config.attack.dotPoisonAttackSoundUrl}
+                            onChange={(e) => {
+                              const url = e.target.value
+                              if (isValidUrl(url)) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, dotPoisonAttackSoundUrl: url },
+                                })
+                              } else {
+                                setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                                setTimeout(() => setMessage(null), 3000)
+                              }
+                            }}
+                            placeholder="空欄の場合は置き換えなし"
+                          />
+                        </label>
+                        <label>
+                          音量:
+                          <input
+                            type="text"
+                            value={inputValues['attack.dotPoisonAttackSoundVolume'] ?? String(config.attack.dotPoisonAttackSoundVolume)}
+                            onChange={(e) =>
+                              setInputValues((prev) => ({
+                                ...prev,
+                                'attack.dotPoisonAttackSoundVolume': e.target.value,
+                              }))
+                            }
+                            onBlur={(e) => {
+                              const value = e.target.value.trim()
+                              if (value === '' || isNaN(parseFloat(value))) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, dotPoisonAttackSoundVolume: 0.7 },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.dotPoisonAttackSoundVolume']
+                                  return next
+                                })
+                              } else {
+                                const num = parseFloat(value)
+                                if (!isNaN(num)) {
+                                  setConfig({
+                                    ...config,
+                                    attack: {
+                                      ...config.attack,
+                                      dotPoisonAttackSoundVolume: Math.min(1, Math.max(0, num)),
+                                    },
+                                  })
+                                  setInputValues((prev) => {
+                                    const next = { ...prev }
+                                    delete next['attack.dotPoisonAttackSoundVolume']
+                                    return next
+                                  })
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.attack.dotBurnAttackSoundEnabled}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              attack: { ...config.attack, dotBurnAttackSoundEnabled: e.target.checked },
+                            })
+                          }
+                        />
+                        炎攻撃SE（置き換え）を有効にする
+                      </label>
+                    </div>
+                    {config.attack.dotBurnAttackSoundEnabled && (
+                      <div className="settings-row">
+                        <label>
+                          炎攻撃SE URL:
+                          <input
+                            type="text"
+                            value={config.attack.dotBurnAttackSoundUrl}
+                            onChange={(e) => {
+                              const url = e.target.value
+                              if (isValidUrl(url)) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, dotBurnAttackSoundUrl: url },
+                                })
+                              } else {
+                                setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                                setTimeout(() => setMessage(null), 3000)
+                              }
+                            }}
+                            placeholder="空欄の場合は置き換えなし"
+                          />
+                        </label>
+                        <label>
+                          音量:
+                          <input
+                            type="text"
+                            value={inputValues['attack.dotBurnAttackSoundVolume'] ?? String(config.attack.dotBurnAttackSoundVolume)}
+                            onChange={(e) =>
+                              setInputValues((prev) => ({
+                                ...prev,
+                                'attack.dotBurnAttackSoundVolume': e.target.value,
+                              }))
+                            }
+                            onBlur={(e) => {
+                              const value = e.target.value.trim()
+                              if (value === '' || isNaN(parseFloat(value))) {
+                                setConfig({
+                                  ...config,
+                                  attack: { ...config.attack, dotBurnAttackSoundVolume: 0.7 },
+                                })
+                                setInputValues((prev) => {
+                                  const next = { ...prev }
+                                  delete next['attack.dotBurnAttackSoundVolume']
+                                  return next
+                                })
+                              } else {
+                                const num = parseFloat(value)
+                                if (!isNaN(num)) {
+                                  setConfig({
+                                    ...config,
+                                    attack: {
+                                      ...config.attack,
+                                      dotBurnAttackSoundVolume: Math.min(1, Math.max(0, num)),
+                                    },
+                                  })
+                                  setInputValues((prev) => {
+                                    const next = { ...prev }
+                                    delete next['attack.dotBurnAttackSoundVolume']
+                                    return next
+                                  })
+                                }
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="settings-row">
                   <label>
@@ -1757,6 +2600,1047 @@ export function OverlaySettings() {
               </div>
             )}
           </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('visual')}>
+              <span className="accordion-icon">{expandedSections.visual ? '▼' : '▶'}</span>
+              表示・アニメーション・色
+            </h3>
+            {expandedSections.visual && (
+              <div className="settings-section-content">
+                <h4 className="settings-subsection-title">アニメーション</h4>
+                <div className="settings-row">
+                  <label>
+                    アニメーション時間 (ms):
+                    <input
+                      type="text"
+                      value={inputValues['animation.duration'] ?? String(config.animation.duration)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'animation.duration': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            animation: { ...config.animation, duration: 500 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['animation.duration']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              animation: { ...config.animation, duration: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['animation.duration']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    イージング:
+                    <select
+                      value={config.animation.easing}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          animation: {
+                            ...config.animation,
+                            easing: e.target.value,
+                          },
+                        })
+                      }
+                    >
+                      <option value="linear">linear</option>
+                      <option value="ease-in">ease-in</option>
+                      <option value="ease-out">ease-out</option>
+                      <option value="ease-in-out">ease-in-out</option>
+                      <option value="cubic-bezier">cubic-bezier</option>
+                    </select>
+                  </label>
+                </div>
+                <h4 className="settings-subsection-title">HP表示</h4>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.display.showMaxHp}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          display: {
+                            ...config.display,
+                            showMaxHp: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    最大HPを表示
+                  </label>
+                  <label>
+                    フォントサイズ:
+                    <input
+                      type="text"
+                      value={inputValues['display.fontSize'] ?? String(config.display.fontSize)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'display.fontSize': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            display: { ...config.display, fontSize: 24 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['display.fontSize']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              display: { ...config.display, fontSize: num },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['display.fontSize']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    ゲージの形（デザインパターン）:
+                    <select
+                      value={config.display.gaugeDesign ?? 'default'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          display: {
+                            ...config.display,
+                            gaugeDesign: e.target.value as 'default' | 'parallelogram',
+                          },
+                        })
+                      }
+                    >
+                      <option value="default">既定（角丸・二重枠）</option>
+                      <option value="parallelogram">平行四辺形（スラント）</option>
+                    </select>
+                  </label>
+                </div>
+                <h4 className="settings-subsection-title">ゲージ枠の微調整</h4>
+                <p className="settings-hint">
+                  数値はテキストで入力できます。空のままフォーカスを外すと項目ごとの初期値に戻ります。
+                </p>
+                <div className="settings-row">
+                  {GAUGE_SHAPE_FIELD_META.map(({ shapeKey, label, min, max, int }) => {
+                    const inputKey = `display.gaugeShape.${shapeKey}`
+                    const fallback = DEFAULT_GAUGE_SHAPE[shapeKey]
+                    return (
+                      <label key={shapeKey}>
+                        {label}:
+                        <input
+                          type="text"
+                          value={
+                            inputValues[inputKey] ?? String(config.display.gaugeShape[shapeKey])
+                          }
+                          onChange={(e) =>
+                            setInputValues((prev) => ({ ...prev, [inputKey]: e.target.value }))
+                          }
+                          onBlur={(e) => {
+                            const raw = e.target.value.trim()
+                            if (raw === '') {
+                              setConfig({
+                                ...config,
+                                display: {
+                                  ...config.display,
+                                  gaugeShape: {
+                                    ...config.display.gaugeShape,
+                                    [shapeKey]: fallback,
+                                  },
+                                },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next[inputKey]
+                                return next
+                              })
+                              return
+                            }
+                            const num = int ? Math.round(parseFloat(raw)) : parseFloat(raw)
+                            if (!Number.isFinite(num)) {
+                              setConfig({
+                                ...config,
+                                display: {
+                                  ...config.display,
+                                  gaugeShape: {
+                                    ...config.display.gaugeShape,
+                                    [shapeKey]: fallback,
+                                  },
+                                },
+                              })
+                              setInputValues((prev) => {
+                                const next = { ...prev }
+                                delete next[inputKey]
+                                return next
+                              })
+                              return
+                            }
+                            const clamped = int
+                              ? Math.min(max, Math.max(min, num))
+                              : Math.min(max, Math.max(min, Math.round(num * 1000) / 1000))
+                            setConfig({
+                              ...config,
+                              display: {
+                                ...config.display,
+                                gaugeShape: {
+                                  ...config.display.gaugeShape,
+                                  [shapeKey]: clamped,
+                                },
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next[inputKey]
+                              return next
+                            })
+                          }}
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+                <h4 className="settings-subsection-title">ゲージの色</h4>
+                <div className="settings-color-grid">
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">最後の1ゲージ（HPが最後に残る分）</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.gaugeColors.lastGauge}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.lastGauge}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
+                          })
+                        }
+                        placeholder="#FF0000"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">2ゲージ目</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.gaugeColors.secondGauge}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.secondGauge}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
+                          })
+                        }
+                        placeholder="#FFA500"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">3ゲージ目以降（パターン1）</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.gaugeColors.patternColor1}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.patternColor1}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
+                          })
+                        }
+                        placeholder="#8000FF"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">3ゲージ目以降（パターン2）</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.gaugeColors.patternColor2}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.patternColor2}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
+                          })
+                        }
+                        placeholder="#4aa3ff"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <h4 className="settings-subsection-title">枠・外形の色</h4>
+                <div className="settings-hint">
+                  <p>ゲージのベース背景と二重枠（内側／外側リング）です。既定デザイン・平行四辺形のどちらにも適用されます。</p>
+                </div>
+                <div className="settings-color-grid">
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">枠内の背景</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={
+                          /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(config.gaugeColors.frameBackground)
+                            ? config.gaugeColors.frameBackground
+                            : '#000000'
+                        }
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, frameBackground: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.frameBackground}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, frameBackground: e.target.value },
+                          })
+                        }
+                        placeholder="#000000"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">内側の枠（リング）</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={
+                          /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(config.gaugeColors.frameBorderInner)
+                            ? config.gaugeColors.frameBorderInner
+                            : '#ffffff'
+                        }
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, frameBorderInner: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.frameBorderInner}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, frameBorderInner: e.target.value },
+                          })
+                        }
+                        placeholder="#ffffff"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">外側の枠（リング）</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={
+                          /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(config.gaugeColors.frameBorderOuter)
+                            ? config.gaugeColors.frameBorderOuter
+                            : '#808080'
+                        }
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, frameBorderOuter: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.gaugeColors.frameBorderOuter}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            gaugeColors: { ...config.gaugeColors, frameBorderOuter: e.target.value },
+                          })
+                        }
+                        placeholder="#808080"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="settings-hint">
+                  <p>
+                    <strong>注意:</strong> 3ゲージ目以降は、設定した2色を交互に使用します。ゲージ数が10を超えても、この2色が繰り返し適用されます。
+                  </p>
+                </div>
+                <h4 className="settings-subsection-title">ダメージ数値の色</h4>
+                <div className="settings-color-grid">
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">通常ダメージ</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.damageColors.normal}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, normal: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.damageColors.normal}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, normal: e.target.value },
+                          })
+                        }
+                        placeholder="#cc0000"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">クリティカル</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.damageColors.critical}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, critical: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.damageColors.critical}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, critical: e.target.value },
+                          })
+                        }
+                        placeholder="#cc8800"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">出血DOT</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.damageColors.bleed}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, bleed: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.damageColors.bleed}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, bleed: e.target.value },
+                          })
+                        }
+                        placeholder="#ff6666"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">毒DOT</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.damageColors.dotPoison}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, dotPoison: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.damageColors.dotPoison}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, dotPoison: e.target.value },
+                          })
+                        }
+                        placeholder="#66dd88"
+                      />
+                    </div>
+                  </div>
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">炎DOT</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.damageColors.dotBurn}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, dotBurn: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.damageColors.dotBurn}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            damageColors: { ...config.damageColors, dotBurn: e.target.value },
+                          })
+                        }
+                        placeholder="#ff9944"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <h4 className="settings-subsection-title">回復数値の色</h4>
+                <div className="settings-color-grid">
+                  <div className="settings-color-row">
+                    <span className="settings-color-label">回復（+数値）</span>
+                    <div className="settings-color-inputs">
+                      <input
+                        type="color"
+                        className="settings-color-picker"
+                        value={config.healColors.normal}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            healColors: { ...config.healColors, normal: e.target.value },
+                          })
+                        }
+                      />
+                      <input
+                        type="text"
+                        className="settings-color-hex"
+                        value={config.healColors.normal}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            healColors: { ...config.healColors, normal: e.target.value },
+                          })
+                        }
+                        placeholder="#00ff88"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('hpZero')}>
+              <span className="accordion-icon">{expandedSections.hpZero ? '▼' : '▶'}</span>
+              HPが0のときの演出
+            </h3>
+            {expandedSections.hpZero && (
+              <div className="settings-section-content">
+                <h4 className="settings-subsection-title">画像</h4>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.zeroHpImage.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          zeroHpImage: { ...config.zeroHpImage, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    HPが0になったら画像を表示
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    画像URL:
+                    <input
+                      type="text"
+                      value={config.zeroHpImage.imageUrl}
+                      onChange={(e) => {
+                        const url = e.target.value
+                        if (isValidUrl(url)) {
+                          setConfig({
+                            ...config,
+                            zeroHpImage: { ...config.zeroHpImage, imageUrl: url },
+                          })
+                        } else {
+                          setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                          setTimeout(() => setMessage(null), 3000)
+                        }
+                      }}
+                      placeholder="画像のURLを入力"
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    スケール倍率:
+                    <input
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      value={config.zeroHpImage.scale}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          zeroHpImage: {
+                            ...config.zeroHpImage,
+                            scale: Number(e.target.value) || 1,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    背景色 (CSSカラー):
+                    <input
+                      type="text"
+                      value={config.zeroHpImage.backgroundColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          zeroHpImage: {
+                            ...config.zeroHpImage,
+                            backgroundColor: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="例: transparent, #000000, rgba(0,0,0,0.7)"
+                    />
+                  </label>
+                  <label>
+                    オフセットX (px):
+                    <input
+                      type="number"
+                      value={config.zeroHpImage.offsetX}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          zeroHpImage: {
+                            ...config.zeroHpImage,
+                            offsetX: Number(e.target.value) || 0,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    オフセットY (px):
+                    <input
+                      type="number"
+                      value={config.zeroHpImage.offsetY}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          zeroHpImage: {
+                            ...config.zeroHpImage,
+                            offsetY: Number(e.target.value) || 0,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  例: <code>src/images/custom.png</code>（public/images に配置）または{' '}
+                  <code>https://...</code>
+                </p>
+                <h4 className="settings-subsection-title">効果音</h4>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.zeroHpSound.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          zeroHpSound: { ...config.zeroHpSound, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    HPが0になったら効果音を再生
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    効果音URL:
+                    <input
+                      type="text"
+                      value={config.zeroHpSound.soundUrl}
+                      onChange={(e) => {
+                        const url = e.target.value
+                        if (isValidUrl(url)) {
+                          setConfig({
+                            ...config,
+                            zeroHpSound: { ...config.zeroHpSound, soundUrl: url },
+                          })
+                        } else {
+                          setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                          setTimeout(() => setMessage(null), 3000)
+                        }
+                      }}
+                      placeholder="効果音のURLを入力"
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    音量:
+                    <input
+                      type="text"
+                      value={inputValues['zeroHpSound.volume'] ?? String(config.zeroHpSound.volume)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'zeroHpSound.volume': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseFloat(value))) {
+                          setConfig({
+                            ...config,
+                            zeroHpSound: { ...config.zeroHpSound, volume: 0.7 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['zeroHpSound.volume']
+                            return next
+                          })
+                        } else {
+                          const num = parseFloat(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              zeroHpSound: {
+                                ...config.zeroHpSound,
+                                volume: Math.min(1, Math.max(0, num)),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['zeroHpSound.volume']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  例: <code>src/sounds/custom.mp3</code>（public/sounds に配置）または{' '}
+                  <code>https://...</code>
+                </p>
+                <h4 className="settings-subsection-title">動画（WebM）</h4>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.zeroHpEffect.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          zeroHpEffect: { ...config.zeroHpEffect, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    HPが0になったら動画エフェクトを表示
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    動画 URL（透過WebM推奨）:
+                    <input
+                      type="text"
+                      value={config.zeroHpEffect.videoUrl}
+                      onChange={(e) => {
+                        const url = e.target.value
+                        if (isValidUrl(url)) {
+                          setConfig({
+                            ...config,
+                            zeroHpEffect: { ...config.zeroHpEffect, videoUrl: url },
+                          })
+                        } else {
+                          setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
+                          setTimeout(() => setMessage(null), 3000)
+                        }
+                      }}
+                      placeholder="動画のURLを入力"
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    表示時間（ミリ秒）:
+                    <input
+                      type="text"
+                      value={inputValues['zeroHpEffect.duration'] ?? String(config.zeroHpEffect.duration)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'zeroHpEffect.duration': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || isNaN(parseInt(value))) {
+                          setConfig({
+                            ...config,
+                            zeroHpEffect: { ...config.zeroHpEffect, duration: 2000 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['zeroHpEffect.duration']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value)
+                          if (!isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              zeroHpEffect: {
+                                ...config.zeroHpEffect,
+                                duration: Math.max(100, num),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['zeroHpEffect.duration']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  例: <code>src/images/bakuhatsu.gif</code>（public/images に配置）または{' '}
+                  <code>https://...</code>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('obsCapture')}>
+              <span className="accordion-icon">{expandedSections.obsCapture ? '▼' : '▶'}</span>
+              OBS キャプチャの目安表示
+            </h3>
+            {expandedSections.obsCapture && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.obsCaptureGuide.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          obsCaptureGuide: { ...config.obsCaptureGuide, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    切り取り範囲のガイドを表示する
+                  </label>
+                </div>
+                <div className="settings-hint">
+                  <p>
+                    ブラウザソースで OBS に取り込むときの切り取り（クロップ）の目安です。角のマーカーと枠で表示領域の境界が分かります。配信本番では必ず OFF にしてください。
+                  </p>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    画面端からの余白（px）:
+                    <input
+                      type="text"
+                      value={inputValues['obsCaptureGuide.insetPx'] ?? String(config.obsCaptureGuide.insetPx)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({ ...prev, 'obsCaptureGuide.insetPx': e.target.value }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === '' || Number.isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            obsCaptureGuide: { ...config.obsCaptureGuide, insetPx: 16 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next['obsCaptureGuide.insetPx']
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value, 10)
+                          if (!Number.isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              obsCaptureGuide: {
+                                ...config.obsCaptureGuide,
+                                insetPx: Math.min(400, Math.max(0, num)),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next['obsCaptureGuide.insetPx']
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">0〜400。角ガイドが画面端で欠けないようにするためのオフセットです。</p>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3 className="settings-section-header" onClick={() => toggleSection('test')}>
+              <span className="accordion-icon">{expandedSections.test ? '▼' : '▶'}</span>
+              テストモード設定
+            </h3>
+            {expandedSections.test && (
+              <div className="settings-section-content">
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.test.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          test: { ...config.test, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    テストモードを有効にする
+                  </label>
+                  {config.test.enabled && (
+                    <label>長押しで連打できます（ショートカットは廃止）</label>
+                  )}
+                </div>
+                {config.test.enabled && (
+                  <div className="settings-hint">
+                    <p>
+                      <strong>テストモードについて:</strong>
+                    </p>
+                    <ul>
+                      <li>
+                        テストモードでは、実際のTwitchチャンネルポイントAPIを使用せずに動作を確認できます
+                      </li>
+                      <li>
+                        アフィリエイト未参加の配信者でも、このモードでテストできます
+                      </li>
+                      <li>
+                        ボタンは長押しで連打できます
+                      </li>
+                      <li>
+                        開発環境では、画面右下にテストボタンが表示されます
+                      </li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
         </div>
       )}
 
@@ -2885,691 +4769,6 @@ export function OverlaySettings() {
         </div>
       )}
 
-      {activeTab === 'streamer' && (
-        <div className="settings-tab-panel">
-          <div className="settings-section">
-            <h3 className="settings-section-header" onClick={() => toggleSection('animation')}>
-              <span className="accordion-icon">{expandedSections.animation ? '▼' : '▶'}</span>
-              HPゲージ アニメーション設定
-            </h3>
-            {expandedSections.animation && (
-              <div className="settings-section-content">
-                <div className="settings-row">
-                  <label>
-                    アニメーション時間 (ms):
-                    <input
-                      type="text"
-                      value={inputValues['animation.duration'] ?? String(config.animation.duration)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'animation.duration': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseInt(value))) {
-                          setConfig({
-                            ...config,
-                            animation: { ...config.animation, duration: 500 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['animation.duration']
-                            return next
-                          })
-                        } else {
-                          const num = parseInt(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              animation: { ...config.animation, duration: num },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['animation.duration']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                  <label>
-                    イージング:
-                    <select
-                      value={config.animation.easing}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          animation: {
-                            ...config.animation,
-                            easing: e.target.value,
-                          },
-                        })
-                      }
-                    >
-                      <option value="linear">linear</option>
-                      <option value="ease-in">ease-in</option>
-                      <option value="ease-out">ease-out</option>
-                      <option value="ease-in-out">ease-in-out</option>
-                      <option value="cubic-bezier">cubic-bezier</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="settings-section">
-            <h3 className="settings-section-header" onClick={() => toggleSection('display')}>
-              <span className="accordion-icon">{expandedSections.display ? '▼' : '▶'}</span>
-              HP表示設定
-            </h3>
-            {expandedSections.display && (
-              <div className="settings-section-content">
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.display.showMaxHp}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          display: {
-                            ...config.display,
-                            showMaxHp: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    最大HPを表示
-                  </label>
-                  <label>
-                    フォントサイズ:
-                    <input
-                      type="text"
-                      value={inputValues['display.fontSize'] ?? String(config.display.fontSize)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'display.fontSize': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseInt(value))) {
-                          setConfig({
-                            ...config,
-                            display: { ...config.display, fontSize: 24 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['display.fontSize']
-                            return next
-                          })
-                        } else {
-                          const num = parseInt(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              display: { ...config.display, fontSize: num },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['display.fontSize']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="settings-section">
-            <h3 className="settings-section-header" onClick={() => toggleSection('zeroHpImage')}>
-              <span className="accordion-icon">{expandedSections.zeroHpImage ? '▼' : '▶'}</span>
-              HP0画像設定
-            </h3>
-            {expandedSections.zeroHpImage && (
-              <div className="settings-section-content">
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.zeroHpImage.enabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          zeroHpImage: { ...config.zeroHpImage, enabled: e.target.checked },
-                        })
-                      }
-                    />
-                    HPが0になったら画像を表示
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    画像URL:
-                    <input
-                      type="text"
-                      value={config.zeroHpImage.imageUrl}
-                      onChange={(e) => {
-                        const url = e.target.value
-                        if (isValidUrl(url)) {
-                          setConfig({
-                            ...config,
-                            zeroHpImage: { ...config.zeroHpImage, imageUrl: url },
-                          })
-                        } else {
-                          setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                          setTimeout(() => setMessage(null), 3000)
-                        }
-                      }}
-                      placeholder="画像のURLを入力"
-                    />
-                  </label>
-                </div>
-                <p className="settings-hint">
-                  例: <code>src/images/custom.png</code>（public/images に配置）または{' '}
-                  <code>https://...</code>
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="settings-section">
-            <h3 className="settings-section-header" onClick={() => toggleSection('zeroHpSound')}>
-              <span className="accordion-icon">{expandedSections.zeroHpSound ? '▼' : '▶'}</span>
-              HP0効果音設定
-            </h3>
-            {expandedSections.zeroHpSound && (
-              <div className="settings-section-content">
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.zeroHpSound.enabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          zeroHpSound: { ...config.zeroHpSound, enabled: e.target.checked },
-                        })
-                      }
-                    />
-                    HPが0になったら効果音を再生
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    効果音URL:
-                    <input
-                      type="text"
-                      value={config.zeroHpSound.soundUrl}
-                      onChange={(e) => {
-                        const url = e.target.value
-                        if (isValidUrl(url)) {
-                          setConfig({
-                            ...config,
-                            zeroHpSound: { ...config.zeroHpSound, soundUrl: url },
-                          })
-                        } else {
-                          setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                          setTimeout(() => setMessage(null), 3000)
-                        }
-                      }}
-                      placeholder="効果音のURLを入力"
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    音量:
-                    <input
-                      type="text"
-                      value={inputValues['zeroHpSound.volume'] ?? String(config.zeroHpSound.volume)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'zeroHpSound.volume': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseFloat(value))) {
-                          setConfig({
-                            ...config,
-                            zeroHpSound: { ...config.zeroHpSound, volume: 0.7 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['zeroHpSound.volume']
-                            return next
-                          })
-                        } else {
-                          const num = parseFloat(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              zeroHpSound: {
-                                ...config.zeroHpSound,
-                                volume: Math.min(1, Math.max(0, num)),
-                              },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['zeroHpSound.volume']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                <p className="settings-hint">
-                  例: <code>src/sounds/custom.mp3</code>（public/sounds に配置）または{' '}
-                  <code>https://...</code>
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="settings-section">
-            <h3 className="settings-section-header" onClick={() => toggleSection('zeroHpEffect')}>
-              <span className="accordion-icon">{expandedSections.zeroHpEffect ? '▼' : '▶'}</span>
-              HP0エフェクト設定（WebM）
-            </h3>
-            {expandedSections.zeroHpEffect && (
-              <div className="settings-section-content">
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.zeroHpEffect.enabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          zeroHpEffect: { ...config.zeroHpEffect, enabled: e.target.checked },
-                        })
-                      }
-                    />
-                    HPが0になったら動画エフェクトを表示
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    動画 URL（透過WebM推奨）:
-                    <input
-                      type="text"
-                      value={config.zeroHpEffect.videoUrl}
-                      onChange={(e) => {
-                        const url = e.target.value
-                        if (isValidUrl(url)) {
-                          setConfig({
-                            ...config,
-                            zeroHpEffect: { ...config.zeroHpEffect, videoUrl: url },
-                          })
-                        } else {
-                          setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                          setTimeout(() => setMessage(null), 3000)
-                        }
-                      }}
-                      placeholder="動画のURLを入力"
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    表示時間（ミリ秒）:
-                    <input
-                      type="text"
-                      value={inputValues['zeroHpEffect.duration'] ?? String(config.zeroHpEffect.duration)}
-                      onChange={(e) => {
-                        setInputValues((prev) => ({ ...prev, 'zeroHpEffect.duration': e.target.value }))
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim()
-                        if (value === '' || isNaN(parseInt(value))) {
-                          setConfig({
-                            ...config,
-                            zeroHpEffect: { ...config.zeroHpEffect, duration: 2000 },
-                          })
-                          setInputValues((prev) => {
-                            const next = { ...prev }
-                            delete next['zeroHpEffect.duration']
-                            return next
-                          })
-                        } else {
-                          const num = parseInt(value)
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              zeroHpEffect: {
-                                ...config.zeroHpEffect,
-                                duration: Math.max(100, num),
-                              },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['zeroHpEffect.duration']
-                              return next
-                            })
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                <p className="settings-hint">
-                  例: <code>src/images/bakuhatsu.gif</code>（public/images に配置）または{' '}
-                  <code>https://...</code>
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="settings-section">
-            <h3 className="settings-section-header" onClick={() => toggleSection('gaugeColors')}>
-              <span className="accordion-icon">{expandedSections.gaugeColors ? '▼' : '▶'}</span>
-              HPゲージ色設定
-            </h3>
-            {expandedSections.gaugeColors && (
-              <div className="settings-section-content">
-                <div className="settings-color-grid">
-                  <div className="settings-color-row">
-                    <span className="settings-color-label">最後の1ゲージ（HPが最後に残る分）</span>
-                    <div className="settings-color-inputs">
-                      <input
-                        type="color"
-                        className="settings-color-picker"
-                        value={config.gaugeColors.lastGauge}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
-                          })
-                        }
-                      />
-                      <input
-                        type="text"
-                        className="settings-color-hex"
-                        value={config.gaugeColors.lastGauge}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            gaugeColors: { ...config.gaugeColors, lastGauge: e.target.value },
-                          })
-                        }
-                        placeholder="#FF0000"
-                      />
-                    </div>
-                  </div>
-                  <div className="settings-color-row">
-                    <span className="settings-color-label">2ゲージ目</span>
-                    <div className="settings-color-inputs">
-                      <input
-                        type="color"
-                        className="settings-color-picker"
-                        value={config.gaugeColors.secondGauge}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
-                          })
-                        }
-                      />
-                      <input
-                        type="text"
-                        className="settings-color-hex"
-                        value={config.gaugeColors.secondGauge}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            gaugeColors: { ...config.gaugeColors, secondGauge: e.target.value },
-                          })
-                        }
-                        placeholder="#FFA500"
-                      />
-                    </div>
-                  </div>
-                  <div className="settings-color-row">
-                    <span className="settings-color-label">3ゲージ目以降のパターン1（3, 5, 7…）</span>
-                    <div className="settings-color-inputs">
-                      <input
-                        type="color"
-                        className="settings-color-picker"
-                        value={config.gaugeColors.patternColor1}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
-                          })
-                        }
-                      />
-                      <input
-                        type="text"
-                        className="settings-color-hex"
-                        value={config.gaugeColors.patternColor1}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            gaugeColors: { ...config.gaugeColors, patternColor1: e.target.value },
-                          })
-                        }
-                        placeholder="#8000FF"
-                      />
-                    </div>
-                  </div>
-                  <div className="settings-color-row">
-                    <span className="settings-color-label">3ゲージ目以降のパターン2（4, 6, 8…）</span>
-                    <div className="settings-color-inputs">
-                      <input
-                        type="color"
-                        className="settings-color-picker"
-                        value={config.gaugeColors.patternColor2}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
-                          })
-                        }
-                      />
-                      <input
-                        type="text"
-                        className="settings-color-hex"
-                        value={config.gaugeColors.patternColor2}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            gaugeColors: { ...config.gaugeColors, patternColor2: e.target.value },
-                          })
-                        }
-                        placeholder="#4aa3ff"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="settings-hint">
-                  <p>
-                    <strong>注意:</strong> 3ゲージ目以降は、設定した2色を交互に使用します。ゲージ数が10を超えても、この2色が繰り返し適用されます。
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="settings-section">
-            <h3 className="settings-section-header" onClick={() => toggleSection('damageColors')}>
-              <span className="accordion-icon">{expandedSections.damageColors ? '▼' : '▶'}</span>
-              ダメージ値色設定
-            </h3>
-            {expandedSections.damageColors && (
-              <div className="settings-section-content">
-                <div className="settings-color-grid">
-                  <div className="settings-color-row">
-                    <span className="settings-color-label">通常ダメージ</span>
-                    <div className="settings-color-inputs">
-                      <input
-                        type="color"
-                        className="settings-color-picker"
-                        value={config.damageColors.normal}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            damageColors: { ...config.damageColors, normal: e.target.value },
-                          })
-                        }
-                      />
-                      <input
-                        type="text"
-                        className="settings-color-hex"
-                        value={config.damageColors.normal}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            damageColors: { ...config.damageColors, normal: e.target.value },
-                          })
-                        }
-                        placeholder="#cc0000"
-                      />
-                    </div>
-                  </div>
-                  <div className="settings-color-row">
-                    <span className="settings-color-label">クリティカル</span>
-                    <div className="settings-color-inputs">
-                      <input
-                        type="color"
-                        className="settings-color-picker"
-                        value={config.damageColors.critical}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            damageColors: { ...config.damageColors, critical: e.target.value },
-                          })
-                        }
-                      />
-                      <input
-                        type="text"
-                        className="settings-color-hex"
-                        value={config.damageColors.critical}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            damageColors: { ...config.damageColors, critical: e.target.value },
-                          })
-                        }
-                        placeholder="#cc8800"
-                      />
-                    </div>
-                  </div>
-                  <div className="settings-color-row">
-                    <span className="settings-color-label">出血ダメージ</span>
-                    <div className="settings-color-inputs">
-                      <input
-                        type="color"
-                        className="settings-color-picker"
-                        value={config.damageColors.bleed}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            damageColors: { ...config.damageColors, bleed: e.target.value },
-                          })
-                        }
-                      />
-                      <input
-                        type="text"
-                        className="settings-color-hex"
-                        value={config.damageColors.bleed}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            damageColors: { ...config.damageColors, bleed: e.target.value },
-                          })
-                        }
-                        placeholder="#ff6666"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="settings-section">
-            <h3 className="settings-section-header" onClick={() => toggleSection('test')}>
-              <span className="accordion-icon">{expandedSections.test ? '▼' : '▶'}</span>
-              テストモード設定
-            </h3>
-            {expandedSections.test && (
-              <div className="settings-section-content">
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.test.enabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          test: { ...config.test, enabled: e.target.checked },
-                        })
-                      }
-                    />
-                    テストモードを有効にする
-                  </label>
-                  {config.test.enabled && (
-                    <label>長押しで連打できます（ショートカットは廃止）</label>
-                  )}
-                </div>
-                {config.test.enabled && (
-                  <div className="settings-hint">
-                    <p>
-                      <strong>テストモードについて:</strong>
-                    </p>
-                    <ul>
-                      <li>
-                        テストモードでは、実際のTwitchチャンネルポイントAPIを使用せずに動作を確認できます
-                      </li>
-                      <li>
-                        アフィリエイト未参加の配信者でも、このモードでテストできます
-                      </li>
-                      <li>
-                        ボタンは長押しで連打できます
-                      </li>
-                      <li>
-                        開発環境では、画面右下にテストボタンが表示されます
-                      </li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 外部ウィンドウ設定 */}
-          <div className="settings-section">
-            <h3 className="settings-section-header" onClick={() => toggleSection('externalWindow')}>
-              <span className="accordion-icon">{expandedSections.externalWindow ? '▼' : '▶'}</span>
-              外部ウィンドウキャプチャ
-            </h3>
-            {expandedSections.externalWindow && (
-              <div className="settings-section-content">
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.externalWindow.enabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          externalWindow: { ...config.externalWindow, enabled: e.target.checked },
-                        })
-                      }
-                    />
-                    外部ウィンドウキャプチャを有効化
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {activeTab === 'autoReply' && (
         <div className="settings-tab-panel">
           <div className="settings-tabs settings-tabs--sub">
@@ -3831,93 +5030,115 @@ export function OverlaySettings() {
         </div>
       )}
 
-      <div className="settings-actions">
-        <input
-          type="file"
-          ref={fileInputRef}
-          accept=".json"
-          style={{ display: 'none' }}
-          onChange={async (e) => {
-            const file = e.target.files?.[0]
-            if (!file) return
+      {!embedded && (
+        <div className="settings-actions">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".json"
+            style={{ display: 'none' }}
+            onChange={async (e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
 
-            try {
-              const text = await file.text()
-              const jsonConfig = JSON.parse(text)
-              const validated = validateAndSanitizeConfig(jsonConfig)
+              try {
+                const text = await file.text()
+                const jsonConfig = JSON.parse(text)
+                const validated = validateAndSanitizeConfig(jsonConfig)
 
-              // 設定を更新。保存するには「設定を保存」を押す
-              setConfig(validated)
-              setInputValues({})
-              setMessage('✅ 設定ファイルを読み込みました。保存するには「設定を保存」を押してください。')
-              setTimeout(() => setMessage(null), 3000)
-              console.log('✅ 設定ファイルを読み込みました')
-            } catch (error) {
-              console.error('❌ 設定ファイルの読み込みに失敗しました:', error)
-              setMessage('❌ 設定ファイルの読み込みに失敗しました。JSON形式が正しいか確認してください。')
-              setTimeout(() => setMessage(null), 5000)
-            } finally {
-              // ファイル入力をリセット（同じファイルを再度選択できるように）
-              if (fileInputRef.current) {
-                fileInputRef.current.value = ''
+                setConfig(validated)
+                setInputValues({})
+                setMessage('✅ 設定ファイルを読み込みました。保存するには「設定を保存」を押してください。')
+                setTimeout(() => setMessage(null), 3000)
+                logger.info('✅ 設定ファイルを読み込みました')
+              } catch (error) {
+                logger.error('❌ 設定ファイルの読み込みに失敗しました:', error)
+                setMessage('❌ 設定ファイルの読み込みに失敗しました。JSON形式が正しいか確認してください。')
+                setTimeout(() => setMessage(null), 5000)
+              } finally {
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = ''
+                }
               }
-            }
-          }}
-        />
-        <button type="button" className="settings-action-primary" onClick={handleSave} disabled={saving}>
-          {saving ? '保存中...' : '設定を保存'}
-        </button>
-        <button
-          type="button"
-          className="settings-action-secondary"
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            fileInputRef.current?.click()
-          }}
-        >
-          設定を再読み込み（ファイル選択）
-        </button>
-        <button
-          type="button"
-          className="settings-action-secondary"
-          onClick={handleLoadFromFile}
-          disabled={loadingFromFile}
-          title="public/config/overlay-config.json の内容でフォームを上書きします"
-        >
-          {loadingFromFile ? '読み込み中...' : 'JSONファイルから読み込み'}
-        </button>
-        <button type="button" className="settings-action-reset" onClick={handleReset}>
-          リセット
-        </button>
-      </div>
+            }}
+          />
+          <button type="button" className="settings-action-primary" onClick={handleSave} disabled={saving}>
+            {saving ? '保存中...' : '設定を保存'}
+          </button>
+          <button
+            type="button"
+            className="settings-action-secondary"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              fileInputRef.current?.click()
+            }}
+          >
+            設定を再読み込み（ファイル選択）
+          </button>
+          <button
+            type="button"
+            className="settings-action-secondary"
+            onClick={handleLoadFromFile}
+            disabled={loadingFromFile}
+            title="public/config/overlay-config.json の内容でフォームを上書きします"
+          >
+            {loadingFromFile ? '読み込み中...' : 'JSONファイルから読み込み'}
+          </button>
+          <button type="button" className="settings-action-reset" onClick={handleReset}>
+            リセット
+          </button>
+        </div>
+      )}
 
-      <div className="settings-info">
-        <p>
-          <strong>設定の保存方法:</strong>
-        </p>
-        <ul>
-          <li>
-            <strong>開発環境:</strong> 「設定を保存」ボタンをクリックすると、自動的に <code>public/config/overlay-config.json</code> に保存されます
-          </li>
-          <li>
-            <strong>本番環境:</strong> 「設定を保存」ボタンをクリックすると、JSONファイルがダウンロードされます。ダウンロードしたファイルを <code>public/config/overlay-config.json</code> に配置してください
-          </li>
-          <li>
-            <strong>設定の保存先:</strong> JSONファイルのみ。読み込みは JSONファイル → デフォルト設定。同じ内容を再読み込みする場合は「JSONファイルから読み込み」を押してください。
-          </li>
-        </ul>
-        <p>
-          <strong>ブラウザウィンドウキャプチャーの設定:</strong>
-        </p>
-        <ul>
-          <li>URL: <code>http://localhost:5173/overlay</code>（開発環境）をブラウザで開く</li>
-          <li>OBSで「ウィンドウキャプチャー」ソースを追加</li>
-          <li>キャプチャーするウィンドウ: 上記URLを開いたブラウザウィンドウを選択</li>
-          <li>幅: 1920px（推奨）</li>
-          <li>高さ: 1080px（推奨）</li>
-        </ul>
-      </div>
+      {embedded && (
+        <div className="settings-actions settings-actions--embedded">
+          <button
+            type="button"
+            className="settings-action-secondary"
+            onClick={handleLoadFromFile}
+            disabled={loadingFromFile}
+            title="public/config/overlay-config.json の内容でフォームを上書きします"
+          >
+            {loadingFromFile ? '読み込み中...' : 'JSONから再読込'}
+          </button>
+          <button type="button" className="settings-action-reset" onClick={handleReset}>
+            リセット
+          </button>
+        </div>
+      )}
+
+      {!embedded && (
+        <div className="settings-info">
+          <p>
+            <strong>設定の保存方法:</strong>
+          </p>
+          <ul>
+            <li>
+              <strong>開発環境:</strong> 「設定を保存」ボタンをクリックすると、自動的に <code>public/config/overlay-config.json</code> に保存されます
+            </li>
+            <li>
+              <strong>本番環境:</strong> 「設定を保存」ボタンをクリックすると、JSONファイルがダウンロードされます。ダウンロードしたファイルを <code>public/config/overlay-config.json</code> に配置してください
+            </li>
+            <li>
+              <strong>設定の保存先:</strong> JSONファイルのみ。読み込みは JSONファイル → デフォルト設定。同じ内容を再読み込みする場合は「JSONファイルから読み込み」を押してください。
+            </li>
+          </ul>
+          <p>
+            <strong>ブラウザウィンドウキャプチャーの設定:</strong>
+          </p>
+          <ul>
+            <li>URL: <code>http://localhost:5173/overlay</code>（開発環境）をブラウザで開く</li>
+            <li>OBSで「ウィンドウキャプチャー」ソースを追加</li>
+            <li>キャプチャーするウィンドウ: 上記URLを開いたブラウザウィンドウを選択</li>
+            <li>幅: 1920px（推奨）</li>
+            <li>高さ: 1080px（推奨）</li>
+          </ul>
+        </div>
+      )}
     </div>
   )
-}
+})
+
+OverlaySettings.displayName = 'OverlaySettings'
+

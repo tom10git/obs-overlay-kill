@@ -14,6 +14,28 @@ export interface HPConfig {
   messageWhenZeroHp: string
 }
 
+/** 攻撃時の持続ダメージ（DOT）の見た目・既定色の種別 */
+export type AttackDebuffKind = 'bleed' | 'poison' | 'burn'
+
+/**
+ * 攻撃命中時の持続ダメージ（DOT）バリエーション
+ * 1件以上かつ weight>0 のみ抽選対象。未設定・0件時は bleedDamage 等の単一設定を使用（種別は bleed 扱い）
+ */
+export interface AttackBleedVariant {
+  /** 抽選ウェイト（相対値。大きいほど選ばれやすい） */
+  weight: number
+  /** ティックあたりのダメージ */
+  damage: number
+  /** 持続時間（秒） */
+  duration: number
+  /** ダメージ間隔（秒） */
+  interval: number
+  /** DOT の種別（省略時は bleed） */
+  debuffKind?: AttackDebuffKind
+  /** 飛び出す数値の色（#RGB / #RRGGBB。省略時は種別に応じた既定色） */
+  damageColor?: string
+}
+
 export interface AttackConfig {
   rewardId: string
   customText: string // チャットメッセージで判定するカスタムテキスト（App Access Token用）
@@ -33,6 +55,8 @@ export interface AttackConfig {
   missSoundEnabled: boolean // ミス効果音の有効/無効
   missSoundUrl: string // ミス効果音のURL
   missSoundVolume: number // ミス効果音の音量（0-1）
+  /** 回避（MISS）表示テキストの色（#RGB / #RRGGBB） */
+  missTextColor: string
   criticalEnabled: boolean
   criticalProbability: number // 0-100
   criticalMultiplier: number // クリティカル時のダメージ倍率（例: 2.0 = 2倍）
@@ -41,9 +65,27 @@ export interface AttackConfig {
   bleedDamage: number // 出血ダメージの量
   bleedDuration: number // 出血ダメージの持続時間（秒）
   bleedInterval: number // 出血ダメージの間隔（秒）
+  /** 持続ダメージ（DOT）のバリエーション（設定時は付与ごとにウェイト抽選。種類は debuffKind） */
+  bleedVariants?: AttackBleedVariant[]
   bleedSoundEnabled: boolean // 出血ダメージ効果音の有効/無効
   bleedSoundUrl: string // 出血ダメージ効果音のURL
   bleedSoundVolume: number // 出血ダメージ効果音の音量（0-1）
+  /** 毒DOT ティック時の効果音 */
+  dotPoisonSoundEnabled: boolean
+  dotPoisonSoundUrl: string
+  dotPoisonSoundVolume: number
+  /** 炎DOT ティック時の効果音 */
+  dotBurnSoundEnabled: boolean
+  dotBurnSoundUrl: string
+  dotBurnSoundVolume: number
+  /** 毒DOT が付与された攻撃時の「攻撃SE」置き換え（DOTティック音とは別） */
+  dotPoisonAttackSoundEnabled: boolean
+  dotPoisonAttackSoundUrl: string
+  dotPoisonAttackSoundVolume: number
+  /** 炎DOT が付与された攻撃時の「攻撃SE」置き換え（DOTティック音とは別） */
+  dotBurnAttackSoundEnabled: boolean
+  dotBurnAttackSoundUrl: string
+  dotBurnAttackSoundVolume: number
   soundEnabled: boolean // 攻撃効果音の有効/無効
   soundUrl: string // 攻撃効果音のURL
   soundVolume: number // 攻撃効果音の音量（0-1）
@@ -108,9 +150,36 @@ export interface AnimationConfig {
   easing: string
 }
 
+/** HPゲージの外観パターン */
+export type GaugeDesign = 'default' | 'parallelogram'
+
+/** ゲージ枠・平行四辺形の数値微調整（px・度） */
+export interface GaugeShapeConfig {
+  /** 平行四辺形時の skewX（度）。テキスト・0時画像の打ち消しにも同じ値を使用 */
+  skewDeg: number
+  /** 既定デザイン: 外枠の角丸（px） */
+  defaultBorderRadiusPx: number
+  /** 既定デザイン: 白リング相当の box-shadow スプレッド（px） */
+  defaultBorderWhitePx: number
+  /** 既定デザイン: 灰リングの外側スプレッド（px） */
+  defaultBorderGrayPx: number
+  /** 平行四辺形: 内側の角丸（px） */
+  parallelogramBorderRadiusPx: number
+  /** 平行四辺形: 白リング（px） */
+  parallelogramBorderWhitePx: number
+  /** 平行四辺形: 灰リングの外側スプレッド（px） */
+  parallelogramBorderGrayPx: number
+  /** 平行四辺形: フレーム左右の余白（px、スキューはみ出し対策） */
+  parallelogramFramePaddingPx: number
+}
+
 export interface DisplayConfig {
   showMaxHp: boolean
   fontSize: number
+  /** ゲージ枠のデザイン（既定の角丸二重枠 / 平行四辺形スラント） */
+  gaugeDesign: GaugeDesign
+  /** 枠線・角丸・スキューなどの数値調整 */
+  gaugeShape: GaugeShapeConfig
 }
 
 export interface GaugeColorConfig {
@@ -118,12 +187,22 @@ export interface GaugeColorConfig {
   secondGauge: string // 2ゲージ目の色
   patternColor1: string // 3ゲージ目以降の交互パターン1（3, 5, 7, 9...ゲージ目）
   patternColor2: string // 3ゲージ目以降の交互パターン2（4, 6, 8, 10...ゲージ目）
+  /** ゲージ枠内のベース背景（HPが減った部分の下に見える色） */
+  frameBackground: string
+  /** 二重枠の内側リングの色（既定デザイン・平行四辺形の両方で使用） */
+  frameBorderInner: string
+  /** 二重枠の外側リングの色 */
+  frameBorderOuter: string
 }
 
 export interface DamageColorConfig {
   normal: string // 通常ダメージの色
   critical: string // クリティカルダメージの色
-  bleed: string // 出血ダメージの色
+  bleed: string // 出血DOTの既定の数値色
+  /** 毒DOTの既定の数値色（バリエーションで damageColor 未指定時） */
+  dotPoison: string
+  /** 炎DOTの既定の数値色（バリエーションで damageColor 未指定時） */
+  dotBurn: string
 }
 
 /** 回復数値の色設定（現状1色のみ） */
@@ -134,6 +213,14 @@ export interface HealNumberColorConfig {
 export interface ZeroHpImageConfig {
   enabled: boolean
   imageUrl: string
+  /** 画像の拡大縮小倍率（例: 1 = 等倍, 4 = 4倍） */
+  scale: number
+  /** ゲージ中央からのX座標オフセット（px。右が正、左が負） */
+  offsetX: number
+  /** ゲージ中央からのY座標オフセット（px。下が正、上が負） */
+  offsetY: number
+  /** 画像表示領域の背景色（CSSカラー文字列。例: transparent, #000000, rgba(...) など） */
+  backgroundColor: string
 }
 
 export interface ZeroHpSoundConfig {
@@ -271,16 +358,6 @@ export interface PvPConfig {
   finishingMoveSoundVolume: number
 }
 
-export interface ExternalWindowConfig {
-  enabled: boolean
-  x: number // 位置X（px）
-  y: number // 位置Y（px）
-  width: number // 幅（px）
-  height: number // 高さ（px）
-  opacity: number // 透明度（0-1）
-  zIndex: number // z-index（HPゲージより後ろに配置するため低めの値）
-}
-
 export interface WebMLoopConfig {
   enabled: boolean
   x: number // 位置X（px、中央からのオフセット）
@@ -288,7 +365,7 @@ export interface WebMLoopConfig {
   width: number // 幅（px）
   height: number // 高さ（px）
   opacity: number // 透明度（0-1）
-  zIndex: number // z-index（外部ウィンドウと同じ値）
+  zIndex: number // z-index（レイヤー順）
   videoUrl: string // WebM動画のURL
   loop: boolean // ループ再生するか
 }
@@ -299,6 +376,13 @@ export interface EffectFilterConfig {
   saturate: number // 0-2
   brightness: number // 0-2
   contrast: number // 0-2
+}
+
+/** OBS ブラウザソースの切り取り範囲の目安（配信前の調整用。本番配信では OFF 推奨） */
+export interface ObsCaptureGuideConfig {
+  enabled: boolean
+  /** 画面端から内側に寄せる量（px）。ガイドが画面いっぱいのときに角が切れないようにする */
+  insetPx: number
 }
 
 export interface OverlayConfig {
@@ -313,13 +397,13 @@ export interface OverlayConfig {
   zeroHpEffect: ZeroHpEffectConfig
   test: TestConfig
   pvp: PvPConfig
-  externalWindow: ExternalWindowConfig
   webmLoop: WebMLoopConfig
   damageEffectFilter: EffectFilterConfig // ダメージエフェクトのフィルター設定
   healEffectFilter: EffectFilterConfig // 回復エフェクトのフィルター設定
   gaugeColors: GaugeColorConfig // HPゲージの色設定
   damageColors: DamageColorConfig // ダメージ値の色設定
   healColors: HealNumberColorConfig // 回復値の色設定
+  obsCaptureGuide: ObsCaptureGuideConfig
 }
 
 export interface ChannelPointEvent {

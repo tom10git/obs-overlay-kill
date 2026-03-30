@@ -80,7 +80,7 @@ export function isValidLength(value: string, min: number, max: number): boolean 
 /**
  * 設定オブジェクトの検証（型チェックと値の検証）
  */
-export function validateConfigStructure(obj: any): boolean {
+export function validateConfigStructure(obj: unknown): boolean {
   if (!obj || typeof obj !== 'object') return false
 
   // 基本的な構造チェック（詳細な検証は各設定項目で行う）

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { twitchApi } from '../utils/twitchApi'
 import type { TwitchUser } from '../types/twitch'
+import { twitchUserQueryKey } from '../lib/queryKeys'
 
 interface UseTwitchUserResult {
   user: TwitchUser | null
@@ -10,40 +11,21 @@ interface UseTwitchUserResult {
 }
 
 /**
- * Twitchユーザー情報を取得するカスタムフック
+ * Twitchユーザー情報を取得するカスタムフック（TanStack Query）
  */
 export function useTwitchUser(login: string): UseTwitchUserResult {
-  const [user, setUser] = useState<TwitchUser | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-
-  const fetchUser = async () => {
-    if (!login) {
-      setLoading(false)
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-      const userData = await twitchApi.getUser(login)
-      setUser(userData)
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'))
-      setUser(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchUser()
-  }, [login])
+  const q = useQuery({
+    queryKey: twitchUserQueryKey(login),
+    queryFn: () => twitchApi.getUser(login),
+    enabled: !!login,
+  })
 
   return {
-    user,
-    loading,
-    error,
-    refetch: fetchUser,
+    user: q.data ?? null,
+    loading: q.isLoading,
+    error: q.error instanceof Error ? q.error : q.error ? new Error(String(q.error)) : null,
+    refetch: async () => {
+      await q.refetch()
+    },
   }
 }

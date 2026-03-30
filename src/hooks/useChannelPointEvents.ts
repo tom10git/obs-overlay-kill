@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
+import { logger } from '../lib/logger'
 import { useTwitchChannelPointRedemptions } from './useTwitchChannelPoints'
 import type { ChannelPointEvent } from '../types/overlay'
 import type { TwitchChannelPointRedemption } from '../types/twitch'
@@ -64,9 +65,7 @@ export function useChannelPointEvents({
     // 初回読み込み時は、現在時刻を基準にする（既存の引き換えを無視）
     if (lastPollTimeRef.current === 0) {
       lastPollTimeRef.current = Date.now()
-      if (import.meta.env.DEV) {
-        console.log('📊 チャンネルポイントイベント監視: 初期タイムスタンプ設定', new Date(lastPollTimeRef.current).toISOString())
-      }
+      logger.debug('📊 チャンネルポイントイベント監視: 初期タイムスタンプ設定', new Date(lastPollTimeRef.current).toISOString())
     }
 
     // 初回読み込み
@@ -74,12 +73,10 @@ export function useChannelPointEvents({
       const now = Date.now()
       const newEvents: ChannelPointEvent[] = []
 
-      if (import.meta.env.DEV) {
-        console.log('📊 チャンネルポイントイベント監視: 引き換え履歴を処理中', {
-          件数: redemptions.length,
-          最終ポーリング時刻: new Date(lastPollTimeRef.current).toISOString(),
-        })
-      }
+      logger.debug('📊 チャンネルポイントイベント監視: 引き換え履歴を処理中', {
+        件数: redemptions.length,
+        最終ポーリング時刻: new Date(lastPollTimeRef.current).toISOString(),
+      })
 
       redemptions.forEach((redemption: TwitchChannelPointRedemption) => {
         // 既に処理済みのイベントはスキップ
@@ -99,14 +96,12 @@ export function useChannelPointEvents({
             status: redemption.status,
           }
 
-          if (import.meta.env.DEV) {
-            console.log('✅ チャンネルポイントイベント監視: 新しい引き換えを検出', {
-              イベントID: event.id,
-              リワードID: event.rewardId,
-              ユーザー名: event.userName,
-              引き換え時刻: event.redeemedAt,
-            })
-          }
+          logger.debug('✅ チャンネルポイントイベント監視: 新しい引き換えを検出', {
+            イベントID: event.id,
+            リワードID: event.rewardId,
+            ユーザー名: event.userName,
+            引き換え時刻: event.redeemedAt,
+          })
 
           newEvents.push(event)
           processedIdsRef.current.add(redemption.id)
@@ -123,10 +118,11 @@ export function useChannelPointEvents({
             try {
               onEvent(event)
             } catch (error) {
-              console.error(
+              logger.error(
                 '❌ チャンネルポイントイベントコールバックエラー\n' +
-                'イベント処理中にエラーが発生しました。\n' +
-                'エラー詳細:', error
+                  'イベント処理中にエラーが発生しました。\n' +
+                  'エラー詳細:',
+                error
               )
             }
           }
@@ -152,9 +148,7 @@ export function useChannelPointEvents({
 
     // ポーリング間隔で再取得
     const intervalId = setInterval(() => {
-      if (import.meta.env.DEV) {
-        console.log('📊 チャンネルポイントイベント監視: 新しい引き換えをポーリング中...')
-      }
+      logger.debug('📊 チャンネルポイントイベント監視: 新しい引き換えをポーリング中...')
       refetch()
     }, pollingInterval)
 
@@ -179,17 +173,19 @@ export function useChannelPointEvents({
       setError(apiError)
       // OAuth認証エラーの可能性をチェック
       if (apiError.message.includes('401') || apiError.message.includes('Unauthorized')) {
-        console.error(
+        logger.error(
           '❌ OAuth認証エラー: チャンネルポイントの引き換え履歴を取得するには、OAuth認証（ユーザートークン）が必要です。\n' +
-          'App Access Tokenでは使用できません。\n' +
-          'VITE_TWITCH_ACCESS_TOKEN にユーザートークンを設定してください。\n' +
-          'エラー詳細:', apiError
+            'App Access Tokenでは使用できません。\n' +
+            'VITE_TWITCH_ACCESS_TOKEN にユーザートークンを設定してください。\n' +
+            'エラー詳細:',
+          apiError
         )
       } else {
-        console.error(
+        logger.error(
           '❌ チャンネルポイントAPIエラー\n' +
-          'チャンネルポイントの引き換え履歴を取得できませんでした。\n' +
-          'エラー詳細:', apiError
+            'チャンネルポイントの引き換え履歴を取得できませんでした。\n' +
+            'エラー詳細:',
+          apiError
         )
       }
     } else {

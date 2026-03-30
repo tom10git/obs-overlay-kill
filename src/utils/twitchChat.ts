@@ -1,4 +1,5 @@
-import tmi, { type Client, type ClientOptions } from 'tmi.js'
+import tmi, { type ChatUserstate, type Client, type ClientOptions } from 'tmi.js'
+import { logger } from '../lib/logger'
 import type { TwitchChatMessage } from '../types/twitch'
 
 export interface TwitchChatConnectOptions {
@@ -64,14 +65,15 @@ class TwitchChatClient {
             password: `oauth:${token}`,
           }
           if (import.meta.env.DEV) {
-            console.log('[Twitch] identity で接続します（自動返信可能）:', identityUser)
+            logger.info('[Twitch] identity で接続します（自動返信可能）:', identityUser)
           }
         }
 
         this.connectedWithIdentity = !!clientOptions.identity
         this.client = new tmi.Client(clientOptions)
 
-        this.client.on('message', (ch: string, tags: any, message: string, _self: boolean) => {
+        this.client.on('message', (ch: string, tags: ChatUserstate, message: string, self: boolean) => {
+          void self
           const chatMessage: TwitchChatMessage = {
             id: tags.id || `${Date.now()}-${Math.random()}`,
             user: {
@@ -109,7 +111,7 @@ class TwitchChatClient {
             try {
               callback(chatMessage)
             } catch (error) {
-              console.error('❌ Twitchチャット: メッセージコールバックでエラーが発生しました', error)
+              logger.error('❌ Twitchチャット: メッセージコールバックでエラーが発生しました', error)
             }
           })
         })
@@ -122,13 +124,13 @@ class TwitchChatClient {
 
         this.client.on('join', (ch: string, _username: string, self: boolean) => {
           if (self && import.meta.env.DEV) {
-            console.log(`💬 Twitchチャット: チャンネルに参加しました: ${ch}`)
+            logger.info(`💬 Twitchチャット: チャンネルに参加しました: ${ch}`)
           }
         })
 
         this.client.on('part', (ch: string, _username: string, self: boolean) => {
           if (self && import.meta.env.DEV) {
-            console.log(`💬 Twitchチャット: チャンネルから退出しました: ${ch}`)
+            logger.info(`💬 Twitchチャット: チャンネルから退出しました: ${ch}`)
           }
         })
 
@@ -143,7 +145,7 @@ class TwitchChatClient {
           ) {
             return
           }
-          console.warn('❌ Twitchチャット エラー:', err)
+          logger.warn('❌ Twitchチャット エラー:', err)
         })
 
         this.client.connect().catch((error: unknown) => {
@@ -156,7 +158,7 @@ class TwitchChatClient {
     const wantIdentity = !!(options?.token?.trim() && options?.username?.trim())
     if (wantIdentity) {
       return tryConnect(true).catch((err) => {
-        console.warn(
+        logger.warn(
           '⚠️ Twitchチャット: identity 接続に失敗したため、匿名で再接続します（受信・攻撃検知は有効、自動返信のみ不可）。',
           err
         )
@@ -214,11 +216,11 @@ class TwitchChatClient {
     try {
       this.client.say(ch, message)
       if (import.meta.env.DEV) {
-        console.log('[Twitch] 自動返信送信:', message.slice(0, 50) + (message.length > 50 ? '...' : ''))
+        logger.info('[Twitch] 自動返信送信:', message.slice(0, 50) + (message.length > 50 ? '...' : ''))
       }
       return true
     } catch (err) {
-      console.error('❌ Twitchチャット送信エラー:', err)
+      logger.error('❌ Twitchチャット送信エラー:', err)
       return false
     }
   }

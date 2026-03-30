@@ -9,6 +9,99 @@
   z-index: 2;
 }
 
+/* 被ダメージ・回避のモーション（内側ラッパー。バフは absolute で浮かせ、HP の縦位置が変わらないようにする） */
+.hp-gauge-motion-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+.hp-gauge-motion-root--hit-shake {
+  animation: hp-gauge-hit-shake-red 0.5s ease-out both;
+}
+
+.hp-gauge-motion-root--dodge-left {
+  animation: hp-gauge-dodge-slide-left 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.hp-gauge-motion-root--dodge-right {
+  animation: hp-gauge-dodge-slide-right 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hp-gauge-hit-shake-red {
+  0% {
+    transform: translate(0, 0);
+    filter: none;
+  }
+
+  12% {
+    transform: translate(-6px, 5px);
+    filter: brightness(1.12) sepia(0.4) saturate(1.55) hue-rotate(-18deg);
+  }
+
+  26% {
+    transform: translate(7px, -5px);
+    filter: brightness(1.2) sepia(0.52) saturate(1.75) hue-rotate(-24deg);
+  }
+
+  40% {
+    transform: translate(-5px, -6px);
+    filter: brightness(1.14) sepia(0.42) saturate(1.45) hue-rotate(-14deg);
+  }
+
+  54% {
+    transform: translate(5px, 4px);
+    filter: brightness(1.08) sepia(0.32) saturate(1.28) hue-rotate(-10deg);
+  }
+
+  70% {
+    transform: translate(-3px, 3px);
+    filter: brightness(1.05) sepia(0.22) saturate(1.15);
+  }
+
+  86% {
+    transform: translate(2px, -2px);
+    filter: brightness(1.02) sepia(0.1);
+  }
+
+  100% {
+    transform: translate(0, 0);
+    filter: none;
+  }
+}
+
+@keyframes hp-gauge-dodge-slide-left {
+  0% {
+    transform: translateX(0);
+  }
+
+  15% {
+    transform: translateX(-44px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes hp-gauge-dodge-slide-right {
+  0% {
+    transform: translateX(0);
+  }
+
+  15% {
+    transform: translateX(44px);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
 .hp-gauge-frame {
   position: relative;
   width: 100%;
@@ -16,16 +109,34 @@
   height: 60px;
 }
 
+/* 平行四辺形時はスキューで端がはみ出すため左右に余白（px は TS からインライン指定） */
+.hp-gauge-frame--parallelogram {
+  box-sizing: content-box;
+}
+
 .hp-gauge-wrapper {
   position: relative;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 1);
-  box-shadow:
-    0px 0px 0px 6px rgba(255, 255, 255, 1),
-    0px 0px 0px 12px rgba(128, 128, 128, 1);
-  border-radius: calc(1em + 6px * 2);
   overflow: hidden;
+}
+
+/* パターン: 既定（角丸・白灰の二重枠）。数値は CSS 変数（HPGauge.tsx で注入） */
+.hp-gauge-wrapper--default {
+  background-color: var(--gauge-frame-bg, #000000);
+  box-shadow:
+    0px 0px 0px var(--gauge-default-white, 6px) var(--gauge-border-inner, #ffffff),
+    0px 0px 0px var(--gauge-default-gray, 12px) var(--gauge-border-outer, #808080);
+  border-radius: var(--gauge-default-radius, 28px);
+}
+
+/* パターン: 平行四辺形（スラント）。skew は TS でインライン指定 */
+.hp-gauge-wrapper--parallelogram {
+  background-color: var(--gauge-frame-bg, #000000);
+  border-radius: var(--gauge-para-radius, 4px);
+  box-shadow:
+    0px 0px 0px var(--gauge-para-white, 4px) var(--gauge-border-inner, #ffffff),
+    0px 0px 0px var(--gauge-para-gray, 8px) var(--gauge-border-outer, #808080);
 }
 
 .hp-gauge-zero-image {
@@ -36,7 +147,6 @@
   justify-content: center;
   z-index: 5000;
   pointer-events: none;
-  transform: scale(4);
 }
 
 .hp-gauge-zero-image img {
@@ -65,46 +175,128 @@
 }
 
 .hp-gauge-buff-indicator {
+  position: absolute;
+  top: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 14px;
-  font-size: 12px;
-  color: #fff;
-  font-weight: bold;
-  background-color: rgba(0, 0, 0, 0.75);
-  padding: 8px 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 0;
+  min-width: min(280px, 100vw - 24px);
+  max-width: min(420px, calc(100vw - 24px));
+  box-sizing: border-box;
+  background: transparent;
 }
 
-.hp-gauge-buff-label {
-  font-size: 12px;
-}
-
-.hp-gauge-buff-emoji {
-  font-size: 18px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.hp-gauge-buff-timer {
-  font-size: 11px;
-  color: #fff;
-  font-weight: bold;
-  margin-left: 4px;
-}
-
-.hp-gauge-buff-user-list {
+.hp-gauge-buff-gauge-block {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  align-items: center;
+  flex-direction: column;
+}
+
+.hp-gauge-buff-gauge-block--user {
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.hp-gauge-buff-gauge-block--user:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.hp-gauge-buff-user-gauges {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.hp-gauge-buff-gauge-track {
+  position: relative;
+  display: flex;
   justify-content: center;
+  align-items: stretch;
+  width: 100%;
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.hp-gauge-buff-gauge-fill {
+  flex: 0 0 auto;
+  height: 100%;
   max-width: 100%;
+  border-radius: 6px;
+  /* ハイライト帯 + 炎色グラデ（位置を動かしてメラメラ感） */
+  background-image:
+    linear-gradient(100deg,
+      transparent 0%,
+      transparent 38%,
+      rgba(255, 255, 255, 0.55) 48%,
+      rgba(255, 230, 160, 0.35) 52%,
+      transparent 62%,
+      transparent 100%),
+    linear-gradient(180deg,
+      #fff3c4 0%,
+      #ffcc4a 22%,
+      #ff9018 48%,
+      #e05800 78%,
+      #a02800 100%);
+  background-size: 220% 100%, 100% 240%;
+  background-position: 0% 0%, 50% 0%;
+  background-repeat: no-repeat;
+  box-shadow:
+    0 0 6px rgba(255, 170, 60, 0.55),
+    0 0 14px rgba(255, 90, 0, 0.35);
+  transition: width 0.35s linear;
+  animation: hp-buff-gauge-meramera 1.85s ease-in-out infinite;
 }
 
-.hp-gauge-buff-user-entry {
-  font-size: 11px;
-  color: #fff;
-  white-space: nowrap;
+@keyframes hp-buff-gauge-meramera {
+
+  0%,
+  100% {
+    background-position: 8% 0%, 50% 8%;
+    filter: brightness(1.02) saturate(1.1);
+    box-shadow:
+      0 0 6px rgba(255, 170, 60, 0.5),
+      0 0 12px rgba(255, 90, 0, 0.32);
+  }
+
+  28% {
+    background-position: 72% 0%, 48% 42%;
+    filter: brightness(1.14) saturate(1.28);
+    box-shadow:
+      0 0 11px rgba(255, 210, 100, 0.65),
+      0 0 20px rgba(255, 70, 0, 0.45);
+  }
+
+  52% {
+    background-position: 35% 0%, 52% 65%;
+    filter: brightness(1.08) saturate(1.18);
+    box-shadow:
+      0 0 8px rgba(255, 160, 70, 0.58),
+      0 0 15px rgba(255, 100, 0, 0.38);
+  }
+
+  75% {
+    background-position: 95% 0%, 45% 28%;
+    filter: brightness(1.2) saturate(1.32);
+    box-shadow:
+      0 0 12px rgba(255, 230, 130, 0.72),
+      0 0 22px rgba(255, 60, 0, 0.48);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-gauge-buff-gauge-fill {
+    animation: none;
+    background-image: linear-gradient(180deg, #ffb347 0%, #ff8800 45%, #e07600 100%);
+    background-size: 100% 100%;
+    background-position: 0 0;
+    filter: none;
+    box-shadow: 0 0 8px rgba(255, 140, 0, 0.45);
+  }
 }

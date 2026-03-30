@@ -3,7 +3,10 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { loadOverlayConfig, saveOverlayConfig, getDefaultConfig } from '../utils/overlayConfig'
+import { overlayConfigQueryKey } from '../lib/queryKeys'
+import { logger } from '../lib/logger'
 import type { OverlayConfig } from '../types/overlay'
 
 type DeepPartial<T> = {
@@ -34,6 +37,7 @@ interface UseHPGaugeResult {
   resetHP: () => void
   updateConfig: (newConfig: DeepPartial<OverlayConfig>) => Promise<void>
   updateConfigLocal: (newConfig: DeepPartial<OverlayConfig>) => void
+  replaceConfig: (newConfig: OverlayConfig) => void
   saveConfig: () => Promise<void>
   reloadConfig: () => Promise<void>
 }
@@ -46,50 +50,54 @@ export function useHPGauge({
   onSurvivalHp1,
   onStreamerZeroHp,
 }: UseHPGaugeOptions): UseHPGaugeResult {
-  const [config, setConfig] = useState<OverlayConfig | null>(initialConfig || null)
-  const [loading, setLoading] = useState(!initialConfig)
+  const queryClient = useQueryClient()
+  const [config, setConfig] = useState<OverlayConfig | null>(initialConfig ?? null)
+  const [loading, setLoading] = useState(initialConfig == null)
   const [error, setError] = useState<Error | null>(null)
+
+  const overlayQuery = useQuery({
+    queryKey: overlayConfigQueryKey,
+    queryFn: loadOverlayConfig,
+    enabled: initialConfig == null,
+  })
   const onSurvivalHp1Ref = useRef(onSurvivalHp1)
   onSurvivalHp1Ref.current = onSurvivalHp1
   const onStreamerZeroHpRef = useRef(onStreamerZeroHp)
   onStreamerZeroHpRef.current = onStreamerZeroHp
 
-  // 設定を読み込む
   useEffect(() => {
-    if (initialConfig) {
+    if (initialConfig != null) {
       setConfig(initialConfig)
       setLoading(false)
+      setError(null)
       return
     }
-
-    const loadConfig = async () => {
-      try {
-        setLoading(true)
-        const loadedConfig = await loadOverlayConfig()
-        setConfig(loadedConfig)
-        setError(null)
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to load config'))
-      } finally {
-        setLoading(false)
-      }
+    if (overlayQuery.isSuccess && overlayQuery.data) {
+      setConfig(overlayQuery.data)
+      setLoading(false)
+      setError(null)
     }
+  }, [initialConfig, overlayQuery.isSuccess, overlayQuery.data])
 
-    loadConfig()
-  }, [initialConfig])
+  useEffect(() => {
+    if (initialConfig != null) return
+    if (!overlayQuery.isError || !overlayQuery.error) return
+    setError(overlayQuery.error instanceof Error ? overlayQuery.error : new Error('Failed to load config'))
+    setLoading(false)
+  }, [initialConfig, overlayQuery.isError, overlayQuery.error])
 
   // HPを減らす
   const reduceHP = useCallback(
     (amount: number) => {
-      console.log(`[reduceHP呼び出し] ダメージ: ${amount}`)
+      logger.debug(`[reduceHP呼び出し] ダメージ: ${amount}`)
       setConfig((prev) => {
         if (!prev) {
-          console.warn('[reduceHP] configがnullです')
+          logger.warn('[reduceHP] configがnullです')
           return prev
         }
         // HPが0以下の場合は何もしない（HPが上昇するバグを防ぐ）
         if (prev.hp.current <= 0) {
-          console.log(`[reduceHP] HPが0以下のため、ダメージを適用しません（現在HP: ${prev.hp.current}）`)
+          logger.debug(`[reduceHP] HPが0以下のため、ダメージを適用しません（現在HP: ${prev.hp.current}）`)
           return prev
         }
         let newHP = prev.hp.current - amount
@@ -105,11 +113,11 @@ export function useHPGauge({
             newHP = 1
             const message = (prev.attack.survivalHp1Message || '食いしばり!').trim() || '食いしばり!'
             onSurvivalHp1Ref.current?.(message)
-            console.log(`[reduceHP] HP1残り発動 (確率${prev.attack.survivalHp1Probability}%、roll=${roll.toFixed(1)})`)
+            logger.info(`[reduceHP] HP1残り発動 (確率${prev.attack.survivalHp1Probability}%、roll=${roll.toFixed(1)})`)
           }
         }
         newHP = Math.max(0, newHP)
-        console.log(`[reduceHP] HP更新: ${prev.hp.current} -> ${newHP}`)
+        logger.debug(`[reduceHP] HP更新: ${prev.hp.current} -> ${newHP}`)
         return {
           ...prev,
           hp: {
@@ -190,17 +198,25 @@ export function useHPGauge({
           heal: { ...prev.heal, ...newConfig.heal },
           retry: { ...prev.retry, ...newConfig.retry },
           animation: { ...prev.animation, ...newConfig.animation },
-          display: { ...prev.display, ...newConfig.display },
+          display: {
+            ...prev.display,
+            ...newConfig.display,
+            gaugeShape: {
+              ...prev.display.gaugeShape,
+              ...newConfig.display?.gaugeShape,
+            },
+          },
           zeroHpImage: { ...prev.zeroHpImage, ...newConfig.zeroHpImage },
           zeroHpSound: { ...prev.zeroHpSound, ...newConfig.zeroHpSound },
           zeroHpEffect: { ...prev.zeroHpEffect, ...newConfig.zeroHpEffect },
           test: { ...prev.test, ...newConfig.test },
-          externalWindow: { ...prev.externalWindow, ...newConfig.externalWindow },
           webmLoop: { ...prev.webmLoop, ...newConfig.webmLoop },
           damageEffectFilter: { ...prev.damageEffectFilter, ...newConfig.damageEffectFilter },
           healEffectFilter: { ...prev.healEffectFilter, ...newConfig.healEffectFilter },
           gaugeColors: { ...prev.gaugeColors, ...newConfig.gaugeColors },
           damageColors: { ...prev.damageColors, ...newConfig.damageColors },
+          healColors: { ...prev.healColors, ...newConfig.healColors },
+          obsCaptureGuide: { ...prev.obsCaptureGuide, ...newConfig.obsCaptureGuide },
           pvp: newConfig.pvp
             ? (() => {
               const basePvp = prev.pvp ?? getDefaultConfig().pvp
@@ -227,15 +243,16 @@ export function useHPGauge({
         if (!prev) return prev
         saveOverlayConfig(prev)
           .then(() => {
-            console.log('✅ 設定を保存しました')
+            logger.info('✅ 設定を保存しました')
+            queryClient.setQueryData(overlayConfigQueryKey, prev)
           })
           .catch((error) => {
-            console.error('❌ 設定の保存に失敗しました:', error)
+            logger.error('❌ 設定の保存に失敗しました:', error)
           })
         return prev
       })
     },
-    []
+    [queryClient]
   )
 
   // 設定を更新（後方互換性のため残す）
@@ -245,7 +262,7 @@ export function useHPGauge({
       setConfig((prev) => {
         if (!prev) return prev
         saveOverlayConfig(prev).catch((error) => {
-          console.error('設定の保存に失敗しました:', error)
+          logger.error('設定の保存に失敗しました:', error)
         })
         return prev
       })
@@ -253,22 +270,35 @@ export function useHPGauge({
     [updateConfigLocal]
   )
 
+  /** 設定全体を置き換え（設定画面のフォーム同期用） */
+  const replaceConfig = useCallback(
+    (newConfig: OverlayConfig) => {
+      setConfig(newConfig)
+      queryClient.setQueryData(overlayConfigQueryKey, newConfig)
+    },
+    [queryClient]
+  )
+
   // 設定を再読み込み（JSONファイルから）
   const reloadConfig = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      const loadedConfig = await loadOverlayConfig()
+      await queryClient.invalidateQueries({ queryKey: overlayConfigQueryKey })
+      const loadedConfig = await queryClient.fetchQuery({
+        queryKey: overlayConfigQueryKey,
+        queryFn: loadOverlayConfig,
+      })
       setConfig(loadedConfig)
-      console.log('✅ 設定を再読み込みしました')
+      logger.info('設定を再読み込みしました')
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to reload config')
       setError(error)
-      console.error('❌ 設定の再読み込みに失敗しました:', error)
+      logger.error('設定の再読み込みに失敗しました:', error)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [queryClient])
 
   // 注意: HPの変更（攻撃、回復、全回復）では自動保存しない
   // 設定画面からの明示的な保存（updateConfig）のみが保存される
@@ -285,6 +315,7 @@ export function useHPGauge({
     resetHP,
     updateConfig,
     updateConfigLocal,
+    replaceConfig,
     saveConfig,
     reloadConfig,
   }

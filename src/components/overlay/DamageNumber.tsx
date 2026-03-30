@@ -3,12 +3,27 @@
  */
 
 import './DamageNumber.css'
-import type { DamageColorConfig } from '../../types/overlay'
+import type { AttackDebuffKind, DamageColorConfig } from '../../types/overlay'
+
+function dotDebuffFallbackHex(kind: AttackDebuffKind | undefined, damageColors: DamageColorConfig): string {
+  switch (kind ?? 'bleed') {
+    case 'poison':
+      return damageColors.dotPoison ?? '#66dd88'
+    case 'burn':
+      return damageColors.dotBurn ?? '#ff9944'
+    default:
+      return damageColors.bleed
+  }
+}
 
 interface DamageNumberProps {
   amount: number
   isCritical?: boolean
-  isBleed?: boolean // 出血ダメージかどうか
+  isBleed?: boolean // 持続ダメージ（DOT）かどうか
+  /** DOT の種別（既定の数値色に使用。省略時は bleed） */
+  dotDebuffKind?: AttackDebuffKind
+  /** DOT 時のみ。指定時は種別の既定色より優先（#RGB / #RRGGBB） */
+  bleedColorOverride?: string
   angle?: number // 放射状の角度（度）
   distance?: number // 放射状の距離（px）
   id: number
@@ -19,13 +34,20 @@ export function DamageNumber({
   amount, 
   isCritical = false, 
   isBleed = false,
+  dotDebuffKind = 'bleed',
+  bleedColorOverride,
   angle = 0,
   distance = 0,
   id,
   damageColors
 }: DamageNumberProps) {
+  const bleedHex =
+    isBleed && bleedColorOverride && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(bleedColorOverride.trim())
+      ? bleedColorOverride.trim()
+      : null
+  const dotBase = dotDebuffFallbackHex(dotDebuffKind, damageColors)
   // 色を決定
-  const color = isBleed ? damageColors.bleed : (isCritical ? damageColors.critical : damageColors.normal)
+  const color = isBleed ? (bleedHex ?? dotBase) : (isCritical ? damageColors.critical : damageColors.normal)
   
   // 出血ダメージの場合は角度と距離からx, y座標を計算
   let bleedStyle: React.CSSProperties | undefined = undefined
@@ -51,12 +73,18 @@ export function DamageNumber({
 
   // 色をRGBに変換してtext-shadowを生成
   const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : null
+    let s = hex.replace(/^#/, '')
+    if (s.length === 3) {
+      s = `${s[0]}${s[0]}${s[1]}${s[1]}${s[2]}${s[2]}`
+    }
+    const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(s)
+    return result
+      ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16),
+        }
+      : null
   }
 
   const rgb = hexToRgb(color)

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { twitchApi } from '../utils/twitchApi'
 import type { TwitchChannelInformation } from '../types/twitch'
+import { twitchChannelQueryKey } from '../lib/queryKeys'
 
 interface UseTwitchChannelResult {
   channel: TwitchChannelInformation | null
@@ -10,40 +11,21 @@ interface UseTwitchChannelResult {
 }
 
 /**
- * Twitchチャンネル情報を取得するカスタムフック
+ * Twitchチャンネル情報を取得するカスタムフック（TanStack Query）
  */
 export function useTwitchChannel(userId: string): UseTwitchChannelResult {
-  const [channel, setChannel] = useState<TwitchChannelInformation | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-
-  const fetchChannel = async () => {
-    if (!userId) {
-      setLoading(false)
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-      const channelData = await twitchApi.getChannelByUserId(userId)
-      setChannel(channelData)
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'))
-      setChannel(null)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchChannel()
-  }, [userId])
+  const q = useQuery({
+    queryKey: twitchChannelQueryKey(userId),
+    queryFn: () => twitchApi.getChannelByUserId(userId),
+    enabled: !!userId,
+  })
 
   return {
-    channel,
-    loading,
-    error,
-    refetch: fetchChannel,
+    channel: q.data ?? null,
+    loading: q.isLoading,
+    error: q.error instanceof Error ? q.error : q.error ? new Error(String(q.error)) : null,
+    refetch: async () => {
+      await q.refetch()
+    },
   }
 }

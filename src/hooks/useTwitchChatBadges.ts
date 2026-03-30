@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { twitchApi } from '../utils/twitchApi'
 import type { TwitchChatBadge } from '../types/twitch'
+import { twitchChatBadgesQueryKey } from '../lib/queryKeys'
 
 interface UseTwitchChatBadgesResult {
   badges: TwitchChatBadge[]
@@ -10,40 +11,21 @@ interface UseTwitchChatBadgesResult {
 }
 
 /**
- * Twitchチャットバッジ情報を取得するカスタムフック
+ * Twitchチャットバッジ情報を取得するカスタムフック（TanStack Query）
  */
 export function useTwitchChatBadges(broadcasterId: string): UseTwitchChatBadgesResult {
-  const [badges, setBadges] = useState<TwitchChatBadge[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-
-  const fetchBadges = async () => {
-    if (!broadcasterId) {
-      setLoading(false)
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-      const badgesData = await twitchApi.getChatBadges(broadcasterId)
-      setBadges(badgesData)
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Unknown error'))
-      setBadges([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchBadges()
-  }, [broadcasterId])
+  const q = useQuery({
+    queryKey: twitchChatBadgesQueryKey(broadcasterId),
+    queryFn: () => twitchApi.getChatBadges(broadcasterId),
+    enabled: !!broadcasterId,
+  })
 
   return {
-    badges,
-    loading,
-    error,
-    refetch: fetchBadges,
+    badges: q.data ?? [],
+    loading: q.isLoading,
+    error: q.error instanceof Error ? q.error : q.error ? new Error(String(q.error)) : null,
+    refetch: async () => {
+      await q.refetch()
+    },
   }
 }
