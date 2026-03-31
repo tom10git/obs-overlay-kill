@@ -91,6 +91,31 @@ if not exist "package.json" (
     exit /b 1
 )
 
+REM .env の存在確認（無い場合は .env.example から作成して案内）
+if not exist ".env" (
+    if exist ".env.example" (
+        copy /y ".env.example" ".env" >nul
+        echo [警告] .env が無かったため .env.example から .env を作成しました。
+        echo [情報] Twitch 認証情報（VITE_TWITCH_TOKEN_APP_CLIENT_ID / SECRET 等）を .env に設定してください。
+        echo [情報] 依存関係のインストールは続行しますが、ビルドは .env 未設定だと失敗することがあります。
+        echo.
+    ) else (
+        echo [警告] .env と .env.example の両方が見つかりません。
+        echo [情報] リポジトリ一式が揃っているか確認してください。
+        echo.
+    )
+)
+
+REM .env がサンプル値のままか簡易チェック（設定忘れの注意喚起）
+if exist ".env" (
+    findstr /c:"your_token_app_client_id_here" ".env" >nul 2>&1
+    if not errorlevel 1 (
+        echo [注意] .env にサンプル値（your_token_app_client_id_here）が残っています。
+        echo [注意] 後で build.bat / npm run build を行う前に .env を設定してください。
+        echo.
+    )
+)
+
 REM 依存関係をインストール（package.jsonに記載されているもののみ）
 echo [情報] 依存関係をインストール中...
 echo [情報] package.jsonに記載されている依存関係のみをインストールします...

@@ -8,12 +8,12 @@ React + TypeScript + Vite で構築されたプロジェクトです。Twitch AP
 
 「OBSでHPゲージを出したい」人向けの最短手順です（開発はしません）。
 
-- **起動**: 配布zipを展開 → `start-localhost.bat`（PowerShellなら`start-localhost.ps1`）を実行
+- **起動**: 配布物（フォルダ or 圧縮ファイル）を用意 → `start-localhost.bat` を実行
 - **表示**: ブラウザで **`http://localhost:4173/overlay`** を開く（既定ポート。変更時は表示に合わせる）
 - **OBSに取り込み**: OBSで「ブラウザソース」または「ウィンドウキャプチャー」を追加して上記ページをキャプチャ
 - **設定**: `/overlay` ページ内の設定パネルで、HP/攻撃/回復/効果音/DOT（出血・毒・炎）などを調整
 - **保存**: 設定パネルの「保存」を押す（本番ビルドはJSONをダウンロードするので `public/config/overlay-config.json` に置く）
-- **困ったとき**: 配布zipに同梱の `README-配布.txt` を参照（リポジトリ直下には無い場合があります。配布パッケージ作成時に `release` 配下へ生成されます）
+- **困ったとき**: 配布物に同梱の `README-配布.txt` を参照（リポジトリ直下には無い場合があります。配布パッケージ作成時に `release` 配下へ生成されます）
 
 ## 利用規約（使用条件）
 
@@ -45,12 +45,14 @@ React + TypeScript + Vite で構築されたプロジェクトです。Twitch AP
 
 ## 配布用
 
-開発用の Node / npm を自分で整えず、**ビルド済みの zip などだけを扱う人**と、**その zip を作って渡す人**向けです。リポジトリからコードを触る手順は [開発用](#開発用) を参照してください。
+開発用の Node / npm を自分で整えず、**ビルド済みの配布物（フォルダ / 圧縮ファイル）だけを扱う人**と、**それを作って渡す人**向けです。リポジトリからコードを触る手順は [開発用](#開発用) を参照してください。
 
 ### 受け取った人（実行だけ）
 
 1. **[Node.js](https://nodejs.org/)（LTS）をインストール**する。
-2. zip を展開し、**`start-localhost.bat`** をダブルクリックする（PowerShell 利用時は `start-localhost.ps1`）。
+2. 配布物を用意し、`release` フォルダ内の **`start-localhost.bat`** をダブルクリックする。
+   - PowerShell で `.bat` を実行すると、環境や実行方法によっては失敗しやすいので **基本はダブルクリック（Explorer）か「cmd」から実行**してください。
+   - どうしても PowerShell から実行する場合は `.\start-localhost.bat` のように **`.\` を付けて実行**してください。
 3. ウィンドウを開いたまま、OBS でブラウザソースを追加し、次の URL を指定する（既定ポート **4173**。変えた場合は表示に合わせる）。
 
    **`http://localhost:4173/overlay`**
@@ -63,9 +65,9 @@ React + TypeScript + Vite で構築されたプロジェクトです。Twitch AP
 
 1. リポジトリを用意し、**`npm install`**。
 2. ルートで **`npm run package:release`** を実行するか、Windows なら **`package-release.bat`** を実行する（ビルド後に **`release/dist`** が更新されます）。
-3. **`release` フォルダ全体**を zip などにまとめて配布する（`dist`・起動スクリプト・`README-配布.txt` が入ります）。
+3. **`release` フォルダ全体**を配布する（フォルダのまま渡す、または zip 等で圧縮する。`dist`・起動スクリプト・`README-配布.txt` が入ります）。
 
-> **補足:** `release/dist` は Git では無視されます。clone しただけでは zip に `dist` が入っていない場合は、必ず上記 `package:release` を実行してください。
+> **補足:** `release/dist` は Git では無視されます。clone しただけでは配布物に `dist` が入っていない場合は、必ず上記 `package:release` を実行してください。
 
 ---
 

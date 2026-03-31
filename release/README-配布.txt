@@ -49,8 +49,13 @@
 
 ■ トラブル
 
-  • 「dist がありません」… package:release を実行していない、または zip の展開先が
-    ずれている可能性があります。release フォルダ直下に dist と .bat があるか確認。
+  • 「dist がありません」… 次が多いです:
+    - 圧縮ファイル（zip 等）を展開せずに、中から .bat を直接実行している（いったん「すべて展開」してください）
+    - 配布物に dist/ が含まれていない（作成者が package:release を実行していない）
+    - release フォルダだけを移動して dist/ が置き去りになっている
+    対処: release フォルダ直下に dist と .bat があるか確認。
+    ※ もし「リポジトリ内の release」から実行している場合は、start-localhost.bat が
+      `npm run package:release` を自動実行して dist を生成できることがあります。
 
   • ポートが既に使われている… 別アプリが 4173 を使用中。OVERLAY_PORT で変更。
 
