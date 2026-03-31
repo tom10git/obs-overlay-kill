@@ -119,13 +119,14 @@ if exist ".env" (
 REM 依存関係をインストール（package.jsonに記載されているもののみ）
 echo [情報] 依存関係をインストール中...
 echo [情報] package.jsonに記載されている依存関係のみをインストールします...
-call npm install --omit=optional --legacy-peer-deps
+echo [情報] 注意: optional dependencies を省くと Vite/rolldown の Windows ネイティブ依存が欠けてビルド失敗する場合があります。
+call npm install
 
 if errorlevel 1 (
     echo [エラー] 依存関係のインストールに失敗しました。
     echo [情報] ネットワーク接続を確認するか、npm のキャッシュをクリアしてください。
     echo [情報] キャッシュクリア: npm cache clean --force
-    echo [情報] 再試行: npm install --omit=optional --legacy-peer-deps
+    echo [情報] 再試行: npm install
     pause
     exit /b 1
 )

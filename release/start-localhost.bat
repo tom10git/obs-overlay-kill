@@ -18,7 +18,7 @@ if not exist "dist\index.html" (
     echo [情報] 上の階層に package.json を検出しました（リポジトリ内の release と判断）。
     echo [情報] release\dist を自動生成します: npm run package:release
     echo.
-    pushd ..
+    pushd "%~dp0.."
     call npm run package:release
     if errorlevel 1 (
       popd
