@@ -385,6 +385,60 @@ export interface ObsCaptureGuideConfig {
   insetPx: number
 }
 
+/** OBS WebSocket（v5）でソースレイヤーを動かす設定 */
+export interface ObsWebSocketEffectsConfig {
+  /** ダメージ時: ソースをランダムに揺らす */
+  damageShakeEnabled: boolean
+  /** 揺れの強さ（px） */
+  damageShakeStrengthPx: number
+  /** 揺れの継続時間（ms） */
+  damageShakeDurationMs: number
+
+  /** 回復時: 一時的に拡大して戻す（擬似グロー） */
+  healGlowEnabled: boolean
+  /** 最大スケール（例: 1.08） */
+  healGlowScale: number
+  /** 継続時間（ms） */
+  healGlowDurationMs: number
+
+  /** 回避（ミス）時: 左右へ一時的にずらして戻す */
+  dodgeMoveEnabled: boolean
+  /** ずらす距離（px） */
+  dodgeMoveDistancePx: number
+  /** 継続時間（ms） */
+  dodgeMoveDurationMs: number
+
+  /** 必殺技時: 強いシェイク+スケールアップ（上記ON/OFFとは別に制御） */
+  finishingMoveEnabled: boolean
+  finishingMoveShakeStrengthPx: number
+  finishingMoveShakeDurationMs: number
+  finishingMoveGlowScale: number
+  finishingMoveGlowDurationMs: number
+}
+
+export interface ObsWebSocketConfig {
+  enabled: boolean
+  /** 例: localhost */
+  host: string
+  /** 既定: 4455 */
+  port: number
+  /** OBS側のサーバー設定と一致させる */
+  password: string
+  /** 未指定時は現在のプログラムシーンを対象 */
+  sceneName: string
+  /** 動かしたいソース（シーン内のレイヤー名） */
+  sourceName: string
+  effects: ObsWebSocketEffectsConfig
+}
+
+export type OverlayBackgroundMode = 'green' | 'dark-gray' | 'custom' | 'transparent'
+
+export interface OverlayBackgroundConfig {
+  mode: OverlayBackgroundMode
+  /** mode=custom のときに使用する色（#RRGGBB 推奨、CSSカラーでも可） */
+  customColor: string
+}
+
 export interface OverlayConfig {
   hp: HPConfig
   attack: AttackConfig
@@ -404,6 +458,8 @@ export interface OverlayConfig {
   damageColors: DamageColorConfig // ダメージ値の色設定
   healColors: HealNumberColorConfig // 回復値の色設定
   obsCaptureGuide: ObsCaptureGuideConfig
+  obsWebSocket: ObsWebSocketConfig
+  background: OverlayBackgroundConfig
 }
 
 export interface ChannelPointEvent {

@@ -2,7 +2,7 @@
   position: fixed;
   right: 8px;
   bottom: 8px;
-  z-index: 99999;
+  z-index: 120001;
   font-family: ui-monospace, monospace;
   font-size: 11px;
   max-width: min(420px, 96vw);

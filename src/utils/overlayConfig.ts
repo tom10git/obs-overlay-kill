@@ -360,6 +360,34 @@ const DEFAULT_CONFIG: OverlayConfig = {
     enabled: false,
     insetPx: 16,
   },
+  obsWebSocket: {
+    enabled: false,
+    host: '127.0.0.1',
+    port: 4455,
+    password: '',
+    sceneName: '',
+    sourceName: '',
+    effects: {
+      damageShakeEnabled: false,
+      damageShakeStrengthPx: 14,
+      damageShakeDurationMs: 450,
+      healGlowEnabled: false,
+      healGlowScale: 1.08,
+      healGlowDurationMs: 500,
+      dodgeMoveEnabled: false,
+      dodgeMoveDistancePx: 42,
+      dodgeMoveDurationMs: 380,
+      finishingMoveEnabled: false,
+      finishingMoveShakeStrengthPx: 26,
+      finishingMoveShakeDurationMs: 650,
+      finishingMoveGlowScale: 1.14,
+      finishingMoveGlowDurationMs: 750,
+    },
+  },
+  background: {
+    mode: 'green',
+    customColor: '#00ff00',
+  },
 }
 
 /**
@@ -410,6 +438,15 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
       damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
       healColors: { ...DEFAULT_CONFIG.healColors, ...validated.healColors },
       obsCaptureGuide: { ...DEFAULT_CONFIG.obsCaptureGuide, ...validated.obsCaptureGuide },
+      obsWebSocket: {
+        ...DEFAULT_CONFIG.obsWebSocket,
+        ...validated.obsWebSocket,
+        effects: {
+          ...DEFAULT_CONFIG.obsWebSocket.effects,
+          ...(validated.obsWebSocket?.effects || {}),
+        },
+      },
+      background: { ...DEFAULT_CONFIG.background, ...validated.background },
     }
   } catch (error) {
     logger.error('設定ファイルの読み込みに失敗しました:', error)
@@ -462,6 +499,15 @@ export async function loadOverlayConfigFromFile(): Promise<OverlayConfig> {
       damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
       healColors: { ...DEFAULT_CONFIG.healColors, ...validated.healColors },
       obsCaptureGuide: { ...DEFAULT_CONFIG.obsCaptureGuide, ...validated.obsCaptureGuide },
+      obsWebSocket: {
+        ...DEFAULT_CONFIG.obsWebSocket,
+        ...validated.obsWebSocket,
+        effects: {
+          ...DEFAULT_CONFIG.obsWebSocket.effects,
+          ...(validated.obsWebSocket?.effects || {}),
+        },
+      },
+      background: { ...DEFAULT_CONFIG.background, ...validated.background },
     }
   } catch (error) {
     logger.error('設定ファイルの読み込みに失敗しました:', error)
@@ -1048,6 +1094,85 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       : DEFAULT_CONFIG.obsCaptureGuide.insetPx,
   }
 
+  const obsWebSocketConfig = (c.obsWebSocket as Record<string, unknown> | undefined) || {}
+  const obsWebSocketEffectsConfig = (obsWebSocketConfig.effects as Record<string, unknown> | undefined) || {}
+  const obsWebSocket = {
+    enabled: typeof obsWebSocketConfig.enabled === 'boolean' ? obsWebSocketConfig.enabled : DEFAULT_CONFIG.obsWebSocket.enabled,
+    host:
+      typeof obsWebSocketConfig.host === 'string' && isValidLength(obsWebSocketConfig.host.trim(), 1, 200)
+        ? obsWebSocketConfig.host.trim()
+        : DEFAULT_CONFIG.obsWebSocket.host,
+    port: isInRange(Number(obsWebSocketConfig.port), 1, 65535)
+      ? Math.floor(Number(obsWebSocketConfig.port))
+      : DEFAULT_CONFIG.obsWebSocket.port,
+    password: typeof obsWebSocketConfig.password === 'string' ? obsWebSocketConfig.password : DEFAULT_CONFIG.obsWebSocket.password,
+    sceneName: typeof obsWebSocketConfig.sceneName === 'string' ? obsWebSocketConfig.sceneName : DEFAULT_CONFIG.obsWebSocket.sceneName,
+    sourceName: typeof obsWebSocketConfig.sourceName === 'string' ? obsWebSocketConfig.sourceName : DEFAULT_CONFIG.obsWebSocket.sourceName,
+    effects: {
+      damageShakeEnabled: typeof obsWebSocketEffectsConfig.damageShakeEnabled === 'boolean'
+        ? obsWebSocketEffectsConfig.damageShakeEnabled
+        : DEFAULT_CONFIG.obsWebSocket.effects.damageShakeEnabled,
+      damageShakeStrengthPx: isInRange(Number(obsWebSocketEffectsConfig.damageShakeStrengthPx), 0, 500)
+        ? Math.floor(Number(obsWebSocketEffectsConfig.damageShakeStrengthPx))
+        : DEFAULT_CONFIG.obsWebSocket.effects.damageShakeStrengthPx,
+      damageShakeDurationMs: isInRange(Number(obsWebSocketEffectsConfig.damageShakeDurationMs), 0, 10000)
+        ? Math.floor(Number(obsWebSocketEffectsConfig.damageShakeDurationMs))
+        : DEFAULT_CONFIG.obsWebSocket.effects.damageShakeDurationMs,
+
+      healGlowEnabled: typeof obsWebSocketEffectsConfig.healGlowEnabled === 'boolean'
+        ? obsWebSocketEffectsConfig.healGlowEnabled
+        : DEFAULT_CONFIG.obsWebSocket.effects.healGlowEnabled,
+      healGlowScale: isInRange(Number(obsWebSocketEffectsConfig.healGlowScale), 1, 3)
+        ? Math.round(Number(obsWebSocketEffectsConfig.healGlowScale) * 100) / 100
+        : DEFAULT_CONFIG.obsWebSocket.effects.healGlowScale,
+      healGlowDurationMs: isInRange(Number(obsWebSocketEffectsConfig.healGlowDurationMs), 0, 10000)
+        ? Math.floor(Number(obsWebSocketEffectsConfig.healGlowDurationMs))
+        : DEFAULT_CONFIG.obsWebSocket.effects.healGlowDurationMs,
+
+      dodgeMoveEnabled: typeof obsWebSocketEffectsConfig.dodgeMoveEnabled === 'boolean'
+        ? obsWebSocketEffectsConfig.dodgeMoveEnabled
+        : DEFAULT_CONFIG.obsWebSocket.effects.dodgeMoveEnabled,
+      dodgeMoveDistancePx: isInRange(Number(obsWebSocketEffectsConfig.dodgeMoveDistancePx), 0, 2000)
+        ? Math.floor(Number(obsWebSocketEffectsConfig.dodgeMoveDistancePx))
+        : DEFAULT_CONFIG.obsWebSocket.effects.dodgeMoveDistancePx,
+      dodgeMoveDurationMs: isInRange(Number(obsWebSocketEffectsConfig.dodgeMoveDurationMs), 0, 10000)
+        ? Math.floor(Number(obsWebSocketEffectsConfig.dodgeMoveDurationMs))
+        : DEFAULT_CONFIG.obsWebSocket.effects.dodgeMoveDurationMs,
+
+      finishingMoveEnabled: typeof obsWebSocketEffectsConfig.finishingMoveEnabled === 'boolean'
+        ? obsWebSocketEffectsConfig.finishingMoveEnabled
+        : DEFAULT_CONFIG.obsWebSocket.effects.finishingMoveEnabled,
+      finishingMoveShakeStrengthPx: isInRange(Number(obsWebSocketEffectsConfig.finishingMoveShakeStrengthPx), 0, 1000)
+        ? Math.floor(Number(obsWebSocketEffectsConfig.finishingMoveShakeStrengthPx))
+        : DEFAULT_CONFIG.obsWebSocket.effects.finishingMoveShakeStrengthPx,
+      finishingMoveShakeDurationMs: isInRange(Number(obsWebSocketEffectsConfig.finishingMoveShakeDurationMs), 0, 15000)
+        ? Math.floor(Number(obsWebSocketEffectsConfig.finishingMoveShakeDurationMs))
+        : DEFAULT_CONFIG.obsWebSocket.effects.finishingMoveShakeDurationMs,
+      finishingMoveGlowScale: isInRange(Number(obsWebSocketEffectsConfig.finishingMoveGlowScale), 1, 5)
+        ? Math.round(Number(obsWebSocketEffectsConfig.finishingMoveGlowScale) * 100) / 100
+        : DEFAULT_CONFIG.obsWebSocket.effects.finishingMoveGlowScale,
+      finishingMoveGlowDurationMs: isInRange(Number(obsWebSocketEffectsConfig.finishingMoveGlowDurationMs), 0, 15000)
+        ? Math.floor(Number(obsWebSocketEffectsConfig.finishingMoveGlowDurationMs))
+        : DEFAULT_CONFIG.obsWebSocket.effects.finishingMoveGlowDurationMs,
+    },
+  }
+
+  const backgroundConfig = (c.background as Record<string, unknown> | undefined) || {}
+  const sanitizeBgMode = (raw: unknown): 'green' | 'dark-gray' | 'custom' | 'transparent' => {
+    if (typeof raw === 'string') {
+      const s = raw.trim()
+      if (s === 'green' || s === 'dark-gray' || s === 'custom' || s === 'transparent') return s
+    }
+    return DEFAULT_CONFIG.background.mode
+  }
+  const background = {
+    mode: sanitizeBgMode(backgroundConfig.mode),
+    customColor:
+      typeof backgroundConfig.customColor === 'string' && isValidLength(backgroundConfig.customColor.trim(), 1, 50)
+        ? backgroundConfig.customColor.trim()
+        : DEFAULT_CONFIG.background.customColor,
+  }
+
   // PvP設定の検証（streamerAttack は attack と同じ構造）
   const pvpConfig = (c.pvp as Record<string, unknown> | undefined) || {}
   const sa = (pvpConfig.streamerAttack as Record<string, unknown> | undefined) || {}
@@ -1273,6 +1398,8 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     damageColors,
     healColors,
     obsCaptureGuide,
+    obsWebSocket,
+    background,
   }
 }
 

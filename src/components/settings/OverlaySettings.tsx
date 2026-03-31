@@ -22,6 +22,7 @@ import {
 } from '../../utils/overlayConfig'
 import { logger } from '../../lib/logger'
 import { isValidUrl } from '../../utils/security'
+import { fetchObsScenesAndSources, type ObsScenesAndSourcesResult } from '../../utils/obsWebSocketList'
 import type { AttackBleedVariant, AttackDebuffKind, GaugeShapeConfig, OverlayConfig } from '../../types/overlay'
 import './OverlaySettings.css'
 
@@ -74,6 +75,8 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
     hpZero: false,
     /** OBS ブラウザソースの切り取り目安 */
     obsCapture: false,
+    /** OBS WebSocket（ソースレイヤー操作） */
+    obsWebSocket: false,
     test: false,
   })
   const [activeTab, setActiveTab] = useState<'streamer' | 'user' | 'autoReply'>(() => {
@@ -84,6 +87,12 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
   const [autoReplySubTab, setAutoReplySubTab] = useState<'streamer' | 'viewer'>('streamer')
   const [showAttackRewardId, setShowAttackRewardId] = useState(false)
   const [showHealRewardId, setShowHealRewardId] = useState(false)
+  const [obsListLoading, setObsListLoading] = useState(false)
+  const [obsListError, setObsListError] = useState<string | null>(null)
+  const [obsListData, setObsListData] = useState<ObsScenesAndSourcesResult | null>(null)
+  /** OBSブラウザの対話では select/datalist が壊れやすいので、ボタン一覧で選ばせる */
+  const [obsScenePickOpen, setObsScenePickOpen] = useState(false)
+  const [obsSourcePickOpen, setObsSourcePickOpen] = useState(false)
   // 入力中の値を文字列として保持（空文字列を許可するため）
   const [inputValues, setInputValues] = useState<Record<string, string>>({})
   const [loadingFromFile, setLoadingFromFile] = useState(false)
@@ -216,10 +225,17 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
   }
 
   const toggleSection = (sectionKey: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [sectionKey]: !prev[sectionKey],
-    }))
+    setExpandedSections((prev) => {
+      const nextOpen = !prev[sectionKey]
+      if (sectionKey === 'obsWebSocket' && !nextOpen) {
+        setObsScenePickOpen(false)
+        setObsSourcePickOpen(false)
+      }
+      return {
+        ...prev,
+        [sectionKey]: nextOpen,
+      }
+    })
   }
 
   if (loading || !config) {
@@ -2669,6 +2685,69 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                     </select>
                   </label>
                 </div>
+
+                <h4 className="settings-subsection-title">背景（クロマキー/透明/任意色）</h4>
+                <div className="settings-hint">
+                  <p>
+                    透明にしたい場合は「透明」を選んでください（OBS側でもブラウザソースの背景が透過として扱われる必要があります）。
+                  </p>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="radio"
+                      name="overlay-bg-mode"
+                      checked={config.background.mode === 'green'}
+                      onChange={() => setConfig({ ...config, background: { ...config.background, mode: 'green' } })}
+                    />
+                    グリーン（クロマキー用）
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="overlay-bg-mode"
+                      checked={config.background.mode === 'transparent'}
+                      onChange={() => setConfig({ ...config, background: { ...config.background, mode: 'transparent' } })}
+                    />
+                    透明
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="overlay-bg-mode"
+                      checked={config.background.mode === 'dark-gray'}
+                      onChange={() => setConfig({ ...config, background: { ...config.background, mode: 'dark-gray' } })}
+                    />
+                    濃いグレー（プレビュー用）
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="overlay-bg-mode"
+                      checked={config.background.mode === 'custom'}
+                      onChange={() => setConfig({ ...config, background: { ...config.background, mode: 'custom' } })}
+                    />
+                    カスタム
+                  </label>
+                </div>
+                {config.background.mode === 'custom' && (
+                  <div className="settings-row">
+                    <label>
+                      カスタム色（CSSカラー / #RRGGBB）:
+                      <input
+                        type="text"
+                        value={config.background.customColor}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            background: { ...config.background, customColor: e.target.value },
+                          })
+                        }
+                        placeholder="#00ff00"
+                      />
+                    </label>
+                  </div>
+                )}
                 <h4 className="settings-subsection-title">HP表示</h4>
                 <div className="settings-row">
                   <label>
@@ -3587,6 +3666,276 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                   </label>
                 </div>
                 <p className="settings-hint">0〜400。角ガイドが画面端で欠けないようにするためのオフセットです。</p>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-section obs-ws-settings">
+            <h3 className="settings-section-header" onClick={() => toggleSection('obsWebSocket')}>
+              <span className="accordion-icon">{expandedSections.obsWebSocket ? '▼' : '▶'}</span>
+              OBS WebSocket API（ソースレイヤー操作）
+            </h3>
+            {expandedSections.obsWebSocket && (
+              <div className="settings-section-content settings-section-content--obs-ws">
+                <div className="settings-hint">
+                  <p>
+                    OBS 28 以降は追加プラグインなしで WebSocket（v5）が使えます。OBS の「ツール」→「WebSocket サーバー設定」でポート（既定 4455）とパスワードを確認してください。
+                  </p>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.obsWebSocket.enabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          obsWebSocket: { ...config.obsWebSocket, enabled: e.target.checked },
+                        })
+                      }
+                    />
+                    OBS WebSocket でソースの位置・スケール演出を行う（ダメージ／回復等と連動させる場合）
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    ホスト:
+                    <input
+                      type="text"
+                      style={{ marginLeft: '0.5rem' }}
+                      value={config.obsWebSocket.host}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          obsWebSocket: { ...config.obsWebSocket, host: e.target.value },
+                        })
+                      }
+                      placeholder="localhost"
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    ポート:
+                    <input
+                      type="number"
+                      min={1}
+                      max={65535}
+                      style={{ marginLeft: '0.5rem', width: '6rem' }}
+                      value={config.obsWebSocket.port}
+                      onChange={(e) => {
+                        const n = parseInt(e.target.value, 10)
+                        if (Number.isNaN(n)) return
+                        setConfig({
+                          ...config,
+                          obsWebSocket: {
+                            ...config.obsWebSocket,
+                            port: Math.min(65535, Math.max(1, n)),
+                          },
+                        })
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    パスワード（未設定なら空欄）:
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      style={{ marginLeft: '0.5rem', width: '12rem' }}
+                      value={config.obsWebSocket.password}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          obsWebSocket: { ...config.obsWebSocket, password: e.target.value },
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <button
+                    type="button"
+                    className="test-button test-reload"
+                    style={{ width: 'auto', padding: '0.4rem 0.75rem' }}
+                    disabled={obsListLoading}
+                    onClick={async () => {
+                      setObsListError(null)
+                      setObsListLoading(true)
+                      try {
+                        const data = await fetchObsScenesAndSources({
+                          host: config.obsWebSocket.host,
+                          port: config.obsWebSocket.port,
+                          password: config.obsWebSocket.password,
+                        })
+                        setObsListData(data)
+                      } catch (err) {
+                        setObsListData(null)
+                        const msg =
+                          err instanceof Error ? err.message : 'OBS WebSocket への接続に失敗しました'
+                        setObsListError(msg)
+                        logger.warn('[OBS WebSocket] 一覧取得失敗', err)
+                      } finally {
+                        setObsListLoading(false)
+                      }
+                    }}
+                  >
+                    {obsListLoading ? '接続中…' : 'シーン・ソース一覧を取得'}
+                  </button>
+                </div>
+
+                {obsListError && (
+                  <p className="settings-hint" style={{ color: '#ff8888' }}>
+                    {obsListError}
+                  </p>
+                )}
+                {obsListData && !obsListError && (
+                  <p className="settings-hint">
+                    取得済み: シーン {obsListData.sceneNames.length} 件
+                    {obsListData.currentProgramSceneName
+                      ? `（現在のプログラムシーン: ${obsListData.currentProgramSceneName}）`
+                      : ''}
+                  </p>
+                )}
+
+                {(() => {
+                  const effectiveScene =
+                    config.obsWebSocket.sceneName.trim() ||
+                    obsListData?.currentProgramSceneName.trim() ||
+                    ''
+                  const sourcesForPick =
+                    effectiveScene && obsListData?.sourcesByScene
+                      ? obsListData.sourcesByScene[effectiveScene] ?? []
+                      : []
+
+                  return (
+                    <>
+                      <div className="settings-row obs-ws-field-block">
+                        <label>
+                          対象シーン（空欄＝現在のプログラムシーン）:
+                          <input
+                            type="text"
+                            className="obs-ws-text-input"
+                            autoComplete="off"
+                            spellCheck={false}
+                            value={config.obsWebSocket.sceneName}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                obsWebSocket: { ...config.obsWebSocket, sceneName: e.target.value },
+                              })
+                            }
+                            placeholder="空欄 or シーン名を入力"
+                          />
+                        </label>
+                        {obsListData && obsListData.sceneNames.length > 0 && (
+                          <div className="obs-ws-pick-wrap">
+                            <button
+                              type="button"
+                              className="obs-ws-pick-toggle"
+                              onClick={() => {
+                                setObsScenePickOpen((o) => !o)
+                                setObsSourcePickOpen(false)
+                              }}
+                            >
+                              {obsScenePickOpen ? 'シーン候補を閉じる' : 'シーン候補から選ぶ（OBS対話向け）'}
+                            </button>
+                            {obsScenePickOpen && (
+                              <div className="obs-ws-pick-chips" role="list">
+                                <button
+                                  type="button"
+                                  className="obs-ws-pick-chip"
+                                  onClick={() => {
+                                    setConfig({
+                                      ...config,
+                                      obsWebSocket: { ...config.obsWebSocket, sceneName: '' },
+                                    })
+                                    setObsScenePickOpen(false)
+                                  }}
+                                >
+                                  （プログラムシーン・空欄）
+                                </button>
+                                {obsListData.sceneNames.map((name) => (
+                                  <button
+                                    key={name}
+                                    type="button"
+                                    className="obs-ws-pick-chip"
+                                    onClick={() => {
+                                      setConfig({
+                                        ...config,
+                                        obsWebSocket: { ...config.obsWebSocket, sceneName: name },
+                                      })
+                                      setObsScenePickOpen(false)
+                                    }}
+                                  >
+                                    {name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="settings-row obs-ws-field-block">
+                        <label>
+                          対象ソース（レイヤー名）:
+                          <input
+                            type="text"
+                            className="obs-ws-text-input"
+                            autoComplete="off"
+                            spellCheck={false}
+                            value={config.obsWebSocket.sourceName}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                obsWebSocket: { ...config.obsWebSocket, sourceName: e.target.value },
+                              })
+                            }
+                            placeholder="ソース名を入力"
+                          />
+                        </label>
+                        {obsListData && sourcesForPick.length > 0 && (
+                          <div className="obs-ws-pick-wrap">
+                            <button
+                              type="button"
+                              className="obs-ws-pick-toggle"
+                              onClick={() => {
+                                setObsSourcePickOpen((o) => !o)
+                                setObsScenePickOpen(false)
+                              }}
+                            >
+                              {obsSourcePickOpen ? 'ソース候補を閉じる' : 'ソース候補から選ぶ（OBS対話向け）'}
+                            </button>
+                            {obsSourcePickOpen && (
+                              <div className="obs-ws-pick-chips obs-ws-pick-chips--scroll" role="list">
+                                {sourcesForPick.map((sn) => (
+                                  <button
+                                    key={sn}
+                                    type="button"
+                                    className="obs-ws-pick-chip"
+                                    onClick={() => {
+                                      setConfig({
+                                        ...config,
+                                        obsWebSocket: { ...config.obsWebSocket, sourceName: sn },
+                                      })
+                                      setObsSourcePickOpen(false)
+                                    }}
+                                  >
+                                    {sn}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <p className="settings-hint">
+                        OBS のブラウザソース「対話」では、 OS 標準のプルダウン（select / datalist）が動かないことがあります。候補は上のボタンから選んでください。シーン未指定時のソース一覧は、一覧取得時点のプログラムシーンに基づきます。
+                      </p>
+                    </>
+                  )
+                })()}
               </div>
             )}
           </div>

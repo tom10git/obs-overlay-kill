@@ -149,6 +149,96 @@
   overflow: hidden;
 }
 
+/* OBS WebSocket 候補ボタンが子要素でクリップされないよう開く（埋め込みテストパネル内） */
+.overlay-settings--embedded .settings-section-content.settings-section-content--obs-ws {
+  overflow: visible;
+}
+
+.overlay-settings--embedded .settings-section.obs-ws-settings {
+  overflow: visible;
+}
+
+.obs-ws-field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.obs-ws-text-input {
+  margin-top: 0.35rem;
+  max-width: min(28rem, 90vw);
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.obs-ws-text-input:focus {
+  outline: none;
+  border-color: #ffffff;
+}
+
+.obs-ws-pick-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: flex-start;
+}
+
+.obs-ws-pick-toggle {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: #2a2a2a;
+  border: 1px solid #666;
+  color: #eee;
+  border-radius: 4px;
+}
+
+.obs-ws-pick-toggle:hover {
+  background: #353535;
+  border-color: #888;
+}
+
+.obs-ws-pick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+  background: #141414;
+  border: 1px solid #444;
+  border-radius: 6px;
+}
+
+.obs-ws-pick-chips--scroll {
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-color: #505050 #141414;
+}
+
+.obs-ws-pick-chip {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  background: #333;
+  border: 1px solid #555;
+  color: #fff;
+  border-radius: 4px;
+  text-align: left;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.obs-ws-pick-chip:hover {
+  background: #444;
+  border-color: #777;
+}
+
 @keyframes slideDown {
   from {
     opacity: 0;

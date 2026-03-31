@@ -64,6 +64,22 @@ interface EventSubClientOptions {
   onDisconnect?: () => void
 }
 
+/** ブラウザの close code の目安（Twitch 側の文言は reason に来る場合がある） */
+function eventSubCloseHint(code: number): string {
+  switch (code) {
+    case 1000:
+      return '正常終了'
+    case 1006:
+      return '異常終了（close フレームなし）。ネットワーク断・ファイアウォール・プロキシ・TLS/中間証明書・アンチウイルス等を疑う'
+    case 1002:
+      return 'プロトコルエラー'
+    case 1011:
+      return 'サーバー内部エラー（一時的なことが多い。再試行）'
+    default:
+      return '上記 code と reason を Twitch/OBS/ネットワーク側で確認'
+  }
+}
+
 class TwitchEventSubClient {
   private ws: WebSocket | null = null
   private sessionId: string | null = null
@@ -126,22 +142,31 @@ class TwitchEventSubClient {
           }
         }
 
-        this.ws.onerror = (error) => {
-          logger.error('❌ EventSub: WebSocketエラー', error)
+        this.ws.onerror = () => {
+          // ブラウザの WebSocket onerror は Event しか渡さず { isTrusted:true } 程度しか見えないことが多い。
+          // 実際の理由は直後の onclose の code / reason を見る。
+          logger.warn(
+            '❌ EventSub: WebSocket onerror（詳細はブラウザが出さないことが多いです。直後の「WebSocket切断」の code/reason を確認してください）'
+          )
           this.isConnecting = false
           if (this.options?.onError) {
-            this.options.onError(new Error('WebSocket connection error'))
+            this.options.onError(new Error('EventSub WebSocket error (see close code in logs)'))
           }
-          reject(error)
+          reject(new Error('EventSub WebSocket error'))
         }
 
         this.ws.onclose = (event) => {
           this.isConnecting = false
-          if (import.meta.env.DEV) {
-            logger.debug('📡 EventSub: WebSocket切断', {
-              コード: event.code,
-              理由: event.reason,
-              正常終了: event.wasClean,
+          if (event.code === 1000) {
+            if (import.meta.env.DEV) {
+              logger.debug('📡 EventSub: WebSocket切断（正常）', { code: event.code, reason: event.reason })
+            }
+          } else {
+            logger.warn('❌ EventSub: WebSocket切断', {
+              code: event.code,
+              reason: event.reason || '(なし)',
+              wasClean: event.wasClean,
+              hint: eventSubCloseHint(event.code),
             })
           }
 
@@ -158,9 +183,7 @@ class TwitchEventSubClient {
 
           // 自動再接続（意図的な切断でない場合）
           if (event.code !== 1000 && this.options) {
-            if (import.meta.env.DEV) {
-              logger.debug('📡 EventSub: 2秒後に再接続を試みます...')
-            }
+            logger.warn(`📡 EventSub: ${event.code} のため約2秒後に再接続します…`)
             this.reconnectTimeout = window.setTimeout(() => {
               this.connect(this.options!).catch((err) => {
                 logger.error('❌ EventSub: 再接続に失敗しました', err)

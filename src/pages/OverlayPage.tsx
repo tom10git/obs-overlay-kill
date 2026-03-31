@@ -32,6 +32,7 @@ import { logger } from '../lib/logger'
 import { glowTextStyleFromHex } from '../utils/glowTextStyle'
 import { pickBleedVariantParams } from '../utils/pickBleedVariantParams'
 import { playDotDebuffTickSound } from '../utils/playDotDebuffTickSound'
+import { obsGlowSource, obsMoveSource, obsShakeSource } from '../utils/obsWebSocketEffects'
 import './OverlayPage.css'
 
 /** ランダム回復量を計算（step が 1 のときは min～max の連続値、>1 のときは min, min+step, min+2*step... のいずれか） */
@@ -125,6 +126,31 @@ export function OverlayPage() {
   const finishingMoveTextTimerRef = useRef<number | null>(null)
   const playFinishingMoveSoundRef = useRef<() => void>(() => { })
 
+  const obsConsoleDebugEnabled = useMemo(() => {
+    try {
+      return localStorage.getItem('obs-overlay-debug') === '1'
+    } catch {
+      return false
+    }
+  }, [])
+
+  const tryObsEffect = useCallback(async (label: string, fn: () => Promise<void>) => {
+    try {
+      if (obsConsoleDebugEnabled) {
+        console.log(`[OBS WebSocket] start: ${label}`)
+      }
+      await fn()
+      if (obsConsoleDebugEnabled) {
+        console.log(`[OBS WebSocket] ok: ${label}`)
+      }
+    } catch (e) {
+      logger.warn('[OBS WebSocket] effect failed', e)
+      if (obsConsoleDebugEnabled) {
+        console.warn(`[OBS WebSocket] failed: ${label}`, e)
+      }
+    }
+  }, [obsConsoleDebugEnabled])
+
   // 食いしばり（HP1残り）メッセージ表示
   const [survivalMessageVisible, setSurvivalMessageVisible] = useState(false)
   const [survivalMessageText, setSurvivalMessageText] = useState('')
@@ -165,12 +191,19 @@ export function OverlayPage() {
   }>>([])
   const healIdRef = useRef(0)
 
-  // 背景色の管理（クロマキー用グリーン / ダークグレー / カスタム色）
-  const backgroundColor: 'green' | 'dark-gray' | 'custom' = 'green'
-  const customChromaColor = '#00ff00'
-
-  // UI表示の管理
-  const [showTestControls, setShowTestControls] = useState(true)
+  // テストタブの「展開/折りたたみ」状態（タブ自体は常に表示する）
+  // - 開発: 既定で開く
+  // - 本番: 既定で閉じる（ただし openSettings/testPanel 指定時は開く）
+  const [showTestControls, setShowTestControls] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const q = new URLSearchParams(window.location.search)
+      const openSettings = q.get('openSettings')
+      const testPanel = q.get('testPanel')
+      if (openSettings === '1' || openSettings === 'true') return true
+      if (testPanel === '1' || testPanel === 'true') return true
+    }
+    return import.meta.env.DEV
+  })
   /** 埋め込みテストパネル（設定・ボタン）。開発・本番ビルドのどちらでも表示。従来の上書き用: VITE_OVERLAY_EMBEDDED_SETTINGS_IN_PROD */
   const showEmbeddedTestUi =
     import.meta.env.DEV ||
@@ -597,7 +630,7 @@ export function OverlayPage() {
     onSurvivalHp1: (message) => showSurvivalMessage(message),
     onStreamerZeroHp: (message) => {
       const raw = message?.trim()
-      if (!raw || config?.test.enabled || !config?.retry.streamerAutoReplyEnabled) return
+      if (!raw || !config?.retry.streamerAutoReplyEnabled) return
       const attackerName = lastStreamerAttackerRef.current?.userName ?? ''
       const msg = raw.replace(/\{attacker\}/g, attackerName).trim()
       if (!msg) return
@@ -635,6 +668,16 @@ export function OverlayPage() {
           streamerAutoReplyEnabled: true,
           soundEnabled: false,
         },
+        // 配信向け（安全）: OBS WebSocket 演出はOFFのまま
+        obsWebSocket: {
+          enabled: false,
+          effects: {
+            damageShakeEnabled: false,
+            healGlowEnabled: false,
+            dodgeMoveEnabled: false,
+            finishingMoveEnabled: false,
+          },
+        },
       })
       return
     }
@@ -663,6 +706,16 @@ export function OverlayPage() {
       },
       zeroHpSound: { enabled: true },
       zeroHpEffect: { enabled: true },
+      // 検証向け（全部ON）: OBS WebSocket 演出もON（接続先/シーン/ソース名は既存設定を使用）
+      obsWebSocket: {
+        enabled: true,
+        effects: {
+          damageShakeEnabled: true,
+          healGlowEnabled: true,
+          dodgeMoveEnabled: true,
+          finishingMoveEnabled: true,
+        },
+      },
     })
   }, [updateConfigLocal])
 
@@ -1047,6 +1100,22 @@ export function OverlayPage() {
           // ダメージ適用後のHPを計算（反転回復を判定するため）
           const hpAfterDamage = Math.max(0, currentHP - finalDamage)
           reduceHP(finalDamage)
+          // OBS WebSocket: ダメージ演出（ソースレイヤー操作）
+          if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
+            const eff = config.obsWebSocket.effects
+            if (isFinishingMove && eff.finishingMoveEnabled) {
+              void tryObsEffect('finishingMove: shake', () =>
+                obsShakeSource(config.obsWebSocket, eff.finishingMoveShakeStrengthPx, eff.finishingMoveShakeDurationMs)
+              )
+              void tryObsEffect('finishingMove: glow', () =>
+                obsGlowSource(config.obsWebSocket, eff.finishingMoveGlowScale, eff.finishingMoveGlowDurationMs)
+              )
+            } else if (eff.damageShakeEnabled) {
+              void tryObsEffect('damage: shake', () =>
+                obsShakeSource(config.obsWebSocket, eff.damageShakeStrengthPx, eff.damageShakeDurationMs)
+              )
+            }
+          }
           // ダメージ数値を表示
           damageIdRef.current += 1
           const damageId = damageIdRef.current
@@ -1215,6 +1284,13 @@ export function OverlayPage() {
           showMiss(config.animation.duration)
           // 回避時: 外部ウィンドウ・WebMを左右に少し動かして戻す
           triggerDodgeEffect(600)
+          // OBS WebSocket: 回避（ミス）演出（ソースレイヤー操作）
+          if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.dodgeMoveEnabled) {
+            const eff = config.obsWebSocket.effects
+            void tryObsEffect('dodge: move', () =>
+              obsMoveSource(config.obsWebSocket, eff.dodgeMoveDistancePx, eff.dodgeMoveDurationMs)
+            )
+          }
           // ミス効果音を再生
           if (config.attack.missSoundEnabled) {
             playMissSound()
@@ -1265,7 +1341,7 @@ export function OverlayPage() {
         }
       }
     },
-    [config, reduceHP, increaseHP, showHealEffect, showMiss, showFinishingMoveEffect, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, sendAutoReply, user?.id, applyViewerDamage, ensureViewerHP, getViewerUserIds, getViewerHPCurrent, viewerMaxHP]
+    [config, reduceHP, increaseHP, showHealEffect, showMiss, showFinishingMoveEffect, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, sendAutoReply, tryObsEffect, user?.id, applyViewerDamage, ensureViewerHP, getViewerUserIds, getViewerHPCurrent, viewerMaxHP]
   )
 
   // 回復イベントハンドラ（チャンネルポイント・カスタムテキスト用。event に userId/userName があれば {username} に使用）
@@ -1309,6 +1385,13 @@ export function OverlayPage() {
         if (config.heal.effectEnabled) {
           showHealEffect()
         }
+        // OBS WebSocket: 回復演出（ソースレイヤー操作）
+        if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.healGlowEnabled) {
+          const eff = config.obsWebSocket.effects
+          void tryObsEffect('heal: glow', () =>
+            obsGlowSource(config.obsWebSocket, eff.healGlowScale, eff.healGlowDurationMs)
+          )
+        }
         // 回復効果音を再生
         if (config.heal.soundEnabled) {
           playHealSound()
@@ -1322,7 +1405,7 @@ export function OverlayPage() {
         }
       }
     },
-    [config, currentHP, maxHP, increaseHP, showHealEffect, playHealSound, sendAutoReply, user?.id]
+    [config, currentHP, maxHP, increaseHP, showHealEffect, playHealSound, sendAutoReply, tryObsEffect, user?.id]
   )
 
   // テストモードかどうか
@@ -1438,6 +1521,11 @@ export function OverlayPage() {
   // useTestEventsからChannelPointEventを受け取るが、テストモードでは無視して直接処理
   const handleTestAttack = useCallback(() => {
     if (!config || !isTestMode) return
+    logger.info('[Test] attack trigger', {
+      obsEnabled: config.obsWebSocket.enabled,
+      sourceName: config.obsWebSocket.sourceName,
+      effects: config.obsWebSocket.effects,
+    })
     // HPが0以下の場合は何もしない
     if (currentHP <= 0) {
       stopRepeat()
@@ -1504,6 +1592,22 @@ export function OverlayPage() {
       // ダメージ適用後のHPを計算（反転回復を判定するため）
       const hpAfterDamage = Math.max(0, currentHP - finalDamage)
       reduceHP(finalDamage)
+      // OBS WebSocket: ダメージ演出（本番の handleAttackEvent と同じ条件）
+      if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
+        const eff = config.obsWebSocket.effects
+        if (isFinishingMove && eff.finishingMoveEnabled) {
+          void tryObsEffect('test finishingMove: shake', () =>
+            obsShakeSource(config.obsWebSocket, eff.finishingMoveShakeStrengthPx, eff.finishingMoveShakeDurationMs)
+          )
+          void tryObsEffect('test finishingMove: glow', () =>
+            obsGlowSource(config.obsWebSocket, eff.finishingMoveGlowScale, eff.finishingMoveGlowDurationMs)
+          )
+        } else if (eff.damageShakeEnabled) {
+          void tryObsEffect('test damage: shake', () =>
+            obsShakeSource(config.obsWebSocket, eff.damageShakeStrengthPx, eff.damageShakeDurationMs)
+          )
+        }
+      }
       // ダメージ数値を表示
       damageIdRef.current += 1
       const damageId = damageIdRef.current
@@ -1675,15 +1779,26 @@ export function OverlayPage() {
       showMiss(config.animation.duration)
       // 回避時: 外部ウィンドウ・WebMを左右に少し動かして戻す
       triggerDodgeEffect(600)
+      if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.dodgeMoveEnabled) {
+        const eff = config.obsWebSocket.effects
+        void tryObsEffect('test dodge: move', () =>
+          obsMoveSource(config.obsWebSocket, eff.dodgeMoveDistancePx, eff.dodgeMoveDurationMs)
+        )
+      }
       // ミス効果音を再生
       if (config.attack.missSoundEnabled) {
         playMissSound()
       }
     }
-  }, [config, isTestMode, currentHP, reduceHP, increaseHP, showHealEffect, showMiss, showCritical, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, stopRepeat])
+  }, [config, isTestMode, currentHP, reduceHP, increaseHP, showHealEffect, showMiss, showCritical, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, stopRepeat, tryObsEffect])
 
   const handleTestFinishingMove = useCallback(() => {
     if (!config || !isTestMode) return
+    logger.info('[Test] finishingMove trigger', {
+      obsEnabled: config.obsWebSocket.enabled,
+      sourceName: config.obsWebSocket.sourceName,
+      effects: config.obsWebSocket.effects,
+    })
     // HPが0以下の場合は何もしない
     if (currentHP <= 0) {
       stopRepeat()
@@ -1703,6 +1818,18 @@ export function OverlayPage() {
 
     // ダメージ適用
     reduceHP(finishingDamage)
+
+    if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
+      const eff = config.obsWebSocket.effects
+      if (eff.finishingMoveEnabled) {
+        void tryObsEffect('test FM button: shake', () =>
+          obsShakeSource(config.obsWebSocket, eff.finishingMoveShakeStrengthPx, eff.finishingMoveShakeDurationMs)
+        )
+        void tryObsEffect('test FM button: glow', () =>
+          obsGlowSource(config.obsWebSocket, eff.finishingMoveGlowScale, eff.finishingMoveGlowDurationMs)
+        )
+      }
+    }
 
     // ダメージ数値を表示
     damageIdRef.current += 1
@@ -1781,10 +1908,15 @@ export function OverlayPage() {
       })
       sendAutoReply(msg, '[PvP] 必殺技メッセージ送信失敗')
     }
-  }, [config, isTestMode, currentHP, reduceHP, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, sendAutoReply, stopRepeat, username])
+  }, [config, isTestMode, currentHP, reduceHP, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, sendAutoReply, stopRepeat, username, tryObsEffect])
 
   const handleTestHeal = useCallback(() => {
     if (!config || !isTestMode) return
+    logger.info('[Test] heal trigger', {
+      obsEnabled: config.obsWebSocket.enabled,
+      sourceName: config.obsWebSocket.sourceName,
+      effects: config.obsWebSocket.effects,
+    })
 
     // HPが0の場合は回復をブロック
     if (currentHP <= 0) {
@@ -1820,7 +1952,13 @@ export function OverlayPage() {
     if (config.heal.soundEnabled) {
       playHealSound()
     }
-  }, [config, isTestMode, currentHP, increaseHP, showHealEffect, playHealSound])
+    if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.healGlowEnabled) {
+      const eff = config.obsWebSocket.effects
+      void tryObsEffect('test heal: glow', () =>
+        obsGlowSource(config.obsWebSocket, eff.healGlowScale, eff.healGlowDurationMs)
+      )
+    }
+  }, [config, isTestMode, currentHP, increaseHP, showHealEffect, playHealSound, tryObsEffect])
 
   const handleTestReset = useCallback(() => {
     if (!isTestMode || !config) return
@@ -2524,6 +2662,28 @@ export function OverlayPage() {
     }
   }, [])
 
+  // 背景が透明のときは html/body の黒背景も透明にする（フックは早期 return より前で呼ぶ）
+  const overlayBgMode = config?.background?.mode ?? 'green'
+  useEffect(() => {
+    const html = document.documentElement
+    const body = document.body
+    const prevHtmlBg = html.style.backgroundColor
+    const prevBodyBg = body.style.backgroundColor
+    const prevBodyClass = body.className
+
+    body.classList.add('overlay-mode')
+    if (overlayBgMode === 'transparent') {
+      html.style.backgroundColor = 'transparent'
+      body.style.backgroundColor = 'transparent'
+    }
+
+    return () => {
+      html.style.backgroundColor = prevHtmlBg
+      body.style.backgroundColor = prevBodyBg
+      body.className = prevBodyClass
+    }
+  }, [overlayBgMode])
+
   // NOTE:
   // - OBS側では `.env` / `VITE_TWITCH_USERNAME` が未設定のまま表示されるケースがある
   // - Twitchユーザー取得に失敗しても、HPゲージ自体は表示できる（特にテストモード）
@@ -2536,17 +2696,22 @@ export function OverlayPage() {
     )
   }
 
-  const backgroundStyle =
-    backgroundColor === 'green'
-      ? '#00ff00'
-      : backgroundColor === 'dark-gray'
-        ? '#1a1a1a'
-        : customChromaColor
+  const background = config.background
+  const backgroundStyle = (() => {
+    const mode = background?.mode ?? 'green'
+    if (mode === 'transparent') return 'transparent'
+    if (mode === 'dark-gray') return '#1a1a1a'
+    if (mode === 'custom') return background?.customColor?.trim() || '#00ff00'
+    return '#00ff00'
+  })()
 
   const captureGuide = config.obsCaptureGuide
 
   return (
-    <div className={`overlay-page ${finishingMoveFilterActive ? 'finishing-move-filter' : ''}`} style={{ background: backgroundStyle, backgroundColor: backgroundStyle }}>
+    <div
+      className={`overlay-page ${finishingMoveFilterActive ? 'finishing-move-filter' : ''}`}
+      style={{ background: backgroundStyle, backgroundColor: backgroundStyle }}
+    >
 
       {captureGuide.enabled && (
         <div className="obs-capture-guide" aria-hidden>

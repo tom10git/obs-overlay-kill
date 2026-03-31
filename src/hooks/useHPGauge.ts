@@ -217,6 +217,19 @@ export function useHPGauge({
           damageColors: { ...prev.damageColors, ...newConfig.damageColors },
           healColors: { ...prev.healColors, ...newConfig.healColors },
           obsCaptureGuide: { ...prev.obsCaptureGuide, ...newConfig.obsCaptureGuide },
+          obsWebSocket: newConfig.obsWebSocket
+            ? {
+              ...prev.obsWebSocket,
+              ...newConfig.obsWebSocket,
+              effects: {
+                ...prev.obsWebSocket.effects,
+                ...newConfig.obsWebSocket.effects,
+              },
+            }
+            : prev.obsWebSocket,
+          background: newConfig.background
+            ? { ...prev.background, ...newConfig.background }
+            : prev.background,
           pvp: newConfig.pvp
             ? (() => {
               const basePvp = prev.pvp ?? getDefaultConfig().pvp

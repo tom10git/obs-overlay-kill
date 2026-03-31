@@ -427,10 +427,8 @@ export function HPGauge({
           className="hp-gauge-zero-image"
           style={{
             display: config.zeroHpImage.enabled && showZeroHpImage && zeroHpImageUrl.length > 0 ? 'flex' : 'none',
-            transform:
-              gaugeDesign === 'parallelogram'
-                ? `translate(${config.zeroHpImage.offsetX}px, ${config.zeroHpImage.offsetY}px) scale(${config.zeroHpImage.scale}) skewX(${gs.skewDeg}deg)`
-                : `translate(${config.zeroHpImage.offsetX}px, ${config.zeroHpImage.offsetY}px) scale(${config.zeroHpImage.scale})`,
+            // NOTE: 0HP画像は hp-gauge-wrapper（skew適用）外にあるため、ここで skew を掛けると「打ち消し」ではなく余計に傾く
+            transform: `translate(${config.zeroHpImage.offsetX}px, ${config.zeroHpImage.offsetY}px) scale(${config.zeroHpImage.scale})`,
             backgroundColor: config.zeroHpImage.backgroundColor || 'transparent',
           }}
         >
