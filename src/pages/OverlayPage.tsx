@@ -21,7 +21,11 @@ import { useTwitchUser } from '../hooks/useTwitchUser'
 import { twitchChat } from '../utils/twitchChat'
 import { stripEmotesFromMessage } from '../utils/chatMessage'
 import { isCommandMatch } from '../utils/commandMatch'
-import { fillTemplate } from '../utils/messageTemplate'
+import {
+  fillTemplate,
+  formatStrengthBuffDurationHumanJa,
+  sanitizeStrengthBuffChatTemplates,
+} from '../utils/messageTemplate'
 import type { TwitchChatMessage } from '../types/twitch'
 import { saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
 import { OverlaySettings, type OverlaySettingsHandle } from '../components/settings/OverlaySettings'
@@ -1989,27 +1993,40 @@ export function OverlayPage() {
     }
   }, [isTestMode, config, currentHP, maxHP, resetHP, playRetrySound])
 
-  // テストモード用のバフ付与ハンドラ
+  // テストモード用のバフ付与ハンドラ（即時に ref を更新し、チャット送信は任意でログ用）
   const handleTestStrengthBuff = useCallback(() => {
-    if (!isTestMode || !config || !username) return
+    if (!isTestMode || !config) return
 
-    // !strengthコマンドをTwitchチャットに送信
+    const target = config.pvp?.strengthBuffTarget ?? 'individual'
+    const now = Date.now()
+    if (target === 'all') {
+      strengthBuffAllStartTimeRef.current = now
+      strengthBuffStartTimeRef.current.clear()
+    } else {
+      strengthBuffAllStartTimeRef.current = null
+      strengthBuffStartTimeRef.current.set('test-user', now)
+    }
+    if (config.pvp?.strengthBuffSoundEnabled) {
+      playStrengthBuffSound()
+    }
+
     const strengthBuffCommand = config.pvp?.strengthBuffCommand ?? '!strength'
-    if (twitchChat.canSend()) {
+    if (username && twitchChat.canSend()) {
       twitchChat.say(username, strengthBuffCommand)
-      logger.debug(`[テストモード] ${strengthBuffCommand} コマンドをTwitchチャットに送信しました`)
+      logger.debug(`[テストモード] ${strengthBuffCommand} を送信（バフは既に適用済み）`)
     } else if (user?.id) {
-      twitchApi.sendChatMessage(user.id, strengthBuffCommand)
+      twitchApi
+        .sendChatMessage(user.id, strengthBuffCommand)
         .then(() => {
-          logger.debug(`[テストモード] ${strengthBuffCommand} コマンドをTwitchチャットに送信しました`)
+          logger.debug(`[テストモード] ${strengthBuffCommand} を送信（バフは既に適用済み）`)
         })
         .catch((err) => {
-          logger.error(`[テストモード] ${strengthBuffCommand} コマンドの送信失敗`, err)
+          logger.error(`[テストモード] ${strengthBuffCommand} の送信失敗（バフはローカルで適用済み）`, err)
         })
     } else {
-      logger.warn(`[テストモード] ${strengthBuffCommand} コマンドを送信できません（チャット接続なし）`)
+      logger.debug(`[テストモード] バフをローカル適用（チャット未接続のためコマンドは送信しません）`)
     }
-  }, [isTestMode, config, username, user?.id])
+  }, [isTestMode, config, username, user?.id, playStrengthBuffSound])
 
   // テストモード用のイベントシミュレーション（専用ハンドラを使用）
   const { triggerAttack, triggerHeal, triggerReset } = useTestEvents({
@@ -2317,11 +2334,13 @@ export function OverlayPage() {
         if (isStrengthBuffMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
-          const userId = message.user.id
-          const durationSeconds = config.pvp.strengthBuffDuration ?? 300
-          const durationMinutes = Math.round(durationSeconds / 60)
+          const durationSeconds = Math.max(1, Math.floor(Number(config.pvp.strengthBuffDuration)) || 300)
+          const durationMinutesRounded = Math.max(1, Math.round(durationSeconds / 60))
           const target = config.pvp.strengthBuffTarget ?? 'individual'
           const displayName = message.user.displayName || message.user.login
+          // テストモードで配信者がコマンドした場合、個人用バフは test-user に紐づける（handleTestAttack の getAttackDamage と同じキー）
+          const individualBuffUserId =
+            isTestMode && user.id && message.user.id === user.id ? 'test-user' : message.user.id
           const now = Date.now()
 
           // 設定に応じてタイマーを上書き（対象外タイマーはクリア）
@@ -2332,7 +2351,7 @@ export function OverlayPage() {
           } else {
             // 個人用バフを再開始し、全員用の残タイマーは無効化
             strengthBuffAllStartTimeRef.current = null
-            strengthBuffStartTimeRef.current.set(userId, now)
+            strengthBuffStartTimeRef.current.set(individualBuffUserId, now)
           }
 
           // 効果音を再生
@@ -2340,10 +2359,15 @@ export function OverlayPage() {
             playStrengthBuffSound()
           }
           if (config.pvp.autoReplyStrengthBuff) {
-            const tpl = config.pvp.messageWhenStrengthBuffActivated || '{username} にストレングス効果を付与しました！（効果時間: {duration}分）'
+            const tpl = sanitizeStrengthBuffChatTemplates(
+              config.pvp.messageWhenStrengthBuffActivated ||
+                '{username} にストレングス効果を付与しました！（効果時間: {duration_human}）'
+            )
             const reply = fillTemplate(tpl, {
               username: target === 'all' ? '全員' : displayName,
-              duration: durationMinutes,
+              duration: durationSeconds,
+              duration_minutes: durationMinutesRounded,
+              duration_human: formatStrengthBuffDurationHumanJa(durationSeconds),
             })
             sendAutoReply(reply, '[PvP] ストレングスバフ返信の送信失敗')
           }
@@ -2362,11 +2386,12 @@ export function OverlayPage() {
         if (isBuffCheckMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
-          const userId = message.user.id
-          const durationSeconds = config.pvp.strengthBuffDuration ?? 300
-          const durationMinutes = Math.round(durationSeconds / 60)
+          const durationSeconds = Math.max(1, Math.floor(Number(config.pvp.strengthBuffDuration)) || 300)
+          const durationMinutesRounded = Math.max(1, Math.round(durationSeconds / 60))
           const target = config.pvp.strengthBuffTarget ?? 'individual'
           const displayName = message.user.displayName || message.user.login
+          const individualBuffUserId =
+            isTestMode && user.id && message.user.id === user.id ? 'test-user' : message.user.id
           if (config.pvp.autoReplyStrengthBuffCheck) {
             // 全員用バフをチェック
             let hasBuff = false
@@ -2380,7 +2405,7 @@ export function OverlayPage() {
             }
             // 個人用バフをチェック（全員用バフが無効な場合のみ）
             if (!hasBuff && target === 'individual') {
-              const startTime = strengthBuffStartTimeRef.current.get(userId)
+              const startTime = strengthBuffStartTimeRef.current.get(individualBuffUserId)
               if (startTime) {
                 const elapsed = (Date.now() - startTime) / 1000
                 remainingSeconds = Math.max(0, Math.floor(durationSeconds - elapsed))
@@ -2388,18 +2413,25 @@ export function OverlayPage() {
                   hasBuff = true
                 } else {
                   // バフが切れている場合は削除
-                  strengthBuffStartTimeRef.current.delete(userId)
+                  strengthBuffStartTimeRef.current.delete(individualBuffUserId)
                 }
               }
             }
 
             if (hasBuff) {
-              const remainingMinutes = Math.round(remainingSeconds / 60)
-              const tpl = config.pvp.messageWhenStrengthBuffCheck || '{username} のストレングス効果: 残り {remaining}分 / 効果時間 {duration}分'
+              const remainingMinutesRounded = Math.max(0, Math.round(remainingSeconds / 60))
+              const tpl = sanitizeStrengthBuffChatTemplates(
+                config.pvp.messageWhenStrengthBuffCheck ||
+                  '{username} のストレングス効果: 残り {remaining_human} / 効果時間 {duration_human}'
+              )
               const reply = fillTemplate(tpl, {
                 username: target === 'all' ? '全員' : displayName,
-                remaining: remainingMinutes,
-                duration: durationMinutes,
+                remaining: remainingSeconds,
+                duration: durationSeconds,
+                remaining_minutes: remainingMinutesRounded,
+                duration_minutes: durationMinutesRounded,
+                remaining_human: formatStrengthBuffDurationHumanJa(remainingSeconds),
+                duration_human: formatStrengthBuffDurationHumanJa(durationSeconds),
               })
               sendAutoReply(reply, '[PvP] バフ確認返信の送信失敗')
             } else {

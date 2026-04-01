@@ -320,7 +320,7 @@ export interface PvPConfig {
   strengthBuffCommand: string
   /** バフ確認コマンド（視聴者が自分のバフ状態を確認） */
   strengthBuffCheckCommand: string
-  /** ストレングスバフの効果時間（秒、デフォルト300秒=5分）。UIでは分単位で設定される */
+  /** ストレングスバフの効果時間（秒、デフォルト300秒=5分）。設定画面は秒入力 */
   strengthBuffDuration: number
   /** ストレングスバフの対象（個人用 or 全員用） */
   strengthBuffTarget: 'individual' | 'all'
@@ -328,9 +328,9 @@ export interface PvPConfig {
   autoReplyStrengthBuff: boolean
   /** バフ確認コマンド実行時の自動返信の有無 */
   autoReplyStrengthBuffCheck: boolean
-  /** ストレングスバフが有効になったときの自動返信メッセージ。{username} {duration} で置換 */
+  /** ストレングスバフが有効になったときの自動返信メッセージ。{username} {duration_human} {duration} など */
   messageWhenStrengthBuffActivated: string
-  /** バフ確認時の自動返信メッセージ。{username} {remaining} {duration} で置換 */
+  /** バフ確認時の自動返信メッセージ。{username} {remaining_human} {duration_human} {remaining} {duration} など */
   messageWhenStrengthBuffCheck: string
   /** ストレングスバフ効果音の有効/無効 */
   strengthBuffSoundEnabled: boolean

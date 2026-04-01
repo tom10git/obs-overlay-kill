@@ -4714,6 +4714,10 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                           />
                         </label>
                       </div>
+                      <p className="settings-hint" style={{ marginTop: 0 }}>
+                        デフォルトではバフを付与するのは上の「ストレングスバフコマンド」（例: !strength）です。!buff
+                        はバフ確認のみで、付与には使われません。両方を同じ文字列にすると挙動が分かりにくくなるので別のコマンドにしてください。
+                      </p>
                       <div className="settings-row">
                         <label>
                           ストレングスバフの効果時間（秒）:
@@ -4729,6 +4733,11 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                             }}
                             placeholder="300"
                           />
+                          <small style={{ display: 'block', marginTop: '6px', color: '#888', lineHeight: 1.55 }}>
+                            数値は<code style={{ color: '#ccc' }}>秒</code>
+                            単位です（分ではありません）。例: 45→45秒、60→1分と同等、120→2分と同等、300→5分と同等。分で考えたときは{' '}
+                            <code style={{ color: '#ccc' }}>分×60</code> の秒数を入力してください。
+                          </small>
                         </label>
                       </div>
                       <div className="settings-row">
@@ -4766,17 +4775,22 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                           ストレングスバフ有効時の自動返信メッセージ:
                           <input
                             type="text"
-                            value={config.pvp.messageWhenStrengthBuffActivated ?? '{username} にストレングス効果を付与しました！（効果時間: {duration}秒）'}
+                            value={
+                              config.pvp.messageWhenStrengthBuffActivated ??
+                              '{username} にストレングス効果を付与しました！（効果時間: {duration_human}）'
+                            }
                             onChange={(e) =>
                               setConfig({
                                 ...config,
                                 pvp: { ...config.pvp, messageWhenStrengthBuffActivated: e.target.value },
                               })
                             }
-                            placeholder="{username} にストレングス効果を付与しました！（効果時間: {duration}秒）"
+                            placeholder="{username} にストレングス効果を付与しました！（効果時間: {duration_human}）"
                           />
                           <small style={{ display: 'block', marginTop: '4px', color: '#888' }}>
-                            {'{username} で視聴者名、{duration} で効果時間（秒）に置換されます'}
+                            {
+                              '推奨: {duration_human}（60秒未満は「N秒」・以上は「N分」）。数値のみ: {duration}(秒)・{duration_minutes}(分)。{duration_minutes}の直後に「秒」と書かないでください'
+                            }
                           </small>
                         </label>
                       </div>
@@ -4785,17 +4799,22 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                           バフ確認時の自動返信メッセージ:
                           <input
                             type="text"
-                            value={config.pvp.messageWhenStrengthBuffCheck ?? '{username} のストレングス効果: 残り {remaining}秒 / 効果時間 {duration}秒'}
+                            value={
+                              config.pvp.messageWhenStrengthBuffCheck ??
+                              '{username} のストレングス効果: 残り {remaining_human} / 効果時間 {duration_human}'
+                            }
                             onChange={(e) =>
                               setConfig({
                                 ...config,
                                 pvp: { ...config.pvp, messageWhenStrengthBuffCheck: e.target.value },
                               })
                             }
-                            placeholder="{username} のストレングス効果: 残り {remaining}秒 / 効果時間 {duration}秒"
+                            placeholder="{username} のストレングス効果: 残り {remaining_human} / 効果時間 {duration_human}"
                           />
                           <small style={{ display: 'block', marginTop: '4px', color: '#888' }}>
-                            {'{username} で視聴者名、{remaining} で残り時間（秒）、{duration} で効果時間（秒）に置換されます'}
+                            {
+                              '推奨: {remaining_human} / {duration_human}。数値のみ: {remaining}(秒)・{duration}(秒)。分プレースホルダの直後に「秒」と書かないでください'
+                            }
                           </small>
                         </label>
                       </div>

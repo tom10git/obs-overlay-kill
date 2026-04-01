@@ -11,6 +11,7 @@ import type {
 } from '../types/overlay'
 import { logger } from '../lib/logger'
 import { isValidUrl, isInRange, isValidLength } from './security'
+import { sanitizeStrengthBuffChatTemplates } from './messageTemplate'
 
 /** 確率以外の数値項目の上限（上限を設けないため十分大きな値） */
 const MAX_NUM = 999999
@@ -251,8 +252,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
     strengthBuffTarget: 'individual',
     autoReplyStrengthBuff: true,
     autoReplyStrengthBuffCheck: true,
-    messageWhenStrengthBuffActivated: '{username} にストレングス効果を付与しました！（効果時間: {duration}秒）',
-    messageWhenStrengthBuffCheck: '{username} のストレングス効果: 残り {remaining}秒 / 効果時間 {duration}秒',
+    messageWhenStrengthBuffActivated: '{username} にストレングス効果を付与しました！（効果時間: {duration_human}）',
+    messageWhenStrengthBuffCheck: '{username} のストレングス効果: 残り {remaining_human} / 効果時間 {duration_human}',
     strengthBuffSoundEnabled: false,
     strengthBuffSoundUrl: '',
     strengthBuffSoundVolume: 0.7,
@@ -1333,8 +1334,16 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     strengthBuffTarget: (pvpConfig.strengthBuffTarget === 'all' ? 'all' : 'individual') as 'individual' | 'all',
     autoReplyStrengthBuff: typeof pvpConfig.autoReplyStrengthBuff === 'boolean' ? pvpConfig.autoReplyStrengthBuff : true,
     autoReplyStrengthBuffCheck: typeof pvpConfig.autoReplyStrengthBuffCheck === 'boolean' ? pvpConfig.autoReplyStrengthBuffCheck : true,
-    messageWhenStrengthBuffActivated: typeof pvpConfig.messageWhenStrengthBuffActivated === 'string' ? pvpConfig.messageWhenStrengthBuffActivated : '{username} にストレングス効果を付与しました！（効果時間: {duration}秒）',
-    messageWhenStrengthBuffCheck: typeof pvpConfig.messageWhenStrengthBuffCheck === 'string' ? pvpConfig.messageWhenStrengthBuffCheck : '{username} のストレングス効果: 残り {remaining}秒 / 効果時間 {duration}秒',
+    messageWhenStrengthBuffActivated: sanitizeStrengthBuffChatTemplates(
+      typeof pvpConfig.messageWhenStrengthBuffActivated === 'string'
+        ? pvpConfig.messageWhenStrengthBuffActivated
+        : '{username} にストレングス効果を付与しました！（効果時間: {duration_human}）'
+    ),
+    messageWhenStrengthBuffCheck: sanitizeStrengthBuffChatTemplates(
+      typeof pvpConfig.messageWhenStrengthBuffCheck === 'string'
+        ? pvpConfig.messageWhenStrengthBuffCheck
+        : '{username} のストレングス効果: 残り {remaining_human} / 効果時間 {duration_human}'
+    ),
     strengthBuffSoundEnabled: typeof pvpConfig.strengthBuffSoundEnabled === 'boolean' ? pvpConfig.strengthBuffSoundEnabled : false,
     strengthBuffSoundUrl: typeof pvpConfig.strengthBuffSoundUrl === 'string'
       ? (pvpConfig.strengthBuffSoundUrl.trim() === '' || isValidUrl(pvpConfig.strengthBuffSoundUrl)
