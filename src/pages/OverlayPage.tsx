@@ -115,6 +115,12 @@ export function OverlayPage() {
   const [criticalVisible, setCriticalVisible] = useState(false)
   const criticalTimerRef = useRef<number | null>(null)
 
+  // #region agent log (critical freeze debug)
+  useEffect(() => {
+    fetch('http://127.0.0.1:7398/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b3c271' }, body: JSON.stringify({ sessionId: 'b3c271', runId: 'pre-fix', hypothesisId: 'A|B|C|D', location: 'OverlayPage.tsx:criticalVisibleEffect', message: 'criticalVisible changed', data: { criticalVisible }, timestamp: Date.now() }) }).catch(() => { })
+  }, [criticalVisible])
+  // #endregion agent log (critical freeze debug)
+
   // 必殺技エフェクト表示
   const [finishingMoveFlashVisible, setFinishingMoveFlashVisible] = useState(false)
   const [finishingMoveShakeActive, setFinishingMoveShakeActive] = useState(false)
@@ -348,14 +354,26 @@ export function OverlayPage() {
 
   const showCritical = useCallback(
     (durationMs: number) => {
+      // #region agent log (critical freeze debug)
+      fetch('http://127.0.0.1:7398/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b3c271' }, body: JSON.stringify({ sessionId: 'b3c271', runId: 'pre-fix', hypothesisId: 'A|B|C', location: 'OverlayPage.tsx:showCritical(entry)', message: 'showCritical called', data: { durationMs, durationMsType: typeof durationMs, computedTimeoutMs: Math.max(200, durationMs), hadExistingTimer: criticalTimerRef.current != null }, timestamp: Date.now() }) }).catch(() => { })
+      // #endregion agent log (critical freeze debug)
+
       setCriticalVisible(false) // 連続発火でもアニメーションをリスタートさせる
       // 次フレームでtrueに戻す
-      requestAnimationFrame(() => setCriticalVisible(true))
+      requestAnimationFrame(() => {
+        // #region agent log (critical freeze debug)
+        fetch('http://127.0.0.1:7398/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b3c271' }, body: JSON.stringify({ sessionId: 'b3c271', runId: 'pre-fix', hypothesisId: 'B|C', location: 'OverlayPage.tsx:showCritical(raf)', message: 'requestAnimationFrame fired (about to setCriticalVisible true)', data: {}, timestamp: Date.now() }) }).catch(() => { })
+        // #endregion agent log (critical freeze debug)
+        setCriticalVisible(true)
+      })
 
       if (criticalTimerRef.current) {
         window.clearTimeout(criticalTimerRef.current)
       }
       criticalTimerRef.current = window.setTimeout(() => {
+        // #region agent log (critical freeze debug)
+        fetch('http://127.0.0.1:7398/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b3c271' }, body: JSON.stringify({ sessionId: 'b3c271', runId: 'pre-fix', hypothesisId: 'A|B|D', location: 'OverlayPage.tsx:showCritical(timeout)', message: 'critical timeout fired (about to hide)', data: {}, timestamp: Date.now() }) }).catch(() => { })
+        // #endregion agent log (critical freeze debug)
         setCriticalVisible(false)
         criticalTimerRef.current = null
       }, Math.max(200, durationMs))
