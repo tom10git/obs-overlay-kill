@@ -656,117 +656,133 @@
   color: #666;
 }
 
-/* オーバーレイ埋め込み: ダークモード */
+/* オーバーレイ埋め込み: テストパネル内のコンパクトUI */
 .overlay-settings.overlay-settings--embedded {
-  padding: 0 1rem 1rem;
+  padding: 0.5rem 0.4rem;
   margin: 0;
   max-width: none;
   background: transparent;
-  color: #e5e5e5;
+  color: #e8e8ec;
 }
 
 .overlay-settings--embedded.overlay-settings.loading {
-  color: #a3a3a3;
-}
-
-.overlay-settings-header--embedded h2 {
-  margin: 0 0 0.75rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #737373;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 1rem 0.5rem;
+  font-size: 0.78rem;
+  text-align: center;
 }
 
 .overlay-settings--embedded .settings-message {
-  margin: 0 0 0.75rem;
-  padding: 0.65rem 0.85rem;
-  border-radius: 8px;
-  background: #1f1f1f;
-  border: 1px solid #333;
-  color: #e5e5e5;
-  font-size: 0.8125rem;
+  margin: 0 0 0.45rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 
 .overlay-settings--embedded .settings-message.saving {
-  background: #262626;
-  border-color: #404040;
-  color: #d4d4d4;
+  background: rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.82);
 }
 
-.overlay-settings--embedded .settings-tabs {
+/* メインタブのみ: 上に固定して長い設定でも切り替えやすく */
+.overlay-settings--embedded .settings-tabs.settings-tabs--embedded-main {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   display: flex;
-  gap: 0.2rem;
-  margin-bottom: 1rem;
-  padding: 0.25rem;
-  background: #1a1a1a;
-  border-radius: 10px;
-  border: 1px solid #2a2a2a;
+  gap: 0.22rem;
+  margin: 0 0 0.5rem;
+  padding: 0.22rem;
+  background: rgba(10, 10, 12, 0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
 }
 
-.overlay-settings--embedded .settings-tabs .settings-tab {
-  flex: 1;
+.overlay-settings--embedded .settings-tabs.settings-tabs--embedded-main .settings-tab {
+  flex: 1 1 0;
+  min-width: 0;
   justify-content: center;
-  padding: 0.5rem 0.65rem;
-  font-size: 0.75rem;
+  padding: 0.34rem 0.28rem;
+  font-size: 0.62rem;
   font-weight: 600;
-  color: #a3a3a3;
-  border-radius: 8px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.52);
+  border-radius: 6px;
   border: none;
   margin-bottom: 0;
 }
 
-.overlay-settings--embedded .settings-tab:hover {
-  color: #e5e5e5;
-  background: rgba(255, 255, 255, 0.06);
+.overlay-settings--embedded .settings-tabs.settings-tabs--embedded-main .settings-tab:hover {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.07);
 }
 
-.overlay-settings--embedded .settings-tab-active {
-  color: #fafafa !important;
-  background: #333 !important;
+.overlay-settings--embedded .settings-tabs.settings-tabs--embedded-main .settings-tab-active {
+  color: #fff !important;
+  background: rgba(120, 150, 255, 0.22) !important;
+  box-shadow: 0 0 0 1px rgba(140, 170, 255, 0.28) inset;
   border-bottom: none !important;
 }
 
 .overlay-settings--embedded .settings-tabs--sub {
-  margin-bottom: 0.85rem;
+  position: static;
+  margin-bottom: 0.65rem;
   padding: 0;
   background: transparent;
   border: none;
-  gap: 0.35rem;
+  gap: 0.3rem;
+  box-shadow: none;
 }
 
 .overlay-settings--embedded .settings-tabs--sub .settings-tab {
   flex: initial;
-  background: #1f1f1f;
-  border: 1px solid #404040 !important;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 999px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.72rem;
-  color: #a3a3a3;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 0;
 }
 
 .overlay-settings--embedded .settings-tabs--sub .settings-tab:hover {
-  color: #e5e5e5;
-  background: #262626;
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.18) !important;
 }
 
 .overlay-settings--embedded .settings-tabs--sub .settings-tab-active {
-  background: #e5e5e5 !important;
-  color: #141414 !important;
-  border-color: #e5e5e5 !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #121214 !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
 }
 
 .overlay-settings--embedded .settings-section {
-  background: #1a1a1a;
-  border: 1px solid #2e2e2e;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  margin-bottom: 0.55rem;
+  padding: 0.65rem 0.7rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
 }
 
 .overlay-settings--embedded .settings-section h3,
 .overlay-settings--embedded .settings-section-header {
-  color: #f5f5f5;
-  border-bottom-color: #333;
+  margin: 0 0 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f2f2f5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.38rem;
 }
 
 .overlay-settings--embedded .settings-section-header:hover {
@@ -774,15 +790,42 @@
 }
 
 .overlay-settings--embedded .accordion-icon {
-  color: #737373;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 0.65rem;
+  width: 0.95rem;
 }
 
 .overlay-settings--embedded .settings-subsection-title {
-  color: #a3a3a3;
+  margin: 0.85rem 0 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.48);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.overlay-settings--embedded .settings-subsection-title:first-child {
+  margin-top: 0;
+}
+
+.overlay-settings--embedded .settings-row {
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.overlay-settings--embedded .settings-row:has(label:nth-of-type(2)) {
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+}
+
+.overlay-settings--embedded .settings-row:has(label:nth-of-type(2)):has(.settings-url-with-button) {
+  grid-template-columns: 1fr;
 }
 
 .overlay-settings--embedded .settings-row label {
-  color: #d4d4d4;
+  gap: 0.32rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.74rem;
+  line-height: 1.35;
 }
 
 .overlay-settings--embedded .settings-row label input[type="text"],
@@ -791,128 +834,146 @@
 .overlay-settings--embedded .settings-row label select,
 .overlay-settings--embedded .settings-row label textarea,
 .overlay-settings--embedded .settings-color-hex {
-  background: #141414;
-  color: #f5f5f5;
-  border: 1px solid #404040;
-  border-radius: 8px;
+  padding: 0.34rem 0.48rem;
+  font-size: 0.76rem;
+  background: rgba(8, 8, 10, 0.75);
+  color: #f5f5f7;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
 }
 
 .overlay-settings--embedded .settings-row label input::placeholder,
 .overlay-settings--embedded .settings-row label textarea::placeholder {
-  color: #737373;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .overlay-settings--embedded .settings-row label input[type="range"] {
-  accent-color: #e5e5e5;
+  accent-color: #a8b8ff;
+  height: 5px;
 }
 
 .overlay-settings--embedded .settings-row label input:focus,
 .overlay-settings--embedded .settings-row label select:focus,
 .overlay-settings--embedded .settings-row label textarea:focus,
 .overlay-settings--embedded .settings-color-hex:focus {
-  border-color: #737373;
+  border-color: rgba(140, 170, 255, 0.45);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 2px rgba(120, 150, 255, 0.15);
 }
 
 .overlay-settings--embedded .settings-hint {
-  background: #141414;
-  border-left-color: #737373;
-  color: #b3b3b3;
+  margin: 0.55rem 0;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  background: rgba(0, 0, 0, 0.4);
+  border-left: 2px solid rgba(140, 170, 255, 0.45);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.58);
 }
 
 .overlay-settings--embedded .settings-hint p {
-  color: #e5e5e5;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.72rem;
 }
 
 .overlay-settings--embedded .settings-hint ul,
 .overlay-settings--embedded .settings-hint li {
-  color: #b3b3b3;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.7rem;
 }
 
 .overlay-settings--embedded .settings-hint code {
-  background: #262626;
-  color: #e5e5e5;
-  border-color: #404040;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ececf0;
+  border-color: rgba(255, 255, 255, 0.12);
+  font-size: 0.68em;
 }
 
 .overlay-settings--embedded .settings-hint a {
-  color: #d4d4d4;
+  color: #c8d0ff;
+}
+
+.overlay-settings--embedded .settings-color-grid {
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
 }
 
 .overlay-settings--embedded .settings-color-row {
-  background: #141414;
-  border-color: #333;
+  gap: 0.55rem;
+  padding: 0.5rem 0.55rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
 }
 
 .overlay-settings--embedded .settings-color-label {
-  color: #d4d4d4;
+  min-width: 0;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .overlay-settings--embedded .settings-color-picker {
-  background: #1f1f1f;
-  border-color: #404040;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  padding: 2px;
+  background: rgba(8, 8, 10, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+}
+
+.overlay-settings--embedded .settings-color-inputs {
+  gap: 0.45rem;
 }
 
 .overlay-settings--embedded .password-toggle {
-  color: #a3a3a3;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .overlay-settings--embedded .password-toggle:hover {
-  color: #e5e5e5;
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.settings-actions--embedded {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: stretch;
-  gap: 0.75rem;
-  width: 100%;
-  box-sizing: border-box;
-  margin-top: 1.25rem;
-  padding: 1rem 0 0.25rem;
-  background: transparent;
+.overlay-settings--embedded .settings-bleed-variant-row {
+  padding: 0.45rem 0;
+  gap: 0.45rem 0.5rem;
 }
 
-.settings-actions--embedded .settings-action-secondary,
-.settings-actions--embedded .settings-action-reset {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 2.75rem;
-  padding: 0.65rem 0.85rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.3;
-  border-radius: 8px;
-  text-align: center;
-  box-sizing: border-box;
+.overlay-settings--embedded .settings-bleed-variant-row label {
+  font-size: 0.72rem;
 }
 
-.settings-actions--embedded .settings-action-secondary {
-  background: #2a2a2a;
-  color: #f5f5f5;
-  border: 1px solid #454545;
+.overlay-settings--embedded .settings-bleed-variant-row label input[type="text"],
+.overlay-settings--embedded .settings-bleed-variant-row label select {
+  padding: 0.32rem 0.42rem;
+  font-size: 0.76rem;
+  border-radius: 6px;
 }
 
-.settings-actions--embedded .settings-action-secondary:hover:not(:disabled) {
-  background: #333;
-  border-color: #5a5a5a;
+.overlay-settings--embedded .obs-ws-text-input {
+  max-width: 100%;
+  padding: 0.34rem 0.48rem;
+  font-size: 0.76rem;
+  border-radius: 7px;
+  background: rgba(8, 8, 10, 0.75);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
-.settings-actions--embedded .settings-action-secondary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+.overlay-settings--embedded .obs-ws-pick-toggle {
+  padding: 0.32rem 0.55rem;
+  font-size: 0.72rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
-.settings-actions--embedded .settings-action-reset {
-  background: #1f1f1f;
-  color: #d4d4d4;
-  border: 1px solid #404040;
+.overlay-settings--embedded .obs-ws-pick-chips {
+  padding: 0.4rem;
+  border-radius: 7px;
 }
 
-.settings-actions--embedded .settings-action-reset:hover {
-  color: #f5f5f5;
-  border-color: #525252;
-  background: #262626;
+.overlay-settings--embedded .obs-ws-pick-chip {
+  padding: 0.28rem 0.45rem;
+  font-size: 0.68rem;
+  border-radius: 5px;
 }

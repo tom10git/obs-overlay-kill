@@ -24,6 +24,7 @@ import { logger } from '../../lib/logger'
 import { isValidUrl } from '../../utils/security'
 import { fetchObsScenesAndSources, type ObsScenesAndSourcesResult } from '../../utils/obsWebSocketList'
 import type { AttackBleedVariant, AttackDebuffKind, GaugeShapeConfig, OverlayConfig } from '../../types/overlay'
+import { OverlaySettingsSoundTab } from './OverlaySettingsSoundTab'
 import './OverlaySettings.css'
 
 const GAUGE_SHAPE_FIELD_META: {
@@ -79,9 +80,9 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
       obsWebSocket: false,
       test: false,
     })
-    const [activeTab, setActiveTab] = useState<'streamer' | 'user' | 'autoReply'>(() => {
+    const [activeTab, setActiveTab] = useState<'streamer' | 'user' | 'autoReply' | 'sounds'>(() => {
       const env = import.meta.env.VITE_OVERLAY_SETTINGS_TAB as string | undefined
-      if (env === 'user' || env === 'autoReply' || env === 'streamer') return env
+      if (env === 'user' || env === 'autoReply' || env === 'streamer' || env === 'sounds') return env
       return 'streamer'
     })
     const [autoReplySubTab, setAutoReplySubTab] = useState<'streamer' | 'viewer'>('streamer')
@@ -186,7 +187,7 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
     useEffect(() => {
       if (!embedded || typeof window === 'undefined') return
       const t = new URLSearchParams(window.location.search).get('settingsTab')
-      if (t === 'user' || t === 'streamer' || t === 'autoReply') {
+      if (t === 'user' || t === 'streamer' || t === 'autoReply' || t === 'sounds') {
         setActiveTab(t)
       }
     }, [embedded])
@@ -342,12 +343,12 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
             }
           }}
         />
-        <header className={`overlay-settings-header${embedded ? ' overlay-settings-header--embedded' : ''}`}>
-          <h2>{embedded ? '設定' : 'OBS Overlay 設定'}</h2>
-          {!embedded && (
+        {!embedded && (
+          <header className="overlay-settings-header">
+            <h2>OBS Overlay 設定</h2>
             <p className="overlay-settings-desc">HPゲージ・攻撃・回復・PvP・アニメーションなど、オーバーレイの動作を設定します。</p>
-          )}
-        </header>
+          </header>
+        )}
 
         {message && (
           <div className={`settings-message ${saving ? 'saving' : ''}`}>
@@ -355,27 +356,38 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
           </div>
         )}
 
-        <div className="settings-tabs">
+        <div className={`settings-tabs${embedded ? ' settings-tabs--embedded-main' : ''}`}>
           <button
             type="button"
             className={`settings-tab ${activeTab === 'streamer' ? 'settings-tab-active' : ''}`}
             onClick={() => setActiveTab('streamer')}
+            title={embedded ? '配信者側（ストリーマー用）' : undefined}
           >
-            配信者側
+            {embedded ? '配信者' : '配信者側'}
           </button>
           <button
             type="button"
             className={`settings-tab ${activeTab === 'user' ? 'settings-tab-active' : ''}`}
             onClick={() => setActiveTab('user')}
+            title={embedded ? 'ユーザー側（チャット・リデンプション）' : undefined}
           >
-            ユーザー側
+            {embedded ? '視聴者' : 'ユーザー側'}
           </button>
           <button
             type="button"
             className={`settings-tab ${activeTab === 'autoReply' ? 'settings-tab-active' : ''}`}
             onClick={() => setActiveTab('autoReply')}
+            title={embedded ? '自動返信設定' : undefined}
           >
-            自動返信設定
+            {embedded ? '自動返信' : '自動返信設定'}
+          </button>
+          <button
+            type="button"
+            className={`settings-tab ${activeTab === 'sounds' ? 'settings-tab-active' : ''}`}
+            onClick={() => setActiveTab('sounds')}
+            title={embedded ? '効果音（SE）一覧' : '効果音・SEのまとめ'}
+          >
+            {embedded ? '効果音' : '効果音'}
           </button>
         </div>
 
@@ -855,109 +867,6 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                         </div>
                       </div>
                     </div>
-                  )}
-                  {config.attack.missEnabled && (
-                    <div className="settings-row">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={config.attack.missSoundEnabled}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              attack: { ...config.attack, missSoundEnabled: e.target.checked },
-                            })
-                          }
-                        />
-                        ミス効果音を有効にする
-                      </label>
-                    </div>
-                  )}
-                  {config.attack.missEnabled && config.attack.missSoundEnabled && (
-                    <div className="settings-row">
-                      <label>
-                        効果音URL:
-                        <div className="settings-url-with-button">
-                          <input
-                            type="text"
-                            value={config.attack.missSoundUrl}
-                            onChange={(e) => {
-                              const url = e.target.value
-                              if (isValidUrl(url)) {
-                                setConfig({
-                                  ...config,
-                                  attack: { ...config.attack, missSoundUrl: url },
-                                })
-                              } else {
-                                setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
-                                setTimeout(() => setMessage(null), 3000)
-                              }
-                            }}
-                            placeholder="空欄の場合は効果音なし"
-                          />
-                          <button
-                            type="button"
-                            className="settings-action-secondary settings-url-browse"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              openSoundFilePicker((dataUrl) => {
-                                setConfig({
-                                  ...config,
-                                  attack: { ...config.attack, missSoundUrl: dataUrl },
-                                })
-                              })
-                            }}
-                            title="音声ファイルを選んでURLに自動入力（data:audio）"
-                          >
-                            参照...
-                          </button>
-                        </div>
-                      </label>
-                      <label>
-                        音量:
-                        <input
-                          type="text"
-                          value={inputValues['attack.missSoundVolume'] ?? String(config.attack.missSoundVolume)}
-                          onChange={(e) => {
-                            setInputValues((prev) => ({ ...prev, 'attack.missSoundVolume': e.target.value }))
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value.trim()
-                            if (value === '' || isNaN(parseFloat(value))) {
-                              setConfig({
-                                ...config,
-                                attack: { ...config.attack, missSoundVolume: 0.7 },
-                              })
-                              setInputValues((prev) => {
-                                const next = { ...prev }
-                                delete next['attack.missSoundVolume']
-                                return next
-                              })
-                            } else {
-                              const num = parseFloat(value)
-                              if (!isNaN(num)) {
-                                setConfig({
-                                  ...config,
-                                  attack: { ...config.attack, missSoundVolume: Math.min(1, Math.max(0, num)) },
-                                })
-                                setInputValues((prev) => {
-                                  const next = { ...prev }
-                                  delete next['attack.missSoundVolume']
-                                  return next
-                                })
-                              }
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
-                  {config.attack.missEnabled && config.attack.missSoundEnabled && (
-                    <p className="settings-hint">
-                      例: <code>src/sounds/miss.mp3</code>（public/sounds に配置）または{' '}
-                      <code>https://...</code>
-                    </p>
                   )}
                   <div className="settings-row">
                     <label>
@@ -1509,622 +1418,9 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                       </div>
                     </div>
                   )}
-                  {config.attack.bleedEnabled && (
-                    <div className="settings-row">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={config.attack.bleedSoundEnabled}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              attack: { ...config.attack, bleedSoundEnabled: e.target.checked },
-                            })
-                          }
-                        />
-                        出血ダメージ効果音を有効にする
-                      </label>
-                    </div>
-                  )}
-                  {config.attack.bleedEnabled && config.attack.bleedSoundEnabled && (
-                    <div className="settings-row">
-                      <label>
-                        効果音URL:
-                        <div className="settings-url-with-button">
-                          <input
-                            type="text"
-                            value={config.attack.bleedSoundUrl}
-                            onChange={(e) => {
-                              const url = e.target.value
-                              if (isValidUrl(url)) {
-                                setConfig({
-                                  ...config,
-                                  attack: { ...config.attack, bleedSoundUrl: url },
-                                })
-                              } else {
-                                setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
-                                setTimeout(() => setMessage(null), 3000)
-                              }
-                            }}
-                            placeholder="空欄の場合は効果音なし"
-                          />
-                          <button
-                            type="button"
-                            className="settings-action-secondary settings-url-browse"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              openSoundFilePicker((dataUrl) => {
-                                setConfig({
-                                  ...config,
-                                  attack: { ...config.attack, bleedSoundUrl: dataUrl },
-                                })
-                              })
-                            }}
-                            title="音声ファイルを選んでURLに自動入力（data:audio）"
-                          >
-                            参照...
-                          </button>
-                        </div>
-                      </label>
-                      <label>
-                        音量:
-                        <input
-                          type="text"
-                          value={inputValues['attack.bleedSoundVolume'] ?? String(config.attack.bleedSoundVolume)}
-                          onChange={(e) => {
-                            setInputValues((prev) => ({ ...prev, 'attack.bleedSoundVolume': e.target.value }))
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value.trim()
-                            if (value === '' || isNaN(parseFloat(value))) {
-                              setConfig({
-                                ...config,
-                                attack: { ...config.attack, bleedSoundVolume: 0.7 },
-                              })
-                              setInputValues((prev) => {
-                                const next = { ...prev }
-                                delete next['attack.bleedSoundVolume']
-                                return next
-                              })
-                            } else {
-                              const num = parseFloat(value)
-                              if (!isNaN(num)) {
-                                setConfig({
-                                  ...config,
-                                  attack: { ...config.attack, bleedSoundVolume: Math.min(1, Math.max(0, num)) },
-                                })
-                                setInputValues((prev) => {
-                                  const next = { ...prev }
-                                  delete next['attack.bleedSoundVolume']
-                                  return next
-                                })
-                              }
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
-                  {config.attack.bleedEnabled && config.attack.bleedSoundEnabled && (
-                    <p className="settings-hint">
-                      例: <code>src/sounds/bleed.mp3</code>（public/sounds に配置）または{' '}
-                      <code>https://...</code>
-                    </p>
-                  )}
-                  {config.attack.bleedEnabled && (
-                    <>
-                      <p className="settings-hint">
-                        毒DOT・炎DOTのティック効果音（任意）: バリエーションで毒・炎が選ばれたときのみ鳴ります。ONかつURLがある場合のみ再生され、出血用の効果音とは別に指定してください。
-                      </p>
-                      <div className="settings-row">
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={config.attack.dotPoisonSoundEnabled}
-                            onChange={(e) =>
-                              setConfig({
-                                ...config,
-                                attack: { ...config.attack, dotPoisonSoundEnabled: e.target.checked },
-                              })
-                            }
-                          />
-                          毒DOTの効果音を有効にする
-                        </label>
-                      </div>
-                      {config.attack.dotPoisonSoundEnabled && (
-                        <div className="settings-row">
-                          <label>
-                            毒DOT 効果音URL:
-                            <div className="settings-url-with-button">
-                              <input
-                                type="text"
-                                value={config.attack.dotPoisonSoundUrl}
-                                onChange={(e) => {
-                                  const url = e.target.value
-                                  if (isValidUrl(url)) {
-                                    setConfig({
-                                      ...config,
-                                      attack: { ...config.attack, dotPoisonSoundUrl: url },
-                                    })
-                                  } else {
-                                    setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
-                                    setTimeout(() => setMessage(null), 3000)
-                                  }
-                                }}
-                                placeholder="空欄の場合は鳴りません"
-                              />
-                              <button
-                                type="button"
-                                className="settings-action-secondary settings-url-browse"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  openSoundFilePicker((dataUrl) => {
-                                    setConfig({
-                                      ...config,
-                                      attack: { ...config.attack, dotPoisonSoundUrl: dataUrl },
-                                    })
-                                  })
-                                }}
-                                title="音声ファイルを選んでURLに自動入力（data:audio）"
-                              >
-                                参照...
-                              </button>
-                            </div>
-                          </label>
-                          <label>
-                            音量:
-                            <input
-                              type="text"
-                              value={inputValues['attack.dotPoisonSoundVolume'] ?? String(config.attack.dotPoisonSoundVolume)}
-                              onChange={(e) =>
-                                setInputValues((prev) => ({ ...prev, 'attack.dotPoisonSoundVolume': e.target.value }))
-                              }
-                              onBlur={(e) => {
-                                const value = e.target.value.trim()
-                                if (value === '' || isNaN(parseFloat(value))) {
-                                  setConfig({
-                                    ...config,
-                                    attack: { ...config.attack, dotPoisonSoundVolume: 0.7 },
-                                  })
-                                  setInputValues((prev) => {
-                                    const next = { ...prev }
-                                    delete next['attack.dotPoisonSoundVolume']
-                                    return next
-                                  })
-                                } else {
-                                  const num = parseFloat(value)
-                                  if (!isNaN(num)) {
-                                    setConfig({
-                                      ...config,
-                                      attack: {
-                                        ...config.attack,
-                                        dotPoisonSoundVolume: Math.min(1, Math.max(0, num)),
-                                      },
-                                    })
-                                    setInputValues((prev) => {
-                                      const next = { ...prev }
-                                      delete next['attack.dotPoisonSoundVolume']
-                                      return next
-                                    })
-                                  }
-                                }
-                              }}
-                            />
-                          </label>
-                        </div>
-                      )}
-                      <div className="settings-row">
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={config.attack.dotBurnSoundEnabled}
-                            onChange={(e) =>
-                              setConfig({
-                                ...config,
-                                attack: { ...config.attack, dotBurnSoundEnabled: e.target.checked },
-                              })
-                            }
-                          />
-                          炎DOTの効果音を有効にする
-                        </label>
-                      </div>
-                      {config.attack.dotBurnSoundEnabled && (
-                        <div className="settings-row">
-                          <label>
-                            炎DOT 効果音URL:
-                            <div className="settings-url-with-button">
-                              <input
-                                type="text"
-                                value={config.attack.dotBurnSoundUrl}
-                                onChange={(e) => {
-                                  const url = e.target.value
-                                  if (isValidUrl(url)) {
-                                    setConfig({
-                                      ...config,
-                                      attack: { ...config.attack, dotBurnSoundUrl: url },
-                                    })
-                                  } else {
-                                    setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
-                                    setTimeout(() => setMessage(null), 3000)
-                                  }
-                                }}
-                                placeholder="空欄の場合は鳴りません"
-                              />
-                              <button
-                                type="button"
-                                className="settings-action-secondary settings-url-browse"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  openSoundFilePicker((dataUrl) => {
-                                    setConfig({
-                                      ...config,
-                                      attack: { ...config.attack, dotBurnSoundUrl: dataUrl },
-                                    })
-                                  })
-                                }}
-                                title="音声ファイルを選んでURLに自動入力（data:audio）"
-                              >
-                                参照...
-                              </button>
-                            </div>
-                          </label>
-                          <label>
-                            音量:
-                            <input
-                              type="text"
-                              value={inputValues['attack.dotBurnSoundVolume'] ?? String(config.attack.dotBurnSoundVolume)}
-                              onChange={(e) =>
-                                setInputValues((prev) => ({ ...prev, 'attack.dotBurnSoundVolume': e.target.value }))
-                              }
-                              onBlur={(e) => {
-                                const value = e.target.value.trim()
-                                if (value === '' || isNaN(parseFloat(value))) {
-                                  setConfig({
-                                    ...config,
-                                    attack: { ...config.attack, dotBurnSoundVolume: 0.7 },
-                                  })
-                                  setInputValues((prev) => {
-                                    const next = { ...prev }
-                                    delete next['attack.dotBurnSoundVolume']
-                                    return next
-                                  })
-                                } else {
-                                  const num = parseFloat(value)
-                                  if (!isNaN(num)) {
-                                    setConfig({
-                                      ...config,
-                                      attack: {
-                                        ...config.attack,
-                                        dotBurnSoundVolume: Math.min(1, Math.max(0, num)),
-                                      },
-                                    })
-                                    setInputValues((prev) => {
-                                      const next = { ...prev }
-                                      delete next['attack.dotBurnSoundVolume']
-                                      return next
-                                    })
-                                  }
-                                }
-                              }}
-                            />
-                          </label>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  <div className="settings-row">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={config.attack.soundEnabled}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            attack: { ...config.attack, soundEnabled: e.target.checked },
-                          })
-                        }
-                      />
-                      攻撃効果音を有効にする
-                    </label>
-                  </div>
-                  {config.attack.soundEnabled && (
-                    <div className="settings-row">
-                      <label>
-                        効果音URL:
-                        <div className="settings-url-with-button">
-                          <input
-                            type="text"
-                            value={config.attack.soundUrl}
-                            onChange={(e) => {
-                              const url = e.target.value
-                              if (isValidUrl(url)) {
-                                setConfig({
-                                  ...config,
-                                  attack: { ...config.attack, soundUrl: url },
-                                })
-                              } else {
-                                setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
-                                setTimeout(() => setMessage(null), 3000)
-                              }
-                            }}
-                            placeholder="空欄の場合は効果音なし"
-                          />
-                          <button
-                            type="button"
-                            className="settings-action-secondary settings-url-browse"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              openSoundFilePicker((dataUrl) => {
-                                setConfig({
-                                  ...config,
-                                  attack: { ...config.attack, soundUrl: dataUrl },
-                                })
-                              })
-                            }}
-                            title="音声ファイルを選んでURLに自動入力（data:audio）"
-                          >
-                            参照...
-                          </button>
-                        </div>
-                      </label>
-                      <label>
-                        音量:
-                        <input
-                          type="text"
-                          value={inputValues['attack.soundVolume'] ?? String(config.attack.soundVolume)}
-                          onChange={(e) => {
-                            setInputValues((prev) => ({ ...prev, 'attack.soundVolume': e.target.value }))
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value.trim()
-                            if (value === '' || isNaN(parseFloat(value))) {
-                              setConfig({
-                                ...config,
-                                attack: { ...config.attack, soundVolume: 0.7 },
-                              })
-                              setInputValues((prev) => {
-                                const next = { ...prev }
-                                delete next['attack.soundVolume']
-                                return next
-                              })
-                            } else {
-                              const num = parseFloat(value)
-                              if (!isNaN(num)) {
-                                setConfig({
-                                  ...config,
-                                  attack: { ...config.attack, soundVolume: Math.min(1, Math.max(0, num)) },
-                                })
-                                setInputValues((prev) => {
-                                  const next = { ...prev }
-                                  delete next['attack.soundVolume']
-                                  return next
-                                })
-                              }
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
-                  {config.attack.soundEnabled && (
-                    <p className="settings-hint">
-                      例: <code>src/sounds/attack.mp3</code>（public/sounds に配置）または{' '}
-                      <code>https://...</code>
-                    </p>
-                  )}
-                  {config.attack.bleedEnabled && (
-                    <>
-                      <p className="settings-hint">
-                        毒/炎DOTが付与された攻撃のときだけ、攻撃効果音を一時的に置き換えできます（未設定なら通常の攻撃効果音のまま）。
-                      </p>
-                      <div className="settings-row">
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={config.attack.dotPoisonAttackSoundEnabled}
-                            onChange={(e) =>
-                              setConfig({
-                                ...config,
-                                attack: { ...config.attack, dotPoisonAttackSoundEnabled: e.target.checked },
-                              })
-                            }
-                          />
-                          毒攻撃SE（置き換え）を有効にする
-                        </label>
-                      </div>
-                      {config.attack.dotPoisonAttackSoundEnabled && (
-                        <div className="settings-row">
-                          <label>
-                            毒攻撃SE URL:
-                            <div className="settings-url-with-button">
-                              <input
-                                type="text"
-                                value={config.attack.dotPoisonAttackSoundUrl}
-                                onChange={(e) => {
-                                  const url = e.target.value
-                                  if (isValidUrl(url)) {
-                                    setConfig({
-                                      ...config,
-                                      attack: { ...config.attack, dotPoisonAttackSoundUrl: url },
-                                    })
-                                  } else {
-                                    setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                                    setTimeout(() => setMessage(null), 3000)
-                                  }
-                                }}
-                                placeholder="空欄の場合は置き換えなし"
-                              />
-                              <button
-                                type="button"
-                                className="settings-action-secondary settings-url-browse"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  openSoundFilePicker((dataUrl) => {
-                                    setConfig({
-                                      ...config,
-                                      attack: { ...config.attack, dotPoisonAttackSoundUrl: dataUrl },
-                                    })
-                                  })
-                                }}
-                                title="音声ファイルを選んでURLに自動入力"
-                              >
-                                参照...
-                              </button>
-                            </div>
-                          </label>
-                          <label>
-                            音量:
-                            <input
-                              type="text"
-                              value={inputValues['attack.dotPoisonAttackSoundVolume'] ?? String(config.attack.dotPoisonAttackSoundVolume)}
-                              onChange={(e) =>
-                                setInputValues((prev) => ({
-                                  ...prev,
-                                  'attack.dotPoisonAttackSoundVolume': e.target.value,
-                                }))
-                              }
-                              onBlur={(e) => {
-                                const value = e.target.value.trim()
-                                if (value === '' || isNaN(parseFloat(value))) {
-                                  setConfig({
-                                    ...config,
-                                    attack: { ...config.attack, dotPoisonAttackSoundVolume: 0.7 },
-                                  })
-                                  setInputValues((prev) => {
-                                    const next = { ...prev }
-                                    delete next['attack.dotPoisonAttackSoundVolume']
-                                    return next
-                                  })
-                                } else {
-                                  const num = parseFloat(value)
-                                  if (!isNaN(num)) {
-                                    setConfig({
-                                      ...config,
-                                      attack: {
-                                        ...config.attack,
-                                        dotPoisonAttackSoundVolume: Math.min(1, Math.max(0, num)),
-                                      },
-                                    })
-                                    setInputValues((prev) => {
-                                      const next = { ...prev }
-                                      delete next['attack.dotPoisonAttackSoundVolume']
-                                      return next
-                                    })
-                                  }
-                                }
-                              }}
-                            />
-                          </label>
-                        </div>
-                      )}
-                      <div className="settings-row">
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={config.attack.dotBurnAttackSoundEnabled}
-                            onChange={(e) =>
-                              setConfig({
-                                ...config,
-                                attack: { ...config.attack, dotBurnAttackSoundEnabled: e.target.checked },
-                              })
-                            }
-                          />
-                          炎攻撃SE（置き換え）を有効にする
-                        </label>
-                      </div>
-                      {config.attack.dotBurnAttackSoundEnabled && (
-                        <div className="settings-row">
-                          <label>
-                            炎攻撃SE URL:
-                            <div className="settings-url-with-button">
-                              <input
-                                type="text"
-                                value={config.attack.dotBurnAttackSoundUrl}
-                                onChange={(e) => {
-                                  const url = e.target.value
-                                  if (isValidUrl(url)) {
-                                    setConfig({
-                                      ...config,
-                                      attack: { ...config.attack, dotBurnAttackSoundUrl: url },
-                                    })
-                                  } else {
-                                    setMessage('無効なURLです。http://、https://、または相対パスを入力してください。')
-                                    setTimeout(() => setMessage(null), 3000)
-                                  }
-                                }}
-                                placeholder="空欄の場合は置き換えなし"
-                              />
-                              <button
-                                type="button"
-                                className="settings-action-secondary settings-url-browse"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  openSoundFilePicker((dataUrl) => {
-                                    setConfig({
-                                      ...config,
-                                      attack: { ...config.attack, dotBurnAttackSoundUrl: dataUrl },
-                                    })
-                                  })
-                                }}
-                                title="音声ファイルを選んでURLに自動入力"
-                              >
-                                参照...
-                              </button>
-                            </div>
-                          </label>
-                          <label>
-                            音量:
-                            <input
-                              type="text"
-                              value={inputValues['attack.dotBurnAttackSoundVolume'] ?? String(config.attack.dotBurnAttackSoundVolume)}
-                              onChange={(e) =>
-                                setInputValues((prev) => ({
-                                  ...prev,
-                                  'attack.dotBurnAttackSoundVolume': e.target.value,
-                                }))
-                              }
-                              onBlur={(e) => {
-                                const value = e.target.value.trim()
-                                if (value === '' || isNaN(parseFloat(value))) {
-                                  setConfig({
-                                    ...config,
-                                    attack: { ...config.attack, dotBurnAttackSoundVolume: 0.7 },
-                                  })
-                                  setInputValues((prev) => {
-                                    const next = { ...prev }
-                                    delete next['attack.dotBurnAttackSoundVolume']
-                                    return next
-                                  })
-                                } else {
-                                  const num = parseFloat(value)
-                                  if (!isNaN(num)) {
-                                    setConfig({
-                                      ...config,
-                                      attack: {
-                                        ...config.attack,
-                                        dotBurnAttackSoundVolume: Math.min(1, Math.max(0, num)),
-                                      },
-                                    })
-                                    setInputValues((prev) => {
-                                      const next = { ...prev }
-                                      delete next['attack.dotBurnAttackSoundVolume']
-                                      return next
-                                    })
-                                  }
-                                }
-                              }}
-                            />
-                          </label>
-                        </div>
-                      )}
-                    </>
-                  )}
+                  <p className="settings-hint" style={{ marginTop: '0.35rem' }}>
+                    攻撃・ミス・出血・DOT などの<strong>効果音</strong>は上部の「効果音」タブで設定します。
+                  </p>
                   <div className="settings-row">
                     <label>
                       <input
@@ -2487,107 +1783,9 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                       HPが0のときも通常回復を許可する
                     </label>
                   </div>
-                  <div className="settings-row">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={config.heal.soundEnabled}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            heal: { ...config.heal, soundEnabled: e.target.checked },
-                          })
-                        }
-                      />
-                      回復効果音を有効にする
-                    </label>
-                  </div>
-                  {config.heal.soundEnabled && (
-                    <div className="settings-row">
-                      <label>
-                        効果音URL:
-                        <div className="settings-url-with-button">
-                          <input
-                            type="text"
-                            value={config.heal.soundUrl}
-                            onChange={(e) => {
-                              const url = e.target.value
-                              if (isValidUrl(url)) {
-                                setConfig({
-                                  ...config,
-                                  heal: { ...config.heal, soundUrl: url },
-                                })
-                              } else {
-                                setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
-                                setTimeout(() => setMessage(null), 3000)
-                              }
-                            }}
-                            placeholder="空欄の場合は効果音なし"
-                          />
-                          <button
-                            type="button"
-                            className="settings-action-secondary settings-url-browse"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              openSoundFilePicker((dataUrl) => {
-                                setConfig({
-                                  ...config,
-                                  heal: { ...config.heal, soundUrl: dataUrl },
-                                })
-                              })
-                            }}
-                            title="音声ファイルを選んでURLに自動入力（data:audio）"
-                          >
-                            参照...
-                          </button>
-                        </div>
-                      </label>
-                      <label>
-                        音量:
-                        <input
-                          type="text"
-                          value={inputValues['heal.soundVolume'] ?? String(config.heal.soundVolume)}
-                          onChange={(e) => {
-                            setInputValues((prev) => ({ ...prev, 'heal.soundVolume': e.target.value }))
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value.trim()
-                            if (value === '' || isNaN(parseFloat(value))) {
-                              setConfig({
-                                ...config,
-                                heal: { ...config.heal, soundVolume: 0.7 },
-                              })
-                              setInputValues((prev) => {
-                                const next = { ...prev }
-                                delete next['heal.soundVolume']
-                                return next
-                              })
-                            } else {
-                              const num = parseFloat(value)
-                              if (!isNaN(num)) {
-                                setConfig({
-                                  ...config,
-                                  heal: { ...config.heal, soundVolume: Math.min(1, Math.max(0, num)) },
-                                })
-                                setInputValues((prev) => {
-                                  const next = { ...prev }
-                                  delete next['heal.soundVolume']
-                                  return next
-                                })
-                              }
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
-                  {config.heal.soundEnabled && (
-                    <p className="settings-hint">
-                      例: <code>src/sounds/heal.mp3</code>（public/sounds に配置）または{' '}
-                      <code>https://...</code>
-                    </p>
-                  )}
+                  <p className="settings-hint">
+                    <strong>回復効果音</strong>は「効果音」タブで設定します。
+                  </p>
                   <div className="settings-row">
                     <label>
                       <input
@@ -2781,107 +1979,9 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                       HP0のときも通常回復を許可
                     </label>
                   </div>
-                  <div className="settings-row">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={config.retry.soundEnabled}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            retry: { ...config.retry, soundEnabled: e.target.checked },
-                          })
-                        }
-                      />
-                      蘇生効果音を有効にする
-                    </label>
-                  </div>
-                  {config.retry.soundEnabled && (
-                    <div className="settings-row">
-                      <label>
-                        効果音URL:
-                        <div className="settings-url-with-button">
-                          <input
-                            type="text"
-                            value={config.retry.soundUrl}
-                            onChange={(e) => {
-                              const url = e.target.value
-                              if (isValidUrl(url)) {
-                                setConfig({
-                                  ...config,
-                                  retry: { ...config.retry, soundUrl: url },
-                                })
-                              } else {
-                                setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
-                                setTimeout(() => setMessage(null), 3000)
-                              }
-                            }}
-                            placeholder="空欄の場合は効果音なし"
-                          />
-                          <button
-                            type="button"
-                            className="settings-action-secondary settings-url-browse"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              openSoundFilePicker((dataUrl) => {
-                                setConfig({
-                                  ...config,
-                                  retry: { ...config.retry, soundUrl: dataUrl },
-                                })
-                              })
-                            }}
-                            title="音声ファイルを選んでURLに自動入力（data:audio）"
-                          >
-                            参照...
-                          </button>
-                        </div>
-                      </label>
-                      <label>
-                        音量:
-                        <input
-                          type="text"
-                          value={inputValues['retry.soundVolume'] ?? String(config.retry.soundVolume)}
-                          onChange={(e) => {
-                            setInputValues((prev) => ({ ...prev, 'retry.soundVolume': e.target.value }))
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value.trim()
-                            if (value === '' || isNaN(parseFloat(value))) {
-                              setConfig({
-                                ...config,
-                                retry: { ...config.retry, soundVolume: 0.7 },
-                              })
-                              setInputValues((prev) => {
-                                const next = { ...prev }
-                                delete next['retry.soundVolume']
-                                return next
-                              })
-                            } else {
-                              const num = parseFloat(value)
-                              if (!isNaN(num)) {
-                                setConfig({
-                                  ...config,
-                                  retry: { ...config.retry, soundVolume: Math.min(1, Math.max(0, num)) },
-                                })
-                                setInputValues((prev) => {
-                                  const next = { ...prev }
-                                  delete next['retry.soundVolume']
-                                  return next
-                                })
-                              }
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
-                  {config.retry.soundEnabled && (
-                    <p className="settings-hint">
-                      例: <code>src/sounds/revive.mp3</code>（public/sounds に配置）または{' '}
-                      <code>https://...</code>
-                    </p>
-                  )}
+                  <p className="settings-hint">
+                    <strong>蘇生（リトライ）効果音</strong>は「効果音」タブで設定します。
+                  </p>
                 </div>
               )}
             </div>
@@ -3693,108 +2793,8 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                     例: <code>src/images/custom.png</code>（public/images に配置）または{' '}
                     <code>https://...</code>
                   </p>
-                  <h4 className="settings-subsection-title">効果音</h4>
-                  <div className="settings-row">
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={config.zeroHpSound.enabled}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            zeroHpSound: { ...config.zeroHpSound, enabled: e.target.checked },
-                          })
-                        }
-                      />
-                      HPが0になったら効果音を再生
-                    </label>
-                  </div>
-                  <div className="settings-row">
-                    <label>
-                      効果音URL:
-                      <div className="settings-url-with-button">
-                        <input
-                          type="text"
-                          value={config.zeroHpSound.soundUrl}
-                          onChange={(e) => {
-                            const url = e.target.value
-                            if (isValidUrl(url)) {
-                              setConfig({
-                                ...config,
-                                zeroHpSound: { ...config.zeroHpSound, soundUrl: url },
-                              })
-                            } else {
-                              setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
-                              setTimeout(() => setMessage(null), 3000)
-                            }
-                          }}
-                          placeholder="効果音のURLを入力"
-                        />
-                        <button
-                          type="button"
-                          className="settings-action-secondary settings-url-browse"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            openSoundFilePicker((dataUrl) => {
-                              setConfig({
-                                ...config,
-                                zeroHpSound: { ...config.zeroHpSound, soundUrl: dataUrl },
-                              })
-                            })
-                          }}
-                          title="音声ファイルを選んでURLに自動入力（data:audio）"
-                        >
-                          参照...
-                        </button>
-                      </div>
-                    </label>
-                  </div>
-                  <div className="settings-row">
-                    <label>
-                      音量:
-                      <input
-                        type="text"
-                        value={inputValues['zeroHpSound.volume'] ?? String(config.zeroHpSound.volume)}
-                        onChange={(e) => {
-                          setInputValues((prev) => ({ ...prev, 'zeroHpSound.volume': e.target.value }))
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value.trim()
-                          if (value === '' || isNaN(parseFloat(value))) {
-                            setConfig({
-                              ...config,
-                              zeroHpSound: { ...config.zeroHpSound, volume: 0.7 },
-                            })
-                            setInputValues((prev) => {
-                              const next = { ...prev }
-                              delete next['zeroHpSound.volume']
-                              return next
-                            })
-                          } else {
-                            const num = parseFloat(value)
-                            if (!isNaN(num)) {
-                              setConfig({
-                                ...config,
-                                zeroHpSound: {
-                                  ...config.zeroHpSound,
-                                  volume: Math.min(1, Math.max(0, num)),
-                                },
-                              })
-                              setInputValues((prev) => {
-                                const next = { ...prev }
-                                delete next['zeroHpSound.volume']
-                                return next
-                              })
-                            }
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
                   <p className="settings-hint">
-                    例: <code>src/sounds/custom.mp3</code>（public/sounds に配置）または{' '}
-                    <code>https://...</code>
+                    <strong>HP0時の効果音</strong>は「効果音」タブで設定します。
                   </p>
                   <h4 className="settings-subsection-title">動画（WebM）</h4>
                   <div className="settings-row">
@@ -4818,88 +3818,9 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                           </small>
                         </label>
                       </div>
-                      <div className="settings-row" style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>
-                        ストレングスバフ効果音設定
-                      </div>
-                      <div className="settings-row">
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={config.pvp.strengthBuffSoundEnabled ?? false}
-                            onChange={(e) =>
-                              setConfig({
-                                ...config,
-                                pvp: { ...config.pvp, strengthBuffSoundEnabled: e.target.checked },
-                              })
-                            }
-                          />
-                          ストレングスバフ効果音を有効にする
-                        </label>
-                      </div>
-                      {config.pvp.strengthBuffSoundEnabled && (
-                        <>
-                          <div className="settings-row">
-                            <label>
-                              効果音URL:
-                              <div className="settings-url-with-button">
-                                <input
-                                  type="text"
-                                  value={config.pvp.strengthBuffSoundUrl ?? ''}
-                                  onChange={(e) => {
-                                    const url = e.target.value
-                                    if (url === '' || isValidUrl(url)) {
-                                      setConfig({
-                                        ...config,
-                                        pvp: { ...config.pvp, strengthBuffSoundUrl: url },
-                                      })
-                                    } else {
-                                      setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
-                                      setTimeout(() => setMessage(null), 3000)
-                                    }
-                                  }}
-                                  placeholder="空欄の場合は効果音なし"
-                                />
-                                <button
-                                  type="button"
-                                  className="settings-action-secondary settings-url-browse"
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    openSoundFilePicker((dataUrl) => {
-                                      setConfig({
-                                        ...config,
-                                        pvp: { ...config.pvp, strengthBuffSoundUrl: dataUrl },
-                                      })
-                                    })
-                                  }}
-                                  title="音声ファイルを選んでURLに自動入力（data:audio）"
-                                >
-                                  参照...
-                                </button>
-                              </div>
-                            </label>
-                            <label>
-                              音量:
-                              <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.1"
-                                value={config.pvp.strengthBuffSoundVolume ?? 0.7}
-                                onChange={(e) =>
-                                  setConfig({
-                                    ...config,
-                                    pvp: { ...config.pvp, strengthBuffSoundVolume: Number(e.target.value) },
-                                  })
-                                }
-                              />
-                              <span style={{ marginLeft: '8px', minWidth: '40px', display: 'inline-block' }}>
-                                {Math.round((config.pvp.strengthBuffSoundVolume ?? 0.7) * 100)}%
-                              </span>
-                            </label>
-                          </div>
-                        </>
-                      )}
+                      <p className="settings-hint">
+                        <strong>ストレングスバフ効果音</strong>は「効果音」タブで設定します。
+                      </p>
                       <div className="settings-row">
                         <label>
                           全回復コマンド（視聴者側・実行した視聴者のHPを最大まで回復）:
@@ -5382,81 +4303,9 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                           />
                         </label>
                       </div>
-                      <div className="settings-row">
-                        <label>
-                          <input
-                            type="checkbox"
-                            checked={config.pvp.finishingMoveSoundEnabled ?? false}
-                            onChange={(e) =>
-                              setConfig({
-                                ...config,
-                                pvp: { ...config.pvp, finishingMoveSoundEnabled: e.target.checked },
-                              })
-                            }
-                          />
-                          必殺技効果音を有効にする
-                        </label>
-                      </div>
-                      {config.pvp.finishingMoveSoundEnabled && (
-                        <div className="settings-row">
-                          <label>
-                            必殺技効果音URL:
-                            <div className="settings-url-with-button">
-                              <input
-                                type="text"
-                                value={config.pvp.finishingMoveSoundUrl ?? ''}
-                                onChange={(e) => {
-                                  const url = e.target.value
-                                  if (url === '' || isValidUrl(url)) {
-                                    setConfig({
-                                      ...config,
-                                      pvp: { ...config.pvp, finishingMoveSoundUrl: url },
-                                    })
-                                  } else {
-                                    setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
-                                    setTimeout(() => setMessage(null), 3000)
-                                  }
-                                }}
-                                placeholder="https://.../finishing-move.mp3"
-                              />
-                              <button
-                                type="button"
-                                className="settings-action-secondary settings-url-browse"
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  openSoundFilePicker((dataUrl) => {
-                                    setConfig({
-                                      ...config,
-                                      pvp: { ...config.pvp, finishingMoveSoundUrl: dataUrl },
-                                    })
-                                  })
-                                }}
-                                title="音声ファイルを選んでURLに自動入力（data:audio）"
-                              >
-                                参照...
-                              </button>
-                            </div>
-                          </label>
-                          <label>
-                            必殺技効果音音量:
-                            <input
-                              type="range"
-                              min="0"
-                              max="1"
-                              step="0.01"
-                              value={config.pvp.finishingMoveSoundVolume ?? 0.7}
-                              onChange={(e) =>
-                                setConfig({
-                                  ...config,
-                                  pvp: { ...config.pvp, finishingMoveSoundVolume: parseFloat(e.target.value) || 0.7 },
-                                })
-                              }
-                            />
-                            {Math.round((config.pvp.finishingMoveSoundVolume ?? 0.7) * 100)}%
-                          </label>
-                        </div>
-                      )}
+                      <p className="settings-hint">
+                        <strong>必殺技効果音</strong>は「効果音」タブで設定します。
+                      </p>
                     </>
                   )}
                 </div>
@@ -5488,6 +4337,7 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                 <h3>配信者側の自動返信</h3>
                 <p className="settings-hint" style={{ marginTop: 0 }}>
                   配信者HP0時・回復コマンド使用時にチャットへ送るメッセージを設定します。送信にはOAuthトークンに <code>user:write:chat</code> スコープが必要です。
+                  効果音（回復SE・蘇生SE・HP0時SEなど）は <strong>効果音</strong> タブにあります。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -5563,6 +4413,7 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
                 <h3>ユーザー側（視聴者）の自動返信</h3>
                 <p className="settings-hint" style={{ marginTop: 0 }}>
                   カウンター攻撃時やHP確認時にチャットへ自動返信します。送信にはOAuthトークンに <code>user:write:chat</code> スコープが必要です。
+                  バフ・必殺の<strong>効果音</strong>は「効果音」タブで設定します。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -5726,6 +4577,17 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
           </div>
         )}
 
+        {activeTab === 'sounds' && (
+          <OverlaySettingsSoundTab
+            config={config}
+            setConfig={setConfig}
+            inputValues={inputValues}
+            setInputValues={setInputValues}
+            openSoundFilePicker={openSoundFilePicker}
+            setMessage={setMessage}
+          />
+        )}
+
         {!embedded && (
           <div className="settings-actions">
             <input
@@ -5780,23 +4642,6 @@ export const OverlaySettings = forwardRef<OverlaySettingsHandle, OverlaySettings
               title="public/config/overlay-config.json の内容でフォームを上書きします"
             >
               {loadingFromFile ? '読み込み中...' : 'JSONファイルから読み込み'}
-            </button>
-            <button type="button" className="settings-action-reset" onClick={handleReset}>
-              リセット
-            </button>
-          </div>
-        )}
-
-        {embedded && (
-          <div className="settings-actions settings-actions--embedded">
-            <button
-              type="button"
-              className="settings-action-secondary"
-              onClick={handleLoadFromFile}
-              disabled={loadingFromFile}
-              title="public/config/overlay-config.json の内容でフォームを上書きします"
-            >
-              {loadingFromFile ? '読み込み中...' : 'JSONから再読込'}
             </button>
             <button type="button" className="settings-action-reset" onClick={handleReset}>
               リセット

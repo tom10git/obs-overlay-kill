@@ -5,6 +5,7 @@
 
 import { useEffect, useCallback, useRef, useState, useMemo } from 'react'
 import { useHPGauge } from '../hooks/useHPGauge'
+import { useSicknessDebuff } from '../hooks/useSicknessDebuff'
 import { useViewerHP } from '../hooks/useViewerHP'
 import { useChannelPointEvents } from '../hooks/useChannelPointEvents'
 import { useEventSubRedemptions } from '../hooks/useEventSubRedemptions'
@@ -27,7 +28,7 @@ import {
   sanitizeStrengthBuffChatTemplates,
 } from '../utils/messageTemplate'
 import type { TwitchChatMessage } from '../types/twitch'
-import { saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
+import { getDefaultConfig, saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
 import { OverlaySettings, type OverlaySettingsHandle } from '../components/settings/OverlaySettings'
 import { twitchApi } from '../utils/twitchApi'
 import type { OverlayConfig, AttackConfig, AttackDebuffKind } from '../types/overlay'
@@ -38,6 +39,9 @@ import { pickBleedVariantParams } from '../utils/pickBleedVariantParams'
 import { playDotDebuffTickSound } from '../utils/playDotDebuffTickSound'
 import { obsGlowSource, obsMoveSource, obsShakeSource } from '../utils/obsWebSocketEffects'
 import './OverlayPage.css'
+
+/** テストパネル既定の上端（.test-drawer-toggle: top 16px + 高さ 46px + 下余白 12px） */
+const TEST_PANEL_TOP_DEFAULT = 74
 
 /** ランダム回復量を計算（step が 1 のときは min～max の連続値、>1 のときは min, min+step, min+2*step... のいずれか） */
 function getRandomHealAmount(min: number, max: number, step: number): number {
@@ -231,46 +235,58 @@ export function OverlayPage() {
   const fileInputRef = useRef<HTMLInputElement>(null) // ファイル選択用のinput要素の参照
   const overlaySettingsRef = useRef<OverlaySettingsHandle>(null)
 
-  // テストモード設定ウィンドウのサイズ・位置（上下左右の端でリサイズ）
-  const [testPanelSize, setTestPanelSize] = useState({ right: 12, bottom: 12, width: 560, height: 520 })
+  // テストモード設定ウィンドウのサイズ・位置（top/bottom で縦いっぱい、上下左右の端でリサイズ）
+  const [testPanelSize, setTestPanelSize] = useState({
+    right: 0,
+    top: TEST_PANEL_TOP_DEFAULT,
+    bottom: 12,
+    width: 420,
+  })
   const [testPanelResize, setTestPanelResize] = useState<{
     edge: 'n' | 's' | 'e' | 'w'
     startX: number
     startY: number
     startW: number
-    startH: number
+    startTop: number
     startRight: number
     startBottom: number
   } | null>(null)
 
   useEffect(() => {
     if (!testPanelResize) return
-    const minW = 320
-    const minH = 280
+    const minW = 300
+    const minH = 220
+    const minTop = TEST_PANEL_TOP_DEFAULT
+    const minBottom = 8
     const onMove = (e: MouseEvent) => {
       const maxW = Math.floor(window.innerWidth * 0.95)
-      const maxH = Math.floor(window.innerHeight * 0.85)
+      const vh = window.innerHeight
       const dx = e.clientX - testPanelResize.startX
       const dy = e.clientY - testPanelResize.startY
       setTestPanelSize((prev) => {
-        let { width, height, right, bottom } = prev
+        let { width, top, right, bottom } = prev
         switch (testPanelResize.edge) {
           case 'e':
             width = Math.min(maxW, Math.max(minW, testPanelResize.startW + dx))
             break
           case 'w':
             width = Math.min(maxW, Math.max(minW, testPanelResize.startW - dx))
-            right = testPanelResize.startRight + (testPanelResize.startW - width)
+            right = 0
             break
-          case 's':
-            height = Math.min(maxH, Math.max(minH, testPanelResize.startH + dy))
+          case 's': {
+            let nextBottom = testPanelResize.startBottom - dy
+            nextBottom = Math.max(minBottom, Math.min(vh - top - minH, nextBottom))
+            bottom = nextBottom
             break
-          case 'n':
-            height = Math.min(maxH, Math.max(minH, testPanelResize.startH - dy))
-            bottom = testPanelResize.startBottom + (testPanelResize.startH - height)
+          }
+          case 'n': {
+            let nextTop = testPanelResize.startTop + dy
+            nextTop = Math.max(minTop, Math.min(vh - bottom - minH, nextTop))
+            top = nextTop
             break
+          }
         }
-        return { width, height, right, bottom }
+        return { width, top, bottom, right }
       })
     }
     const onUp = () => setTestPanelResize(null)
@@ -641,6 +657,7 @@ export function OverlayPage() {
     gaugeCount,
     config,
     loading: configLoading,
+    hpCurrentSyncRef,
     reduceHP,
     increaseHP,
     resetHP,
@@ -659,6 +676,31 @@ export function OverlayPage() {
       sendAutoReply(msg, '[PvP] 配信者HP0自動返信の送信失敗')
     },
   })
+
+  const {
+    dialogueVisible: sicknessDialogueVisible,
+    registerHealStreak,
+    notifyStreamerDamageDuringSickness,
+    cancelSickness,
+  } = useSicknessDebuff({
+    updateConfigLocal,
+    streamerHpSyncRef: hpCurrentSyncRef,
+    currentHP,
+  })
+
+  const reduceHPTracked = useCallback(
+    (amount: number) => {
+      if (amount > 0) notifyStreamerDamageDuringSickness(amount)
+      reduceHP(amount)
+    },
+    [reduceHP, notifyStreamerDamageDuringSickness]
+  )
+
+  const resetStreamerHp = useCallback(() => {
+    cancelSickness()
+    resetHP()
+  }, [cancelSickness, resetHP])
+
   const sendPvpBlockedMessage = useCallback((type: 'attack' | 'heal', errorLabel: string) => {
     if (!config?.pvp?.autoReplyBlockedByZeroHp) return
     const msg = type === 'heal'
@@ -776,11 +818,11 @@ export function OverlayPage() {
     strengthBuffAllStartTimeRef,
   })
 
-  // reduceHPを常に最新の状態で参照できるようにする
+  // reduceHPを常に最新の状態で参照できるようにする（体調不良デバフのダメージ通知を含む）
   useEffect(() => {
-    reduceHPRef.current = reduceHP
-    logger.debug('[reduceHPRef更新] reduceHP関数を更新しました', reduceHP)
-  }, [reduceHP])
+    reduceHPRef.current = reduceHPTracked
+    logger.debug('[reduceHPRef更新] reduceHP関数を更新しました', reduceHPTracked)
+  }, [reduceHPTracked])
 
   // HPが変化したときにエフェクトを適用
   useEffect(() => {
@@ -1121,7 +1163,7 @@ export function OverlayPage() {
           }
           // ダメージ適用後のHPを計算（反転回復を判定するため）
           const hpAfterDamage = Math.max(0, currentHP - finalDamage)
-          reduceHP(finalDamage)
+          reduceHPTracked(finalDamage)
           // OBS WebSocket: ダメージ演出（ソースレイヤー操作）
           if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
             const eff = config.obsWebSocket.effects
@@ -1224,9 +1266,9 @@ export function OverlayPage() {
                 } else {
                   logger.error('[出血ダメージエラー] reduceHPRef.currentが関数ではありません', currentReduceHP)
                   // フォールバック: reduceHPを直接使用
-                  if (reduceHP && typeof reduceHP === 'function') {
-                    logger.debug('[出血ダメージ] フォールバック: reduceHPを直接使用')
-                    reduceHP(bleedDamage)
+                  if (reduceHPTracked && typeof reduceHPTracked === 'function') {
+                    logger.debug('[出血ダメージ] フォールバック: reduceHPTrackedを直接使用')
+                    reduceHPTracked(bleedDamage)
                     playDotDebuffTickSound(config.attack, dotDebuffKind, {
                       playBleed: playBleedSound,
                       playPoison: playDotPoisonSound,
@@ -1363,7 +1405,7 @@ export function OverlayPage() {
         }
       }
     },
-    [config, reduceHP, increaseHP, showHealEffect, showMiss, showFinishingMoveEffect, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, sendAutoReply, tryObsEffect, user?.id, applyViewerDamage, ensureViewerHP, getViewerUserIds, getViewerHPCurrent, viewerMaxHP]
+    [config, reduceHPTracked, increaseHP, showHealEffect, showMiss, showFinishingMoveEffect, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, sendAutoReply, tryObsEffect, user?.id, applyViewerDamage, ensureViewerHP, getViewerUserIds, getViewerHPCurrent, viewerMaxHP]
   )
 
   // 回復イベントハンドラ（チャンネルポイント・カスタムテキスト用。event に userId/userName があれば {username} に使用）
@@ -1392,6 +1434,7 @@ export function OverlayPage() {
           healAmount = getRandomHealAmount(min, max, step)
         }
 
+        registerHealStreak(currentHP, maxHP)
         const newHP = Math.min(maxHP, currentHP + healAmount)
         increaseHP(healAmount)
         // 回復数値を表示
@@ -1427,7 +1470,7 @@ export function OverlayPage() {
         }
       }
     },
-    [config, currentHP, maxHP, increaseHP, showHealEffect, playHealSound, sendAutoReply, tryObsEffect, user?.id]
+    [config, currentHP, maxHP, increaseHP, registerHealStreak, showHealEffect, playHealSound, sendAutoReply, tryObsEffect, user?.id]
   )
 
   // テストモードかどうか
@@ -1613,7 +1656,7 @@ export function OverlayPage() {
       }
       // ダメージ適用後のHPを計算（反転回復を判定するため）
       const hpAfterDamage = Math.max(0, currentHP - finalDamage)
-      reduceHP(finalDamage)
+      reduceHPTracked(finalDamage)
       // OBS WebSocket: ダメージ演出（本番の handleAttackEvent と同じ条件）
       if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
         const eff = config.obsWebSocket.effects
@@ -1725,9 +1768,9 @@ export function OverlayPage() {
           } else {
             logger.error('[テストモード 出血ダメージエラー] reduceHPRef.currentが関数ではありません', currentReduceHP)
             // フォールバック: reduceHPを直接使用
-            if (reduceHP && typeof reduceHP === 'function') {
-              logger.debug('[テストモード 出血ダメージ] フォールバック: reduceHPを直接使用')
-              reduceHP(bleedDamage)
+            if (reduceHPTracked && typeof reduceHPTracked === 'function') {
+              logger.debug('[テストモード 出血ダメージ] フォールバック: reduceHPTrackedを直接使用')
+              reduceHPTracked(bleedDamage)
               playDotDebuffTickSound(config.attack, dotDebuffKind, {
                 playBleed: playBleedSound,
                 playPoison: playDotPoisonSound,
@@ -1812,7 +1855,7 @@ export function OverlayPage() {
         playMissSound()
       }
     }
-  }, [config, isTestMode, currentHP, reduceHP, increaseHP, showHealEffect, showMiss, showCritical, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, stopRepeat, tryObsEffect])
+  }, [config, isTestMode, currentHP, reduceHPTracked, increaseHP, showHealEffect, showMiss, showCritical, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, stopRepeat, tryObsEffect])
 
   const handleTestFinishingMove = useCallback(() => {
     if (!config || !isTestMode) return
@@ -1839,7 +1882,7 @@ export function OverlayPage() {
     showFinishingMoveEffect()
 
     // ダメージ適用
-    reduceHP(finishingDamage)
+    reduceHPTracked(finishingDamage)
 
     if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
       const eff = config.obsWebSocket.effects
@@ -1930,7 +1973,7 @@ export function OverlayPage() {
       })
       sendAutoReply(msg, '[PvP] 必殺技メッセージ送信失敗')
     }
-  }, [config, isTestMode, currentHP, reduceHP, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, sendAutoReply, stopRepeat, username, tryObsEffect])
+  }, [config, isTestMode, currentHP, reduceHPTracked, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, sendAutoReply, stopRepeat, username, tryObsEffect])
 
   const handleTestHeal = useCallback(() => {
     if (!config || !isTestMode) return
@@ -1956,6 +1999,7 @@ export function OverlayPage() {
       healAmount = getRandomHealAmount(min, max, step)
     }
 
+    registerHealStreak(currentHP, maxHP)
     // HPを回復
     increaseHP(healAmount)
 
@@ -1980,18 +2024,18 @@ export function OverlayPage() {
         obsGlowSource(config.obsWebSocket, eff.healGlowScale, eff.healGlowDurationMs)
       )
     }
-  }, [config, isTestMode, currentHP, increaseHP, showHealEffect, playHealSound, tryObsEffect])
+  }, [config, isTestMode, currentHP, maxHP, increaseHP, registerHealStreak, showHealEffect, playHealSound, tryObsEffect])
 
   const handleTestReset = useCallback(() => {
     if (!isTestMode || !config) return
     // 現在のHPが最大HPの場合は何もしない
     if (currentHP >= maxHP) return
-    resetHP()
+    resetStreamerHp()
     // 蘇生効果音を再生
     if (config.retry.soundEnabled) {
       playRetrySound()
     }
-  }, [isTestMode, config, currentHP, maxHP, resetHP, playRetrySound])
+  }, [isTestMode, config, currentHP, maxHP, resetStreamerHp, playRetrySound])
 
   // テストモード用のバフ付与ハンドラ（即時に ref を更新し、チャット送信は任意でログ用）
   const handleTestStrengthBuff = useCallback(() => {
@@ -2596,7 +2640,7 @@ export function OverlayPage() {
         if (isResetAllMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
-          resetHP()
+          resetStreamerHp()
           getViewerUserIds().forEach((id) => setViewerHP(id, viewerMaxHP))
           if (config.heal.effectEnabled) showHealEffect()
           if (config.retry.soundEnabled) playRetrySound()
@@ -2616,7 +2660,7 @@ export function OverlayPage() {
         if (isFullHealMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
-          resetHP()
+          resetStreamerHp()
           if (config.heal.effectEnabled) showHealEffect()
           if (config.retry.soundEnabled) playRetrySound()
         }
@@ -2649,6 +2693,7 @@ export function OverlayPage() {
             healAmount = config.retry.streamerHealAmount
           }
           if (healAmount > 0) {
+            registerHealStreak(currentHP, maxHP)
             const newHP = Math.min(maxHP, currentHP + healAmount)
             increaseHP(healAmount)
             if (config.heal.effectEnabled) showHealEffect()
@@ -2701,7 +2746,7 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, username, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetHP, maxHP, increaseHP, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP])
+  }, [chatMessages, config, isTestMode, username, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP])
 
   // body要素にoverflow:hiddenを適用
   useEffect(() => {
@@ -2976,21 +3021,28 @@ export function OverlayPage() {
           />
         </div>
       )}
-      <HPGauge
-        currentHP={currentHP}
-        maxHP={maxHP}
-        gaugeCount={gaugeCount}
-        config={config}
-        buffedUserIds={buffedUserIdsState}
-        isAllBuffed={isAllBuffedState}
-        userIdToDisplayName={userIdToDisplayNameRef.current}
-        allBuffRemainingSeconds={allBuffRemainingSecondsState}
-        buffRemainingSecondsMap={buffRemainingSecondsMapState}
-        buffDurationSeconds={config.pvp?.strengthBuffDuration ?? 300}
-        hitShakeActive={damageEffectActive}
-        dodgeSlideActive={gaugeDodgeActive}
-        dodgeSlideDirection={gaugeDodgeDirection}
-      />
+      <div className="overlay-hp-stack">
+        {sicknessDialogueVisible && (
+          <p className="sickness-debuff-dialogue" aria-hidden>
+            ぉぇ・・気持ち悪い・・
+          </p>
+        )}
+        <HPGauge
+          currentHP={currentHP}
+          maxHP={maxHP}
+          gaugeCount={gaugeCount}
+          config={config}
+          buffedUserIds={buffedUserIdsState}
+          isAllBuffed={isAllBuffedState}
+          userIdToDisplayName={userIdToDisplayNameRef.current}
+          allBuffRemainingSeconds={allBuffRemainingSecondsState}
+          buffRemainingSecondsMap={buffRemainingSecondsMapState}
+          buffDurationSeconds={config.pvp?.strengthBuffDuration ?? 300}
+          hitShakeActive={damageEffectActive}
+          dodgeSlideActive={gaugeDodgeActive}
+          dodgeSlideDirection={gaugeDodgeDirection}
+        />
+      </div>
       {/* ダメージ数値表示（HPゲージの外側に表示） */}
       {damageNumbers.map((damage) => (
         <DamageNumber
@@ -3016,42 +3068,70 @@ export function OverlayPage() {
       ))}
       {/* 本番ビルドでもパネルは表示（テストボタンは設定でテストモード ON のときのみ有効） */}
       {showEmbeddedTestUi && (
-        <div className={`test-controls-wrapper ${showTestControls ? 'visible' : 'hidden'}`}>
+        <div className="test-drawer-root">
           <button
-            className="control-tab control-tab-top-left"
+            type="button"
+            className={`test-drawer-toggle${showTestControls ? ' test-drawer-toggle--open' : ''}`}
             onClick={() => setShowTestControls(!showTestControls)}
-            title={showTestControls ? 'テストモードボタンを隠す' : 'テストモードボタンを表示'}
+            title={showTestControls ? 'テストパネルを閉じる' : 'テストパネルを開く'}
+            aria-expanded={showTestControls}
+            aria-controls="overlay-test-panel"
+            aria-label={showTestControls ? 'テストパネルを閉じる' : 'テストパネルを開く'}
           >
-            テスト
+            <span className="test-drawer-toggle-inner" aria-hidden>
+              <span className="test-drawer-toggle-bar" />
+              <span className="test-drawer-toggle-bar" />
+              <span className="test-drawer-toggle-bar" />
+            </span>
           </button>
           <div
-            className="test-controls"
+            id="overlay-test-panel"
+            className={`test-controls${showTestControls ? ' test-controls--open' : ''}`}
             style={{
-              right: testPanelSize.right,
+              right: 0,
+              top: testPanelSize.top,
               bottom: testPanelSize.bottom,
               width: testPanelSize.width,
-              height: testPanelSize.height,
             }}
           >
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".json"
+              className="test-panel-file-input"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+
+                try {
+                  const text = await file.text()
+                  const jsonConfig = JSON.parse(text)
+                  const validated = validateAndSanitizeConfig(jsonConfig)
+
+                  updateConfigLocal(validated as Partial<OverlayConfig>)
+                  logger.debug('✅ 設定ファイルを読み込みました')
+                } catch (error) {
+                  logger.error('❌ 設定ファイルの読み込みに失敗しました:', error)
+                  alert('設定ファイルの読み込みに失敗しました。JSON形式が正しいか確認してください。')
+                } finally {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = ''
+                  }
+                }
+              }}
+            />
             <div className="test-controls-scroll">
-              <div className="test-controls-inner">
-                <div className="test-controls-header" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    className="test-settings-toggle"
-                    onClick={() => setShowTestSettings(!showTestSettings)}
-                    title={showTestSettings ? '設定を隠す' : '設定を表示'}
-                  >
-                    {showTestSettings ? '▼' : '▶'} 設定
-                  </button>
-                  {showTestSettings && config && (
-                    <>
-                      <button
-                        className="test-button test-save"
-                        style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', width: 'auto' }}
-                        onClick={async () => {
-                          if (config) {
+              <div className="test-controls-inner test-panel">
+                <div className="test-panel-topbar">
+                  <span className="test-panel-title">テストパネル</span>
+                  <div className="test-panel-topbar-actions">
+                    {config && (
+                      <>
+                        <button
+                          type="button"
+                          className="test-panel-tool-btn test-panel-tool-btn--primary"
+                          onClick={async () => {
                             const merged = overlaySettingsRef.current?.flushPendingFieldInputs() ?? config
-                            // デバッグ: 保存前の設定を確認
                             logger.debug('[設定保存] 保存する設定:', {
                               strengthBuffSoundEnabled: merged.pvp?.strengthBuffSoundEnabled,
                               strengthBuffSoundUrl: merged.pvp?.strengthBuffSoundUrl,
@@ -3061,72 +3141,62 @@ export function OverlayPage() {
                             const success = await saveOverlayConfig(merged)
                             if (success) {
                               setShowSaveDialog(true)
-                              // 3秒後に自動的に閉じる
                               setTimeout(() => {
                                 setShowSaveDialog(false)
                               }, 3000)
                             } else {
                               alert('設定の保存に失敗しました。')
                             }
-                          }
-                        }}
-                        title="設定を保存"
-                      >
-                        設定を保存
-                      </button>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept=".json"
-                        style={{ display: 'none' }}
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0]
-                          if (!file) return
-
-                          try {
-                            const text = await file.text()
-                            const jsonConfig = JSON.parse(text)
-                            const validated = validateAndSanitizeConfig(jsonConfig)
-
-                            // 設定を更新（完全な設定を適用）。保存するには「設定を保存」を押す
-                            updateConfigLocal(validated as Partial<OverlayConfig>)
-                            logger.debug('✅ 設定ファイルを読み込みました')
-                          } catch (error) {
-                            logger.error('❌ 設定ファイルの読み込みに失敗しました:', error)
-                            alert('設定ファイルの読み込みに失敗しました。JSON形式が正しいか確認してください。')
-                          } finally {
-                            // ファイル入力をリセット（同じファイルを再度選択できるように）
-                            if (fileInputRef.current) {
-                              fileInputRef.current.value = ''
-                            }
-                          }
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="test-button test-reload"
-                        style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem', width: 'auto' }}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          fileInputRef.current?.click()
-                        }}
-                        title="ローカルファイルから設定を読み込み"
-                        disabled={configLoading}
-                      >
-                        {configLoading ? '読み込み中...' : '設定を再読み込み'}
-                      </button>
-                    </>
-                  )}
+                          }}
+                          title="現在の設定をサーバーに保存"
+                        >
+                          保存
+                        </button>
+                        <button
+                          type="button"
+                          className="test-panel-tool-btn"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            fileInputRef.current?.click()
+                          }}
+                          title="ローカルの JSON から設定を読み込み（反映後は「保存」で確定）"
+                          disabled={configLoading}
+                        >
+                          {configLoading ? '…' : '読込'}
+                        </button>
+                        <button
+                          type="button"
+                          className="test-panel-tool-btn"
+                          onClick={() => {
+                            if (!confirm('設定をデフォルト値にリセットしますか？')) return
+                            replaceConfig(getDefaultConfig())
+                          }}
+                          title="オーバーレイ設定を初期値に戻す（サーバーへ反映するには「保存」）"
+                          disabled={!config}
+                        >
+                          リセット
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      className={`test-panel-segment ${showTestSettings ? 'test-panel-segment--on' : ''}`}
+                      onClick={() => setShowTestSettings(!showTestSettings)}
+                      title={showTestSettings ? '詳細設定を閉じる' : '詳細設定を開く'}
+                    >
+                      設定
+                    </button>
+                  </div>
                 </div>
                 {showTestSettings && config && (
                   <div className="test-settings-panel test-settings-panel--embedded">
-                    <div className="test-settings-embedded-toolbar">
-                      <button type="button" className="test-button test-save" style={{ width: 'auto', padding: '0.3rem 0.7rem' }} onClick={() => applyTestPreset('safe')}>
-                        プリセット: 配信向け（安全）
+                    <div className="test-settings-embedded-toolbar test-settings-embedded-toolbar--compact">
+                      <button type="button" className="test-button test-save test-panel-preset-btn" onClick={() => applyTestPreset('safe')}>
+                        プリセット: 配信（安全）
                       </button>
-                      <button type="button" className="test-button test-reload" style={{ width: 'auto', padding: '0.3rem 0.7rem' }} onClick={() => applyTestPreset('allOn')}>
-                        プリセット: 検証向け（全部ON）
+                      <button type="button" className="test-button test-reload test-panel-preset-btn" onClick={() => applyTestPreset('allOn')}>
+                        プリセット: 検証（全ON）
                       </button>
                     </div>
                     <OverlaySettings
@@ -3137,84 +3207,107 @@ export function OverlayPage() {
                     />
                   </div>
                 )}
-                <div className="test-controls-info">
-                  <p>
+                <div className="test-panel-status">
+                  <span className="test-panel-hp-readout" title="メインゲージの現在値">
+                    HP {currentHP.toLocaleString()} / {maxHP.toLocaleString()}
+                  </span>
+                  <span className="test-panel-hint">
                     {isTestMode
-                      ? 'テストモード: ボタン長押しで連打'
-                      : '「設定」を開き「テストモードを有効にする」にチェックすると、テストボタンが使えます。'}
-                  </p>
+                      ? '攻撃・回復・全員全回復は長押しで連打できます。'
+                      : '「設定」で「テストモードを有効にする」にチェックすると操作できます。'}
+                  </span>
                 </div>
-                <div className="test-controls-buttons">
-                  <button
-                    className="test-button test-attack"
-                    disabled={!isTestMode || currentHP <= 0}
-                    onPointerDown={(e) => {
-                      e.preventDefault()
-                      if (isTestMode && currentHP > 0) startRepeat(triggerAttack, 200)
-                    }}
-                    onPointerUp={stopRepeat}
-                    onPointerLeave={stopRepeat}
-                    onPointerCancel={stopRepeat}
-                  >
-                    攻撃テスト
-                  </button>
-                  <button
-                    className="test-button test-attack"
-                    disabled={!isTestMode || currentHP <= 0 || !(config?.pvp?.viewerFinishingMoveEnabled ?? true)}
-                    onClick={handleTestFinishingMove}
-                    title="必殺技を確定発動（隠し機能の確認用）"
-                  >
-                    必殺技テスト
-                  </button>
-                  <button
-                    className="test-button test-heal"
-                    disabled={!isTestMode || currentHP <= 0}
-                    onPointerDown={(e) => {
-                      e.preventDefault()
-                      if (isTestMode && currentHP > 0) startRepeat(triggerHeal, 200)
-                    }}
-                    onPointerUp={stopRepeat}
-                    onPointerLeave={stopRepeat}
-                    onPointerCancel={stopRepeat}
-                  >
-                    回復テスト
-                  </button>
-                  <button
-                    onClick={triggerReset}
-                    className="test-button test-reset"
-                    disabled={!isTestMode || currentHP >= maxHP}
-                  >
-                    全回復
-                  </button>
-                  <button
-                    className="test-button test-reset"
-                    disabled={!isTestMode}
-                    onPointerDown={(e) => {
-                      e.preventDefault()
-                      if (!isTestMode) return
-                      const triggerResetAll = () => {
-                        if (!config) return
-                        resetHP()
-                        getViewerUserIds().forEach((id) => setViewerHP(id, viewerMaxHP))
-                        if (config.heal.effectEnabled) showHealEffect()
-                        if (config.retry.soundEnabled) playRetrySound()
-                      }
-                      startRepeat(triggerResetAll, 200)
-                    }}
-                    onPointerUp={stopRepeat}
-                    onPointerLeave={stopRepeat}
-                    onPointerCancel={stopRepeat}
-                  >
-                    全員全回復
-                  </button>
-                  <button
-                    className="test-button test-strength"
-                    disabled={!isTestMode}
-                    onClick={handleTestStrengthBuff}
-                    title="ストレングスバフを付与"
-                  >
-                    バフ付与
-                  </button>
+                <div className="test-panel-actions">
+                  <div className="test-panel-group">
+                    <span className="test-panel-group-label">ダメージ・回復</span>
+                    <div className="test-panel-btn-row">
+                      <button
+                        type="button"
+                        className="test-button test-attack test-panel-action-btn"
+                        disabled={!isTestMode || currentHP <= 0}
+                        onPointerDown={(e) => {
+                          e.preventDefault()
+                          if (isTestMode && currentHP > 0) startRepeat(triggerAttack, 200)
+                        }}
+                        onPointerUp={stopRepeat}
+                        onPointerLeave={stopRepeat}
+                        onPointerCancel={stopRepeat}
+                        title="長押しで連打"
+                      >
+                        攻撃
+                      </button>
+                      <button
+                        type="button"
+                        className="test-button test-heal test-panel-action-btn"
+                        disabled={!isTestMode || currentHP <= 0}
+                        onPointerDown={(e) => {
+                          e.preventDefault()
+                          if (isTestMode && currentHP > 0) startRepeat(triggerHeal, 200)
+                        }}
+                        onPointerUp={stopRepeat}
+                        onPointerLeave={stopRepeat}
+                        onPointerCancel={stopRepeat}
+                        title="長押しで連打"
+                      >
+                        回復
+                      </button>
+                      <button
+                        type="button"
+                        className="test-button test-attack test-panel-action-btn"
+                        disabled={!isTestMode || currentHP <= 0 || !(config?.pvp?.viewerFinishingMoveEnabled ?? true)}
+                        onClick={handleTestFinishingMove}
+                        title="必殺技を確定発動（隠し機能の確認用）"
+                      >
+                        必殺
+                      </button>
+                    </div>
+                  </div>
+                  <div className="test-panel-group">
+                    <span className="test-panel-group-label">リセット・バフ</span>
+                    <div className="test-panel-btn-row">
+                      <button
+                        type="button"
+                        onClick={triggerReset}
+                        className="test-button test-reset test-panel-action-btn"
+                        disabled={!isTestMode || currentHP >= maxHP}
+                        title="メインゲージを全回復"
+                      >
+                        全回復
+                      </button>
+                      <button
+                        type="button"
+                        className="test-button test-reset test-panel-action-btn"
+                        disabled={!isTestMode}
+                        onPointerDown={(e) => {
+                          e.preventDefault()
+                          if (!isTestMode) return
+                          const triggerResetAll = () => {
+                            if (!config) return
+                            resetStreamerHp()
+                            getViewerUserIds().forEach((id) => setViewerHP(id, viewerMaxHP))
+                            if (config.heal.effectEnabled) showHealEffect()
+                            if (config.retry.soundEnabled) playRetrySound()
+                          }
+                          startRepeat(triggerResetAll, 200)
+                        }}
+                        onPointerUp={stopRepeat}
+                        onPointerLeave={stopRepeat}
+                        onPointerCancel={stopRepeat}
+                        title="視聴者ゲージも含め全員・長押しで連打"
+                      >
+                        全員回復
+                      </button>
+                      <button
+                        type="button"
+                        className="test-button test-strength test-panel-action-btn"
+                        disabled={!isTestMode}
+                        onClick={handleTestStrengthBuff}
+                        title="ストレングスバフを付与"
+                      >
+                        バフ
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3228,7 +3321,7 @@ export function OverlayPage() {
                   startX: e.clientX,
                   startY: e.clientY,
                   startW: testPanelSize.width,
-                  startH: testPanelSize.height,
+                  startTop: testPanelSize.top,
                   startRight: testPanelSize.right,
                   startBottom: testPanelSize.bottom,
                 })
@@ -3244,7 +3337,7 @@ export function OverlayPage() {
                   startX: e.clientX,
                   startY: e.clientY,
                   startW: testPanelSize.width,
-                  startH: testPanelSize.height,
+                  startTop: testPanelSize.top,
                   startRight: testPanelSize.right,
                   startBottom: testPanelSize.bottom,
                 })
@@ -3260,7 +3353,7 @@ export function OverlayPage() {
                   startX: e.clientX,
                   startY: e.clientY,
                   startW: testPanelSize.width,
-                  startH: testPanelSize.height,
+                  startTop: testPanelSize.top,
                   startRight: testPanelSize.right,
                   startBottom: testPanelSize.bottom,
                 })
@@ -3276,7 +3369,7 @@ export function OverlayPage() {
                   startX: e.clientX,
                   startY: e.clientY,
                   startW: testPanelSize.width,
-                  startH: testPanelSize.height,
+                  startTop: testPanelSize.top,
                   startRight: testPanelSize.right,
                   startBottom: testPanelSize.bottom,
                 })

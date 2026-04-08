@@ -3,6 +3,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { flushSync } from 'react-dom'
+import type { MutableRefObject } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { loadOverlayConfig, saveOverlayConfig, getDefaultConfig } from '../utils/overlayConfig'
 import { overlayConfigQueryKey } from '../lib/queryKeys'
@@ -32,6 +34,8 @@ interface UseHPGaugeResult {
   config: OverlayConfig | null
   loading: boolean
   error: Error | null
+  /** reduceHP / increaseHP / updateConfigLocal 適用直後と同じ値（演出フレームがダメージを上書きしないよう体調不良などが参照） */
+  hpCurrentSyncRef: MutableRefObject<number>
   reduceHP: (amount: number) => void
   increaseHP: (amount: number) => void
   resetHP: () => void
@@ -65,15 +69,20 @@ export function useHPGauge({
   const onStreamerZeroHpRef = useRef(onStreamerZeroHp)
   onStreamerZeroHpRef.current = onStreamerZeroHp
 
+  const hpCurrentSyncRef = useRef(initialConfig?.hp.current ?? 0)
+
   useEffect(() => {
     if (initialConfig != null) {
+      hpCurrentSyncRef.current = initialConfig.hp.current
       setConfig(initialConfig)
       setLoading(false)
       setError(null)
       return
     }
     if (overlayQuery.isSuccess && overlayQuery.data) {
-      setConfig(overlayQuery.data)
+      const data = overlayQuery.data
+      hpCurrentSyncRef.current = data.hp.current
+      setConfig(data)
       setLoading(false)
       setError(null)
     }
@@ -90,41 +99,44 @@ export function useHPGauge({
   const reduceHP = useCallback(
     (amount: number) => {
       logger.debug(`[reduceHP呼び出し] ダメージ: ${amount}`)
-      setConfig((prev) => {
-        if (!prev) {
-          logger.warn('[reduceHP] configがnullです')
-          return prev
-        }
-        // HPが0以下の場合は何もしない（HPが上昇するバグを防ぐ）
-        if (prev.hp.current <= 0) {
-          logger.debug(`[reduceHP] HPが0以下のため、ダメージを適用しません（現在HP: ${prev.hp.current}）`)
-          return prev
-        }
-        let newHP = prev.hp.current - amount
-        // 攻撃でHPが0以下になる場合、攻撃前HPが2以上のときだけ一定確率で1残す（HP1の状態では発動しない）
-        if (
-          newHP <= 0 &&
-          prev.hp.current >= 2 &&
-          prev.attack.survivalHp1Enabled &&
-          prev.attack.survivalHp1Probability > 0
-        ) {
-          const roll = Math.random() * 100
-          if (roll < prev.attack.survivalHp1Probability) {
-            newHP = 1
-            const message = (prev.attack.survivalHp1Message || '食いしばり!').trim() || '食いしばり!'
-            onSurvivalHp1Ref.current?.(message)
-            logger.info(`[reduceHP] HP1残り発動 (確率${prev.attack.survivalHp1Probability}%、roll=${roll.toFixed(1)})`)
+      flushSync(() => {
+        setConfig((prev) => {
+          if (!prev) {
+            logger.warn('[reduceHP] configがnullです')
+            return prev
           }
-        }
-        newHP = Math.max(0, newHP)
-        logger.debug(`[reduceHP] HP更新: ${prev.hp.current} -> ${newHP}`)
-        return {
-          ...prev,
-          hp: {
-            ...prev.hp,
-            current: newHP,
-          },
-        }
+          // HPが0以下の場合は何もしない（HPが上昇するバグを防ぐ）
+          if (prev.hp.current <= 0) {
+            logger.debug(`[reduceHP] HPが0以下のため、ダメージを適用しません（現在HP: ${prev.hp.current}）`)
+            return prev
+          }
+          let newHP = prev.hp.current - amount
+          // 攻撃でHPが0以下になる場合、攻撃前HPが2以上のときだけ一定確率で1残す（HP1の状態では発動しない）
+          if (
+            newHP <= 0 &&
+            prev.hp.current >= 2 &&
+            prev.attack.survivalHp1Enabled &&
+            prev.attack.survivalHp1Probability > 0
+          ) {
+            const roll = Math.random() * 100
+            if (roll < prev.attack.survivalHp1Probability) {
+              newHP = 1
+              const message = (prev.attack.survivalHp1Message || '食いしばり!').trim() || '食いしばり!'
+              onSurvivalHp1Ref.current?.(message)
+              logger.info(`[reduceHP] HP1残り発動 (確率${prev.attack.survivalHp1Probability}%、roll=${roll.toFixed(1)})`)
+            }
+          }
+          newHP = Math.max(0, newHP)
+          hpCurrentSyncRef.current = newHP
+          logger.debug(`[reduceHP] HP更新: ${prev.hp.current} -> ${newHP}`)
+          return {
+            ...prev,
+            hp: {
+              ...prev.hp,
+              current: newHP,
+            },
+          }
+        })
       })
     },
     []
@@ -153,6 +165,7 @@ export function useHPGauge({
           return prev
         }
         const newHP = Math.min(prev.hp.max, prev.hp.current + amount)
+        hpCurrentSyncRef.current = newHP
         return {
           ...prev,
           hp: {
@@ -169,11 +182,13 @@ export function useHPGauge({
   const resetHP = useCallback(() => {
     setConfig((prev) => {
       if (!prev) return prev
+      const max = prev.hp.max
+      hpCurrentSyncRef.current = max
       return {
         ...prev,
         hp: {
           ...prev.hp,
-          current: prev.hp.max,
+          current: max,
         },
       }
     })
@@ -192,6 +207,7 @@ export function useHPGauge({
             if (newConfig.hp?.max != null && newConfig.hp?.current === undefined) {
               merged.current = Math.min(prev.hp.current, merged.max)
             }
+            hpCurrentSyncRef.current = merged.current
             return merged
           })(),
           attack: { ...prev.attack, ...newConfig.attack },
@@ -286,6 +302,7 @@ export function useHPGauge({
   /** 設定全体を置き換え（設定画面のフォーム同期用） */
   const replaceConfig = useCallback(
     (newConfig: OverlayConfig) => {
+      hpCurrentSyncRef.current = newConfig.hp.current
       setConfig(newConfig)
       queryClient.setQueryData(overlayConfigQueryKey, newConfig)
     },
@@ -302,6 +319,7 @@ export function useHPGauge({
         queryKey: overlayConfigQueryKey,
         queryFn: loadOverlayConfig,
       })
+      hpCurrentSyncRef.current = loadedConfig.hp.current
       setConfig(loadedConfig)
       logger.info('設定を再読み込みしました')
     } catch (err) {
@@ -323,6 +341,7 @@ export function useHPGauge({
     config,
     loading,
     error,
+    hpCurrentSyncRef,
     reduceHP,
     increaseHP,
     resetHP,
