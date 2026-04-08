@@ -2708,11 +2708,10 @@ export function OverlayPage() {
         }
       }
 
-      // リトライコマンドの判定（HPが最大値未満の場合）
+      // リトライコマンドの判定（HP最大でも受け付ける）
       if (
         !commandMatched &&
         config.retry.enabled &&
-        currentHP < maxHP &&
         config.retry.command &&
         config.retry.command.length > 0
       ) {
@@ -2728,15 +2727,10 @@ export function OverlayPage() {
 
           if (healAmount > 0) {
             increaseHP(healAmount)
-            // 回復エフェクトを表示（設定で有効な場合のみ）
-            if (config.heal.effectEnabled) {
-              showHealEffect()
-            }
-            // 蘇生効果音を再生
-            if (config.retry.soundEnabled) {
-              playRetrySound()
-            }
           }
+          // HP最大でも「コマンドは有効」にしたいので、効果音/演出は常に実行（設定ON時）
+          if (config.heal.effectEnabled) showHealEffect()
+          if (config.retry.soundEnabled) playRetrySound()
         }
       }
 
