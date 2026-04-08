@@ -624,6 +624,17 @@ export function useSicknessDebuff({
       endDebuff()
       return
     }
+    // 1/2 ライン到達「以降」に「回復できる余地（cap-current）」が無いなら、自然回復を待たずにデバフを終了する
+    // - 例: 被ダメで cap が current 以下まで下がり、回復量が0になったケース
+    // - 重要: 1/2 未到達（dropping 中など）で誤って解除しないよう、halfCrossScheduleDone を必須にする
+    if (phaseRef.current !== 'idle' && halfCrossScheduleDoneRef.current) {
+      const half = dropTargetHpRef.current
+      const cap = regenCapRef.current
+      if (currentHP <= half && cap <= currentHP) {
+        endDebuff()
+        return
+      }
+    }
     // notifyStreamerDamage は reduceHP より先に呼ばれるため、ここ（HP 確定後）で regen 再開を判定する
     if (phaseRef.current !== 'regen_exhausted') return
     const cap = regenCapRef.current
