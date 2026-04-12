@@ -43,6 +43,96 @@
   z-index: 4;
 }
 
+/* 配信者HP0時の追撃（オーバーキル）— グリッチに合わせたセリフ */
+.streamer-overkill-dialogue {
+  margin: 0 0 0.65rem;
+  padding: 0 0.5rem;
+  max-width: min(96vw, 720px);
+  text-align: center;
+  font-size: clamp(1rem, 2.5vw, 1.45rem);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  line-height: 1.5;
+  color: rgba(240, 232, 255, 0.95);
+  text-shadow:
+    2px 0 0 rgba(255, 60, 120, 0.55),
+    -2px 0 0 rgba(60, 220, 255, 0.45),
+    0 0 20px rgba(180, 100, 255, 0.35),
+    0 2px 14px rgba(0, 0, 0, 0.85);
+  animation: streamer-overkill-dialogue-glitch 2.6s steps(1, end) forwards;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes streamer-overkill-dialogue-glitch {
+  0% {
+    opacity: 0;
+    transform: translate(0, 4px) skewX(0deg);
+    filter: none;
+  }
+
+  4% {
+    opacity: 1;
+    transform: translate(-3px, 0) skewX(-3deg);
+    filter: hue-rotate(70deg) saturate(1.8);
+  }
+
+  9% {
+    transform: translate(4px, 1px) skewX(2deg);
+    filter: hue-rotate(-40deg) saturate(2);
+  }
+
+  15% {
+    transform: translate(-2px, -1px) skewX(-1deg);
+    filter: hue-rotate(120deg) saturate(1.6);
+  }
+
+  22% {
+    transform: translate(3px, 2px) skewX(2.5deg);
+    filter: hue-rotate(-80deg) saturate(1.9);
+  }
+
+  32% {
+    transform: translate(-4px, 0) skewX(-2deg);
+    filter: hue-rotate(40deg) saturate(2.1);
+  }
+
+  44% {
+    transform: translate(2px, -2px) skewX(1deg);
+    filter: hue-rotate(-30deg) saturate(1.5);
+  }
+
+  58% {
+    transform: translate(-1px, 1px) skewX(-0.5deg);
+    filter: hue-rotate(90deg) saturate(1.7);
+  }
+
+  72% {
+    opacity: 0.97;
+    transform: translate(1px, 0) skewX(0.5deg);
+    filter: hue-rotate(-50deg) saturate(1.4);
+  }
+
+  88% {
+    opacity: 0.85;
+    transform: translate(0, 0) skewX(0deg);
+    filter: none;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(0, -2px);
+    filter: blur(1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streamer-overkill-dialogue {
+    animation-duration: 0.55s;
+    animation-timing-function: ease-out;
+  }
+}
+
 @keyframes sickness-debuff-dialogue-drift {
 
   0%,
@@ -717,6 +807,81 @@
   font-size: 0.7rem;
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.48);
+}
+
+.test-panel-combo-group {
+  padding: 0.4rem 0.55rem;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+}
+
+.test-panel-combo-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  user-select: none;
+}
+
+.test-panel-combo-toggle input {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
+  accent-color: rgba(130, 170, 255, 0.95);
+  cursor: pointer;
+}
+
+.test-panel-combo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: stretch;
+}
+
+.test-panel-combo-input {
+  flex: 1 1 10rem;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.45);
+  color: #f4f4f8;
+}
+
+.test-panel-combo-input:focus {
+  outline: none;
+  border-color: rgba(140, 180, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(100, 140, 255, 0.25);
+}
+
+.test-panel-combo-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.test-panel-combo-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.72rem;
+}
+
+.test-panel-combo-submit.test-button {
+  flex: 0 0 auto;
+  align-self: stretch;
+  padding: 0.36rem 0.7rem !important;
+  font-size: 0.76rem !important;
+  border-radius: 6px !important;
+}
+
+.test-panel-combo-submit.test-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .test-panel-actions {

@@ -1,0 +1,231 @@
+.roulette-bonus-overlay {
+  container-type: inline-size;
+  position: fixed;
+  z-index: 10012;
+  width: min(92vw, var(--roulette-panel-max, 280px));
+  max-width: 100%;
+  box-sizing: border-box;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* HPゲージと同じ hit-shake / dodge の親。既定の motion-root は子を横中央寄せのためパネル幅を stretch */
+.roulette-bonus-overlay .roulette-bonus-motion.hp-gauge-motion-root {
+  width: 100%;
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+.roulette-bonus-panel {
+  padding: 0.28rem 0.4rem 0.32rem;
+  border-radius: 10px;
+  background: linear-gradient(
+    145deg,
+    rgba(28, 24, 48, 0.94) 0%,
+    rgba(12, 14, 28, 0.97) 50%,
+    rgba(18, 16, 36, 0.95) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 8px 28px rgba(0, 0, 0, 0.42),
+    0 0 40px rgba(100, 80, 200, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.roulette-bonus-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0 0 0.22rem;
+  flex-wrap: wrap;
+  line-height: 1;
+}
+
+.roulette-bonus-title__tag {
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  padding: 0.12rem 0.28rem;
+  border-radius: 999px;
+  color: rgba(200, 220, 255, 0.92);
+  background: linear-gradient(120deg, rgba(120, 100, 255, 0.35), rgba(60, 200, 220, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 12px rgba(100, 180, 255, 0.12);
+}
+
+.roulette-bonus-title__label {
+  font-size: clamp(0.58rem, 2.8cqw, 0.72rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: rgba(235, 238, 255, 0.72);
+}
+
+.roulette-bonus-viewport {
+  position: relative;
+  height: var(--roulette-viewport-h, 33px);
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(6, 8, 18, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    #000 14%,
+    #000 86%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    #000 14%,
+    #000 86%,
+    transparent 100%
+  );
+}
+
+.roulette-bonus-viewport::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  translate: 0 -50%;
+  height: var(--roulette-row-h, 22px);
+  z-index: 2;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(120, 200, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(80, 200, 255, 0.08),
+    inset 0 0 12px rgba(120, 180, 255, 0.06);
+  pointer-events: none;
+}
+
+.roulette-bonus-strip-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  will-change: transform;
+}
+
+.roulette-bonus-row {
+  height: var(--roulette-row-h, 22px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.72rem, 3.6cqw, 0.88rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(170, 178, 210, 0.42);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+  line-height: 1;
+}
+
+.roulette-bonus-row--fail-slot {
+  color: rgba(255, 130, 150, 0.55);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-shadow:
+    0 0 8px rgba(255, 80, 100, 0.25),
+    0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
+.roulette-bonus-result {
+  margin: 0.22rem 0 0;
+  min-height: 0;
+}
+
+.roulette-bonus-result__line {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.35rem;
+  text-align: center;
+  line-height: 1.25;
+  animation: roulette-result-pop 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.roulette-bonus-result__pill {
+  flex: 0 0 auto;
+  font-size: clamp(0.62rem, 2.9cqw, 0.75rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  padding: 0.1rem 0.38rem;
+  border-radius: 4px;
+}
+
+.roulette-bonus-result__pill--ok {
+  color: rgba(255, 250, 220, 0.95);
+  background: linear-gradient(135deg, rgba(255, 200, 80, 0.22), rgba(80, 200, 160, 0.12));
+  border: 1px solid rgba(255, 220, 140, 0.25);
+  text-shadow: 0 0 10px rgba(255, 200, 100, 0.35);
+}
+
+.roulette-bonus-result__pill--ng {
+  color: rgba(220, 222, 235, 0.88);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.roulette-bonus-result__sep {
+  color: rgba(255, 255, 255, 0.22);
+  font-weight: 300;
+  font-size: 0.75rem;
+}
+
+.roulette-bonus-result__skill {
+  font-size: clamp(0.68rem, 3.2cqw, 0.82rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: linear-gradient(105deg, #fff6e0 0%, #ffd0ec 45%, #c8e8ff 100%);
+  background-size: 160% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: roulette-skill-shimmer 2.2s ease-in-out infinite;
+}
+
+.roulette-bonus-result__suffix {
+  font-size: clamp(0.58rem, 2.6cqw, 0.7rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: rgba(230, 232, 255, 0.55);
+}
+
+@keyframes roulette-result-pop {
+
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes roulette-skill-shimmer {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}

@@ -30,9 +30,9 @@ interface DamageNumberProps {
   damageColors: DamageColorConfig
 }
 
-export function DamageNumber({ 
-  amount, 
-  isCritical = false, 
+export function DamageNumber({
+  amount,
+  isCritical = false,
   isBleed = false,
   dotDebuffKind = 'bleed',
   bleedColorOverride,
@@ -48,7 +48,7 @@ export function DamageNumber({
   const dotBase = dotDebuffFallbackHex(dotDebuffKind, damageColors)
   // 色を決定
   const color = isBleed ? (bleedHex ?? dotBase) : (isCritical ? damageColors.critical : damageColors.normal)
-  
+
   // 出血ダメージの場合は角度と距離からx, y座標を計算
   let bleedStyle: React.CSSProperties | undefined = undefined
   if (isBleed) {
@@ -63,7 +63,7 @@ export function DamageNumber({
       '--bleed-end-y': `${endY}px`,
       '--bleed-mid-x': `${midX}px`,
       '--bleed-mid-y': `${midY}px`,
-    } as React.CSSProperties & { 
+    } as React.CSSProperties & {
       '--bleed-end-x': string
       '--bleed-end-y': string
       '--bleed-mid-x': string
@@ -80,10 +80,10 @@ export function DamageNumber({
     const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(s)
     return result
       ? {
-          r: parseInt(result[1], 16),
-          g: parseInt(result[2], 16),
-          b: parseInt(result[3], 16),
-        }
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
       : null
   }
 

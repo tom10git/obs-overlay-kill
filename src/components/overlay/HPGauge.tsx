@@ -2,12 +2,14 @@
  * HPゲージメインコンポーネント
  */
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { HPGaugeLayer } from './HPGaugeLayer'
 import { HPDisplay } from './HPDisplay'
 import { getCssEasing } from '../../utils/animation'
 import type { OverlayConfig } from '../../types/overlay'
 import { DEFAULT_GAUGE_SHAPE } from '../../utils/overlayConfig'
+import { buildHpGaugeFrameStyle, buildHpGaugeWrapperStyle } from '../../utils/hpGaugeAppearanceStyles'
+import { STREAMER_OVERKILL_GLITCH_MS } from '../../constants/hpGaugeOverlay'
 import { logger } from '../../lib/logger'
 import './HPGauge.css'
 import { useSound } from '../../hooks/useSound'
@@ -34,6 +36,8 @@ interface HPGaugeProps {
   /** 回避（ミス）時：ゲージを左右どちらかにずらして戻す */
   dodgeSlideActive?: boolean
   dodgeSlideDirection?: 'left' | 'right'
+  /** 増えるたびにオーバーキル用グリッチ演出を1回再生（HP0時の追撃） */
+  overkillGlitchBurst?: number
 }
 
 /**
@@ -111,8 +115,20 @@ export function HPGauge({
   hitShakeActive = false,
   dodgeSlideActive = false,
   dodgeSlideDirection = 'left',
+  overkillGlitchBurst = 0,
 }: HPGaugeProps) {
   const buffDuration = Math.max(0.001, buffDurationSeconds)
+
+  const [overkillGlitchActive, setOverkillGlitchActive] = useState(false)
+  useEffect(() => {
+    if (overkillGlitchBurst <= 0) {
+      setOverkillGlitchActive(false)
+      return
+    }
+    setOverkillGlitchActive(true)
+    const tid = window.setTimeout(() => setOverkillGlitchActive(false), STREAMER_OVERKILL_GLITCH_MS)
+    return () => window.clearTimeout(tid)
+  }, [overkillGlitchBurst])
 
   const motionClassNames = [
     'hp-gauge-motion-root',
@@ -364,20 +380,7 @@ export function HPGauge({
   const gs = config.display.gaugeShape ?? DEFAULT_GAUGE_SHAPE
 
   const gc = config.gaugeColors
-  const wrapperStyle: CSSProperties = {
-    ...(gaugeDesign === 'parallelogram' ? { transform: `skewX(${-gs.skewDeg}deg)` } : {}),
-    ...({
-      '--gauge-default-radius': `${gs.defaultBorderRadiusPx}px`,
-      '--gauge-default-white': `${gs.defaultBorderWhitePx}px`,
-      '--gauge-default-gray': `${gs.defaultBorderGrayPx}px`,
-      '--gauge-para-radius': `${gs.parallelogramBorderRadiusPx}px`,
-      '--gauge-para-white': `${gs.parallelogramBorderWhitePx}px`,
-      '--gauge-para-gray': `${gs.parallelogramBorderGrayPx}px`,
-      '--gauge-frame-bg': gc.frameBackground,
-      '--gauge-border-inner': gc.frameBorderInner,
-      '--gauge-border-outer': gc.frameBorderOuter,
-    } as CSSProperties),
-  }
+  const wrapperStyle = buildHpGaugeWrapperStyle(gaugeDesign, gs, gc)
 
   return (
     <div
@@ -391,48 +394,62 @@ export function HPGauge({
     >
       <div className={motionClassNames}>
       <div
-        className={`hp-gauge-frame ${gaugeDesign === 'parallelogram' ? 'hp-gauge-frame--parallelogram' : ''}`}
-        style={{
-          maxWidth: `${config.hp.width}px`,
-          height: `${config.hp.height}px`,
-          ...(gaugeDesign === 'parallelogram'
-            ? {
-                paddingLeft: `${gs.parallelogramFramePaddingPx}px`,
-                paddingRight: `${gs.parallelogramFramePaddingPx}px`,
-              }
-            : {}),
-        }}
+        className={[
+          'hp-gauge-frame',
+          gaugeDesign === 'parallelogram' ? 'hp-gauge-frame--parallelogram' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={buildHpGaugeFrameStyle({
+          gaugeDesign,
+          gs,
+          widthPx: config.hp.width,
+          heightPx: config.hp.height,
+        })}
       >
-        <div className={`hp-gauge-wrapper hp-gauge-wrapper--${gaugeDesign}`} style={wrapperStyle}>
-          {gaugeLayers.map((layer) => (
-            <HPGaugeLayer
-              key={layer.id}
-              percentage={layer.percentage}
-              color={layer.color}
-              zIndex={layer.zIndex}
-              animationDuration={config.animation.duration}
-              easing={easing}
-            />
-          ))}
-          <HPDisplay
-            current={currentHP}
-            max={maxHP}
-            fontSize={config.display.fontSize}
-            showMaxHp={config.display.showMaxHp}
-            gaugeDesign={gaugeDesign}
-            gaugeSkewDeg={gs.skewDeg}
-          />
-        </div>
         <div
-          className="hp-gauge-zero-image"
-          style={{
-            display: config.zeroHpImage.enabled && showZeroHpImage && zeroHpImageUrl.length > 0 ? 'flex' : 'none',
-            // NOTE: 0HP画像は hp-gauge-wrapper（skew適用）外にあるため、ここで skew を掛けると「打ち消し」ではなく余計に傾く
-            transform: `translate(${config.zeroHpImage.offsetX}px, ${config.zeroHpImage.offsetY}px) scale(${config.zeroHpImage.scale})`,
-            backgroundColor: config.zeroHpImage.backgroundColor || 'transparent',
-          }}
+          className={overkillGlitchActive ? 'hp-gauge-overkill-glitch-drive' : undefined}
+          key={overkillGlitchActive ? `overkill-${overkillGlitchBurst}` : 'overkill-idle'}
+          style={{ position: 'relative', width: '100%', height: '100%', minHeight: 0 }}
         >
-          <img src={zeroHpImageUrl} alt="KO" />
+          <div className={`hp-gauge-wrapper hp-gauge-wrapper--${gaugeDesign}`} style={wrapperStyle}>
+            {gaugeLayers.map((layer) => (
+              <HPGaugeLayer
+                key={layer.id}
+                percentage={layer.percentage}
+                color={layer.color}
+                zIndex={layer.zIndex}
+                animationDuration={config.animation.duration}
+                easing={easing}
+              />
+            ))}
+            <HPDisplay
+              current={currentHP}
+              max={maxHP}
+              fontSize={config.display.fontSize}
+              showMaxHp={config.display.showMaxHp}
+              gaugeDesign={gaugeDesign}
+              gaugeSkewDeg={gs.skewDeg}
+            />
+            {overkillGlitchActive && (
+              <div key={overkillGlitchBurst} className="hp-gauge-overkill-noise-stack" aria-hidden>
+                <div className="hp-gauge-overkill-noise hp-gauge-overkill-noise--block-mosaic" />
+                <div className="hp-gauge-overkill-noise hp-gauge-overkill-noise--block-h" />
+                <div className="hp-gauge-overkill-noise hp-gauge-overkill-noise--block-v" />
+              </div>
+            )}
+          </div>
+          <div
+            className="hp-gauge-zero-image"
+            style={{
+              display: config.zeroHpImage.enabled && showZeroHpImage && zeroHpImageUrl.length > 0 ? 'flex' : 'none',
+              // NOTE: 0HP画像は hp-gauge-wrapper（skew適用）外にあるため、ここで skew を掛けると「打ち消し」ではなく余計に傾く
+              transform: `translate(${config.zeroHpImage.offsetX}px, ${config.zeroHpImage.offsetY}px) scale(${config.zeroHpImage.scale})`,
+              backgroundColor: config.zeroHpImage.backgroundColor || 'transparent',
+            }}
+          >
+            <img src={zeroHpImageUrl} alt="KO" />
+          </div>
         </div>
       </div>
       {/* バフ表示（残り時間をオレンジのゲージで表現） */}

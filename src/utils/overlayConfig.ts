@@ -95,6 +95,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundUrl: '',
     soundVolume: 0.7,
     filterEffectEnabled: true,
+    comboTechniqueEnabled: true,
     survivalHp1Enabled: false,
     survivalHp1Probability: 30,
     survivalHp1Message: '食いしばり!',
@@ -209,6 +210,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
       soundUrl: '',
       soundVolume: 0.7,
       filterEffectEnabled: true,
+      comboTechniqueEnabled: true,
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
       survivalHp1Message: '食いしばり!',
@@ -308,6 +310,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
       soundUrl: '',
       soundVolume: 0.7,
       filterEffectEnabled: true,
+      comboTechniqueEnabled: true,
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
       survivalHp1Message: '食いしばり!',
@@ -764,6 +767,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       ? Number(attackConfig.soundVolume) || 0.7
       : 0.7,
     filterEffectEnabled: typeof attackConfig.filterEffectEnabled === 'boolean' ? attackConfig.filterEffectEnabled : true,
+    comboTechniqueEnabled: typeof attackConfig.comboTechniqueEnabled === 'boolean' ? attackConfig.comboTechniqueEnabled : true,
     survivalHp1Enabled: typeof attackConfig.survivalHp1Enabled === 'boolean' ? attackConfig.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(attackConfig.survivalHp1Probability), 0, 100)
       ? Number(attackConfig.survivalHp1Probability) || 30
@@ -1221,6 +1225,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundUrl: typeof sa.soundUrl === 'string' ? sa.soundUrl : '',
     soundVolume: isInRange(Number(sa.soundVolume), 0, 1) ? Number(sa.soundVolume) || 0.7 : 0.7,
     filterEffectEnabled: typeof sa.filterEffectEnabled === 'boolean' ? sa.filterEffectEnabled : true,
+    comboTechniqueEnabled: typeof sa.comboTechniqueEnabled === 'boolean' ? sa.comboTechniqueEnabled : true,
     survivalHp1Enabled: typeof sa.survivalHp1Enabled === 'boolean' ? sa.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(sa.survivalHp1Probability), 0, 100) ? Number(sa.survivalHp1Probability) || 30 : 30,
     survivalHp1Message: typeof sa.survivalHp1Message === 'string' ? sa.survivalHp1Message : '食いしばり!',
@@ -1274,6 +1279,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundUrl: typeof vva.soundUrl === 'string' ? vva.soundUrl : '',
     soundVolume: isInRange(Number(vva.soundVolume), 0, 1) ? Number(vva.soundVolume) || 0.7 : 0.7,
     filterEffectEnabled: typeof vva.filterEffectEnabled === 'boolean' ? vva.filterEffectEnabled : true,
+    comboTechniqueEnabled: typeof vva.comboTechniqueEnabled === 'boolean' ? vva.comboTechniqueEnabled : true,
     survivalHp1Enabled: typeof vva.survivalHp1Enabled === 'boolean' ? vva.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(vva.survivalHp1Probability), 0, 100) ? Number(vva.survivalHp1Probability) || 30 : 30,
     survivalHp1Message: typeof vva.survivalHp1Message === 'string' ? vva.survivalHp1Message : '食いしばり!',

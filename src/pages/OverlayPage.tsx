@@ -16,6 +16,28 @@ import { useStrengthBuffState } from '../hooks/useStrengthBuffState'
 import { HPGauge } from '../components/overlay/HPGauge'
 import { DamageNumber } from '../components/overlay/DamageNumber'
 import { HealNumber } from '../components/overlay/HealNumber'
+import { ComboTechniquePrompt } from '../components/overlay/ComboTechniquePrompt'
+import { HpGaugeTopBand } from '../components/overlay/HpGaugeTopBand'
+import { TechniqueEffectBurst } from '../components/overlay/TechniqueEffectBurst'
+import { RouletteBonusOverlay } from '../components/overlay/RouletteBonusOverlay'
+import {
+  COMBO_TECHNIQUE_DURATION_MS,
+  COMBO_TECHNIQUE_NAMES,
+  COMBO_TECHNIQUE_PREFIX,
+  COMBO_TECHNIQUE_TRIGGER_PROBABILITY,
+  pickRandomComboTechniqueName,
+} from '../constants/comboTechnique'
+import {
+  ROULETTE_BONUS_SUCCESS_PROBABILITY,
+  ROULETTE_BONUS_TRIGGER_PROBABILITY,
+} from '../constants/rouletteBonus'
+import {
+  STREAMER_OVERKILL_DIALOGUE_JA,
+  STREAMER_OVERKILL_DIALOGUE_MS,
+} from '../constants/hpGaugeOverlay'
+import { TECHNIQUE_EFFECT_BURST_MS } from '../constants/techniqueEffects'
+import { advanceComboTechniqueInput } from '../utils/comboTechniqueInput'
+import { techniqueNameFromComboTarget } from '../utils/techniqueEffectName'
 import { useSound } from '../hooks/useSound'
 import { getAdminUsername } from '../config/admin'
 import { useTwitchUser } from '../hooks/useTwitchUser'
@@ -28,7 +50,7 @@ import {
   sanitizeStrengthBuffChatTemplates,
 } from '../utils/messageTemplate'
 import type { TwitchChatMessage } from '../types/twitch'
-import { getDefaultConfig, saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
+import { DEFAULT_GAUGE_SHAPE, getDefaultConfig, saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
 import { OverlaySettings, type OverlaySettingsHandle } from '../components/settings/OverlaySettings'
 import { twitchApi } from '../utils/twitchApi'
 import type { OverlayConfig, AttackConfig, AttackDebuffKind } from '../types/overlay'
@@ -204,6 +226,44 @@ export function OverlayPage() {
     amount: number,
   }>>([])
   const healIdRef = useRef(0)
+
+  type ComboChallengeState = {
+    targetFull: string
+    matchedLength: number
+    endsAt: number
+    userId: string
+    userName: string
+  }
+
+  const [comboChallenge, setComboChallenge] = useState<ComboChallengeState | null>(null)
+  const comboChallengeRef = useRef<ComboChallengeState | null>(null)
+  const comboExpireTimerRef = useRef<number | null>(null)
+  const [comboTestPanelInput, setComboTestPanelInput] = useState('')
+
+  type RouletteBonusState = {
+    id: number
+    success: boolean
+    landedName: string
+    attackerUserId: string
+  }
+  const [rouletteBonus, setRouletteBonus] = useState<RouletteBonusState | null>(null)
+  const [techniqueEffectBurst, setTechniqueEffectBurst] = useState<{
+    id: number
+    name: string
+    largeBandTypography?: boolean
+  } | null>(null)
+  const rouletteBonusLockRef = useRef(false)
+  /** スピン終了コールバックで最新のルーレット state を参照する（HP0 effect との競合回避にも使う） */
+  const rouletteBonusRef = useRef<RouletteBonusState | null>(null)
+  rouletteBonusRef.current = rouletteBonus
+
+  useEffect(() => {
+    comboChallengeRef.current = comboChallenge
+  }, [comboChallenge])
+
+  useEffect(() => {
+    if (!comboChallenge) setComboTestPanelInput('')
+  }, [comboChallenge])
 
   // テストタブの「展開/折りたたみ」状態（タブ自体は常に表示する）
   // - 開発: 既定で開く
@@ -796,6 +856,10 @@ export function OverlayPage() {
   const lastAttackerRef = useRef<{ userId: string; userName: string } | null>(null)
   /** 配信者HPを0にした攻撃者（視聴者）。HP0自動返信で「倒した」表示に使用 */
   const lastStreamerAttackerRef = useRef<{ userId: string; userName: string } | null>(null)
+  /** HP0時の追撃でゲージグリッチを再生するたびに増加 */
+  const [overkillGlitchBurst, setOverkillGlitchBurst] = useState(0)
+  const [overkillDialogueVisible, setOverkillDialogueVisible] = useState(false)
+  const overkillDialogueTimerRef = useRef<number | null>(null)
   /** ユーザー名（ログイン/表示名）→ userId, displayName（カウンターコマンドでユーザー名指定用） */
   const userLookupRef = useRef<Map<string, { userId: string; displayName: string }>>(new Map())
   /** userId → 表示名（ランダムカウンター時の返信用） */
@@ -1048,6 +1112,133 @@ export function OverlayPage() {
     playFinishingMoveSoundRef.current = playFinishingMoveSound
   }, [playFinishingMoveSound])
 
+  const applyComboTechniqueBonusDamage = useCallback(
+    (attackerUserId: string) => {
+      if (!config) return
+      const bonus = getAttackDamage(
+        config.attack,
+        attackerUserId,
+        strengthBuffStartTimeRef,
+        config.pvp?.strengthBuffDuration,
+        strengthBuffAllStartTimeRef,
+        config.pvp?.strengthBuffTarget
+      )
+      if (bonus < 1) return
+      reduceHPTracked(bonus)
+      if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.damageShakeEnabled) {
+        const eff = config.obsWebSocket.effects
+        void tryObsEffect('combo technique: shake', () =>
+          obsShakeSource(config.obsWebSocket, eff.damageShakeStrengthPx, eff.damageShakeDurationMs)
+        )
+      }
+      damageIdRef.current += 1
+      const damageId = damageIdRef.current
+      setDamageNumbers((prev) => [...prev, { id: damageId, amount: bonus, isCritical: false }])
+      window.setTimeout(() => {
+        setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
+      }, 1500)
+      if (config.attack.soundEnabled) playAttackSound()
+    },
+    [config, reduceHPTracked, tryObsEffect, playAttackSound]
+  )
+
+  const applyRouletteBonusDamage = useCallback(
+    (attackerUserId: string) => {
+      if (!config) return
+      const bonus = getAttackDamage(
+        config.attack,
+        attackerUserId,
+        strengthBuffStartTimeRef,
+        config.pvp?.strengthBuffDuration,
+        strengthBuffAllStartTimeRef,
+        config.pvp?.strengthBuffTarget
+      )
+      if (bonus < 1) return
+      reduceHPTracked(bonus)
+      if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.damageShakeEnabled) {
+        const eff = config.obsWebSocket.effects
+        void tryObsEffect('roulette bonus: shake', () =>
+          obsShakeSource(config.obsWebSocket, eff.damageShakeStrengthPx, eff.damageShakeDurationMs)
+        )
+      }
+      damageIdRef.current += 1
+      const damageId = damageIdRef.current
+      setDamageNumbers((prev) => [...prev, { id: damageId, amount: bonus, isCritical: false }])
+      window.setTimeout(() => {
+        setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
+      }, 1500)
+      if (config.attack.soundEnabled) playAttackSound()
+    },
+    [config, reduceHPTracked, tryObsEffect, playAttackSound]
+  )
+
+  const fireTechniqueEffectBurst = useCallback(
+    (name: string, opts?: { largeBandTypography?: boolean }) => {
+      const trimmed = name.trim()
+      if (!trimmed) return
+      setTechniqueEffectBurst({
+        id: Date.now(),
+        name: trimmed,
+        ...(opts?.largeBandTypography ? { largeBandTypography: true } : {}),
+      })
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (!techniqueEffectBurst) return
+    const t = window.setTimeout(() => setTechniqueEffectBurst(null), TECHNIQUE_EFFECT_BURST_MS)
+    return () => window.clearTimeout(t)
+  }, [techniqueEffectBurst])
+
+  /** 親の再レンダーで参照が変わらないようにする（ルーレットの transition 購読が毎回張り直されない） */
+  const applyRouletteBonusDamageRef = useRef(applyRouletteBonusDamage)
+  applyRouletteBonusDamageRef.current = applyRouletteBonusDamage
+  const fireTechniqueEffectBurstRef = useRef(fireTechniqueEffectBurst)
+  fireTechniqueEffectBurstRef.current = fireTechniqueEffectBurst
+
+  const handleRouletteSpinEnd = useCallback(() => {
+    const rb = rouletteBonusRef.current
+    if (!rb?.success) return
+    applyRouletteBonusDamageRef.current(rb.attackerUserId)
+    fireTechniqueEffectBurstRef.current(rb.landedName, { largeBandTypography: true })
+  }, [])
+
+  const handleRouletteComplete = useCallback(() => {
+    rouletteBonusLockRef.current = false
+    setRouletteBonus(null)
+  }, [])
+
+  const applyComboTechniqueInputSlice = useCallback(
+    (raw: string): boolean => {
+      const comboState = comboChallengeRef.current
+      if (!comboState || Date.now() >= comboState.endsAt) return false
+      const { newMatchedLength, completed } = advanceComboTechniqueInput(
+        comboState.targetFull,
+        comboState.matchedLength,
+        raw
+      )
+      if (completed) {
+        fireTechniqueEffectBurst(techniqueNameFromComboTarget(comboState.targetFull))
+        applyComboTechniqueBonusDamage(comboState.userId)
+        if (comboExpireTimerRef.current != null) {
+          window.clearTimeout(comboExpireTimerRef.current)
+          comboExpireTimerRef.current = null
+        }
+        comboChallengeRef.current = null
+        setComboChallenge(null)
+        return true
+      }
+      if (newMatchedLength !== comboState.matchedLength) {
+        const updated = { ...comboState, matchedLength: newMatchedLength }
+        comboChallengeRef.current = updated
+        setComboChallenge(updated)
+      }
+      return false
+    },
+    [applyComboTechniqueBonusDamage, fireTechniqueEffectBurst]
+  )
+
   // HPが0になったときにすべての出血ダメージタイマーを停止
   useEffect(() => {
     if (currentHP <= 0) {
@@ -1059,21 +1250,160 @@ export function OverlayPage() {
       bleedTimersRef.current.clear()
       // テストモードの連打も停止
       stopRepeat()
+      if (comboExpireTimerRef.current != null) {
+        window.clearTimeout(comboExpireTimerRef.current)
+        comboExpireTimerRef.current = null
+      }
+      if (comboChallengeRef.current) {
+        comboChallengeRef.current = null
+        setComboChallenge(null)
+      }
+      // ルーレットは「成功／失敗」テキストまで表示する。HP0で即消すと追加ダメージで倒したとき成功が見えない。
+      // オーバーレイが無いときだけロックを戻す（onComplete でも解除される）。
+      if (rouletteBonusRef.current == null) {
+        rouletteBonusLockRef.current = false
+      }
     }
   }, [currentHP, stopRepeat])
 
+  const runPvpCounterAfterAttack = useCallback(
+    (event: ChannelPointEvent | { rewardId: string; userId?: string; userName?: string }) => {
+      if (!config) return
+      if (
+        !config.pvp?.enabled ||
+        !event.userId ||
+        !username ||
+        (!config.pvp.counterOnAttackTargetAttacker && !config.pvp.counterOnAttackTargetRandom)
+      ) {
+        return
+      }
+      ensureViewerHP(event.userId)
+      let targetUserId: string
+      let targetUserName: string
+      if (config.pvp.counterOnAttackTargetAttacker) {
+        targetUserId = event.userId
+        targetUserName = event.userName ?? event.userId
+      } else {
+        const ids = getViewerUserIds()
+        const idsWithAttacker = ids.includes(event.userId) ? ids : [event.userId, ...ids]
+        const picked = idsWithAttacker.length > 0 ? idsWithAttacker[Math.floor(Math.random() * idsWithAttacker.length)]! : event.userId
+        targetUserId = picked
+        targetUserName = userIdToDisplayNameRef.current.get(picked) ?? (picked === event.userId ? (event.userName ?? event.userId) : picked)
+      }
+      const sa = config.pvp.streamerAttack
+      const result = applyViewerDamage(
+        targetUserId,
+        getAttackDamage(sa),
+        sa
+      )
+      const hp = result.newHP
+      const max = viewerMaxHP
+      const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
+      const reply = fillTemplate(tpl, { username: targetUserName, hp, max })
+      if (config.pvp.autoReplyAttackCounter) {
+        sendAutoReply(reply, '[PvP] 攻撃時自動返信の送信失敗')
+      }
+      if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
+        const zeroMsg = fillTemplate(config.pvp.messageWhenViewerZeroHp, { username: targetUserName }).trim()
+        if (zeroMsg) {
+          sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
+        }
+      }
+    },
+    [config, username, ensureViewerHP, getViewerUserIds, applyViewerDamage, viewerMaxHP, sendAutoReply]
+  )
+
+  /** 配信者HP0時の命中攻撃：オーバーキル演出（HPは変えない） */
+  const applyStreamerOverkillHit = useCallback(
+    (event: { userId?: string; userName?: string }, testMode: boolean) => {
+      if (!config) return
+
+      setOverkillGlitchBurst((n) => n + 1)
+      setOverkillDialogueVisible(true)
+      if (overkillDialogueTimerRef.current != null) {
+        window.clearTimeout(overkillDialogueTimerRef.current)
+      }
+      overkillDialogueTimerRef.current = window.setTimeout(() => {
+        setOverkillDialogueVisible(false)
+        overkillDialogueTimerRef.current = null
+      }, STREAMER_OVERKILL_DIALOGUE_MS)
+
+      if (event.userId && user?.id && event.userId !== user.id) {
+        lastStreamerAttackerRef.current = {
+          userId: event.userId,
+          userName: event.userName ?? event.userId,
+        }
+      } else if (!event.userId || event.userId === user?.id) {
+        lastStreamerAttackerRef.current = null
+      }
+
+      const attackerUserId = event.userId && user?.id && event.userId !== user.id ? event.userId : undefined
+      const buffUserId =
+        testMode && config.pvp?.strengthBuffTarget === 'individual' ? 'test-user' : attackerUserId
+
+      const baseDamage = getAttackDamage(
+        config.attack,
+        buffUserId,
+        strengthBuffStartTimeRef,
+        config.pvp?.strengthBuffDuration,
+        strengthBuffAllStartTimeRef,
+        config.pvp?.strengthBuffTarget
+      )
+
+      let finalDamage = baseDamage
+      let isCritical = false
+      if (config.attack.criticalEnabled) {
+        const criticalRoll = Math.random() * 100
+        if (criticalRoll < config.attack.criticalProbability) {
+          finalDamage = Math.floor(baseDamage * config.attack.criticalMultiplier)
+          isCritical = true
+        }
+      }
+
+      if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.damageShakeEnabled) {
+        const eff = config.obsWebSocket.effects
+        void tryObsEffect('streamer overkill: shake', () =>
+          obsShakeSource(config.obsWebSocket, eff.damageShakeStrengthPx, eff.damageShakeDurationMs)
+        )
+      }
+
+      if (config.attack.soundEnabled) {
+        playAttackSound()
+      }
+
+      damageIdRef.current += 1
+      const damageId = damageIdRef.current
+      setDamageNumbers((prev) => [...prev, { id: damageId, amount: finalDamage, isCritical }])
+      setTimeout(() => {
+        setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
+      }, isCritical ? 1800 : 1500)
+      if (isCritical) {
+        showCritical(config.animation.duration)
+      }
+    },
+    [config, user?.id, tryObsEffect, playAttackSound, showCritical]
+  )
+
+  useEffect(() => {
+    return () => {
+      if (overkillDialogueTimerRef.current != null) {
+        window.clearTimeout(overkillDialogueTimerRef.current)
+        overkillDialogueTimerRef.current = null
+      }
+    }
+  }, [])
 
   // 攻撃イベントハンドラ（PvP時は発動者を lastAttacker に保存）
   const handleAttackEvent = useCallback(
     (event: ChannelPointEvent | { rewardId: string; userId?: string; userName?: string }) => {
       if (!config) return
 
-      // HPが0以下の場合は攻撃をブロック（HPが上昇するバグを防ぐ）
-      if (currentHP <= 0) {
-        return
-      }
+      const isRewardIdMatch = event.rewardId === config.attack.rewardId && config.attack.rewardId.length > 0
+      const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.attack.customText && config.attack.customText.length > 0
+      const isViewerAttackCommandMatch = event.rewardId === 'viewer-attack-command'
 
-      // PvP時: 攻撃者を記録（カウンター攻撃の対象にする）
+      if (!isRewardIdMatch && !isCustomTextMatch && !isViewerAttackCommandMatch) return
+
       if (config.pvp?.enabled && event.userId) {
         lastAttackerRef.current = {
           userId: event.userId,
@@ -1081,10 +1411,33 @@ export function OverlayPage() {
         }
       }
 
-      // 条件チェック（リワードIDが一致するか、カスタムテキスト/コマンドで判定された場合）
-      const isRewardIdMatch = event.rewardId === config.attack.rewardId && config.attack.rewardId.length > 0
-      const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.attack.customText && config.attack.customText.length > 0
-      const isViewerAttackCommandMatch = event.rewardId === 'viewer-attack-command'
+      // HP0のときはダメージは入らずオーバーキル演出のみ（ミスは通常どおり）
+      if (currentHP <= 0) {
+        let shouldDamage = true
+        if (config.attack.missEnabled) {
+          const missRoll = Math.random() * 100
+          if (missRoll < config.attack.missProbability) {
+            shouldDamage = false
+          }
+        }
+        if (shouldDamage) {
+          applyStreamerOverkillHit(event, false)
+        } else {
+          showMiss(config.animation.duration)
+          triggerDodgeEffect(600)
+          if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.dodgeMoveEnabled) {
+            const eff = config.obsWebSocket.effects
+            void tryObsEffect('streamer overkill dodge: move', () =>
+              obsMoveSource(config.obsWebSocket, eff.dodgeMoveDistancePx, eff.dodgeMoveDurationMs)
+            )
+          }
+          if (config.attack.missSoundEnabled) {
+            playMissSound()
+          }
+        }
+        runPvpCounterAfterAttack(event)
+        return
+      }
 
       if (isRewardIdMatch || isCustomTextMatch || isViewerAttackCommandMatch) {
         // ミス判定
@@ -1191,6 +1544,48 @@ export function OverlayPage() {
           // クリティカルアニメーション表示
           if (isCritical) {
             showCritical(config.animation.duration)
+          }
+
+          // 合わせ技チャンス（30%・プロンプト表示中は重複なし・視聴者が配信者を攻撃したときのみ）
+          if (
+            config.attack.comboTechniqueEnabled !== false &&
+            attackerUserId &&
+            !comboChallengeRef.current &&
+            Math.random() < COMBO_TECHNIQUE_TRIGGER_PROBABILITY
+          ) {
+            const endsAt = Date.now() + COMBO_TECHNIQUE_DURATION_MS
+            const next: ComboChallengeState = {
+              targetFull: `${COMBO_TECHNIQUE_PREFIX}${pickRandomComboTechniqueName()}`,
+              matchedLength: 0,
+              endsAt,
+              userId: attackerUserId,
+              userName: event.userName ?? event.userId ?? '視聴者',
+            }
+            comboChallengeRef.current = next
+            setComboChallenge(next)
+            if (comboExpireTimerRef.current != null) window.clearTimeout(comboExpireTimerRef.current)
+            comboExpireTimerRef.current = window.setTimeout(() => {
+              comboExpireTimerRef.current = null
+              comboChallengeRef.current = null
+              setComboChallenge(null)
+            }, COMBO_TECHNIQUE_DURATION_MS)
+          }
+
+          // 追加攻撃ルーレット（40%・合わせ技とは別。技名リストのみ共通）
+          if (
+            attackerUserId &&
+            !rouletteBonusLockRef.current &&
+            Math.random() < ROULETTE_BONUS_TRIGGER_PROBABILITY
+          ) {
+            rouletteBonusLockRef.current = true
+            const rbSuccess = Math.random() < ROULETTE_BONUS_SUCCESS_PROBABILITY
+            const landedName = pickRandomComboTechniqueName()
+            setRouletteBonus({
+              id: Date.now(),
+              success: rbSuccess,
+              landedName,
+              attackerUserId,
+            })
           }
 
           // 出血ダメージ判定（別枠として計算）
@@ -1361,51 +1756,10 @@ export function OverlayPage() {
           }
         }
 
-        // PvP時: 視聴者が攻撃した時点で自動カウンター（配信者攻撃を視聴者に適用）し、残りHPを自動返信
-        // 対象: 攻撃者にカウンター / ランダムなユーザーにカウンター（設定で切り替え）
-        if (
-          config.pvp?.enabled &&
-          event.userId &&
-          username &&
-          (config.pvp.counterOnAttackTargetAttacker || config.pvp.counterOnAttackTargetRandom)
-        ) {
-          ensureViewerHP(event.userId)
-          let targetUserId: string
-          let targetUserName: string
-          if (config.pvp.counterOnAttackTargetAttacker) {
-            targetUserId = event.userId
-            targetUserName = event.userName ?? event.userId
-          } else {
-            const ids = getViewerUserIds()
-            const idsWithAttacker = ids.includes(event.userId) ? ids : [event.userId, ...ids]
-            const picked = idsWithAttacker.length > 0 ? idsWithAttacker[Math.floor(Math.random() * idsWithAttacker.length)]! : event.userId
-            targetUserId = picked
-            targetUserName = userIdToDisplayNameRef.current.get(picked) ?? (picked === event.userId ? (event.userName ?? event.userId) : picked)
-          }
-          const sa = config.pvp.streamerAttack
-          const result = applyViewerDamage(
-            targetUserId,
-            // カウンター攻撃（配信者→視聴者）には視聴者バフを乗せない
-            getAttackDamage(sa),
-            sa
-          )
-          const hp = result.newHP
-          const max = viewerMaxHP
-          const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
-          const reply = fillTemplate(tpl, { username: targetUserName, hp, max })
-          if (config.pvp.autoReplyAttackCounter) {
-            sendAutoReply(reply, '[PvP] 攻撃時自動返信の送信失敗')
-          }
-          if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
-            const zeroMsg = fillTemplate(config.pvp.messageWhenViewerZeroHp, { username: targetUserName }).trim()
-            if (zeroMsg) {
-              sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
-            }
-          }
-        }
+        runPvpCounterAfterAttack(event)
       }
     },
-    [config, reduceHPTracked, increaseHP, showHealEffect, showMiss, showFinishingMoveEffect, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, sendAutoReply, tryObsEffect, user?.id, applyViewerDamage, ensureViewerHP, getViewerUserIds, getViewerHPCurrent, viewerMaxHP]
+    [config, currentHP, reduceHPTracked, increaseHP, showHealEffect, showMiss, showFinishingMoveEffect, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, sendAutoReply, tryObsEffect, user?.id, applyViewerDamage, runPvpCounterAfterAttack, applyStreamerOverkillHit]
   )
 
   // 回復イベントハンドラ（チャンネルポイント・カスタムテキスト用。event に userId/userName があれば {username} に使用）
@@ -1475,6 +1829,24 @@ export function OverlayPage() {
 
   // テストモードかどうか
   const isTestMode = config?.test.enabled ?? false
+
+  const submitComboFromTestPanel = useCallback(() => {
+    if (!isTestMode || !comboChallengeRef.current || config?.attack.comboTechniqueEnabled === false) return
+    applyComboTechniqueInputSlice(comboTestPanelInput)
+    setComboTestPanelInput('')
+  }, [isTestMode, comboTestPanelInput, applyComboTechniqueInputSlice, config?.attack.comboTechniqueEnabled])
+
+  useEffect(() => {
+    if (config?.attack.comboTechniqueEnabled !== false) return
+    if (comboExpireTimerRef.current != null) {
+      window.clearTimeout(comboExpireTimerRef.current)
+      comboExpireTimerRef.current = null
+    }
+    if (comboChallengeRef.current) {
+      comboChallengeRef.current = null
+      setComboChallenge(null)
+    }
+  }, [config?.attack.comboTechniqueEnabled])
 
   // EventSubを使用するかどうか（推奨: リアルタイムで効率的）
   // フォールバックとしてポーリング方式も使用可能
@@ -1591,9 +1963,31 @@ export function OverlayPage() {
       sourceName: config.obsWebSocket.sourceName,
       effects: config.obsWebSocket.effects,
     })
-    // HPが0以下の場合は何もしない
+    // HP0のときはオーバーキル演出のみ（連打は止める）
     if (currentHP <= 0) {
       stopRepeat()
+      let okShouldDamage = true
+      if (config.attack.missEnabled) {
+        const missRoll = Math.random() * 100
+        if (missRoll < config.attack.missProbability) {
+          okShouldDamage = false
+        }
+      }
+      if (okShouldDamage) {
+        applyStreamerOverkillHit({ userId: 'test-user', userName: 'TestUser' }, true)
+      } else {
+        showMiss(config.animation.duration)
+        triggerDodgeEffect(600)
+        if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.dodgeMoveEnabled) {
+          const eff = config.obsWebSocket.effects
+          void tryObsEffect('test overkill dodge: move', () =>
+            obsMoveSource(config.obsWebSocket, eff.dodgeMoveDistancePx, eff.dodgeMoveDurationMs)
+          )
+        }
+        if (config.attack.missSoundEnabled) {
+          playMissSound()
+        }
+      }
       return
     }
     // ミス判定
@@ -1684,6 +2078,43 @@ export function OverlayPage() {
       // クリティカルアニメーション表示
       if (isCritical) {
         showCritical(config.animation.duration)
+      }
+
+      // 合わせ技チャンス（テスト攻撃・test-user。入力はテストモード中のみ配信者チャットでも可）
+      if (
+        config.attack.comboTechniqueEnabled !== false &&
+        !comboChallengeRef.current &&
+        Math.random() < COMBO_TECHNIQUE_TRIGGER_PROBABILITY
+      ) {
+        const endsAt = Date.now() + COMBO_TECHNIQUE_DURATION_MS
+        const next: ComboChallengeState = {
+          targetFull: `${COMBO_TECHNIQUE_PREFIX}${pickRandomComboTechniqueName()}`,
+          matchedLength: 0,
+          endsAt,
+          userId: 'test-user',
+          userName: 'TestUser',
+        }
+        comboChallengeRef.current = next
+        setComboChallenge(next)
+        if (comboExpireTimerRef.current != null) window.clearTimeout(comboExpireTimerRef.current)
+        comboExpireTimerRef.current = window.setTimeout(() => {
+          comboExpireTimerRef.current = null
+          comboChallengeRef.current = null
+          setComboChallenge(null)
+        }, COMBO_TECHNIQUE_DURATION_MS)
+      }
+
+      // 追加攻撃ルーレット（テスト攻撃・合わせ技とは別）
+      if (!rouletteBonusLockRef.current && Math.random() < ROULETTE_BONUS_TRIGGER_PROBABILITY) {
+        rouletteBonusLockRef.current = true
+        const rbSuccess = Math.random() < ROULETTE_BONUS_SUCCESS_PROBABILITY
+        const landedName = pickRandomComboTechniqueName()
+        setRouletteBonus({
+          id: Date.now(),
+          success: rbSuccess,
+          landedName,
+          attackerUserId: 'test-user',
+        })
       }
 
       // 出血ダメージ判定（別枠として計算）
@@ -1855,7 +2286,7 @@ export function OverlayPage() {
         playMissSound()
       }
     }
-  }, [config, isTestMode, currentHP, reduceHPTracked, increaseHP, showHealEffect, showMiss, showCritical, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, stopRepeat, tryObsEffect])
+  }, [config, isTestMode, currentHP, reduceHPTracked, increaseHP, showHealEffect, showMiss, showCritical, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, stopRepeat, tryObsEffect, applyStreamerOverkillHit])
 
   const handleTestFinishingMove = useCallback(() => {
     if (!config || !isTestMode) return
@@ -2080,7 +2511,7 @@ export function OverlayPage() {
     onAttackEvent: handleTestAttack,
     onHealEvent: handleTestHeal,
     onReset: handleTestReset,
-    attackEnabled: currentHP > 0,
+    attackEnabled: true,
   })
 
   // 有効なユーザートークン（リフレッシュ済みの可能性あり）を非同期取得してチャット接続に使用
@@ -2122,6 +2553,26 @@ export function OverlayPage() {
       // 既に処理済みのメッセージはスキップ
       if (processedChatMessagesRef.current.has(message.id)) {
         return
+      }
+
+      // 合わせ技: チャレンジ中は対象ユーザーがチャットで技名を順に入力（誤入力してもマッチ位置は維持）
+      if (config.attack.comboTechniqueEnabled !== false) {
+        const comboState = comboChallengeRef.current
+        const canInputThisCombo =
+          comboState &&
+          Date.now() < comboState.endsAt &&
+          (message.user.id === comboState.userId ||
+            (isTestMode &&
+              comboState.userId === 'test-user' &&
+              user?.id &&
+              message.user.id === user.id))
+        if (canInputThisCombo && comboState) {
+          const comboInputRaw = stripEmotesFromMessage(message.message, message.emotes)
+          if (applyComboTechniqueInputSlice(comboInputRaw)) {
+            processedChatMessagesRef.current.add(message.id)
+            return
+          }
+        }
       }
 
       // スタンプ（emote）を除去した文字列でコマンド判定（「!attack Kappa」などでも実行される）
@@ -2168,12 +2619,12 @@ export function OverlayPage() {
             commandMatched = true
             ensureViewerHP(targetUserId)
             const sa = config.pvp.streamerAttack
-          const result = applyViewerDamage(
-            targetUserId,
-            // カウンター攻撃（配信者→視聴者）には視聴者バフを乗せない
-            getAttackDamage(sa),
-            sa
-          )
+            const result = applyViewerDamage(
+              targetUserId,
+              // カウンター攻撃（配信者→視聴者）には視聴者バフを乗せない
+              getAttackDamage(sa),
+              sa
+            )
             const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
             const reply = fillTemplate(tpl, {
               username: targetDisplayName,
@@ -2405,7 +2856,7 @@ export function OverlayPage() {
           if (config.pvp.autoReplyStrengthBuff) {
             const tpl = sanitizeStrengthBuffChatTemplates(
               config.pvp.messageWhenStrengthBuffActivated ||
-                '{username} にストレングス効果を付与しました！（効果時間: {duration_human}）'
+              '{username} にストレングス効果を付与しました！（効果時間: {duration_human}）'
             )
             const reply = fillTemplate(tpl, {
               username: target === 'all' ? '全員' : displayName,
@@ -2466,7 +2917,7 @@ export function OverlayPage() {
               const remainingMinutesRounded = Math.max(0, Math.round(remainingSeconds / 60))
               const tpl = sanitizeStrengthBuffChatTemplates(
                 config.pvp.messageWhenStrengthBuffCheck ||
-                  '{username} のストレングス効果: 残り {remaining_human} / 効果時間 {duration_human}'
+                '{username} のストレングス効果: 残り {remaining_human} / 効果時間 {duration_human}'
               )
               const reply = fillTemplate(tpl, {
                 username: target === 'all' ? '全員' : displayName,
@@ -2740,7 +3191,7 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, username, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP])
+  }, [chatMessages, config, isTestMode, username, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice])
 
   // body要素にoverflow:hiddenを適用
   useEffect(() => {
@@ -3015,10 +3466,57 @@ export function OverlayPage() {
           />
         </div>
       )}
+      {techniqueEffectBurst && (
+        <HpGaugeTopBand
+          gaugeWidthPx={config.hp.width}
+          hpX={config.hp.x}
+          hpY={config.hp.y}
+          hpHeight={config.hp.height}
+          bandHeightPx={config.hp.height}
+          overlayOnGauge
+          gaugeFrameMatch={{
+            design: config.display.gaugeDesign ?? 'default',
+            shape: config.display.gaugeShape ?? DEFAULT_GAUGE_SHAPE,
+            colors: {
+              frameBackground: config.gaugeColors.frameBackground,
+              frameBorderInner: config.gaugeColors.frameBorderInner,
+              frameBorderOuter: config.gaugeColors.frameBorderOuter,
+            },
+          }}
+          zIndex={10014}
+        >
+          <TechniqueEffectBurst
+            key={techniqueEffectBurst.id}
+            techniqueName={techniqueEffectBurst.name}
+            fillGaugeBand
+            largeBandTypography={techniqueEffectBurst.largeBandTypography === true}
+          />
+        </HpGaugeTopBand>
+      )}
+      {comboChallenge && config.attack.comboTechniqueEnabled !== false && (
+        <HpGaugeTopBand
+          gaugeWidthPx={config.hp.width}
+          hpX={config.hp.x}
+          hpY={config.hp.y}
+          hpHeight={config.hp.height}
+        >
+          <ComboTechniquePrompt
+            targetFull={comboChallenge.targetFull}
+            matchedLength={comboChallenge.matchedLength}
+            endsAt={comboChallenge.endsAt}
+            gaugeWidthPx={config.hp.width}
+          />
+        </HpGaugeTopBand>
+      )}
       <div className="overlay-hp-stack">
         {sicknessDialogueVisible && (
           <p className="sickness-debuff-dialogue" aria-hidden>
             ぉぇ・・気持ち悪い・・
+          </p>
+        )}
+        {overkillDialogueVisible && (
+          <p className="streamer-overkill-dialogue" aria-hidden>
+            {STREAMER_OVERKILL_DIALOGUE_JA}
           </p>
         )}
         <HPGauge
@@ -3035,8 +3533,26 @@ export function OverlayPage() {
           hitShakeActive={damageEffectActive}
           dodgeSlideActive={gaugeDodgeActive}
           dodgeSlideDirection={gaugeDodgeDirection}
+          overkillGlitchBurst={overkillGlitchBurst}
         />
       </div>
+      {rouletteBonus && (
+        <RouletteBonusOverlay
+          key={rouletteBonus.id}
+          names={COMBO_TECHNIQUE_NAMES}
+          landedName={rouletteBonus.landedName}
+          success={rouletteBonus.success}
+          gaugeWidthPx={config.hp.width}
+          hpX={config.hp.x}
+          hpY={config.hp.y}
+          hpHeight={config.hp.height}
+          hitShakeActive={damageEffectActive}
+          dodgeSlideActive={gaugeDodgeActive}
+          dodgeSlideDirection={gaugeDodgeDirection}
+          onSpinEnd={handleRouletteSpinEnd}
+          onComplete={handleRouletteComplete}
+        />
+      )}
       {/* ダメージ数値表示（HPゲージの外側に表示） */}
       {damageNumbers.map((damage) => (
         <DamageNumber
@@ -3211,6 +3727,57 @@ export function OverlayPage() {
                       : '「設定」で「テストモードを有効にする」にチェックすると操作できます。'}
                   </span>
                 </div>
+                {isTestMode && (
+                  <div className="test-panel-group test-panel-combo-group">
+                    <span className="test-panel-group-label">合わせ技</span>
+                    <label className="test-panel-combo-toggle">
+                      <input
+                        type="checkbox"
+                        checked={config.attack.comboTechniqueEnabled !== false}
+                        onChange={(e) =>
+                          replaceConfig({
+                            ...config,
+                            attack: { ...config.attack, comboTechniqueEnabled: e.target.checked },
+                          })
+                        }
+                      />
+                      <span>合わせ技を有効にする</span>
+                    </label>
+                    <div className="test-panel-combo-row">
+                      <input
+                        type="text"
+                        className="test-panel-combo-input"
+                        value={comboTestPanelInput}
+                        onChange={(e) => setComboTestPanelInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            submitComboFromTestPanel()
+                          }
+                        }}
+                        disabled={config.attack.comboTechniqueEnabled === false || !comboChallenge}
+                        placeholder={
+                          config.attack.comboTechniqueEnabled === false
+                            ? 'オフのときは発生・入力しません'
+                            : comboChallenge
+                              ? 'チャットと同じく分割入力可（Enter / 送信）'
+                              : '攻撃ヒット（30%）でチャンス表示'
+                        }
+                        autoComplete="off"
+                        spellCheck={false}
+                        aria-label="合わせ技テスト入力"
+                      />
+                      <button
+                        type="button"
+                        className="test-button test-panel-combo-submit"
+                        disabled={config.attack.comboTechniqueEnabled === false || !comboChallenge}
+                        onClick={submitComboFromTestPanel}
+                      >
+                        送信
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="test-panel-actions">
                   <div className="test-panel-group">
                     <span className="test-panel-group-label">ダメージ・回復</span>
@@ -3218,15 +3785,15 @@ export function OverlayPage() {
                       <button
                         type="button"
                         className="test-button test-attack test-panel-action-btn"
-                        disabled={!isTestMode || currentHP <= 0}
+                        disabled={!isTestMode}
                         onPointerDown={(e) => {
                           e.preventDefault()
-                          if (isTestMode && currentHP > 0) startRepeat(triggerAttack, 200)
+                          if (isTestMode) startRepeat(triggerAttack, 200)
                         }}
                         onPointerUp={stopRepeat}
                         onPointerLeave={stopRepeat}
                         onPointerCancel={stopRepeat}
-                        title="長押しで連打"
+                        title="長押しで連打（HP0のときはオーバーキル演出）"
                       >
                         攻撃
                       </button>

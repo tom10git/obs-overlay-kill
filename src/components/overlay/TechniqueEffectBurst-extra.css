@@ -1,0 +1,1034 @@
+/**
+ * 技発動演出の追加レイヤー（共通オーバーレイ＋各プリセットの細かいパーツ）
+ * メインの TechniqueEffectBurst.css の後に読み込む
+ */
+
+/* ---------- 全プリセット共通（細かいキラキラ・枠・走査） ---------- */
+.tefx-common {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.tefx-common__vignette {
+  position: absolute;
+  inset: -5%;
+  background: radial-gradient(
+    ellipse 70% 65% at 50% 55%,
+    transparent 42%,
+    rgba(0, 0, 0, 0.18) 100%
+  );
+  animation: tefx-c-vignette 3s ease-in-out both;
+}
+
+.tefx-common__grid {
+  position: absolute;
+  inset: -10%;
+  opacity: 0.07;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.35) 1px, transparent 1px);
+  background-size: 14px 14px;
+  animation: tefx-c-grid-drift 4s linear both;
+  mix-blend-mode: overlay;
+}
+
+.tefx-common__scan {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 48%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 52%,
+    transparent 100%
+  );
+  background-size: 100% 220%;
+  background-position: 0 -100%;
+  animation: tefx-c-scan 2.8s ease-in-out both;
+  mix-blend-mode: screen;
+  opacity: 0.45;
+}
+
+.tefx-common__sparkles {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 8% 22%, rgba(255, 255, 255, 0.9) 0 1px, transparent 2px),
+    radial-gradient(circle at 22% 78%, rgba(255, 240, 200, 0.85) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 91% 18%, rgba(200, 230, 255, 0.9) 0 1px, transparent 2px),
+    radial-gradient(circle at 76% 88%, rgba(255, 200, 255, 0.8) 0 1px, transparent 2px),
+    radial-gradient(circle at 45% 12%, rgba(255, 255, 255, 0.7) 0 1px, transparent 2px),
+    radial-gradient(circle at 55% 92%, rgba(180, 255, 240, 0.75) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 33% 45%, rgba(255, 255, 255, 0.55) 0 1px, transparent 2px),
+    radial-gradient(circle at 67% 38%, rgba(255, 220, 180, 0.65) 0 1px, transparent 2px),
+    radial-gradient(circle at 15% 55%, rgba(240, 200, 255, 0.6) 0 1px, transparent 2px),
+    radial-gradient(circle at 88% 62%, rgba(255, 255, 255, 0.65) 0 1px, transparent 2px);
+  animation: tefx-c-sparkle 2.4s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+.tefx-common__frame {
+  position: absolute;
+  inset: 3px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 0 20px rgba(120, 180, 255, 0.08),
+    0 0 40px rgba(255, 200, 120, 0.05);
+  animation: tefx-c-frame-pulse 2.6s ease-in-out both;
+}
+
+.tefx-common__gloss {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    125deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.1) 48%,
+    rgba(255, 255, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0.08) 52%,
+    transparent 65%
+  );
+  animation: tefx-c-gloss 2.2s ease-in-out 0.15s both;
+  mix-blend-mode: soft-light;
+}
+
+/* ---------- inferno 追加 ---------- */
+.tefx-inferno-heat {
+  inset: -30%;
+  background: radial-gradient(
+    ellipse 70% 55% at 50% 88%,
+    rgba(255, 200, 80, 0.35) 0%,
+    rgba(255, 80, 30, 0.12) 40%,
+    transparent 65%
+  );
+  animation: tefx-inf-heatwave 2s ease-out both;
+  mix-blend-mode: screen;
+}
+
+.tefx-inferno-embers--late {
+  animation-delay: 0.35s;
+  opacity: 0.85;
+  filter: blur(0.5px);
+}
+
+.tefx-inferno-ripples--2 {
+  scale: 1.35 0.42;
+  translate: 0 48%;
+  animation-delay: 0.35s;
+  border-color: rgba(255, 200, 100, 0.22);
+  opacity: 0.8;
+}
+
+.tefx-inferno-tongues {
+  inset: -15% 10% 0;
+  background: repeating-linear-gradient(
+    95deg,
+    transparent 0 18px,
+    rgba(255, 140, 60, 0.06) 18px 19px,
+    transparent 19px 36px
+  );
+  animation: tefx-inf-tongues 1.8s ease-in-out both;
+  mix-blend-mode: screen;
+}
+
+/* ---------- meteor 追加 ---------- */
+.tefx-meteor-debris {
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 40% 30%, rgba(255, 240, 200, 0.4) 0 2px, transparent 3px),
+    radial-gradient(circle at 62% 45%, rgba(255, 220, 160, 0.35) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 28% 55%, rgba(255, 255, 255, 0.45) 0 1px, transparent 2px);
+  animation: tefx-met-debris 2.2s ease-out both;
+  mix-blend-mode: screen;
+}
+
+.tefx-meteor-streak--c {
+  left: 8%;
+  width: 18%;
+  rotate: -38deg;
+  animation-delay: 0.22s;
+  opacity: 0.55;
+  filter: blur(4px);
+}
+
+.tefx-meteor-shockwave {
+  inset: auto 5% -40% 5%;
+  height: 85%;
+  border-radius: 50%;
+  scale: 1 0.35;
+  border: 2px solid rgba(255, 230, 200, 0.25);
+  opacity: 0;
+  animation: tefx-met-shockwave 0.85s ease-out 0.55s both;
+}
+
+/* ---------- void 追加 ---------- */
+.tefx-void-deep {
+  inset: 0;
+  background: radial-gradient(ellipse 100% 90% at 50% 100%, rgba(0, 0, 0, 0.45) 0%, transparent 55%);
+  animation: tefx-void-deep-pulse 2.8s ease-in-out both;
+}
+
+.tefx-void-rim--echo {
+  inset: 2% 4% 8%;
+  animation-delay: 0.2s;
+  border-color: rgba(200, 120, 255, 0.2);
+  opacity: 0.7;
+}
+
+.tefx-void-tendrils {
+  inset: -20%;
+  background: repeating-conic-gradient(
+    from 45deg at 50% 100%,
+    transparent 0deg 11deg,
+    rgba(140, 80, 200, 0.06) 11deg 12deg,
+    transparent 12deg 24deg
+  );
+  animation: tefx-void-tendril 4s linear both;
+  opacity: 0.6;
+  mix-blend-mode: screen;
+}
+
+/* ---------- tempest 追加 ---------- */
+.tefx-tempest-rain {
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    95deg,
+    transparent 0 6px,
+    rgba(200, 230, 255, 0.04) 6px 7px,
+    transparent 7px 14px
+  );
+  animation: tefx-tem-rain 2.5s linear both;
+  opacity: 0.5;
+}
+
+.tefx-tempest-bolt--4 {
+  background: linear-gradient(185deg, transparent 38%, rgba(255, 255, 255, 0.85) 50%, transparent 60%);
+  animation: tefx-tem-bolt 0.16s ease-out 0.55s both;
+}
+
+.tefx-tempest-bolt--5 {
+  background: linear-gradient(155deg, transparent 44%, rgba(180, 220, 255, 0.9) 51%, transparent 58%);
+  animation: tefx-tem-bolt 0.19s ease-out 1.2s both;
+}
+
+.tefx-tempest-afterglow {
+  inset: 10%;
+  background: radial-gradient(circle at 50% 40%, rgba(150, 200, 255, 0.15) 0%, transparent 50%);
+  animation: tefx-tem-after 2s ease-in-out both;
+  mix-blend-mode: screen;
+}
+
+/* ---------- glacier 追加 ---------- */
+.tefx-glacier-snow {
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.5) 0 1px, transparent 2px),
+    radial-gradient(circle at 30% 35%, rgba(255, 255, 255, 0.4) 0 1px, transparent 2px),
+    radial-gradient(circle at 70% 15%, rgba(240, 252, 255, 0.45) 0 1px, transparent 2px),
+    radial-gradient(circle at 85% 40%, rgba(255, 255, 255, 0.35) 0 1px, transparent 2px),
+    radial-gradient(circle at 50% 8%, rgba(255, 255, 255, 0.4) 0 1px, transparent 2px);
+  animation: tefx-gla-snow 3s linear both;
+  mix-blend-mode: screen;
+}
+
+.tefx-glacier-shard--4 {
+  left: 8%;
+  width: 14%;
+  rotate: -14deg;
+  animation: tefx-gla-shard 2.1s ease-out 0.46s both;
+}
+
+.tefx-glacier-prism {
+  inset: 0;
+  background: linear-gradient(
+    210deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.12) 49%,
+    rgba(200, 240, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0.1) 51%,
+    transparent 60%
+  );
+  animation: tefx-gla-prism 2.4s ease-in-out both;
+  mix-blend-mode: screen;
+}
+
+/* ---------- plasma 追加 ---------- */
+.tefx-plasma-hex {
+  inset: 6%;
+  opacity: 0.12;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='48' viewBox='0 0 28 48'%3E%3Cpath fill='none' stroke='%23ffffff' stroke-width='0.6' d='M14 0 L27 8 L27 24 L14 32 L1 24 L1 8 Z'/%3E%3C/svg%3E");
+  background-size: 28px 48px;
+  animation: tefx-pla-hex 3.5s linear both;
+}
+
+.tefx-plasma-arc--c {
+  inset: 18%;
+  border-radius: 12px;
+  border-color: rgba(255, 120, 255, 0.35);
+  animation: tefx-pla-arc 0.75s ease-out 0.85s both;
+}
+
+.tefx-plasma-surge {
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 0, 200, 0.12) 0%, transparent 45%);
+  animation: tefx-pla-surge-double 2.2s ease-out both;
+}
+
+/* ---------- radiance 追加 ---------- */
+.tefx-radiance-cross {
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 48%, rgba(255, 255, 255, 0.2) 50%, transparent 52%),
+    linear-gradient(0deg, transparent 48%, rgba(255, 250, 220, 0.15) 50%, transparent 52%);
+  animation: tefx-rad-cross 2s ease-out both;
+  mix-blend-mode: screen;
+}
+
+.tefx-radiance-dust {
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 25% 70%, rgba(255, 248, 200, 0.25) 0 2px, transparent 3px),
+    radial-gradient(circle at 75% 65%, rgba(255, 255, 255, 0.2) 0 1.5px, transparent 2.5px);
+  animation: tefx-rad-dust 2.8s ease-out both;
+  mix-blend-mode: screen;
+}
+
+/* ---------- tremor 追加 ---------- */
+.tefx-tremor-pebbles {
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 95%, rgba(80, 70, 60, 0.5) 0 2px, transparent 3px),
+    radial-gradient(circle at 45% 98%, rgba(100, 90, 80, 0.45) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 78% 96%, rgba(90, 82, 72, 0.5) 0 2px, transparent 3px);
+  animation: tefx-tre-pebbles 2.2s ease-out both;
+}
+
+.tefx-tremor-crack--3 {
+  height: 28%;
+  bottom: 2%;
+  background: linear-gradient(
+    90deg,
+    transparent 5%,
+    rgba(60, 55, 50, 0.7) 25%,
+    transparent 28%,
+    transparent 55%,
+    rgba(55, 50, 45, 0.65) 70%,
+    transparent 74%
+  );
+  animation: tefx-tre-crack 0.38s ease-out 0.62s both;
+}
+
+.tefx-tremor-shock--2 {
+  inset: 8% 2% 12%;
+  border-width: 2px;
+  border-color: rgba(220, 190, 140, 0.12);
+  animation: tefx-tre-shock 1.6s ease-out 0.15s both;
+}
+
+/* ---------- phantom 追加 ---------- */
+.tefx-phantom-wisp {
+  inset: -15%;
+  background: radial-gradient(ellipse 60% 50% at 30% 60%, rgba(180, 140, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 45% at 75% 40%, rgba(140, 100, 200, 0.12) 0%, transparent 50%);
+  filter: blur(20px);
+  animation: tefx-pha-wisp 3s ease-in-out both;
+}
+
+.tefx-phantom-orbs--2 {
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(220, 180, 255, 0.2) 0 25%, transparent 26%),
+    radial-gradient(circle at 12% 40%, rgba(160, 120, 220, 0.15) 0 15%, transparent 16%);
+  animation: tefx-pha-orbs 2.4s ease-in-out reverse both;
+  mix-blend-mode: screen;
+}
+
+.tefx-phantom-scan--reverse {
+  animation: tefx-pha-scan-rev 1.4s ease-in-out 0.9s both;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 200, 255, 0.1) 50%,
+    transparent 100%
+  );
+}
+
+/* ---------- nova 追加 ---------- */
+.tefx-nova-rays--ccw {
+  background: repeating-conic-gradient(
+    from 0deg at 50% 85%,
+    rgba(255, 255, 255, 0.08) 0deg 4deg,
+    transparent 4deg 10deg
+  );
+  animation: tefx-nov-spin-rev 2.2s linear both;
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+.tefx-nova-flash {
+  inset: -20%;
+  background: radial-gradient(circle at 50% 80%, rgba(255, 255, 255, 0.55) 0%, transparent 35%);
+  opacity: 0;
+  animation: tefx-nov-flash 0.35s ease-out 0.05s both;
+  mix-blend-mode: screen;
+}
+
+.tefx-nova-ring--m {
+  width: min(82%, 420px);
+  aspect-ratio: 3 / 1;
+  bottom: 8%;
+  border-color: rgba(255, 200, 120, 0.35);
+  animation: tefx-nov-ring 1.6s cubic-bezier(0.2, 0.85, 0.2, 1) 0.08s both;
+}
+
+/* ---------- テキストの脈動（種別で色だけ継承） ---------- */
+.tefx__name {
+  animation:
+    tefx-name-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both,
+    tefx-name-pulse 2.8s ease-in-out 0.4s infinite;
+}
+
+.tefx--tempest .tefx__name {
+  animation:
+    tefx-name-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both,
+    tefx-tem-shake 2.4s ease-in-out both,
+    tefx-name-pulse 2.8s ease-in-out 0.4s infinite;
+}
+
+.tefx--tremor .tefx__name {
+  animation:
+    tefx-name-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both,
+    tefx-tre-rumble 2.4s ease-in-out both,
+    tefx-name-pulse 2.8s ease-in-out 0.4s infinite;
+}
+
+/* ---------- keyframes（追加） ---------- */
+@keyframes tefx-c-vignette {
+
+  0% {
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes tefx-c-grid-drift {
+
+  0% {
+    transform: translate(0, 0);
+  }
+
+  100% {
+    transform: translate(-14px, -10px);
+  }
+}
+
+@keyframes tefx-c-scan {
+
+  0% {
+    background-position: 0 -100%;
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 0.7;
+  }
+
+  100% {
+    background-position: 0 200%;
+    opacity: 0.2;
+  }
+}
+
+@keyframes tefx-c-sparkle {
+
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+
+  70% {
+    opacity: 0.55;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes tefx-c-frame-pulse {
+
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(0, 0, 0, 0.25),
+      0 0 12px rgba(120, 180, 255, 0.06);
+  }
+
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(0, 0, 0, 0.25),
+      0 0 28px rgba(180, 220, 255, 0.14),
+      0 0 48px rgba(255, 200, 140, 0.08);
+  }
+}
+
+@keyframes tefx-c-gloss {
+
+  0% {
+    opacity: 0;
+    transform: translateX(-20%) skewX(-8deg);
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(25%) skewX(-8deg);
+  }
+}
+
+@keyframes tefx-inf-heatwave {
+
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.4;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes tefx-inf-tongues {
+
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes tefx-met-debris {
+
+  0% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+
+  40% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.2;
+    transform: translateY(16px);
+  }
+}
+
+@keyframes tefx-met-shockwave {
+
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+
+  40% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes tefx-void-deep-pulse {
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes tefx-void-tendril {
+
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(-28deg);
+  }
+}
+
+@keyframes tefx-tem-rain {
+
+  0% {
+    transform: translateY(-12px);
+  }
+
+  100% {
+    transform: translateY(12px);
+  }
+}
+
+@keyframes tefx-tem-after {
+
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes tefx-gla-snow {
+
+  0% {
+    transform: translateY(-8px);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translateY(12px);
+    opacity: 0.85;
+  }
+}
+
+@keyframes tefx-gla-prism {
+
+  0% {
+    opacity: 0;
+    transform: rotate(-6deg) scale(0.95);
+  }
+
+  40% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.15;
+    transform: rotate(4deg) scale(1.02);
+  }
+}
+
+@keyframes tefx-pla-hex {
+
+  0% {
+    background-position: 0 0;
+    opacity: 0.08;
+  }
+
+  100% {
+    background-position: 28px 24px;
+    opacity: 0.18;
+  }
+}
+
+@keyframes tefx-pla-surge-double {
+
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+
+  12% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+
+  28% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+
+  48% {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+
+  62% {
+    opacity: 0.95;
+    transform: scale(1.04);
+  }
+
+  85% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tefx-rad-cross {
+
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  35% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.25;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes tefx-rad-dust {
+
+  0% {
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.35;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes tefx-tre-pebbles {
+
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tefx-pha-wisp {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    opacity: 0.85;
+    transform: translate(8px, -6px) scale(1.05);
+  }
+}
+
+@keyframes tefx-pha-scan-rev {
+
+  0% {
+    translate: 100% 0;
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 0.8;
+  }
+
+  100% {
+    translate: -100% 0;
+    opacity: 0;
+  }
+}
+
+@keyframes tefx-nov-spin-rev {
+
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(-32deg);
+  }
+}
+
+@keyframes tefx-nov-flash {
+
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes tefx-name-pulse {
+
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+
+  50% {
+    filter: brightness(1.12);
+  }
+}
+
+/* ========== HPゲージ帯（fill-gauge-band）: 縦に細くても派手に見せる ========== */
+
+.tefx.tefx--fill-gauge-band > .tefx-layer {
+  filter: saturate(1.2) brightness(1.1) contrast(1.05);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-common__scan {
+  opacity: 0.58;
+  background-size: 100% 150%;
+}
+
+.tefx.tefx--fill-gauge-band .tefx-common__sparkles {
+  filter: brightness(1.4) saturate(1.18);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-common__gloss {
+  background: linear-gradient(
+    125deg,
+    transparent 28%,
+    rgba(255, 255, 255, 0.14) 44%,
+    rgba(255, 255, 255, 0.32) 50%,
+    rgba(255, 255, 255, 0.16) 56%,
+    transparent 70%
+  );
+  mix-blend-mode: soft-light;
+}
+
+.tefx.tefx--fill-gauge-band .tefx-common__grid {
+  opacity: 0.085;
+}
+
+/* 帯内では走査・グロスが主役になりやすいようビネットを弱める（枠マッチ時は HpGaugeTopBand 側も調整） */
+.tefx.tefx--fill-gauge-band .tefx-common__vignette {
+  background: radial-gradient(
+    ellipse 88% 95% at 50% 48%,
+    transparent 38%,
+    rgba(0, 0, 0, 0.16) 100%
+  );
+}
+
+/* inferno */
+.tefx.tefx--fill-gauge-band .tefx-inferno-glow {
+  inset: -6% -10% -2%;
+  filter: brightness(1.12);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-inferno-embers {
+  inset: 0 -3% 0;
+  filter: brightness(1.15) saturate(1.1);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-inferno-ripples {
+  translate: 0 18%;
+  scale: 1.28 0.48;
+  border-color: rgba(255, 170, 90, 0.55);
+  box-shadow:
+    0 0 28px rgba(255, 100, 40, 0.42),
+    0 0 48px rgba(255, 60, 20, 0.2);
+}
+
+/* meteor */
+.tefx.tefx--fill-gauge-band .tefx-meteor-sky {
+  inset: -4%;
+  opacity: 1;
+}
+
+.tefx.tefx--fill-gauge-band .tefx-meteor-streak {
+  height: 120%;
+  bottom: -12%;
+  filter: blur(2px) brightness(1.12);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-meteor-impact {
+  bottom: -8%;
+  height: 85%;
+  opacity: 1;
+}
+
+/* void */
+.tefx.tefx--fill-gauge-band .tefx-void-vortex {
+  inset: -10%;
+  opacity: 0.95;
+  filter: saturate(1.25) brightness(1.08);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-void-rim {
+  inset: 2% 4% 6%;
+  box-shadow: inset 0 0 28px rgba(120, 60, 200, 0.45);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-void-grains {
+  opacity: 0.18;
+}
+
+/* tempest */
+.tefx.tefx--fill-gauge-band .tefx-tempest-cloud {
+  inset: -4%;
+  filter: brightness(1.1);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-tempest-bolt {
+  filter: blur(0.5px);
+}
+
+/* glacier */
+.tefx.tefx--fill-gauge-band .tefx-glacier-fog {
+  inset: -6%;
+  filter: brightness(1.08) saturate(1.08);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-glacier-shard {
+  height: 95%;
+  bottom: 0;
+  filter: brightness(1.1);
+}
+
+/* plasma */
+.tefx.tefx--fill-gauge-band .tefx-plasma-field {
+  inset: -12%;
+  opacity: 1;
+  filter: saturate(1.2) brightness(1.06);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-plasma-arc {
+  filter: brightness(1.08);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-plasma-pulse {
+  inset: 4%;
+  opacity: 1;
+}
+
+/* radiance */
+.tefx.tefx--fill-gauge-band .tefx-radiance-bloom {
+  inset: -12%;
+  filter: brightness(1.1);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-radiance-pillar {
+  filter: brightness(1.12);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-radiance-ring {
+  border-width: 3px;
+  box-shadow: 0 0 36px rgba(255, 230, 160, 0.35);
+}
+
+/* tremor */
+.tefx.tefx--fill-gauge-band .tefx-tremor-dust {
+  filter: brightness(1.08);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-tremor-shock {
+  box-shadow: inset 0 0 24px rgba(255, 220, 160, 0.12);
+}
+
+/* phantom */
+.tefx.tefx--fill-gauge-band .tefx-phantom-mist {
+  inset: -8%;
+  filter: brightness(1.08);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-phantom-orbs {
+  filter: blur(10px) brightness(1.12) saturate(1.1);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-phantom-scan {
+  opacity: 1;
+}
+
+/* nova */
+.tefx.tefx--fill-gauge-band .tefx-nova-core {
+  inset: -14%;
+  filter: brightness(1.12);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-nova-rays {
+  inset: -18%;
+  opacity: 1;
+  filter: brightness(1.08);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-nova-ring {
+  border-width: 3px;
+  box-shadow: 0 0 32px rgba(255, 220, 140, 0.4);
+}
+
+/* 技名の脈動を帯モードで強め（揺れ系プリセットは既存アニメを維持） */
+@keyframes tefx-name-pulse-gauge {
+
+  0%,
+  100% {
+    filter: brightness(1.05);
+  }
+
+  50% {
+    filter: brightness(1.26);
+  }
+}
+
+.tefx.tefx--fill-gauge-band:not(.tefx--tempest):not(.tefx--tremor) .tefx__name {
+  animation:
+    tefx-name-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both,
+    tefx-name-pulse-gauge 2.2s ease-in-out 0.32s infinite;
+}
+
+.tefx.tefx--fill-gauge-band.tefx--tempest .tefx__name {
+  animation:
+    tefx-name-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both,
+    tefx-tem-shake 2.4s ease-in-out both,
+    tefx-name-pulse-gauge 2.2s ease-in-out 0.32s infinite;
+}
+
+.tefx.tefx--fill-gauge-band.tefx--tremor .tefx__name {
+  animation:
+    tefx-name-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both,
+    tefx-tre-rumble 2.4s ease-in-out both,
+    tefx-name-pulse-gauge 2.2s ease-in-out 0.32s infinite;
+}
+

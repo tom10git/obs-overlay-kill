@@ -1,0 +1,81 @@
+.hp-gauge-top-band {
+  position: fixed;
+  box-sizing: border-box;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hp-gauge-top-band--gauge-size {
+  display: flex;
+  flex-direction: column;
+}
+
+.hp-gauge-top-band--gauge-size > * {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* ゲージ枠 DOM を内側に持つときは外側の固定幅・高さを外し、枠が寸法を決める */
+.hp-gauge-top-band--gauge-frame-match {
+  width: auto;
+  height: auto;
+  min-width: 0;
+}
+
+/* 親の角丸・skew クリップに合わせ、技演出をゲージ枠色・寸法に寄せる */
+.hp-gauge-top-band--gauge-frame-match .tefx.tefx--fill-gauge-band {
+  border-radius: 0;
+  border-color: transparent;
+  /* フォールバック（color-mix 非対応） */
+  background: linear-gradient(
+    180deg,
+    rgba(22, 20, 40, 0.88) 0%,
+    rgba(8, 10, 20, 0.92) 100%
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+@supports (color-mix(in srgb, black, white)) {
+  .hp-gauge-top-band--gauge-frame-match .tefx.tefx--fill-gauge-band {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--gauge-frame-bg, #0a0a0f) 58%, rgba(28, 24, 48, 0.9)) 0%,
+      color-mix(in srgb, var(--gauge-frame-bg, #0a0a0f) 44%, rgba(10, 12, 22, 0.94)) 100%
+    );
+  }
+}
+
+/* ゲージの二重枠と重なる内側の装飾枠は非表示 */
+.hp-gauge-top-band--gauge-frame-match .tefx-common__frame {
+  opacity: 0;
+}
+
+/* 低いゲージ高さ: 端の過暗化を抑えつつ、キラ・グリッドを少し強める */
+.hp-gauge-top-band--gauge-frame-match .tefx-common__vignette {
+  inset: 0;
+  opacity: 0.48;
+  background: radial-gradient(
+    ellipse 92% 100% at 50% 42%,
+    transparent 28%,
+    rgba(0, 0, 0, 0.14) 100%
+  );
+}
+
+.hp-gauge-top-band--gauge-frame-match .tefx-common__grid {
+  inset: 0;
+  opacity: 0.09;
+}
+
+.hp-gauge-top-band--gauge-frame-match .tefx-common__sparkles {
+  filter: brightness(1.45) saturate(1.2);
+}
+
+/* 平行四辺形: ラッパーの skewX(-deg) を .tefx 全体で打ち消し、レイヤー・テキストとも水平に見せる */
+.hp-gauge-top-band--gauge-frame-match .hp-gauge-wrapper--parallelogram .tefx.tefx--fill-gauge-band {
+  transform: skewX(var(--hp-gauge-counter-skew, 11deg));
+}
