@@ -36,6 +36,25 @@ export interface AttackBleedVariant {
   damageColor?: string
 }
 
+/**
+ * チャンネルポイントを経由しないオーバーレイ上の攻撃シミュレーション向けの設定。
+ * 視聴者リワードによる攻撃の確率や挙動には影響しない。
+ */
+export interface TestPanelAttackSimulationConfig {
+  /** 配信者HPが0のとき、オーバーレイからの攻撃を受けた場合にオーバーキル演出を出す */
+  overkillOnZeroHp: boolean
+  /** オーバーレイからの攻撃が命中したときに合わせ技チャンスを抽選する */
+  comboChanceEnabled: boolean
+  /** 合わせ技チャンスの発生確率（0〜100%） */
+  comboTriggerPercent: number
+  /** オーバーレイからの攻撃が命中したあとに追加攻撃ルーレットを抽選する */
+  rouletteBonusEnabled: boolean
+  /** ルーレット表示確率（0〜100%） */
+  rouletteTriggerPercent: number
+  /** ルーレット成功確率（0〜100%） */
+  rouletteSuccessPercent: number
+}
+
 export interface AttackConfig {
   rewardId: string
   customText: string // チャットメッセージで判定するカスタムテキスト（App Access Token用）
@@ -92,6 +111,12 @@ export interface AttackConfig {
   filterEffectEnabled: boolean // 攻撃時のフィルターエフェクトの有効/無効
   /** 合わせ技チャレンジ（攻撃ヒット後の入力追加ダメージ） */
   comboTechniqueEnabled: boolean
+  /** 合わせ技チャレンジの入力制限時間（秒・3〜300） */
+  comboTechniqueDurationSec: number
+  /** チャット等で入力する目標文字列の先頭接頭辞（技名の前に付く） */
+  comboTechniqueInputPrefix: string
+  /** オーバーレイ上の攻撃シミュレーション（リワード攻撃とは別経路） */
+  testPanelSimulation: TestPanelAttackSimulationConfig
   survivalHp1Enabled: boolean // 攻撃でHPが0になる場合に一定確率で1残す機能の有効/無効
   survivalHp1Probability: number // HPが1残る確率（0-100）
   survivalHp1Message: string // 食いしばり発動時に表示するカスタムメッセージ

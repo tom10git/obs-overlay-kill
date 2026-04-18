@@ -381,5 +381,50 @@ export function mergePendingFieldInputs(base: OverlayConfig, pending: Record<str
     if (!Number.isNaN(num) && num >= 1) draft.pvp.viewerFinishingMoveMultiplier = num
   }
 
+  const clampPct = (n: number) => Math.min(100, Math.max(0, n))
+  if (p['attack.testPanelSimulation.comboTriggerPercent'] !== undefined) {
+    const v = p['attack.testPanelSimulation.comboTriggerPercent'].trim()
+    const cur = draft.attack.testPanelSimulation.comboTriggerPercent
+    const num = v === '' || Number.isNaN(parseFloat(v)) ? cur : parseFloat(v)
+    if (!Number.isNaN(num)) {
+      draft.attack.testPanelSimulation = {
+        ...draft.attack.testPanelSimulation,
+        comboTriggerPercent: clampPct(num),
+      }
+    }
+  }
+  if (p['attack.testPanelSimulation.rouletteTriggerPercent'] !== undefined) {
+    const v = p['attack.testPanelSimulation.rouletteTriggerPercent'].trim()
+    const cur = draft.attack.testPanelSimulation.rouletteTriggerPercent
+    const num = v === '' || Number.isNaN(parseFloat(v)) ? cur : parseFloat(v)
+    if (!Number.isNaN(num)) {
+      draft.attack.testPanelSimulation = {
+        ...draft.attack.testPanelSimulation,
+        rouletteTriggerPercent: clampPct(num),
+      }
+    }
+  }
+  if (p['attack.comboTechniqueDurationSec'] !== undefined) {
+    const v = p['attack.comboTechniqueDurationSec'].trim()
+    const cur = draft.attack.comboTechniqueDurationSec
+    const num = v === '' || Number.isNaN(parseInt(v, 10)) ? cur : parseInt(v, 10)
+    if (!Number.isNaN(num)) {
+      const clamped = Math.min(300, Math.max(3, num))
+      draft.attack.comboTechniqueDurationSec = clamped
+    }
+  }
+
+  if (p['attack.testPanelSimulation.rouletteSuccessPercent'] !== undefined) {
+    const v = p['attack.testPanelSimulation.rouletteSuccessPercent'].trim()
+    const cur = draft.attack.testPanelSimulation.rouletteSuccessPercent
+    const num = v === '' || Number.isNaN(parseFloat(v)) ? cur : parseFloat(v)
+    if (!Number.isNaN(num)) {
+      draft.attack.testPanelSimulation = {
+        ...draft.attack.testPanelSimulation,
+        rouletteSuccessPercent: clampPct(num),
+      }
+    }
+  }
+
   return draft
 }

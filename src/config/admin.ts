@@ -3,7 +3,12 @@
  * このファイルに管理者が設定するすべての情報を集約します
  */
 
-import { getTwitchClientId, getTwitchClientSecret, getTwitchAccessToken, getTwitchUsername } from './auth'
+import {
+  getTwitchClientId,
+  getTwitchClientSecret,
+  getTwitchAccessToken,
+  getTwitchUsername,
+} from "./auth";
 
 /**
  * 管理者設定情報の型定義
@@ -11,32 +16,36 @@ import { getTwitchClientId, getTwitchClientSecret, getTwitchAccessToken, getTwit
 export interface AdminConfig {
   // Twitch API認証情報
   twitch: {
-    clientId: string
-    clientSecret: string
-    accessToken?: string
-    username?: string
-  }
+    clientId: string;
+    clientSecret: string;
+    accessToken?: string;
+    username?: string;
+  };
 
   // アプリケーション設定
   app: {
-    defaultChannel?: string
-    autoRefreshInterval?: number // 秒単位
-    maxChatMessages?: number
-  }
+    defaultChannel?: string;
+    autoRefreshInterval?: number; // 秒単位
+    maxChatMessages?: number;
+    // テストモードの細かい設定（初期値はfalse）
+    testModeOverkillActive?: boolean;
+    testModeComboAttack?: boolean;
+    testModeExtraRouletteEnabled?: boolean;
+  };
 }
 
 /**
  * 管理者設定情報を取得するクラス
  */
 class AdminConfigManager {
-  private config: AdminConfig | null = null
+  private config: AdminConfig | null = null;
 
   /**
    * 管理者設定情報を初期化
    */
   initialize(): AdminConfig {
     if (this.config) {
-      return this.config
+      return this.config;
     }
 
     this.config = {
@@ -54,10 +63,19 @@ class AdminConfigManager {
         maxChatMessages: import.meta.env.VITE_MAX_CHAT_MESSAGES
           ? parseInt(import.meta.env.VITE_MAX_CHAT_MESSAGES, 10)
           : 100, // デフォルト100件
+        // テストモード設定の初期化
+        testModeOverkillActive:
+          import.meta.env.VITE_TEST_OVERKILL_ACTIVE === "true" ? true : false,
+        testModeComboAttack:
+          import.meta.env.VITE_TEST_COMBO_ATTACK === "true" ? true : false,
+        testModeExtraRouletteEnabled:
+          import.meta.env.VITE_TEST_EXTRA_ROULETTE_ENABLED === "true"
+            ? true
+            : false,
       },
-    }
+    };
 
-    return this.config
+    return this.config;
   }
 
   /**
@@ -65,35 +83,35 @@ class AdminConfigManager {
    */
   getConfig(): AdminConfig {
     if (!this.config) {
-      this.initialize()
+      this.initialize();
     }
-    return this.config!
+    return this.config!;
   }
 
   /**
    * Twitch認証情報を取得
    */
   getTwitchConfig() {
-    return this.getConfig().twitch
+    return this.getConfig().twitch;
   }
 
   /**
    * アプリケーション設定を取得
    */
   getAppConfig() {
-    return this.getConfig().app
+    return this.getConfig().app;
   }
 
   /**
    * 設定をリセット（テスト用）
    */
   reset(): void {
-    this.config = null
+    this.config = null;
   }
 }
 
 // シングルトンインスタンスをエクスポート
-export const adminConfig = new AdminConfigManager()
+export const adminConfig = new AdminConfigManager();
 
 // ============================================
 // 管理者設定情報の取得関数（便利な関数）
@@ -102,39 +120,44 @@ export const adminConfig = new AdminConfigManager()
 /**
  * Twitch Client IDを取得
  */
-export const getAdminClientId = () => adminConfig.getTwitchConfig().clientId
+export const getAdminClientId = () => adminConfig.getTwitchConfig().clientId;
 
 /**
  * Twitch Client Secretを取得
  */
-export const getAdminClientSecret = () => adminConfig.getTwitchConfig().clientSecret
+export const getAdminClientSecret = () =>
+  adminConfig.getTwitchConfig().clientSecret;
 
 /**
  * Twitch Access Tokenを取得（オプション）
  */
-export const getAdminAccessToken = () => adminConfig.getTwitchConfig().accessToken
+export const getAdminAccessToken = () =>
+  adminConfig.getTwitchConfig().accessToken;
 
 /**
  * デフォルトのTwitchユーザー名を取得
  */
-export const getAdminUsername = () => adminConfig.getTwitchConfig().username
+export const getAdminUsername = () => adminConfig.getTwitchConfig().username;
 
 /**
  * デフォルトチャンネルを取得
  */
-export const getDefaultChannel = () => adminConfig.getAppConfig().defaultChannel
+export const getDefaultChannel = () =>
+  adminConfig.getAppConfig().defaultChannel;
 
 /**
  * 自動更新間隔を取得（秒単位）
  */
-export const getAutoRefreshInterval = () => adminConfig.getAppConfig().autoRefreshInterval || 30
+export const getAutoRefreshInterval = () =>
+  adminConfig.getAppConfig().autoRefreshInterval || 30;
 
 /**
  * チャットメッセージの最大表示数を取得
  */
-export const getMaxChatMessages = () => adminConfig.getAppConfig().maxChatMessages || 100
+export const getMaxChatMessages = () =>
+  adminConfig.getAppConfig().maxChatMessages || 100;
 
 /**
  * すべての管理者設定情報を取得
  */
-export const getAllAdminConfig = () => adminConfig.getConfig()
+export const getAllAdminConfig = () => adminConfig.getConfig();

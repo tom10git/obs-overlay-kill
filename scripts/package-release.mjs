@@ -2,11 +2,33 @@
  * npm run build の出力を release/dist にコピーし、配布用フォルダを更新する。
  */
 import { cpSync, existsSync, mkdirSync, rmSync } from 'fs'
-import { execSync } from 'child_process'
+import { execFileSync, execSync } from 'child_process'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+/** Windows で release/dist が掴まれていると EPERM になりがちなのでリトライし、最後に cmd の rmdir にフォールバックする */
+function rmDirRecursiveSync(dirPath) {
+  if (!existsSync(dirPath)) return
+  try {
+    rmSync(dirPath, { recursive: true, maxRetries: 15, retryDelay: 200 })
+  } catch (err) {
+    const retriable = err && (err.code === 'EPERM' || err.code === 'EBUSY')
+    if (process.platform === 'win32' && retriable) {
+      try {
+        execFileSync('cmd', ['/c', 'rmdir', '/s', '/q', dirPath], { stdio: 'inherit' })
+      } catch {
+        console.error(
+          'ヒント: release/dist を他プロセス（エクスプローラー・OBS・ウイルス対策・同期ツール）が開いていると削除できません。該当を閉じてから再実行してください。',
+        )
+        throw err
+      }
+      return
+    }
+    throw err
+  }
+}
 const distSrc = join(root, 'dist')
 const distDest = join(root, 'release', 'dist')
 const imagesSrc = join(root, 'src', 'images')
@@ -23,9 +45,7 @@ if (!existsSync(join(distSrc, 'index.html'))) {
 }
 
 console.log('2) release/dist にコピー ...')
-if (existsSync(distDest)) {
-  rmSync(distDest, { recursive: true })
-}
+rmDirRecursiveSync(distDest)
 mkdirSync(join(root, 'release'), { recursive: true })
 cpSync(distSrc, distDest, { recursive: true })
 
@@ -35,9 +55,7 @@ const copyIfExists = (src, dest, label) => {
     console.warn(`   ! ${label} が無いためスキップしました: ${src}`)
     return
   }
-  if (existsSync(dest)) {
-    rmSync(dest, { recursive: true })
-  }
+  rmDirRecursiveSync(dest)
   mkdirSync(join(dest, '..'), { recursive: true })
   cpSync(src, dest, { recursive: true })
   console.log(`   + ${label} をコピーしました: ${dest}`)

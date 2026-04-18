@@ -1,9 +1,7 @@
-import { COMBO_TECHNIQUE_PREFIX } from '../constants/comboTechnique'
-
-/** 合わせ技チャレンジの targetFull から技名部分だけを取り出す */
-export function techniqueNameFromComboTarget(targetFull: string): string {
-  if (targetFull.startsWith(COMBO_TECHNIQUE_PREFIX)) {
-    return targetFull.slice(COMBO_TECHNIQUE_PREFIX.length)
+/** 合わせ技チャレンジの targetFull から技名部分だけを取り出す（開始時の接頭辞に一致する分を除去） */
+export function techniqueNameFromComboTarget(targetFull: string, inputPrefix: string): string {
+  if (inputPrefix && targetFull.startsWith(inputPrefix)) {
+    return targetFull.slice(inputPrefix.length)
   }
   return targetFull
 }

@@ -8,10 +8,12 @@ import type {
   GaugeDesign,
   GaugeShapeConfig,
   OverlayConfig,
+  TestPanelAttackSimulationConfig,
 } from '../types/overlay'
 import { logger } from '../lib/logger'
 import { isValidUrl, isInRange, isValidLength } from './security'
 import { sanitizeStrengthBuffChatTemplates } from './messageTemplate'
+import { COMBO_TECHNIQUE_PREFIX } from '../constants/comboTechnique'
 
 /** 確率以外の数値項目の上限（上限を設けないため十分大きな値） */
 const MAX_NUM = 999999
@@ -40,6 +42,64 @@ function sanitizeGaugeShapeField(
   if (!Number.isFinite(n)) return fallback
   const x = round ? Math.round(n) : Math.round(n * 1000) / 1000
   return Math.min(max, Math.max(min, x))
+}
+
+const DEFAULT_TEST_PANEL_SIMULATION: TestPanelAttackSimulationConfig = {
+  overkillOnZeroHp: true,
+  comboChanceEnabled: true,
+  comboTriggerPercent: 30,
+  rouletteBonusEnabled: true,
+  rouletteTriggerPercent: 40,
+  rouletteSuccessPercent: 50,
+}
+
+function sanitizeTestPanelSimulation(
+  simRaw: unknown,
+  legacyTest?: Record<string, unknown>,
+): TestPanelAttackSimulationConfig {
+  const raw = (simRaw as Record<string, unknown> | undefined) || {}
+  const leg = legacyTest || {}
+  const legOverkill =
+    typeof leg.overkillOnTestAttack === 'boolean' ? (leg.overkillOnTestAttack as boolean) : undefined
+  const legComboEn =
+    typeof leg.simulateComboOnTestAttack === 'boolean'
+      ? (leg.simulateComboOnTestAttack as boolean)
+      : undefined
+  const legComboPct = isInRange(Number(leg.comboTriggerPercent), 0, 100)
+    ? Number(leg.comboTriggerPercent)
+    : undefined
+  const legRbEn =
+    typeof leg.simulateRouletteOnTestAttack === 'boolean'
+      ? (leg.simulateRouletteOnTestAttack as boolean)
+      : undefined
+  const legRbTrig = isInRange(Number(leg.rouletteTriggerPercent), 0, 100)
+    ? Number(leg.rouletteTriggerPercent)
+    : undefined
+  const legRbSucc = isInRange(Number(leg.rouletteSuccessPercent), 0, 100)
+    ? Number(leg.rouletteSuccessPercent)
+    : undefined
+
+  return {
+    overkillOnZeroHp:
+      typeof raw.overkillOnZeroHp === 'boolean' ? raw.overkillOnZeroHp : legOverkill ?? DEFAULT_TEST_PANEL_SIMULATION.overkillOnZeroHp,
+    comboChanceEnabled:
+      typeof raw.comboChanceEnabled === 'boolean'
+        ? raw.comboChanceEnabled
+        : legComboEn ?? DEFAULT_TEST_PANEL_SIMULATION.comboChanceEnabled,
+    comboTriggerPercent: isInRange(Number(raw.comboTriggerPercent), 0, 100)
+      ? Number(raw.comboTriggerPercent) || DEFAULT_TEST_PANEL_SIMULATION.comboTriggerPercent
+      : legComboPct ?? DEFAULT_TEST_PANEL_SIMULATION.comboTriggerPercent,
+    rouletteBonusEnabled:
+      typeof raw.rouletteBonusEnabled === 'boolean'
+        ? raw.rouletteBonusEnabled
+        : legRbEn ?? DEFAULT_TEST_PANEL_SIMULATION.rouletteBonusEnabled,
+    rouletteTriggerPercent: isInRange(Number(raw.rouletteTriggerPercent), 0, 100)
+      ? Number(raw.rouletteTriggerPercent) || DEFAULT_TEST_PANEL_SIMULATION.rouletteTriggerPercent
+      : legRbTrig ?? DEFAULT_TEST_PANEL_SIMULATION.rouletteTriggerPercent,
+    rouletteSuccessPercent: isInRange(Number(raw.rouletteSuccessPercent), 0, 100)
+      ? Number(raw.rouletteSuccessPercent) || DEFAULT_TEST_PANEL_SIMULATION.rouletteSuccessPercent
+      : legRbSucc ?? DEFAULT_TEST_PANEL_SIMULATION.rouletteSuccessPercent,
+  }
 }
 
 const DEFAULT_CONFIG: OverlayConfig = {
@@ -96,6 +156,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundVolume: 0.7,
     filterEffectEnabled: true,
     comboTechniqueEnabled: true,
+    comboTechniqueDurationSec: 30,
+    comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+    testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
     survivalHp1Enabled: false,
     survivalHp1Probability: 30,
     survivalHp1Message: '食いしばり!',
@@ -211,6 +274,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
       soundVolume: 0.7,
       filterEffectEnabled: true,
       comboTechniqueEnabled: true,
+      comboTechniqueDurationSec: 30,
+      comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+      testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
       survivalHp1Message: '食いしばり!',
@@ -311,6 +377,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
       soundVolume: 0.7,
       filterEffectEnabled: true,
       comboTechniqueEnabled: true,
+      comboTechniqueDurationSec: 30,
+      comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+      testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
       survivalHp1Message: '食いしばり!',
@@ -664,6 +733,7 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
 
   // 攻撃設定の検証
   const attackConfig = (c.attack as Record<string, unknown> | undefined) || {}
+  const legacyTestForPanelSim = (c.test as Record<string, unknown> | undefined) || {}
   const attackDamageType: 'fixed' | 'random' = attackConfig.damageType === 'random' ? 'random' : 'fixed'
   const attack = {
     rewardId: typeof attackConfig.rewardId === 'string' ? attackConfig.rewardId : '',
@@ -768,6 +838,18 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       : 0.7,
     filterEffectEnabled: typeof attackConfig.filterEffectEnabled === 'boolean' ? attackConfig.filterEffectEnabled : true,
     comboTechniqueEnabled: typeof attackConfig.comboTechniqueEnabled === 'boolean' ? attackConfig.comboTechniqueEnabled : true,
+    comboTechniqueDurationSec: (() => {
+      const n = Math.floor(Number(attackConfig.comboTechniqueDurationSec))
+      return isInRange(n, 3, 300) ? n || DEFAULT_CONFIG.attack.comboTechniqueDurationSec : DEFAULT_CONFIG.attack.comboTechniqueDurationSec
+    })(),
+    comboTechniqueInputPrefix: (() => {
+      const raw = attackConfig.comboTechniqueInputPrefix
+      const s = typeof raw === 'string' ? raw.trim() : ''
+      if (s.length === 0) return COMBO_TECHNIQUE_PREFIX
+      const max = 40
+      return s.length > max ? s.slice(0, max) : s
+    })(),
+    testPanelSimulation: sanitizeTestPanelSimulation(attackConfig.testPanelSimulation, legacyTestForPanelSim),
     survivalHp1Enabled: typeof attackConfig.survivalHp1Enabled === 'boolean' ? attackConfig.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(attackConfig.survivalHp1Probability), 0, 100)
       ? Number(attackConfig.survivalHp1Probability) || 30
@@ -1226,6 +1308,18 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundVolume: isInRange(Number(sa.soundVolume), 0, 1) ? Number(sa.soundVolume) || 0.7 : 0.7,
     filterEffectEnabled: typeof sa.filterEffectEnabled === 'boolean' ? sa.filterEffectEnabled : true,
     comboTechniqueEnabled: typeof sa.comboTechniqueEnabled === 'boolean' ? sa.comboTechniqueEnabled : true,
+    comboTechniqueDurationSec: (() => {
+      const n = Math.floor(Number(sa.comboTechniqueDurationSec))
+      return isInRange(n, 3, 300) ? n || DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueDurationSec : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueDurationSec
+    })(),
+    comboTechniqueInputPrefix: (() => {
+      const raw = sa.comboTechniqueInputPrefix
+      const s = typeof raw === 'string' ? raw.trim() : ''
+      if (s.length === 0) return COMBO_TECHNIQUE_PREFIX
+      const max = 40
+      return s.length > max ? s.slice(0, max) : s
+    })(),
+    testPanelSimulation: sanitizeTestPanelSimulation(sa.testPanelSimulation, undefined),
     survivalHp1Enabled: typeof sa.survivalHp1Enabled === 'boolean' ? sa.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(sa.survivalHp1Probability), 0, 100) ? Number(sa.survivalHp1Probability) || 30 : 30,
     survivalHp1Message: typeof sa.survivalHp1Message === 'string' ? sa.survivalHp1Message : '食いしばり!',
@@ -1280,6 +1374,18 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundVolume: isInRange(Number(vva.soundVolume), 0, 1) ? Number(vva.soundVolume) || 0.7 : 0.7,
     filterEffectEnabled: typeof vva.filterEffectEnabled === 'boolean' ? vva.filterEffectEnabled : true,
     comboTechniqueEnabled: typeof vva.comboTechniqueEnabled === 'boolean' ? vva.comboTechniqueEnabled : true,
+    comboTechniqueDurationSec: (() => {
+      const n = Math.floor(Number(vva.comboTechniqueDurationSec))
+      return isInRange(n, 3, 300) ? n || DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueDurationSec : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueDurationSec
+    })(),
+    comboTechniqueInputPrefix: (() => {
+      const raw = vva.comboTechniqueInputPrefix
+      const s = typeof raw === 'string' ? raw.trim() : ''
+      if (s.length === 0) return COMBO_TECHNIQUE_PREFIX
+      const max = 40
+      return s.length > max ? s.slice(0, max) : s
+    })(),
+    testPanelSimulation: sanitizeTestPanelSimulation(vva.testPanelSimulation, undefined),
     survivalHp1Enabled: typeof vva.survivalHp1Enabled === 'boolean' ? vva.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(vva.survivalHp1Probability), 0, 100) ? Number(vva.survivalHp1Probability) || 30 : 30,
     survivalHp1Message: typeof vva.survivalHp1Message === 'string' ? vva.survivalHp1Message : '食いしばり!',

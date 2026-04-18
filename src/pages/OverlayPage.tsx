@@ -21,9 +21,7 @@ import { HpGaugeTopBand } from '../components/overlay/HpGaugeTopBand'
 import { TechniqueEffectBurst } from '../components/overlay/TechniqueEffectBurst'
 import { RouletteBonusOverlay } from '../components/overlay/RouletteBonusOverlay'
 import {
-  COMBO_TECHNIQUE_DURATION_MS,
   COMBO_TECHNIQUE_NAMES,
-  COMBO_TECHNIQUE_PREFIX,
   COMBO_TECHNIQUE_TRIGGER_PROBABILITY,
   pickRandomComboTechniqueName,
 } from '../constants/comboTechnique'
@@ -233,6 +231,8 @@ export function OverlayPage() {
     endsAt: number
     userId: string
     userName: string
+    /** チャレンジ開始時の接頭辞（完了時に技名へ切り出す） */
+    inputPrefix: string
   }
 
   const [comboChallenge, setComboChallenge] = useState<ComboChallengeState | null>(null)
@@ -1219,7 +1219,9 @@ export function OverlayPage() {
         raw
       )
       if (completed) {
-        fireTechniqueEffectBurst(techniqueNameFromComboTarget(comboState.targetFull))
+        fireTechniqueEffectBurst(
+          techniqueNameFromComboTarget(comboState.targetFull, comboState.inputPrefix)
+        )
         applyComboTechniqueBonusDamage(comboState.userId)
         if (comboExpireTimerRef.current != null) {
           window.clearTimeout(comboExpireTimerRef.current)
@@ -1435,7 +1437,6 @@ export function OverlayPage() {
             playMissSound()
           }
         }
-        runPvpCounterAfterAttack(event)
         return
       }
 
@@ -1553,13 +1554,16 @@ export function OverlayPage() {
             !comboChallengeRef.current &&
             Math.random() < COMBO_TECHNIQUE_TRIGGER_PROBABILITY
           ) {
-            const endsAt = Date.now() + COMBO_TECHNIQUE_DURATION_MS
+            const comboMs = Math.min(300_000, Math.max(3_000, config.attack.comboTechniqueDurationSec * 1000))
+            const comboPrefix = config.attack.comboTechniqueInputPrefix
+            const endsAt = Date.now() + comboMs
             const next: ComboChallengeState = {
-              targetFull: `${COMBO_TECHNIQUE_PREFIX}${pickRandomComboTechniqueName()}`,
+              targetFull: `${comboPrefix}${pickRandomComboTechniqueName()}`,
               matchedLength: 0,
               endsAt,
               userId: attackerUserId,
               userName: event.userName ?? event.userId ?? '視聴者',
+              inputPrefix: comboPrefix,
             }
             comboChallengeRef.current = next
             setComboChallenge(next)
@@ -1568,7 +1572,7 @@ export function OverlayPage() {
               comboExpireTimerRef.current = null
               comboChallengeRef.current = null
               setComboChallenge(null)
-            }, COMBO_TECHNIQUE_DURATION_MS)
+            }, comboMs)
           }
 
           // 追加攻撃ルーレット（40%・合わせ技とは別。技名リストのみ共通）
@@ -1966,6 +1970,9 @@ export function OverlayPage() {
     // HP0のときはオーバーキル演出のみ（連打は止める）
     if (currentHP <= 0) {
       stopRepeat()
+      if (!config.attack.testPanelSimulation.overkillOnZeroHp) {
+        return
+      }
       let okShouldDamage = true
       if (config.attack.missEnabled) {
         const missRoll = Math.random() * 100
@@ -2082,17 +2089,21 @@ export function OverlayPage() {
 
       // 合わせ技チャンス（テスト攻撃・test-user。入力はテストモード中のみ配信者チャットでも可）
       if (
+        config.attack.testPanelSimulation.comboChanceEnabled &&
         config.attack.comboTechniqueEnabled !== false &&
         !comboChallengeRef.current &&
-        Math.random() < COMBO_TECHNIQUE_TRIGGER_PROBABILITY
+        Math.random() * 100 < config.attack.testPanelSimulation.comboTriggerPercent
       ) {
-        const endsAt = Date.now() + COMBO_TECHNIQUE_DURATION_MS
+        const comboMs = Math.min(300_000, Math.max(3_000, config.attack.comboTechniqueDurationSec * 1000))
+        const comboPrefix = config.attack.comboTechniqueInputPrefix
+        const endsAt = Date.now() + comboMs
         const next: ComboChallengeState = {
-          targetFull: `${COMBO_TECHNIQUE_PREFIX}${pickRandomComboTechniqueName()}`,
+          targetFull: `${comboPrefix}${pickRandomComboTechniqueName()}`,
           matchedLength: 0,
           endsAt,
           userId: 'test-user',
           userName: 'TestUser',
+          inputPrefix: comboPrefix,
         }
         comboChallengeRef.current = next
         setComboChallenge(next)
@@ -2101,13 +2112,18 @@ export function OverlayPage() {
           comboExpireTimerRef.current = null
           comboChallengeRef.current = null
           setComboChallenge(null)
-        }, COMBO_TECHNIQUE_DURATION_MS)
+        }, comboMs)
       }
 
       // 追加攻撃ルーレット（テスト攻撃・合わせ技とは別）
-      if (!rouletteBonusLockRef.current && Math.random() < ROULETTE_BONUS_TRIGGER_PROBABILITY) {
+      if (
+        config.attack.testPanelSimulation.rouletteBonusEnabled &&
+        !rouletteBonusLockRef.current &&
+        Math.random() * 100 < config.attack.testPanelSimulation.rouletteTriggerPercent
+      ) {
         rouletteBonusLockRef.current = true
-        const rbSuccess = Math.random() < ROULETTE_BONUS_SUCCESS_PROBABILITY
+        const rbSuccess =
+          Math.random() * 100 < config.attack.testPanelSimulation.rouletteSuccessPercent
         const landedName = pickRandomComboTechniqueName()
         setRouletteBonus({
           id: Date.now(),
@@ -2595,49 +2611,55 @@ export function OverlayPage() {
       ) {
         const isCounterMatch = isCommandMatch(messageLower, config.pvp.counterCommand)
         if (isCounterMatch) {
-          let targetUserId: string | null = null
-          let targetDisplayName: string = ''
-          if (config.pvp.counterCommandAcceptsUsername) {
-            const parts = messageText.trim().split(/\s+/)
-            if (parts.length >= 2) {
-              const namePart = parts.slice(1).join(' ').trim().toLowerCase()
-              if (namePart) {
-                const looked = userLookupRef.current.get(namePart)
-                if (looked) {
-                  targetUserId = looked.userId
-                  targetDisplayName = looked.displayName
+          if (currentHP <= 0) {
+            processedChatMessagesRef.current.add(message.id)
+            commandMatched = true
+            sendPvpBlockedMessage('attack', '[PvP] HP0でカウンター不可の送信失敗')
+          } else {
+            let targetUserId: string | null = null
+            let targetDisplayName: string = ''
+            if (config.pvp.counterCommandAcceptsUsername) {
+              const parts = messageText.trim().split(/\s+/)
+              if (parts.length >= 2) {
+                const namePart = parts.slice(1).join(' ').trim().toLowerCase()
+                if (namePart) {
+                  const looked = userLookupRef.current.get(namePart)
+                  if (looked) {
+                    targetUserId = looked.userId
+                    targetDisplayName = looked.displayName
+                  }
                 }
               }
             }
-          }
-          if (!targetUserId && lastAttackerRef.current) {
-            targetUserId = lastAttackerRef.current.userId
-            targetDisplayName = lastAttackerRef.current.userName
-          }
-          if (targetUserId) {
-            processedChatMessagesRef.current.add(message.id)
-            commandMatched = true
-            ensureViewerHP(targetUserId)
-            const sa = config.pvp.streamerAttack
-            const result = applyViewerDamage(
-              targetUserId,
-              // カウンター攻撃（配信者→視聴者）には視聴者バフを乗せない
-              getAttackDamage(sa),
-              sa
-            )
-            const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
-            const reply = fillTemplate(tpl, {
-              username: targetDisplayName,
-              hp: result.newHP,
-              max: viewerMaxHP,
-            })
-            if (config.pvp.autoReplyAttackCounter) {
-              sendAutoReply(reply, '[PvP] チャット送信失敗')
+            if (!targetUserId && lastAttackerRef.current) {
+              targetUserId = lastAttackerRef.current.userId
+              targetDisplayName = lastAttackerRef.current.userName
             }
-            if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
-              const zeroMsg = fillTemplate(config.pvp.messageWhenViewerZeroHp, { username: targetDisplayName }).trim()
-              if (zeroMsg) {
-                sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
+            if (targetUserId) {
+              processedChatMessagesRef.current.add(message.id)
+              commandMatched = true
+              ensureViewerHP(targetUserId)
+              const sa = config.pvp.streamerAttack
+              const result = applyViewerDamage(
+                targetUserId,
+                // カウンター攻撃（配信者→視聴者）には視聴者バフを乗せない
+                getAttackDamage(sa),
+                sa
+              )
+              const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
+              const reply = fillTemplate(tpl, {
+                username: targetDisplayName,
+                hp: result.newHP,
+                max: viewerMaxHP,
+              })
+              if (config.pvp.autoReplyAttackCounter) {
+                sendAutoReply(reply, '[PvP] チャット送信失敗')
+              }
+              if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
+                const zeroMsg = fillTemplate(config.pvp.messageWhenViewerZeroHp, { username: targetDisplayName }).trim()
+                if (zeroMsg) {
+                  sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
+                }
               }
             }
           }
@@ -3759,9 +3781,11 @@ export function OverlayPage() {
                         placeholder={
                           config.attack.comboTechniqueEnabled === false
                             ? 'オフのときは発生・入力しません'
-                            : comboChallenge
-                              ? 'チャットと同じく分割入力可（Enter / 送信）'
-                              : '攻撃ヒット（30%）でチャンス表示'
+                            : !config.attack.testPanelSimulation.comboChanceEnabled
+                              ? '攻撃設定で、オーバーレイからの攻撃の合わせ技抽選をOFFにしています'
+                              : comboChallenge
+                                ? 'チャットと同じく分割入力可（Enter / 送信）'
+                                : `攻撃ヒット（${config.attack.testPanelSimulation.comboTriggerPercent}%）でチャンス表示`
                         }
                         autoComplete="off"
                         spellCheck={false}
@@ -3793,7 +3817,11 @@ export function OverlayPage() {
                         onPointerUp={stopRepeat}
                         onPointerLeave={stopRepeat}
                         onPointerCancel={stopRepeat}
-                        title="長押しで連打（HP0のときはオーバーキル演出）"
+                        title={
+                          config?.attack.testPanelSimulation.overkillOnZeroHp
+                            ? '長押しで連打（HP0のときはオーバーキル演出）'
+                            : '長押しで連打（HP0のときはオーバーキル演出なし）'
+                        }
                       >
                         攻撃
                       </button>
@@ -3817,7 +3845,7 @@ export function OverlayPage() {
                         className="test-button test-attack test-panel-action-btn"
                         disabled={!isTestMode || currentHP <= 0 || !(config?.pvp?.viewerFinishingMoveEnabled ?? true)}
                         onClick={handleTestFinishingMove}
-                        title="必殺技を確定発動（隠し機能の確認用）"
+                        title="必殺技を確定発動（隠し機能）"
                       >
                         必殺
                       </button>

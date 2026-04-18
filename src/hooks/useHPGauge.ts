@@ -210,7 +210,14 @@ export function useHPGauge({
             hpCurrentSyncRef.current = merged.current
             return merged
           })(),
-          attack: { ...prev.attack, ...newConfig.attack },
+          attack: {
+            ...prev.attack,
+            ...newConfig.attack,
+            testPanelSimulation: {
+              ...prev.attack.testPanelSimulation,
+              ...(newConfig.attack?.testPanelSimulation ?? {}),
+            },
+          },
           heal: { ...prev.heal, ...newConfig.heal },
           retry: { ...prev.retry, ...newConfig.retry },
           animation: { ...prev.animation, ...newConfig.animation },
@@ -254,8 +261,22 @@ export function useHPGauge({
               return {
                 ...basePvp,
                 ...newConfig.pvp,
-                streamerAttack: { ...baseStreamer, ...newConfig.pvp?.streamerAttack },
-                viewerVsViewerAttack: { ...baseVva, ...newConfig.pvp?.viewerVsViewerAttack },
+                streamerAttack: {
+                  ...baseStreamer,
+                  ...newConfig.pvp?.streamerAttack,
+                  testPanelSimulation: {
+                    ...baseStreamer.testPanelSimulation,
+                    ...(newConfig.pvp?.streamerAttack?.testPanelSimulation ?? {}),
+                  },
+                },
+                viewerVsViewerAttack: {
+                  ...baseVva,
+                  ...newConfig.pvp?.viewerVsViewerAttack,
+                  testPanelSimulation: {
+                    ...baseVva.testPanelSimulation,
+                    ...(newConfig.pvp?.viewerVsViewerAttack?.testPanelSimulation ?? {}),
+                  },
+                },
               }
             })()
             : prev.pvp,

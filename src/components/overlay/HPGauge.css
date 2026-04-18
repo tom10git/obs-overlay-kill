@@ -116,6 +116,7 @@
 
 /* 配信者HP0時の追撃（オーバーキル）— 内側ラッパーが key で毎バースト再マウントされアニメが必ず再開する */
 .hp-gauge-overkill-glitch-drive {
+  isolation: isolate;
   animation: hp-gauge-overkill-glitch 2.4s linear both;
   z-index: 3;
 }
@@ -134,8 +135,9 @@
 }
 
 /*
- * オーバーキル時のブロックノイズ風
- * — 低周波タービュランス（マクロ塊）＋ 太い帯を steps でずらす
+ * オーバーキル時のグリッチノイズ（RGBずれ・走査線・高周波粒子）
+ * 参考: Adobe Photoshop のチャンネルずれ / ノイズ系グリッチ表現
+ * https://www.adobe.com/jp/learn/photoshop/web/jp-1min-feature-ps-glitch?learnIn=1
  */
 .hp-gauge-overkill-noise {
   position: absolute;
@@ -146,10 +148,19 @@
   overflow: hidden;
 }
 
+/* 高周波タービュランス — TV 砂嵐 / デジタル粒子 */
+.hp-gauge-overkill-noise--grain {
+  mix-blend-mode: overlay;
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 256 256%22%3E%3Cfilter id=%22g%22 color-interpolation-filters=%22sRGB%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.72 0.68%22 numOctaves=%224%22 stitchTiles=%22stitch%22 result=%22n%22/%3E%3CfeColorMatrix in=%22n%22 type=%22matrix%22 values=%221.2 0 0 0 0  0 1.1 0 0 0  0 0 1.15 0 0  0 0 0 1 0%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23g)%22/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  animation: hp-gauge-overkill-grain 0.12s steps(3, jump-start) infinite;
+}
+
 /* 低周波×低オクターブで「ブロック状」のにじみ */
 .hp-gauge-overkill-noise--block-mosaic {
   mix-blend-mode: hard-light;
-  opacity: 0.42;
+  opacity: 0.48;
   background-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22%3E%3Cfilter id=%22b%22 color-interpolation-filters=%22sRGB%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.045%200.11%22 numOctaves=%222%22 stitchTiles=%22stitch%22 result=%22t%22/%3E%3CfeColorMatrix in=%22t%22 type=%22saturate%22 values=%221.75%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23b)%22/%3E%3C/svg%3E");
   background-size: 220px 140px;
   animation: hp-gauge-overkill-block-mosaic 2.4s steps(8, jump-start) both;
@@ -191,6 +202,148 @@
     transparent 48px
   );
   animation: hp-gauge-overkill-block-v 2.4s steps(9, jump-start) both;
+}
+
+/* CRT 走査線 */
+.hp-gauge-overkill-noise--scanlines {
+  mix-blend-mode: multiply;
+  opacity: 0.38;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.55) 2px,
+    rgba(0, 0, 0, 0.55) 3px,
+    rgba(255, 255, 255, 0.04) 3px,
+    rgba(255, 255, 255, 0.04) 4px
+  );
+  animation: hp-gauge-overkill-scanlines 2.4s steps(8, jump-start) both;
+}
+
+/* 細いスライス状のデータ破損帯 */
+.hp-gauge-overkill-noise--datamosh {
+  mix-blend-mode: color-dodge;
+  opacity: 0.42;
+  background: repeating-linear-gradient(
+    92deg,
+    transparent 0,
+    transparent 5px,
+    rgba(255, 40, 120, 0.18) 5px,
+    rgba(255, 40, 120, 0.18) 6px,
+    transparent 6px,
+    transparent 11px,
+    rgba(40, 255, 220, 0.14) 11px,
+    rgba(40, 255, 220, 0.14) 12px,
+    transparent 12px,
+    transparent 22px,
+    rgba(255, 255, 255, 0.1) 22px,
+    rgba(255, 255, 255, 0.1) 23px,
+    transparent 23px,
+    transparent 40px
+  );
+  background-size: 200% 100%;
+  animation: hp-gauge-overkill-datamosh 2.4s steps(14, jump-end) both;
+}
+
+@keyframes hp-gauge-overkill-grain {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0.45;
+  }
+
+  33% {
+    transform: translate(-14px, 8px);
+    opacity: 0.62;
+  }
+
+  66% {
+    transform: translate(12px, -10px);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translate(-6px, 4px);
+    opacity: 0.55;
+  }
+}
+
+@keyframes hp-gauge-overkill-scanlines {
+  0% {
+    opacity: 0.22;
+    transform: translateY(0);
+  }
+
+  20% {
+    opacity: 0.48;
+    transform: translateY(2px);
+  }
+
+  40% {
+    opacity: 0.3;
+    transform: translateY(-3px);
+  }
+
+  60% {
+    opacity: 0.52;
+    transform: translateY(1px);
+  }
+
+  80% {
+    opacity: 0.28;
+    transform: translateY(-2px);
+  }
+
+  100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hp-gauge-overkill-datamosh {
+  0% {
+    transform: translateX(0);
+    opacity: 0.35;
+  }
+
+  12.5% {
+    transform: translateX(-18%);
+    opacity: 0.55;
+  }
+
+  25% {
+    transform: translateX(12%);
+    opacity: 0.38;
+  }
+
+  37.5% {
+    transform: translateX(-8%);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: translateX(22%);
+    opacity: 0.32;
+  }
+
+  62.5% {
+    transform: translateX(-14%);
+    opacity: 0.48;
+  }
+
+  75% {
+    transform: translateX(6%);
+    opacity: 0.36;
+  }
+
+  87.5% {
+    transform: translateX(-20%);
+    opacity: 0.44;
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 0.3;
+  }
 }
 
 @keyframes hp-gauge-overkill-block-mosaic {
@@ -362,62 +515,115 @@
   0% {
     transform: translate(0, 0) skewX(0deg);
     filter: none;
-    box-shadow: none;
   }
 
-  5% {
-    transform: translate(-5px, 2px) skewX(-2deg);
-    filter: hue-rotate(88deg) saturate(2.1) contrast(1.2);
+  4% {
+    transform: translate(-6px, 1px) skewX(-2.2deg);
+    filter:
+      drop-shadow(5px 0 0 rgba(255, 45, 110, 0.72))
+      drop-shadow(-5px 0 0 rgba(0, 245, 255, 0.62))
+      drop-shadow(0 2px 0 rgba(255, 255, 120, 0.35))
+      hue-rotate(88deg)
+      saturate(2.15)
+      contrast(1.28);
   }
 
-  10% {
-    transform: translate(6px, -3px) skewX(2.5deg);
-    filter: hue-rotate(-50deg) saturate(1.85) brightness(1.08);
+  9% {
+    transform: translate(7px, -2px) skewX(2.4deg);
+    filter:
+      drop-shadow(-7px 0 0 rgba(255, 60, 160, 0.65))
+      drop-shadow(6px 0 0 rgba(50, 255, 220, 0.58))
+      hue-rotate(-55deg)
+      saturate(1.95)
+      brightness(1.06);
   }
 
-  15% {
-    transform: translate(-4px, -2px) skewX(-1deg);
-    filter: hue-rotate(140deg) saturate(2.4) contrast(1.35);
+  14% {
+    transform: translate(-4px, -3px) skewX(-1.2deg);
+    filter:
+      drop-shadow(4px 1px 0 rgba(255, 80, 80, 0.55))
+      drop-shadow(-4px -1px 0 rgba(80, 180, 255, 0.55))
+      hue-rotate(150deg)
+      saturate(2.35)
+      contrast(1.32);
   }
 
   20% {
-    transform: translate(3px, 4px) skewX(1.8deg);
-    filter: hue-rotate(-90deg) saturate(1.6);
+    transform: translate(5px, 3px) skewX(1.9deg);
+    filter:
+      drop-shadow(8px 0 0 rgba(255, 0, 130, 0.5))
+      drop-shadow(-6px 0 0 rgba(0, 255, 240, 0.48))
+      hue-rotate(-95deg)
+      saturate(1.65);
   }
 
-  26% {
-    transform: translate(-7px, 1px) skewX(-2.2deg);
-    filter: hue-rotate(40deg) saturate(2.2) brightness(1.12);
+  27% {
+    transform: translate(-8px, 0) skewX(-2.4deg);
+    filter:
+      drop-shadow(-5px 0 0 rgba(255, 100, 200, 0.68))
+      drop-shadow(5px 0 0 rgba(60, 255, 200, 0.6))
+      hue-rotate(35deg)
+      saturate(2.25)
+      brightness(1.1);
   }
 
-  33% {
-    transform: translate(5px, -4px) skewX(1.2deg);
-    filter: hue-rotate(200deg) saturate(1.7) contrast(1.25);
+  34% {
+    transform: translate(4px, -4px) skewX(1.1deg);
+    filter:
+      drop-shadow(6px 0 0 rgba(255, 40, 90, 0.62))
+      drop-shadow(-7px 0 0 rgba(40, 220, 255, 0.55))
+      hue-rotate(190deg)
+      saturate(1.75)
+      contrast(1.22);
   }
 
-  41% {
-    transform: translate(-3px, 3px) skewX(-1.6deg);
-    filter: hue-rotate(-120deg) saturate(2) brightness(0.95);
+  42% {
+    transform: translate(-3px, 4px) skewX(-1.7deg);
+    filter:
+      drop-shadow(-8px 0 0 rgba(255, 70, 140, 0.58))
+      drop-shadow(7px 0 0 rgba(0, 255, 255, 0.52))
+      hue-rotate(-115deg)
+      saturate(2.05)
+      brightness(0.94);
   }
 
-  50% {
-    transform: translate(4px, 2px) skewX(2deg);
-    filter: hue-rotate(60deg) saturate(2.3) contrast(1.15);
+  51% {
+    transform: translate(6px, 1px) skewX(2.1deg);
+    filter:
+      drop-shadow(5px 0 0 rgba(255, 30, 100, 0.7))
+      drop-shadow(-5px 0 0 rgba(100, 255, 255, 0.55))
+      hue-rotate(55deg)
+      saturate(2.2)
+      contrast(1.18);
   }
 
-  60% {
-    transform: translate(-5px, -3px) skewX(-0.8deg);
-    filter: hue-rotate(-30deg) saturate(1.5) brightness(1.06);
+  61% {
+    transform: translate(-5px, -2px) skewX(-0.9deg);
+    filter:
+      drop-shadow(-6px 0 0 rgba(255, 120, 180, 0.52))
+      drop-shadow(5px 0 0 rgba(0, 200, 255, 0.5))
+      hue-rotate(-35deg)
+      saturate(1.55)
+      brightness(1.05);
   }
 
-  72% {
-    transform: translate(3px, -2px) skewX(1.4deg);
-    filter: hue-rotate(100deg) saturate(1.9);
+  73% {
+    transform: translate(3px, -3px) skewX(1.5deg);
+    filter:
+      drop-shadow(7px 0 0 rgba(255, 50, 120, 0.6))
+      drop-shadow(-5px 0 0 rgba(50, 255, 230, 0.52))
+      hue-rotate(105deg)
+      saturate(1.88);
   }
 
-  85% {
-    transform: translate(-2px, 1px) skewX(-0.5deg);
-    filter: hue-rotate(-70deg) saturate(1.4) contrast(1.08);
+  86% {
+    transform: translate(-2px, 2px) skewX(-0.6deg);
+    filter:
+      drop-shadow(-4px 0 0 rgba(255, 90, 160, 0.45))
+      drop-shadow(4px 0 0 rgba(70, 240, 255, 0.42))
+      hue-rotate(-65deg)
+      saturate(1.42)
+      contrast(1.1);
   }
 
   100% {
@@ -432,9 +638,19 @@
     opacity: 1;
   }
 
+  6% {
+    clip-path: inset(38% 0 58% 0);
+    opacity: 0.88;
+  }
+
   8% {
     clip-path: inset(8% 0 12% 3%);
     opacity: 0.92;
+  }
+
+  14% {
+    clip-path: inset(62% 4% 30% 0);
+    opacity: 0.9;
   }
 
   16% {
@@ -442,9 +658,19 @@
     opacity: 1;
   }
 
+  22% {
+    clip-path: inset(22% 0 74% 2%);
+    opacity: 0.86;
+  }
+
   24% {
     clip-path: inset(10% 2% 0 8%);
     opacity: 0.88;
+  }
+
+  30% {
+    clip-path: inset(55% 0 40% 6%);
+    opacity: 0.94;
   }
 
   32% {
@@ -452,9 +678,19 @@
     opacity: 1;
   }
 
+  38% {
+    clip-path: inset(12% 8% 82% 0);
+    opacity: 0.87;
+  }
+
   44% {
     clip-path: inset(5% 6% 8% 0);
     opacity: 0.9;
+  }
+
+  52% {
+    clip-path: inset(70% 0 25% 5%);
+    opacity: 0.91;
   }
 
   56% {
@@ -462,14 +698,29 @@
     opacity: 1;
   }
 
+  64% {
+    clip-path: inset(44% 0 53% 0);
+    opacity: 0.89;
+  }
+
   68% {
     clip-path: inset(12% 0 0 5%);
     opacity: 0.93;
   }
 
+  76% {
+    clip-path: inset(0 2% 88% 3%);
+    opacity: 0.9;
+  }
+
   80% {
     clip-path: inset(0 3% 10% 1%);
     opacity: 1;
+  }
+
+  90% {
+    clip-path: inset(28% 6% 65% 0);
+    opacity: 0.92;
   }
 
   100% {
@@ -485,9 +736,16 @@
     animation-duration: 0.4s;
   }
 
+  .hp-gauge-overkill-noise--grain {
+    animation: none;
+    opacity: 0.38;
+  }
+
   .hp-gauge-overkill-noise--block-mosaic,
   .hp-gauge-overkill-noise--block-h,
-  .hp-gauge-overkill-noise--block-v {
+  .hp-gauge-overkill-noise--block-v,
+  .hp-gauge-overkill-noise--scanlines,
+  .hp-gauge-overkill-noise--datamosh {
     animation-duration: 0.4s;
   }
 }

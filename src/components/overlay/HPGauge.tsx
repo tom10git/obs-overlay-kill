@@ -433,9 +433,12 @@ export function HPGauge({
             />
             {overkillGlitchActive && (
               <div key={overkillGlitchBurst} className="hp-gauge-overkill-noise-stack" aria-hidden>
+                <div className="hp-gauge-overkill-noise hp-gauge-overkill-noise--grain" />
                 <div className="hp-gauge-overkill-noise hp-gauge-overkill-noise--block-mosaic" />
                 <div className="hp-gauge-overkill-noise hp-gauge-overkill-noise--block-h" />
                 <div className="hp-gauge-overkill-noise hp-gauge-overkill-noise--block-v" />
+                <div className="hp-gauge-overkill-noise hp-gauge-overkill-noise--scanlines" />
+                <div className="hp-gauge-overkill-noise hp-gauge-overkill-noise--datamosh" />
               </div>
             )}
           </div>
