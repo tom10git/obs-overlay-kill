@@ -26,6 +26,9 @@ export interface RouletteBonusOverlayProps {
   hpX: number
   hpY: number
   hpHeight: number
+  /** 自動位置からの加算オフセット（px）。Xは左指定と同じ軸（右が正）、Yは下が正 */
+  positionOffsetX?: number
+  positionOffsetY?: number
   /** ゲージ上端からの余白（省略時は定数） */
   gapAboveGaugePx?: number
   /** スピン終了直後（結果表示の直前）— 成功時の追加ダメージはここで適用 */
@@ -48,6 +51,8 @@ export function RouletteBonusOverlay({
   hpX,
   hpY,
   hpHeight,
+  positionOffsetX = 0,
+  positionOffsetY = 0,
   gapAboveGaugePx = ROULETTE_BONUS_GAP_ABOVE_GAUGE_PX,
   onSpinEnd,
   onComplete,
@@ -138,8 +143,10 @@ export function RouletteBonusOverlay({
 
   const panelMaxW = Math.min(safeW, 280)
   const hFrame = Math.max(1, hpHeight)
+  const offX = Number.isFinite(positionOffsetX) ? positionOffsetX : 0
+  const offY = Number.isFinite(positionOffsetY) ? positionOffsetY : 0
   /** HPゲージコンテナと同じ基準点（中央）の少し上＝フレーム上端より上にルーレット下端を合わせる */
-  const anchorTop = `calc(50% + ${hpY}px - ${hFrame / 2}px - ${gapAboveGaugePx}px)`
+  const anchorTop = `calc(50% + ${hpY + offY}px - ${hFrame / 2}px - ${gapAboveGaugePx}px)`
 
   const motionClassName = useMemo(
     () =>
@@ -159,7 +166,7 @@ export function RouletteBonusOverlay({
       className="roulette-bonus-overlay"
       style={
         {
-          left: `calc(50% + ${hpX}px)`,
+          left: `calc(50% + ${hpX + offX}px)`,
           top: anchorTop,
           transform: 'translate(-50%, -100%)',
           '--roulette-gauge-width': `${safeW}px`,

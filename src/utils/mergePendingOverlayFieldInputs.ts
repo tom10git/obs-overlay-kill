@@ -84,6 +84,46 @@ export function mergePendingFieldInputs(base: OverlayConfig, pending: Record<str
       if (!Number.isNaN(num)) draft.hp.y = Math.min(10000, Math.max(-10000, num))
     }
   }
+  if (p['hp.width'] !== undefined) {
+    const v = p['hp.width'].trim()
+    if (v === '' || Number.isNaN(parseInt(v, 10))) draft.hp.width = 800
+    else {
+      const num = parseInt(v, 10)
+      if (!Number.isNaN(num)) draft.hp.width = Math.min(8000, Math.max(40, num))
+    }
+  }
+  if (p['hp.height'] !== undefined) {
+    const v = p['hp.height'].trim()
+    if (v === '' || Number.isNaN(parseInt(v, 10))) draft.hp.height = 60
+    else {
+      const num = parseInt(v, 10)
+      if (!Number.isNaN(num)) draft.hp.height = Math.min(800, Math.max(12, num))
+    }
+  }
+  if (p['hp.rouletteBandTechniqueFontScalePercent'] !== undefined) {
+    const v = p['hp.rouletteBandTechniqueFontScalePercent'].trim()
+    if (v === '' || Number.isNaN(parseInt(v, 10))) draft.hp.rouletteBandTechniqueFontScalePercent = 100
+    else {
+      const num = parseInt(v, 10)
+      if (!Number.isNaN(num)) draft.hp.rouletteBandTechniqueFontScalePercent = Math.min(200, Math.max(50, num))
+    }
+  }
+  if (p['hp.rouletteOffsetX'] !== undefined) {
+    const v = p['hp.rouletteOffsetX'].trim()
+    if (v === '' || Number.isNaN(parseInt(v, 10))) draft.hp.rouletteOffsetX = 0
+    else {
+      const num = parseInt(v, 10)
+      if (!Number.isNaN(num)) draft.hp.rouletteOffsetX = Math.min(10000, Math.max(-10000, num))
+    }
+  }
+  if (p['hp.rouletteOffsetY'] !== undefined) {
+    const v = p['hp.rouletteOffsetY'].trim()
+    if (v === '' || Number.isNaN(parseInt(v, 10))) draft.hp.rouletteOffsetY = 0
+    else {
+      const num = parseInt(v, 10)
+      if (!Number.isNaN(num)) draft.hp.rouletteOffsetY = Math.min(10000, Math.max(-10000, num))
+    }
+  }
 
   if (p['attack.damageMin'] !== undefined) {
     const n = Number(p['attack.damageMin'].trim())

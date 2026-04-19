@@ -2,6 +2,7 @@
  * HPゲージ直上・ゲージ幅いっぱいの帯に載せる技発動演出（技ごとにプリセットが異なる）
  */
 
+import type { CSSProperties } from 'react'
 import type { TechniqueEffectKind } from '../../constants/techniqueEffectKinds'
 import { getTechniqueEffectKind } from '../../constants/techniqueEffectKinds'
 import './TechniqueEffectBurst.css'
@@ -14,6 +15,8 @@ export interface TechniqueEffectBurstProps {
   fillGaugeBand?: boolean
   /** fillGaugeBand 時: ルーレット追加攻撃など、帯内でも技名を大きめに */
   largeBandTypography?: boolean
+  /** largeBandTypography 時: 技名の相対スケール（50〜200＝%÷100。既定 100） */
+  rouletteBandFontScalePercent?: number
   className?: string
 }
 
@@ -170,16 +173,23 @@ export function TechniqueEffectBurst({
   techniqueName,
   fillGaugeBand = false,
   largeBandTypography = false,
+  rouletteBandFontScalePercent = 100,
   className = '',
 }: TechniqueEffectBurstProps) {
   const kind = getTechniqueEffectKind(techniqueName)
   const isPhantom = kind === 'phantom'
   const bandLarge =
     fillGaugeBand && largeBandTypography ? ' tefx--fill-gauge-band-large-type' : ''
+  const scale = Math.min(200, Math.max(50, Math.round(rouletteBandFontScalePercent))) / 100
+  const bandFontStyle: CSSProperties | undefined =
+    fillGaugeBand && largeBandTypography
+      ? { ['--tefx-roulette-band-font-scale' as string]: String(scale) }
+      : undefined
 
   return (
     <div
       className={`tefx tefx--${kind}${fillGaugeBand ? ' tefx--fill-gauge-band' : ''}${bandLarge} ${className}`.trim()}
+      style={bandFontStyle}
       aria-hidden
     >
       <KindLayers kind={kind} />

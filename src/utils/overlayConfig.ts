@@ -111,6 +111,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
     y: 0,
     width: 800,
     height: 60,
+    rouletteBandTechniqueFontScalePercent: 100,
+    rouletteOffsetX: 0,
+    rouletteOffsetY: 0,
     messageWhenZeroHp: '配信者を {attacker} が倒しました！',
   },
   attack: {
@@ -728,6 +731,15 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     height: isInRange(Number(hpConfig.height), 1, MAX_NUM)
       ? Number(hpConfig.height) || DEFAULT_CONFIG.hp.height
       : DEFAULT_CONFIG.hp.height,
+    rouletteBandTechniqueFontScalePercent: isInRange(Number(hpConfig.rouletteBandTechniqueFontScalePercent), 50, 200)
+      ? Math.round(Number(hpConfig.rouletteBandTechniqueFontScalePercent) || DEFAULT_CONFIG.hp.rouletteBandTechniqueFontScalePercent)
+      : DEFAULT_CONFIG.hp.rouletteBandTechniqueFontScalePercent,
+    rouletteOffsetX: isInRange(Number(hpConfig.rouletteOffsetX), -10000, 10000)
+      ? Number(hpConfig.rouletteOffsetX) || 0
+      : DEFAULT_CONFIG.hp.rouletteOffsetX,
+    rouletteOffsetY: isInRange(Number(hpConfig.rouletteOffsetY), -10000, 10000)
+      ? Number(hpConfig.rouletteOffsetY) || 0
+      : DEFAULT_CONFIG.hp.rouletteOffsetY,
     messageWhenZeroHp: typeof hpConfig.messageWhenZeroHp === 'string' ? hpConfig.messageWhenZeroHp : DEFAULT_CONFIG.hp.messageWhenZeroHp,
   }
 

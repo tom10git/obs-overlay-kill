@@ -254,6 +254,7 @@ export function OverlayPage() {
     id: number
     name: string
     largeBandTypography?: boolean
+    rouletteBandFontScalePercent?: number
   } | null>(null)
   const rouletteBonusLockRef = useRef(false)
   /** スピン終了コールバックで最新のルーレット state を参照する（HP0 effect との競合回避にも使う） */
@@ -1179,13 +1180,16 @@ export function OverlayPage() {
     (name: string, opts?: { largeBandTypography?: boolean }) => {
       const trimmed = name.trim()
       if (!trimmed) return
+      const scale = config?.hp.rouletteBandTechniqueFontScalePercent ?? 100
       setTechniqueEffectBurst({
         id: Date.now(),
         name: trimmed,
-        ...(opts?.largeBandTypography ? { largeBandTypography: true } : {}),
+        ...(opts?.largeBandTypography
+          ? { largeBandTypography: true, rouletteBandFontScalePercent: scale }
+          : {}),
       })
     },
-    []
+    [config?.hp.rouletteBandTechniqueFontScalePercent]
   )
 
   useEffect(() => {
@@ -1416,37 +1420,19 @@ export function OverlayPage() {
         }
       }
 
-      // HP0のときはダメージは入らずオーバーキル演出のみ（ミスは通常どおり）
-      if (currentHP <= 0) {
-        let shouldDamage = true
-        if (config.attack.missEnabled) {
-          const missRoll = Math.random() * 100
-          if (missRoll < config.attack.missProbability) {
-            shouldDamage = false
-          }
-        }
-        if (shouldDamage) {
-          applyStreamerOverkillHit(event, false)
-        } else {
-          showMiss(config.animation.duration)
-          triggerDodgeEffect(600)
-          if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.dodgeMoveEnabled) {
-            const eff = config.obsWebSocket.effects
-            void tryObsEffect('streamer overkill dodge: move', () =>
-              obsMoveSource(config.obsWebSocket, eff.dodgeMoveDistancePx, eff.dodgeMoveDurationMs)
-            )
-          }
-          if (config.attack.missSoundEnabled) {
-            playMissSound()
-          }
-        }
+      // 実HPは ref で参照（連続引き換えで currentHP クロージャが遅れるとミス／回避が出るのを防ぐ）
+      const streamerHpNow = hpCurrentSyncRef.current
+
+      // HP0のときはダメージは入らずオーバーキル演出のみ（ミス・回避は発生させない）
+      if (streamerHpNow <= 0) {
+        applyStreamerOverkillHit(event, false)
         return
       }
 
       if (isRewardIdMatch || isCustomTextMatch || isViewerAttackCommandMatch) {
-        // ミス判定
+        // ミス判定（HP0は上で除外済み。ここでも ref を見て二重にガード）
         let shouldDamage = true
-        if (config.attack.missEnabled) {
+        if (hpCurrentSyncRef.current > 0 && config.attack.missEnabled) {
           const missRoll = Math.random() * 100
           if (missRoll < config.attack.missProbability) {
             shouldDamage = false
@@ -1492,7 +1478,7 @@ export function OverlayPage() {
             if (finishingMoveRoll < threshold) {
               isFinishingMove = true
               // 必殺技ダメージ: 現在のHPの1/2（最低1）
-              const finishingDamage = Math.max(1, Math.floor(currentHP / 2))
+              const finishingDamage = Math.max(1, Math.floor(streamerHpNow / 2))
               baseDamage = finishingDamage
               // 必殺技エフェクトを発動
               showFinishingMoveEffect()
@@ -1519,7 +1505,7 @@ export function OverlayPage() {
             }
           }
           // ダメージ適用後のHPを計算（反転回復を判定するため）
-          const hpAfterDamage = Math.max(0, currentHP - finalDamage)
+          const hpAfterDamage = Math.max(0, streamerHpNow - finalDamage)
           reduceHPTracked(finalDamage)
           // OBS WebSocket: ダメージ演出（ソースレイヤー操作）
           if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
@@ -1728,8 +1714,8 @@ export function OverlayPage() {
             const durationMs = config.animation?.duration ?? 500
             streamerHealOnAttackTimerRef.current = window.setTimeout(() => {
               streamerHealOnAttackTimerRef.current = null
-              // タイマー実行時にもHPが0以上かチェック（念のため）
-              if (currentHP > 0) {
+              // タイマー実行時にもHPが0より大きいかチェック（クロージャではなく ref）
+              if (hpCurrentSyncRef.current > 0) {
                 setDamageEffectActive(false)
                 increaseHP(reverseHealAmount)
 
@@ -1747,7 +1733,10 @@ export function OverlayPage() {
             }, durationMs)
           }
         } else {
-          // MISSアニメーション表示
+          // MISS（stale な currentHP でここに来た場合など）: 実HP0なら回避演出も PvP 反撃も行わない
+          if (hpCurrentSyncRef.current <= 0) {
+            return
+          }
           showMiss(config.animation.duration)
           // 回避時: 外部ウィンドウ・WebMを左右に少し動かして戻す
           triggerDodgeEffect(600)
@@ -1767,7 +1756,28 @@ export function OverlayPage() {
         runPvpCounterAfterAttack(event)
       }
     },
-    [config, currentHP, reduceHPTracked, increaseHP, showHealEffect, showMiss, showFinishingMoveEffect, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, sendAutoReply, tryObsEffect, user?.id, applyViewerDamage, runPvpCounterAfterAttack, applyStreamerOverkillHit]
+    [
+      config,
+      hpCurrentSyncRef,
+      reduceHPTracked,
+      increaseHP,
+      showHealEffect,
+      showMiss,
+      showFinishingMoveEffect,
+      triggerDodgeEffect,
+      playMissSound,
+      playHealSound,
+      playAttackSound,
+      playBleedSound,
+      playDotPoisonSound,
+      playDotBurnSound,
+      sendAutoReply,
+      tryObsEffect,
+      user?.id,
+      applyViewerDamage,
+      runPvpCounterAfterAttack,
+      applyStreamerOverkillHit,
+    ]
   )
 
   // 回復イベントハンドラ（チャンネルポイント・カスタムテキスト用。event に userId/userName があれば {username} に使用）
@@ -1971,39 +1981,19 @@ export function OverlayPage() {
       sourceName: config.obsWebSocket.sourceName,
       effects: config.obsWebSocket.effects,
     })
-    // HP0のときはオーバーキル演出のみ（連打は止める）
-    if (currentHP <= 0) {
+    const testStreamerHp = hpCurrentSyncRef.current
+    // HP0のときはオーバーキル演出のみ（連打は止める・ミス・回避は発生させない）
+    if (testStreamerHp <= 0) {
       stopRepeat()
       if (!config.attack.testPanelSimulation.overkillOnZeroHp) {
         return
       }
-      let okShouldDamage = true
-      if (config.attack.missEnabled) {
-        const missRoll = Math.random() * 100
-        if (missRoll < config.attack.missProbability) {
-          okShouldDamage = false
-        }
-      }
-      if (okShouldDamage) {
-        applyStreamerOverkillHit({ userId: 'test-user', userName: 'TestUser' }, true)
-      } else {
-        showMiss(config.animation.duration)
-        triggerDodgeEffect(600)
-        if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.dodgeMoveEnabled) {
-          const eff = config.obsWebSocket.effects
-          void tryObsEffect('test overkill dodge: move', () =>
-            obsMoveSource(config.obsWebSocket, eff.dodgeMoveDistancePx, eff.dodgeMoveDurationMs)
-          )
-        }
-        if (config.attack.missSoundEnabled) {
-          playMissSound()
-        }
-      }
+      applyStreamerOverkillHit({ userId: 'test-user', userName: 'TestUser' }, true)
       return
     }
-    // ミス判定
+    // ミス判定（実HPは ref）
     let shouldDamage = true
-    if (config.attack.missEnabled) {
+    if (hpCurrentSyncRef.current > 0 && config.attack.missEnabled) {
       const missRoll = Math.random() * 100
       if (missRoll < config.attack.missProbability) {
         shouldDamage = false
@@ -2029,7 +2019,7 @@ export function OverlayPage() {
         if (finishingMoveRoll < threshold) {
           isFinishingMove = true
           // 必殺技ダメージ: 現在のHPの1/2（最低1）
-          baseDamage = Math.max(1, Math.floor(currentHP / 2))
+          baseDamage = Math.max(1, Math.floor(testStreamerHp / 2))
           // 必殺技エフェクトを発動
           showFinishingMoveEffect()
         }
@@ -2060,7 +2050,7 @@ export function OverlayPage() {
         }
       }
       // ダメージ適用後のHPを計算（反転回復を判定するため）
-      const hpAfterDamage = Math.max(0, currentHP - finalDamage)
+      const hpAfterDamage = Math.max(0, testStreamerHp - finalDamage)
       reduceHPTracked(finalDamage)
       // OBS WebSocket: ダメージ演出（本番の handleAttackEvent と同じ条件）
       if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
@@ -2273,8 +2263,7 @@ export function OverlayPage() {
         const durationMs = config.animation?.duration ?? 500
         streamerHealOnAttackTimerRef.current = window.setTimeout(() => {
           streamerHealOnAttackTimerRef.current = null
-          // タイマー実行時にもHPが0以上かチェック（念のため）
-          if (currentHP > 0) {
+          if (hpCurrentSyncRef.current > 0) {
             setDamageEffectActive(false)
             increaseHP(reverseHealAmount)
 
@@ -2292,6 +2281,9 @@ export function OverlayPage() {
         }, durationMs)
       }
     } else {
+      if (hpCurrentSyncRef.current <= 0) {
+        return
+      }
       // ミス時
       showMiss(config.animation.duration)
       // 回避時: 外部ウィンドウ・WebMを左右に少し動かして戻す
@@ -2307,7 +2299,27 @@ export function OverlayPage() {
         playMissSound()
       }
     }
-  }, [config, isTestMode, currentHP, reduceHPTracked, increaseHP, showHealEffect, showMiss, showCritical, triggerDodgeEffect, playMissSound, playHealSound, playAttackSound, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, stopRepeat, tryObsEffect, applyStreamerOverkillHit])
+  }, [
+    config,
+    isTestMode,
+    hpCurrentSyncRef,
+    reduceHPTracked,
+    increaseHP,
+    showHealEffect,
+    showMiss,
+    showCritical,
+    triggerDodgeEffect,
+    playMissSound,
+    playHealSound,
+    playAttackSound,
+    playBleedSound,
+    playDotPoisonSound,
+    playDotBurnSound,
+    showFinishingMoveEffect,
+    stopRepeat,
+    tryObsEffect,
+    applyStreamerOverkillHit,
+  ])
 
   const handleTestFinishingMove = useCallback(() => {
     if (!config || !isTestMode) return
@@ -2317,7 +2329,7 @@ export function OverlayPage() {
       effects: config.obsWebSocket.effects,
     })
     // HPが0以下の場合は何もしない
-    if (currentHP <= 0) {
+    if (hpCurrentSyncRef.current <= 0) {
       stopRepeat()
       return
     }
@@ -2327,8 +2339,9 @@ export function OverlayPage() {
     }
 
     // 必殺技ダメージ: 現在のHPの1/2（最低1）
-    const finishingDamage = Math.max(1, Math.floor(currentHP / 2))
-    logger.debug(`[テストモード] 必殺技を確定発動しました（現在HP=${currentHP} => ダメージ=${finishingDamage}）`)
+    const fmHp = hpCurrentSyncRef.current
+    const finishingDamage = Math.max(1, Math.floor(fmHp / 2))
+    logger.debug(`[テストモード] 必殺技を確定発動しました（現在HP=${fmHp} => ダメージ=${finishingDamage}）`)
 
     // 必殺技エフェクトを発動
     showFinishingMoveEffect()
@@ -2425,7 +2438,20 @@ export function OverlayPage() {
       })
       sendAutoReply(msg, '[PvP] 必殺技メッセージ送信失敗')
     }
-  }, [config, isTestMode, currentHP, reduceHPTracked, playBleedSound, playDotPoisonSound, playDotBurnSound, showFinishingMoveEffect, sendAutoReply, stopRepeat, username, tryObsEffect])
+  }, [
+    config,
+    isTestMode,
+    hpCurrentSyncRef,
+    reduceHPTracked,
+    playBleedSound,
+    playDotPoisonSound,
+    playDotBurnSound,
+    showFinishingMoveEffect,
+    sendAutoReply,
+    stopRepeat,
+    username,
+    tryObsEffect,
+  ])
 
   const handleTestHeal = useCallback(() => {
     if (!config || !isTestMode) return
@@ -3517,6 +3543,11 @@ export function OverlayPage() {
             techniqueName={techniqueEffectBurst.name}
             fillGaugeBand
             largeBandTypography={techniqueEffectBurst.largeBandTypography === true}
+            rouletteBandFontScalePercent={
+              techniqueEffectBurst.rouletteBandFontScalePercent ??
+              config?.hp.rouletteBandTechniqueFontScalePercent ??
+              100
+            }
           />
         </HpGaugeTopBand>
       )}
@@ -3574,6 +3605,8 @@ export function OverlayPage() {
           hpX={config.hp.x}
           hpY={config.hp.y}
           hpHeight={config.hp.height}
+          positionOffsetX={config?.hp.rouletteOffsetX ?? 0}
+          positionOffsetY={config?.hp.rouletteOffsetY ?? 0}
           hitShakeActive={damageEffectActive}
           dodgeSlideActive={gaugeDodgeActive}
           dodgeSlideDirection={gaugeDodgeDirection}

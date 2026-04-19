@@ -10,6 +10,15 @@ export interface HPConfig {
   y: number // 位置Y（px、中央からのオフセット）
   width: number // ゲージの幅（px）
   height: number // ゲージの高さ（px）
+  /**
+   * 追加攻撃ルーレット成功時、HPゲージ帯に出す技名テキストの相対サイズ（50〜200、100＝既定の見た目）
+   */
+  rouletteBandTechniqueFontScalePercent: number
+  /**
+   * 追加攻撃ルーレットパネルの表示位置オフセット（px）。ゲージ追従の基準に加算（Xは画面中央基準で右が正、Yは下が正）
+   */
+  rouletteOffsetX: number
+  rouletteOffsetY: number
   /** 配信者HPが0になったときにチャットへ送る自動返信メッセージ。{attacker} で攻撃した視聴者名に置換（空なら送信しない） */
   messageWhenZeroHp: string
 }

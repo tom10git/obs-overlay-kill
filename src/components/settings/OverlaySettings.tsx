@@ -136,7 +136,7 @@ export const OverlaySettings = forwardRef<
     heal: false,
     retry: false,
     pvp: false,
-    /** アニメーション・HP表示・ゲージ色・ダメージ色 */
+    /** 背景・アニメ・ゲージ装飾・数値の色（レイアウト数値は「配信者HP…」） */
     visual: false,
     /** HP0時の画像・効果音・WebM */
     hpZero: false,
@@ -508,10 +508,14 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.hp ? "▼" : "▶"}
               </span>
-              HP設定
+              配信者HP・ゲージのレイアウト
             </h3>
             {expandedSections.hp && (
               <div className="settings-section-content">
+                <p className="settings-section-intro">
+                  配信者の<strong>最大HP・現在HP・ゲージ本数</strong>、ゲージの<strong>位置・サイズ</strong>、追加攻撃ルーレットの<strong>見た目</strong>（ゲージ上の技名の大きさ・パネル位置のずれ）です。攻撃のダメージ・ミス・ルーレット抽選のON/OFFは<strong>「攻撃・ダメージ・リワード」</strong>にあります。
+                </p>
+                <h4 className="settings-subsection-title">HPの数値・ゲージ本数</h4>
                 <div className="settings-row">
                   <label>
                     最大HP:
@@ -645,9 +649,7 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
-                <h4 className="settings-subsection-title">
-                  HPゲージの表示位置
-                </h4>
+                <h4 className="settings-subsection-title">ゲージの位置（画面中央基準）</h4>
                 <div className="settings-row">
                   <label>
                     位置X（px）:
@@ -740,6 +742,247 @@ export const OverlaySettings = forwardRef<
                   画面中央を基準としたオフセットです（右・下が正）。オーバーレイ全体の中央に合わせてゲージを置く場合は
                   0 / 0 です。
                 </p>
+                <h4 className="settings-subsection-title">ゲージの幅・高さ（px）</h4>
+                <div className="settings-row">
+                  <label>
+                    幅（px）:
+                    <input
+                      type="text"
+                      value={inputValues["hp.width"] ?? String(config.hp.width)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "hp.width": e.target.value,
+                        }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === "" || Number.isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, width: 800 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next["hp.width"]
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value, 10)
+                          if (!Number.isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: {
+                                ...config.hp,
+                                width: Math.min(8000, Math.max(40, num)),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next["hp.width"]
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    高さ（px）:
+                    <input
+                      type="text"
+                      value={inputValues["hp.height"] ?? String(config.hp.height)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "hp.height": e.target.value,
+                        }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === "" || Number.isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, height: 60 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next["hp.height"]
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value, 10)
+                          if (!Number.isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: {
+                                ...config.hp,
+                                height: Math.min(800, Math.max(12, num)),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next["hp.height"]
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  ゲージ枠全体の横幅・縦幅です。合わせ技・ルーレットなどゲージ周りの表示もこの幅に合わせて調整されます。
+                </p>
+                <h4 className="settings-subsection-title">追加攻撃ルーレット（見た目・ゲージ周り）</h4>
+                <p className="settings-hint" style={{ marginTop: 0 }}>
+                  ルーレットの<strong>抽選（表示確率・成功確率）</strong>は、下の<strong>「攻撃・ダメージ・リワード」</strong>内「追加攻撃ルーレット（オーバーレイからの攻撃のみ）」です。
+                </p>
+                <div className="settings-row">
+                  <label>
+                    技名テキストのサイズ（%）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["hp.rouletteBandTechniqueFontScalePercent"] ??
+                        String(config.hp.rouletteBandTechniqueFontScalePercent)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "hp.rouletteBandTechniqueFontScalePercent": e.target.value,
+                        }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === "" || Number.isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, rouletteBandTechniqueFontScalePercent: 100 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next["hp.rouletteBandTechniqueFontScalePercent"]
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value, 10)
+                          if (!Number.isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: {
+                                ...config.hp,
+                                rouletteBandTechniqueFontScalePercent: Math.min(200, Math.max(50, num)),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next["hp.rouletteBandTechniqueFontScalePercent"]
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  ルーレット成功時にHPゲージ帯へ重ねる技名の大きさです。100が既定、大きくすると読みやすくなります。
+                </p>
+                <div className="settings-row">
+                  <label>
+                    ルーレット表示位置 X（px）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={inputValues["hp.rouletteOffsetX"] ?? String(config.hp.rouletteOffsetX)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "hp.rouletteOffsetX": e.target.value,
+                        }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === "" || Number.isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, rouletteOffsetX: 0 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next["hp.rouletteOffsetX"]
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value, 10)
+                          if (!Number.isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: {
+                                ...config.hp,
+                                rouletteOffsetX: Math.min(10000, Math.max(-10000, num)),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next["hp.rouletteOffsetX"]
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    ルーレット表示位置 Y（px）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={inputValues["hp.rouletteOffsetY"] ?? String(config.hp.rouletteOffsetY)}
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "hp.rouletteOffsetY": e.target.value,
+                        }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === "" || Number.isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, rouletteOffsetY: 0 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next["hp.rouletteOffsetY"]
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value, 10)
+                          if (!Number.isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: {
+                                ...config.hp,
+                                rouletteOffsetY: Math.min(10000, Math.max(-10000, num)),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next["hp.rouletteOffsetY"]
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  追加攻撃ルーレットのパネル位置です。HPゲージの位置（位置X/Y）に追従したあと、ここで指定した分だけずらします（Xは右が正、Yは下が正）。
+                </p>
               </div>
             )}
           </div>
@@ -752,10 +995,13 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.attack ? "▼" : "▶"}
               </span>
-              攻撃設定
+              攻撃・ダメージ・リワード
             </h3>
             {expandedSections.attack && (
               <div className="settings-section-content">
+                <p className="settings-section-intro">
+                  チャンネルポイント<strong>攻撃リワード</strong>のID・ダメージ・ミス／クリティカル・出血・DOT、および<strong>オーバーレイからの攻撃</strong>用のオーバーキル／合わせ技チャンス／追加ルーレット抽選です（視聴者リワードの合わせ技入力ルールもここに含みます）。ゲージの位置やルーレットの文字サイズは<strong>「配信者HP・ゲージのレイアウト」</strong>です。
+                </p>
                 <div className="settings-row">
                   <label>
                     リワードID:
@@ -1916,9 +2162,9 @@ export const OverlaySettings = forwardRef<
                     攻撃時のフィルターエフェクトを有効にする
                   </label>
                 </div>
-                <h4 className="settings-subsection-title">合わせ技チャレンジ</h4>
+                <h4 className="settings-subsection-title">合わせ技（入力ルール・視聴者リワードと共通）</h4>
                 <p className="settings-hint">
-                  ヒット後の入力チャレンジの制限時間と、目標文字列の先頭に付く接頭辞です。視聴者リワードの攻撃でも同じ設定が使われます。有効・無効はオーバーレイ右下のコントロールからも切り替えられます。
+                  ヒット後の入力チャレンジの<strong>制限時間</strong>と、目標文字列の<strong>先頭接頭辞</strong>です。チャンネルポイントの攻撃でも同じルールが使われます。チャレンジのON/OFFはオーバーレイ右下のコントロールからも切り替えられます。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -2004,9 +2250,9 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
-                <h4 className="settings-subsection-title">オーバーキルモード</h4>
+                <h4 className="settings-subsection-title">オーバーキル（配信者HP0・オーバーレイ経路）</h4>
                 <p className="settings-hint">
-                  配信者HPが0の状態で、チャンネルポイントを経由しないオーバーレイからの攻撃を受けたときの演出です。視聴者リワードによる攻撃には影響しません。
+                  配信者HPが0のとき、<strong>チャンネルポイントを経由しないオーバーレイからの攻撃</strong>を受けた場合の演出です。視聴者リワードの攻撃には影響しません。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -2029,9 +2275,9 @@ export const OverlaySettings = forwardRef<
                     HP0のとき、オーバーレイからの攻撃でオーバーキル演出を行う
                   </label>
                 </div>
-                <h4 className="settings-subsection-title">合わせ技</h4>
+                <h4 className="settings-subsection-title">合わせ技チャンス（オーバーレイからの攻撃のみ）</h4>
                 <p className="settings-hint">
-                  オーバーレイからの攻撃が命中したあとに、合わせ技チャンスを抽選するかと確率です。オーバーレイ上の合わせ技チャレンジのON/OFFや、リワード攻撃ヒット時の抽選とは別に効きます。
+                  <strong>オーバーレイからの攻撃</strong>が命中したあとに、上記の合わせ技入力チャレンジを抽選するかと確率です。リワード攻撃ヒット時の抽選とは別です。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -2113,11 +2359,9 @@ export const OverlaySettings = forwardRef<
                     </label>
                   )}
                 </div>
-                <h4 className="settings-subsection-title">
-                  通常攻撃時に追加ルーレット
-                </h4>
+                <h4 className="settings-subsection-title">追加攻撃ルーレット（オーバーレイからの攻撃のみ）</h4>
                 <p className="settings-hint">
-                  オーバーレイからの攻撃が命中したあとの追加攻撃ルーレットです。リワード攻撃ヒット時のルーレット抽選とは別の確率です。
+                  <strong>オーバーレイからの攻撃</strong>が命中したあとの追加ルーレット抽選です。リワード攻撃ヒット時のルーレットとは別の確率です。パネルや技名の見た目は<strong>「配信者HP・ゲージのレイアウト」</strong>です。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -2366,10 +2610,13 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.heal ? "▼" : "▶"}
               </span>
-              回復設定
+              回復（チャンネルポイント）
             </h3>
             {expandedSections.heal && (
               <div className="settings-section-content">
+                <p className="settings-section-intro">
+                  回復用<strong>チャンネルポイントリワード</strong>と回復量・ランダム幅、回復時の演出・フィルターです。攻撃とは別のリワードIDになります。
+                </p>
                 <div className="settings-row">
                   <label>
                     リワードID:
@@ -2725,10 +2972,13 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.retry ? "▼" : "▶"}
               </span>
-              リトライ設定
+              リトライ（チャット・蘇生）
             </h3>
             {expandedSections.retry && (
               <div className="settings-section-content">
+                <p className="settings-section-intro">
+                  チャット<strong>コマンド</strong>で配信者HPを最大まで戻す挙動と、メッセージ・効果の設定です。攻撃／回復リワードとは別系統です。
+                </p>
                 <div className="settings-row">
                   <label>
                     リトライコマンド（HPが最大未満のとき最大まで回復）:
@@ -3008,10 +3258,13 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.visual ? "▼" : "▶"}
               </span>
-              表示・アニメーション・色
+              見た目・背景・ゲージ装飾
             </h3>
             {expandedSections.visual && (
               <div className="settings-section-content">
+                <p className="settings-section-intro">
+                  オーバーレイ全体の<strong>背景</strong>、被ダメージ等の<strong>アニメーション時間</strong>、ゲージの<strong>形状・色・数値の色</strong>です。配信者の<strong>HP数値そのもの</strong>やゲージの画面上の位置・サイズは<strong>「配信者HP・ゲージのレイアウト」</strong>です。
+                </p>
                 <h4 className="settings-subsection-title">アニメーション</h4>
                 <div className="settings-row">
                   <label>
@@ -3173,7 +3426,7 @@ export const OverlaySettings = forwardRef<
                     </label>
                   </div>
                 )}
-                <h4 className="settings-subsection-title">HP表示</h4>
+                <h4 className="settings-subsection-title">ゲージ上の数字とラベル</h4>
                 <div className="settings-row">
                   <label>
                     <input
@@ -3860,10 +4113,13 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.hpZero ? "▼" : "▶"}
               </span>
-              HPが0のときの演出
+              配信者HP0のときの演出
             </h3>
             {expandedSections.hpZero && (
               <div className="settings-section-content">
+                <p className="settings-section-intro">
+                  配信者HPが<strong>0になった瞬間</strong>に重ねる画像・WebM・効果音です。ゲージの通常デザインは<strong>「見た目・背景・ゲージ装飾」</strong>です。
+                </p>
                 <h4 className="settings-subsection-title">画像</h4>
                 <div className="settings-row">
                   <label>
@@ -4099,10 +4355,13 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.obsCapture ? "▼" : "▶"}
               </span>
-              OBS キャプチャの目安表示
+              OBS ブラウザソースの切り取り目安
             </h3>
             {expandedSections.obsCapture && (
               <div className="settings-section-content">
+                <p className="settings-section-intro">
+                  OBS にブラウザソースを置くときの<strong>解像度・余白の目安</strong>表示です。ゲームの挙動には影響しません。
+                </p>
                 <div className="settings-row">
                   <label>
                     <input

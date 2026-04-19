@@ -65,14 +65,22 @@
   letter-spacing: 0.08em;
 }
 
-/* ルーレット追加攻撃など — ゲージ帯のまま技名を読みやすいサイズに */
+/* ルーレット追加攻撃など — ゲージ帯のまま技名を読みやすいサイズに（--tefx-roulette-band-font-scale は設定の %） */
 .tefx.tefx--fill-gauge-band.tefx--fill-gauge-band-large-type .tefx__name {
-  font-size: clamp(0.82rem, min(22cqh, 5.2cqw), 1.42rem);
+  font-size: clamp(
+    calc(0.82rem * var(--tefx-roulette-band-font-scale, 1)),
+    min(calc(22cqh * var(--tefx-roulette-band-font-scale, 1)), calc(5.2cqw * var(--tefx-roulette-band-font-scale, 1))),
+    calc(1.42rem * var(--tefx-roulette-band-font-scale, 1))
+  );
   letter-spacing: 0.1em;
 }
 
 .tefx.tefx--fill-gauge-band.tefx--fill-gauge-band-large-type .tefx__phantom-echo {
-  font-size: clamp(0.82rem, min(22cqh, 5.2cqw), 1.42rem);
+  font-size: clamp(
+    calc(0.82rem * var(--tefx-roulette-band-font-scale, 1)),
+    min(calc(22cqh * var(--tefx-roulette-band-font-scale, 1)), calc(5.2cqw * var(--tefx-roulette-band-font-scale, 1))),
+    calc(1.42rem * var(--tefx-roulette-band-font-scale, 1))
+  );
   letter-spacing: 0.1em;
 }
 
