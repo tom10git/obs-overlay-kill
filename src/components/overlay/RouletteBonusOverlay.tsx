@@ -18,6 +18,8 @@ export interface RouletteBonusOverlayProps {
   names: readonly string[]
   /** 成功時のみ：停止マスに合わせる技名 */
   landedName: string
+  /** 成功時：names 内の停止行インデックス（landedName と同一抽選で渡すこと） */
+  landIndex: number
   success: boolean
   gaugeWidthPx: number
   /** HPゲージと同じ config.hp（位置追従） */
@@ -40,6 +42,7 @@ export interface RouletteBonusOverlayProps {
 export function RouletteBonusOverlay({
   names,
   landedName,
+  landIndex: landIndexProp,
   success,
   gaugeWidthPx,
   hpX,
@@ -57,14 +60,13 @@ export function RouletteBonusOverlay({
   const spinDoneRef = useRef(false)
   const safeW = Math.max(120, gaugeWidthPx)
 
-  const landIndex = Math.max(0, names.indexOf(landedName))
-
   const { strip, startIdx, endIdx } = useMemo(() => {
     const n = names.length
     const failLabel = ROULETTE_STRIP_FAIL_LABEL
     if (n < 1) {
       return { strip: ['—', failLabel] as string[], startIdx: 0, endIdx: 1 }
     }
+    const successLandIndex = Math.max(0, Math.min(n - 1, Math.floor(landIndexProp)))
     // 各サイクル: 技名… + 最後に「失敗」マス（成功時は技名に止まり、失敗時は「失敗」に止まる）
     const cycle = [...names, failLabel]
     const cycleLen = cycle.length
@@ -74,11 +76,11 @@ export function RouletteBonusOverlay({
       stripArr.push(...cycle)
     }
     const targetCycle = cycles - 3
-    const end = success ? targetCycle * cycleLen + landIndex : targetCycle * cycleLen + n
+    const end = success ? targetCycle * cycleLen + successLandIndex : targetCycle * cycleLen + n
     const back = 10 + Math.floor(Math.random() * 6)
     const start = Math.max(0, Math.min(end - 1, end - back))
     return { strip: stripArr, startIdx: start, endIdx: end }
-  }, [names, landIndex, success])
+  }, [names, landIndexProp, success])
 
   const rowH = ROULETTE_BONUS_ROW_HEIGHT_PX
   const viewportH = ROULETTE_BONUS_VIEWPORT_HEIGHT_PX

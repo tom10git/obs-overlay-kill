@@ -26,6 +26,7 @@ import {
   pickRandomComboTechniqueName,
 } from '../constants/comboTechnique'
 import {
+  pickRouletteStripSkill,
   ROULETTE_BONUS_SUCCESS_PROBABILITY,
   ROULETTE_BONUS_TRIGGER_PROBABILITY,
 } from '../constants/rouletteBonus'
@@ -244,6 +245,8 @@ export function OverlayPage() {
     id: number
     success: boolean
     landedName: string
+    /** 成功時: COMBO_TECHNIQUE_NAMES 内の停止インデックス（演出・追加攻撃の技名と一致） */
+    landIndex: number
     attackerUserId: string
   }
   const [rouletteBonus, setRouletteBonus] = useState<RouletteBonusState | null>(null)
@@ -1583,11 +1586,12 @@ export function OverlayPage() {
           ) {
             rouletteBonusLockRef.current = true
             const rbSuccess = Math.random() < ROULETTE_BONUS_SUCCESS_PROBABILITY
-            const landedName = pickRandomComboTechniqueName()
+            const { landedName, landIndex } = pickRouletteStripSkill(COMBO_TECHNIQUE_NAMES)
             setRouletteBonus({
               id: Date.now(),
               success: rbSuccess,
               landedName,
+              landIndex,
               attackerUserId,
             })
           }
@@ -2124,11 +2128,12 @@ export function OverlayPage() {
         rouletteBonusLockRef.current = true
         const rbSuccess =
           Math.random() * 100 < config.attack.testPanelSimulation.rouletteSuccessPercent
-        const landedName = pickRandomComboTechniqueName()
+        const { landedName, landIndex } = pickRouletteStripSkill(COMBO_TECHNIQUE_NAMES)
         setRouletteBonus({
           id: Date.now(),
           success: rbSuccess,
           landedName,
+          landIndex,
           attackerUserId: 'test-user',
         })
       }
@@ -3563,6 +3568,7 @@ export function OverlayPage() {
           key={rouletteBonus.id}
           names={COMBO_TECHNIQUE_NAMES}
           landedName={rouletteBonus.landedName}
+          landIndex={rouletteBonus.landIndex}
           success={rouletteBonus.success}
           gaugeWidthPx={config.hp.width}
           hpX={config.hp.x}

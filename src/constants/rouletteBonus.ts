@@ -28,3 +28,18 @@ export const ROULETTE_STRIP_FAIL_LABEL = '失敗'
 
 /** HPゲージフレーム上端とルーレット下端のあいだ（px）。config.hp の位置に追従 */
 export const ROULETTE_BONUS_GAP_ABOVE_GAUGE_PX = HP_GAUGE_TOP_BAND_GAP_PX
+
+/**
+ * ルーレット成功時の「止まるマス」と表示・追加攻撃の技名を一致させるため、
+ * インデックスから技名を取る（indexOf に頼らない）。
+ */
+export function pickRouletteStripSkill(
+  names: readonly string[]
+): { landedName: string; landIndex: number } {
+  const n = names.length
+  if (n < 1) {
+    return { landedName: '', landIndex: 0 }
+  }
+  const landIndex = Math.floor(Math.random() * n)
+  return { landedName: names[landIndex] ?? names[0]!, landIndex }
+}
