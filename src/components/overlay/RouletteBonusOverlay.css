@@ -46,7 +46,7 @@
 }
 
 .roulette-bonus-title__tag {
-  font-size: 0.5rem;
+  font-size: calc(0.5rem * var(--roulette-panel-font-scale, 1));
   font-weight: 800;
   letter-spacing: 0.2em;
   padding: 0.12rem 0.28rem;
@@ -58,7 +58,11 @@
 }
 
 .roulette-bonus-title__label {
-  font-size: clamp(0.58rem, 2.8cqw, 0.72rem);
+  font-size: clamp(
+    calc(0.58rem * var(--roulette-panel-font-scale, 1)),
+    calc(2.8cqw * var(--roulette-panel-font-scale, 1)),
+    calc(0.72rem * var(--roulette-panel-font-scale, 1))
+  );
   font-weight: 700;
   letter-spacing: 0.14em;
   color: rgba(235, 238, 255, 0.72);
@@ -123,7 +127,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(0.72rem, 3.6cqw, 0.88rem);
+  font-size: clamp(
+    calc(0.72rem * var(--roulette-panel-font-scale, 1)),
+    calc(3.6cqw * var(--roulette-panel-font-scale, 1)),
+    calc(0.88rem * var(--roulette-panel-font-scale, 1))
+  );
   font-weight: 700;
   letter-spacing: 0.06em;
   color: rgba(170, 178, 210, 0.42);
@@ -160,7 +168,11 @@
 
 .roulette-bonus-result__pill {
   flex: 0 0 auto;
-  font-size: clamp(0.62rem, 2.9cqw, 0.75rem);
+  font-size: clamp(
+    calc(0.62rem * var(--roulette-panel-font-scale, 1)),
+    calc(2.9cqw * var(--roulette-panel-font-scale, 1)),
+    calc(0.75rem * var(--roulette-panel-font-scale, 1))
+  );
   font-weight: 800;
   letter-spacing: 0.12em;
   padding: 0.1rem 0.38rem;
@@ -183,11 +195,15 @@
 .roulette-bonus-result__sep {
   color: rgba(255, 255, 255, 0.22);
   font-weight: 300;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--roulette-panel-font-scale, 1));
 }
 
 .roulette-bonus-result__skill {
-  font-size: clamp(0.68rem, 3.2cqw, 0.82rem);
+  font-size: clamp(
+    calc(0.68rem * var(--roulette-panel-font-scale, 1)),
+    calc(3.2cqw * var(--roulette-panel-font-scale, 1)),
+    calc(0.82rem * var(--roulette-panel-font-scale, 1))
+  );
   font-weight: 800;
   letter-spacing: 0.04em;
   background: linear-gradient(105deg, #fff6e0 0%, #ffd0ec 45%, #c8e8ff 100%);
@@ -199,7 +215,11 @@
 }
 
 .roulette-bonus-result__suffix {
-  font-size: clamp(0.58rem, 2.6cqw, 0.7rem);
+  font-size: clamp(
+    calc(0.58rem * var(--roulette-panel-font-scale, 1)),
+    calc(2.6cqw * var(--roulette-panel-font-scale, 1)),
+    calc(0.7rem * var(--roulette-panel-font-scale, 1))
+  );
   font-weight: 700;
   letter-spacing: 0.18em;
   color: rgba(230, 232, 255, 0.55);

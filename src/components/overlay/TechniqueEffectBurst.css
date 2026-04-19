@@ -48,8 +48,16 @@
 
 .tefx--fill-gauge-band .tefx__name {
   padding: 0.1rem 0.35rem;
-  font-size: clamp(0.55rem, 12cqh, 1.05rem);
   letter-spacing: 0.08em;
+}
+
+/* 合わせ技成功など（帯内コンパクト表示）— --tefx-gauge-band-compact-font-scale は攻撃設定の %÷100 */
+.tefx--fill-gauge-band:not(.tefx--fill-gauge-band-large-type) .tefx__name {
+  font-size: clamp(
+    calc(0.55rem * var(--tefx-gauge-band-compact-font-scale, 1)),
+    calc(12cqh * var(--tefx-gauge-band-compact-font-scale, 1)),
+    calc(1.05rem * var(--tefx-gauge-band-compact-font-scale, 1))
+  );
 }
 
 .tefx--fill-gauge-band .tefx__title-stack {
@@ -60,8 +68,12 @@
   padding: 0;
 }
 
-.tefx--fill-gauge-band .tefx__phantom-echo {
-  font-size: clamp(0.55rem, 12cqh, 1.05rem);
+.tefx--fill-gauge-band:not(.tefx--fill-gauge-band-large-type) .tefx__phantom-echo {
+  font-size: clamp(
+    calc(0.55rem * var(--tefx-gauge-band-compact-font-scale, 1)),
+    calc(12cqh * var(--tefx-gauge-band-compact-font-scale, 1)),
+    calc(1.05rem * var(--tefx-gauge-band-compact-font-scale, 1))
+  );
   letter-spacing: 0.08em;
 }
 

@@ -112,6 +112,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     width: 800,
     height: 60,
     rouletteBandTechniqueFontScalePercent: 100,
+    roulettePanelFontScalePercent: 100,
     rouletteOffsetX: 0,
     rouletteOffsetY: 0,
     messageWhenZeroHp: '配信者を {attacker} が倒しました！',
@@ -161,6 +162,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
     comboTechniqueEnabled: true,
     comboTechniqueDurationSec: 30,
     comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+    comboTechniqueResultFontScalePercent: 100,
+    comboTechniqueChallengeFontScalePercent: 100,
     testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
     survivalHp1Enabled: false,
     survivalHp1Probability: 30,
@@ -208,6 +211,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
   display: {
     showMaxHp: true,
     fontSize: 24,
+    damageHealPopupFontScalePercent: 100,
+    overlayBannerFontScalePercent: 100,
     gaugeDesign: 'default',
     gaugeShape: { ...DEFAULT_GAUGE_SHAPE },
   },
@@ -279,6 +284,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueEnabled: true,
       comboTechniqueDurationSec: 30,
       comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+      comboTechniqueResultFontScalePercent: 100,
+      comboTechniqueChallengeFontScalePercent: 100,
       testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
@@ -382,6 +389,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueEnabled: true,
       comboTechniqueDurationSec: 30,
       comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+      comboTechniqueResultFontScalePercent: 100,
+      comboTechniqueChallengeFontScalePercent: 100,
       testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
@@ -734,6 +743,9 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     rouletteBandTechniqueFontScalePercent: isInRange(Number(hpConfig.rouletteBandTechniqueFontScalePercent), 50, 200)
       ? Math.round(Number(hpConfig.rouletteBandTechniqueFontScalePercent) || DEFAULT_CONFIG.hp.rouletteBandTechniqueFontScalePercent)
       : DEFAULT_CONFIG.hp.rouletteBandTechniqueFontScalePercent,
+    roulettePanelFontScalePercent: isInRange(Number(hpConfig.roulettePanelFontScalePercent), 50, 200)
+      ? Math.round(Number(hpConfig.roulettePanelFontScalePercent) || DEFAULT_CONFIG.hp.roulettePanelFontScalePercent)
+      : DEFAULT_CONFIG.hp.roulettePanelFontScalePercent,
     rouletteOffsetX: isInRange(Number(hpConfig.rouletteOffsetX), -10000, 10000)
       ? Number(hpConfig.rouletteOffsetX) || 0
       : DEFAULT_CONFIG.hp.rouletteOffsetX,
@@ -861,6 +873,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       const max = 40
       return s.length > max ? s.slice(0, max) : s
     })(),
+    comboTechniqueResultFontScalePercent: isInRange(Number(attackConfig.comboTechniqueResultFontScalePercent), 50, 200)
+      ? Math.round(Number(attackConfig.comboTechniqueResultFontScalePercent) || DEFAULT_CONFIG.attack.comboTechniqueResultFontScalePercent)
+      : DEFAULT_CONFIG.attack.comboTechniqueResultFontScalePercent,
+    comboTechniqueChallengeFontScalePercent: isInRange(Number(attackConfig.comboTechniqueChallengeFontScalePercent), 50, 200)
+      ? Math.round(Number(attackConfig.comboTechniqueChallengeFontScalePercent) || DEFAULT_CONFIG.attack.comboTechniqueChallengeFontScalePercent)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeFontScalePercent,
     testPanelSimulation: sanitizeTestPanelSimulation(attackConfig.testPanelSimulation, legacyTestForPanelSim),
     survivalHp1Enabled: typeof attackConfig.survivalHp1Enabled === 'boolean' ? attackConfig.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(attackConfig.survivalHp1Probability), 0, 100)
@@ -1015,6 +1033,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     fontSize: isInRange(Number(displayConfig.fontSize), 1, MAX_NUM)
       ? Number(displayConfig.fontSize) || 24
       : 24,
+    damageHealPopupFontScalePercent: isInRange(Number(displayConfig.damageHealPopupFontScalePercent), 50, 200)
+      ? Math.round(Number(displayConfig.damageHealPopupFontScalePercent) || DEFAULT_CONFIG.display.damageHealPopupFontScalePercent)
+      : DEFAULT_CONFIG.display.damageHealPopupFontScalePercent,
+    overlayBannerFontScalePercent: isInRange(Number(displayConfig.overlayBannerFontScalePercent), 50, 200)
+      ? Math.round(Number(displayConfig.overlayBannerFontScalePercent) || DEFAULT_CONFIG.display.overlayBannerFontScalePercent)
+      : DEFAULT_CONFIG.display.overlayBannerFontScalePercent,
     gaugeDesign,
     gaugeShape,
   }
@@ -1331,6 +1355,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       const max = 40
       return s.length > max ? s.slice(0, max) : s
     })(),
+    comboTechniqueResultFontScalePercent: isInRange(Number(sa.comboTechniqueResultFontScalePercent), 50, 200)
+      ? Math.round(Number(sa.comboTechniqueResultFontScalePercent) || DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueResultFontScalePercent)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueResultFontScalePercent,
+    comboTechniqueChallengeFontScalePercent: isInRange(Number(sa.comboTechniqueChallengeFontScalePercent), 50, 200)
+      ? Math.round(Number(sa.comboTechniqueChallengeFontScalePercent) || DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeFontScalePercent)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeFontScalePercent,
     testPanelSimulation: sanitizeTestPanelSimulation(sa.testPanelSimulation, undefined),
     survivalHp1Enabled: typeof sa.survivalHp1Enabled === 'boolean' ? sa.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(sa.survivalHp1Probability), 0, 100) ? Number(sa.survivalHp1Probability) || 30 : 30,
@@ -1397,6 +1427,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       const max = 40
       return s.length > max ? s.slice(0, max) : s
     })(),
+    comboTechniqueResultFontScalePercent: isInRange(Number(vva.comboTechniqueResultFontScalePercent), 50, 200)
+      ? Math.round(Number(vva.comboTechniqueResultFontScalePercent) || DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueResultFontScalePercent)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueResultFontScalePercent,
+    comboTechniqueChallengeFontScalePercent: isInRange(Number(vva.comboTechniqueChallengeFontScalePercent), 50, 200)
+      ? Math.round(Number(vva.comboTechniqueChallengeFontScalePercent) || DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeFontScalePercent)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeFontScalePercent,
     testPanelSimulation: sanitizeTestPanelSimulation(vva.testPanelSimulation, undefined),
     survivalHp1Enabled: typeof vva.survivalHp1Enabled === 'boolean' ? vva.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(vva.survivalHp1Probability), 0, 100) ? Number(vva.survivalHp1Probability) || 30 : 30,

@@ -13,7 +13,11 @@
 
 .combo-technique-prompt__timer {
   margin: 0 0 0.35rem;
-  font-size: clamp(0.78rem, 6.8cqw, 1.12rem);
+  font-size: clamp(
+    calc(0.78rem * var(--combo-challenge-font-scale, 1)),
+    calc(6.8cqw * var(--combo-challenge-font-scale, 1)),
+    calc(1.12rem * var(--combo-challenge-font-scale, 1))
+  );
   font-weight: 700;
   letter-spacing: 0.1em;
   color: rgba(240, 248, 255, 0.92);

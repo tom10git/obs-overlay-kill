@@ -8,7 +8,7 @@
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  font-size: 72px;
+  font-size: calc(72px * var(--damage-popup-font-scale, 1));
   font-weight: 900;
   color: #cc0000;
   text-shadow:
@@ -30,7 +30,7 @@
 }
 
 .damage-number.critical {
-  font-size: 80px;
+  font-size: calc(80px * var(--damage-popup-font-scale, 1));
   color: #cc8800;
   text-shadow:
     0 0 6px rgba(204, 136, 0, 0.9),
@@ -44,7 +44,7 @@
 }
 
 .damage-number.bleed {
-  font-size: 36px;
+  font-size: calc(36px * var(--damage-popup-font-scale, 1));
   color: #ff6666;
   text-shadow:
     2px 2px 4px rgba(0, 0, 0, 0.8),

@@ -892,6 +892,58 @@ export const OverlaySettings = forwardRef<
                 </p>
                 <div className="settings-row">
                   <label>
+                    ルーレットパネルの文字サイズ（50〜200%、100＝既定）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["hp.roulettePanelFontScalePercent"] ??
+                        String(config.hp.roulettePanelFontScalePercent)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "hp.roulettePanelFontScalePercent": e.target.value,
+                        }))
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim()
+                        if (value === "" || Number.isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            hp: { ...config.hp, roulettePanelFontScalePercent: 100 },
+                          })
+                          setInputValues((prev) => {
+                            const next = { ...prev }
+                            delete next["hp.roulettePanelFontScalePercent"]
+                            return next
+                          })
+                        } else {
+                          const num = parseInt(value, 10)
+                          if (!Number.isNaN(num)) {
+                            setConfig({
+                              ...config,
+                              hp: {
+                                ...config.hp,
+                                roulettePanelFontScalePercent: Math.min(200, Math.max(50, num)),
+                              },
+                            })
+                            setInputValues((prev) => {
+                              const next = { ...prev }
+                              delete next["hp.roulettePanelFontScalePercent"]
+                              return next
+                            })
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  スピン中のパネル（タイトル・ストリップ・成功／失敗の一行）全体のスケールです。上の「技名テキスト」は<strong>成功後にゲージ帯へ重ねる大技名</strong>用で別項目です。
+                </p>
+                <div className="settings-row">
+                  <label>
                     ルーレット表示位置 X（px）:
                     <input
                       type="text"
@@ -2165,6 +2217,118 @@ export const OverlaySettings = forwardRef<
                 <h4 className="settings-subsection-title">合わせ技（入力ルール・視聴者リワードと共通）</h4>
                 <p className="settings-hint">
                   ヒット後の入力チャレンジの<strong>制限時間</strong>と、目標文字列の<strong>先頭接頭辞</strong>です。チャンネルポイントの攻撃でも同じルールが使われます。チャレンジのON/OFFはオーバーレイ右下のコントロールからも切り替えられます。
+                </p>
+                <div className="settings-row">
+                  <label>
+                    成功時の技名サイズ（50〜200%、100＝既定）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueResultFontScalePercent"] ??
+                        String(config.attack.comboTechniqueResultFontScalePercent)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueResultFontScalePercent": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueResultFontScalePercent: 100,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueResultFontScalePercent"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          if (!isNaN(num)) {
+                            const clamped = Math.min(200, Math.max(50, num));
+                            setConfig({
+                              ...config,
+                              attack: {
+                                ...config.attack,
+                                comboTechniqueResultFontScalePercent: clamped,
+                              },
+                            });
+                            setInputValues((prev) => {
+                              const next = { ...prev };
+                              delete next["attack.comboTechniqueResultFontScalePercent"];
+                              return next;
+                            });
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  合わせ技入力<strong>成功後</strong>にHPゲージ帯へ重ねる技名の大きさです。追加攻撃ルーレット成功時の技名サイズは<strong>「配信者HP・ゲージのレイアウト」</strong>のルーレット用設定です。
+                </p>
+                <div className="settings-row">
+                  <label>
+                    チャンス表示の文字サイズ（50〜200%、100＝既定）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueChallengeFontScalePercent"] ??
+                        String(config.attack.comboTechniqueChallengeFontScalePercent)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueChallengeFontScalePercent": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeFontScalePercent: 100,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeFontScalePercent"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          if (!isNaN(num)) {
+                            const clamped = Math.min(200, Math.max(50, num));
+                            setConfig({
+                              ...config,
+                              attack: {
+                                ...config.attack,
+                                comboTechniqueChallengeFontScalePercent: clamped,
+                              },
+                            });
+                            setInputValues((prev) => {
+                              const next = { ...prev };
+                              delete next["attack.comboTechniqueChallengeFontScalePercent"];
+                              return next;
+                            });
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  「合わせ技チャンス・残り秒」と、入力する<strong>目標文字</strong>の基準サイズです。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -3488,6 +3652,113 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
+                <div className="settings-row">
+                  <label>
+                    ダメージ／回復の飛び出し数字（50〜200%、100＝既定）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["display.damageHealPopupFontScalePercent"] ??
+                        String(config.display.damageHealPopupFontScalePercent)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "display.damageHealPopupFontScalePercent": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            display: {
+                              ...config.display,
+                              damageHealPopupFontScalePercent: 100,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["display.damageHealPopupFontScalePercent"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          if (!isNaN(num)) {
+                            const clamped = Math.min(200, Math.max(50, num));
+                            setConfig({
+                              ...config,
+                              display: {
+                                ...config.display,
+                                damageHealPopupFontScalePercent: clamped,
+                              },
+                            });
+                            setInputValues((prev) => {
+                              const next = { ...prev };
+                              delete next["display.damageHealPopupFontScalePercent"];
+                              return next;
+                            });
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                  <label>
+                    状態セリフのサイズ（50〜200%、100＝既定）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["display.overlayBannerFontScalePercent"] ??
+                        String(config.display.overlayBannerFontScalePercent)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "display.overlayBannerFontScalePercent": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            display: {
+                              ...config.display,
+                              overlayBannerFontScalePercent: 100,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["display.overlayBannerFontScalePercent"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          if (!isNaN(num)) {
+                            const clamped = Math.min(200, Math.max(50, num));
+                            setConfig({
+                              ...config,
+                              display: {
+                                ...config.display,
+                                overlayBannerFontScalePercent: clamped,
+                              },
+                            });
+                            setInputValues((prev) => {
+                              const next = { ...prev };
+                              delete next["display.overlayBannerFontScalePercent"];
+                              return next;
+                            });
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  飛び出し数字はゲージ中央付近の表示です。状態セリフは<strong>気持ち悪いデバフ</strong>や<strong>オーバーキル</strong>の台詞テキストに効きます。
+                </p>
                 <div className="settings-row">
                   <label>
                     ゲージの形（デザインパターン）:

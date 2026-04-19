@@ -40,6 +40,8 @@ export interface RouletteBonusOverlayProps {
   /** HPゲージと同じ回避スライド */
   dodgeSlideActive?: boolean
   dodgeSlideDirection?: 'left' | 'right'
+  /** パネル全体の文字・行高の相対スケール（50〜200%、既定 100） */
+  panelFontScalePercent?: number
 }
 
 export function RouletteBonusOverlay({
@@ -59,6 +61,7 @@ export function RouletteBonusOverlay({
   hitShakeActive = false,
   dodgeSlideActive = false,
   dodgeSlideDirection = 'left',
+  panelFontScalePercent = 100,
 }: RouletteBonusOverlayProps) {
   const [phase, setPhase] = useState<'spin' | 'result'>('spin')
   const stripRef = useRef<HTMLDivElement>(null)
@@ -87,8 +90,9 @@ export function RouletteBonusOverlay({
     return { strip: stripArr, startIdx: start, endIdx: end }
   }, [names, landIndexProp, success])
 
-  const rowH = ROULETTE_BONUS_ROW_HEIGHT_PX
-  const viewportH = ROULETTE_BONUS_VIEWPORT_HEIGHT_PX
+  const panelScale = Math.min(200, Math.max(50, Math.round(panelFontScalePercent))) / 100
+  const rowH = ROULETTE_BONUS_ROW_HEIGHT_PX * panelScale
+  const viewportH = ROULETTE_BONUS_VIEWPORT_HEIGHT_PX * panelScale
   /** 当たり行をビューポート縦中央に置く（窓が 1.5 行高でも刻みは rowH） */
   const stripYForIndex = (idx: number) => viewportH / 2 - rowH / 2 - idx * rowH
 
@@ -173,6 +177,7 @@ export function RouletteBonusOverlay({
           '--roulette-panel-max': `${panelMaxW}px`,
           '--roulette-row-h': `${rowH}px`,
           '--roulette-viewport-h': `${viewportH}px`,
+          '--roulette-panel-font-scale': String(panelScale),
         } as React.CSSProperties
       }
       aria-live="polite"

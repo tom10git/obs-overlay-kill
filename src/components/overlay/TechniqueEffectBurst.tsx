@@ -17,6 +17,10 @@ export interface TechniqueEffectBurstProps {
   largeBandTypography?: boolean
   /** largeBandTypography 時: 技名の相対スケール（50〜200＝%÷100。既定 100） */
   rouletteBandFontScalePercent?: number
+  /**
+   * fillGaugeBand かつ largeBandTypography でないとき（合わせ技成功の帯表示など）の技名スケール（50〜200%、既定 100）
+   */
+  gaugeBandCompactFontScalePercent?: number
   className?: string
 }
 
@@ -174,17 +178,24 @@ export function TechniqueEffectBurst({
   fillGaugeBand = false,
   largeBandTypography = false,
   rouletteBandFontScalePercent = 100,
+  gaugeBandCompactFontScalePercent = 100,
   className = '',
 }: TechniqueEffectBurstProps) {
   const kind = getTechniqueEffectKind(techniqueName)
   const isPhantom = kind === 'phantom'
   const bandLarge =
     fillGaugeBand && largeBandTypography ? ' tefx--fill-gauge-band-large-type' : ''
-  const scale = Math.min(200, Math.max(50, Math.round(rouletteBandFontScalePercent))) / 100
-  const bandFontStyle: CSSProperties | undefined =
-    fillGaugeBand && largeBandTypography
-      ? { ['--tefx-roulette-band-font-scale' as string]: String(scale) }
-      : undefined
+  const rouletteScale = Math.min(200, Math.max(50, Math.round(rouletteBandFontScalePercent))) / 100
+  const compactScale = Math.min(200, Math.max(50, Math.round(gaugeBandCompactFontScalePercent))) / 100
+  const bandFontStyle: CSSProperties | undefined = (() => {
+    if (fillGaugeBand && largeBandTypography) {
+      return { ['--tefx-roulette-band-font-scale' as string]: String(rouletteScale) }
+    }
+    if (fillGaugeBand && !largeBandTypography) {
+      return { ['--tefx-gauge-band-compact-font-scale' as string]: String(compactScale) }
+    }
+    return undefined
+  })()
 
   return (
     <div

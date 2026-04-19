@@ -108,6 +108,14 @@ export function mergePendingFieldInputs(base: OverlayConfig, pending: Record<str
       if (!Number.isNaN(num)) draft.hp.rouletteBandTechniqueFontScalePercent = Math.min(200, Math.max(50, num))
     }
   }
+  if (p['hp.roulettePanelFontScalePercent'] !== undefined) {
+    const v = p['hp.roulettePanelFontScalePercent'].trim()
+    if (v === '' || Number.isNaN(parseInt(v, 10))) draft.hp.roulettePanelFontScalePercent = 100
+    else {
+      const num = parseInt(v, 10)
+      if (!Number.isNaN(num)) draft.hp.roulettePanelFontScalePercent = Math.min(200, Math.max(50, num))
+    }
+  }
   if (p['hp.rouletteOffsetX'] !== undefined) {
     const v = p['hp.rouletteOffsetX'].trim()
     if (v === '' || Number.isNaN(parseInt(v, 10))) draft.hp.rouletteOffsetX = 0
@@ -264,6 +272,22 @@ export function mergePendingFieldInputs(base: OverlayConfig, pending: Record<str
   if (p['display.fontSize'] !== undefined) {
     const n = flushInt(p['display.fontSize'], 24)
     if (n !== undefined) draft.display.fontSize = Math.max(1, n)
+  }
+  if (p['display.damageHealPopupFontScalePercent'] !== undefined) {
+    const v = p['display.damageHealPopupFontScalePercent'].trim()
+    if (v === '' || Number.isNaN(parseInt(v, 10))) draft.display.damageHealPopupFontScalePercent = 100
+    else {
+      const num = parseInt(v, 10)
+      if (!Number.isNaN(num)) draft.display.damageHealPopupFontScalePercent = Math.min(200, Math.max(50, num))
+    }
+  }
+  if (p['display.overlayBannerFontScalePercent'] !== undefined) {
+    const v = p['display.overlayBannerFontScalePercent'].trim()
+    if (v === '' || Number.isNaN(parseInt(v, 10))) draft.display.overlayBannerFontScalePercent = 100
+    else {
+      const num = parseInt(v, 10)
+      if (!Number.isNaN(num)) draft.display.overlayBannerFontScalePercent = Math.min(200, Math.max(50, num))
+    }
   }
 
   for (const { shapeKey, min, max, int } of GAUGE_SHAPE_FLUSH_META) {
@@ -451,6 +475,22 @@ export function mergePendingFieldInputs(base: OverlayConfig, pending: Record<str
     if (!Number.isNaN(num)) {
       const clamped = Math.min(300, Math.max(3, num))
       draft.attack.comboTechniqueDurationSec = clamped
+    }
+  }
+  if (p['attack.comboTechniqueResultFontScalePercent'] !== undefined) {
+    const v = p['attack.comboTechniqueResultFontScalePercent'].trim()
+    if (v === '' || Number.isNaN(parseInt(v, 10))) draft.attack.comboTechniqueResultFontScalePercent = 100
+    else {
+      const num = parseInt(v, 10)
+      if (!Number.isNaN(num)) draft.attack.comboTechniqueResultFontScalePercent = Math.min(200, Math.max(50, num))
+    }
+  }
+  if (p['attack.comboTechniqueChallengeFontScalePercent'] !== undefined) {
+    const v = p['attack.comboTechniqueChallengeFontScalePercent'].trim()
+    if (v === '' || Number.isNaN(parseInt(v, 10))) draft.attack.comboTechniqueChallengeFontScalePercent = 100
+    else {
+      const num = parseInt(v, 10)
+      if (!Number.isNaN(num)) draft.attack.comboTechniqueChallengeFontScalePercent = Math.min(200, Math.max(50, num))
     }
   }
 

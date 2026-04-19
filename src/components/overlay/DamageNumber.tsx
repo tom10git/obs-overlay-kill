@@ -18,6 +18,8 @@ function dotDebuffFallbackHex(kind: AttackDebuffKind | undefined, damageColors: 
 
 interface DamageNumberProps {
   amount: number
+  /** 50〜200＝%÷100。既定 100 */
+  fontScalePercent?: number
   isCritical?: boolean
   isBleed?: boolean // 持続ダメージ（DOT）かどうか
   /** DOT の種別（既定の数値色に使用。省略時は bleed） */
@@ -32,6 +34,7 @@ interface DamageNumberProps {
 
 export function DamageNumber({
   amount,
+  fontScalePercent = 100,
   isCritical = false,
   isBleed = false,
   dotDebuffKind = 'bleed',
@@ -102,12 +105,18 @@ export function DamageNumber({
         : `drop-shadow(0 0 12px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.5))`
   } : { color: color }
 
+  const popupScale = Math.min(200, Math.max(50, Math.round(fontScalePercent))) / 100
+
   return (
     <div
       className={`damage-number ${isCritical ? 'critical' : ''} ${isBleed ? 'bleed' : ''}`}
       key={id}
       data-damage={amount}
-      style={{ ...bleedStyle, ...textShadowStyle }}
+      style={{
+        ...bleedStyle,
+        ...textShadowStyle,
+        ['--damage-popup-font-scale' as string]: String(popupScale),
+      }}
     >
       {isCritical ? '💥 ' : ''}
       {amount}

@@ -11,6 +11,8 @@ export interface ComboTechniquePromptProps {
   endsAt: number
   /** config.hp.width — これに合わせて横幅と文字サイズを調整 */
   gaugeWidthPx: number
+  /** 50〜200＝%。既定 100（残り秒表示と入力文字の基準サイズ） */
+  challengeFontScalePercent?: number
 }
 
 function fitComboFontPx(charsEl: HTMLElement, availableWidthPx: number): number {
@@ -38,6 +40,7 @@ export function ComboTechniquePrompt({
   matchedLength,
   endsAt,
   gaugeWidthPx,
+  challengeFontScalePercent = 100,
 }: ComboTechniquePromptProps) {
   const [remainingSec, setRemainingSec] = useState(() =>
     Math.max(0, Math.ceil((endsAt - Date.now()) / 1000))
@@ -47,6 +50,8 @@ export function ComboTechniquePrompt({
   const charsRef = useRef<HTMLDivElement>(null)
 
   const safeGaugeW = Math.max(120, gaugeWidthPx)
+  const challengeScale =
+    Math.min(200, Math.max(50, Math.round(challengeFontScalePercent))) / 100
 
   useLayoutEffect(() => {
     const root = rootRef.current
@@ -57,14 +62,14 @@ export function ComboTechniquePrompt({
       const innerPad = 14
       const w = root.clientWidth
       const px = fitComboFontPx(chars, w - innerPad)
-      setCharsFontPx(px)
+      setCharsFontPx(Math.max(7, Math.round(px * challengeScale)))
     }
 
     run()
     const ro = new ResizeObserver(run)
     ro.observe(root)
     return () => ro.disconnect()
-  }, [targetFull, matchedLength, safeGaugeW])
+  }, [targetFull, matchedLength, safeGaugeW, challengeScale])
 
   useEffect(() => {
     const tick = () => {
@@ -78,7 +83,12 @@ export function ComboTechniquePrompt({
   const chars = [...targetFull]
 
   return (
-    <div ref={rootRef} className="combo-technique-prompt" aria-live="polite">
+    <div
+      ref={rootRef}
+      className="combo-technique-prompt"
+      style={{ ['--combo-challenge-font-scale' as string]: String(challengeScale) }}
+      aria-live="polite"
+    >
       <p className="combo-technique-prompt__timer">合わせ技チャンス · 残り {remainingSec} 秒</p>
       <div
         ref={charsRef}

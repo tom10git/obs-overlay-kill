@@ -15,6 +15,10 @@ export interface HPConfig {
    */
   rouletteBandTechniqueFontScalePercent: number
   /**
+   * 追加攻撃ルーレットのパネル（タイトル・ストリップ・結果行）の相対サイズ（50〜200、100＝既定）
+   */
+  roulettePanelFontScalePercent: number
+  /**
    * 追加攻撃ルーレットパネルの表示位置オフセット（px）。ゲージ追従の基準に加算（Xは画面中央基準で右が正、Yは下が正）
    */
   rouletteOffsetX: number
@@ -124,6 +128,15 @@ export interface AttackConfig {
   comboTechniqueDurationSec: number
   /** チャット等で入力する目標文字列の先頭接頭辞（技名の前に付く） */
   comboTechniqueInputPrefix: string
+  /**
+   * 合わせ技入力成功時、HPゲージ帯に出す技名テキストの相対サイズ（50〜200、100＝既定）
+   * 追加攻撃ルーレット成功時のサイズ（hp.rouletteBandTechniqueFontScalePercent）とは別
+   */
+  comboTechniqueResultFontScalePercent: number
+  /**
+   * 合わせ技チャンス表示（残り秒・入力目標）の相対サイズ（50〜200、100＝既定）
+   */
+  comboTechniqueChallengeFontScalePercent: number
   /** オーバーレイ上の攻撃シミュレーション（リワード攻撃とは別経路） */
   testPanelSimulation: TestPanelAttackSimulationConfig
   survivalHp1Enabled: boolean // 攻撃でHPが0になる場合に一定確率で1残す機能の有効/無効
@@ -212,6 +225,14 @@ export interface GaugeShapeConfig {
 export interface DisplayConfig {
   showMaxHp: boolean
   fontSize: number
+  /**
+   * ダメージ・回復の飛び出し数値（ゲージ中央付近）の相対サイズ（50〜200、100＝既定）
+   */
+  damageHealPopupFontScalePercent: number
+  /**
+   * ゲージ上の状態セリフ（デバフ台詞・オーバーキル台詞）の相対サイズ（50〜200、100＝既定）
+   */
+  overlayBannerFontScalePercent: number
   /** ゲージ枠のデザイン（既定の角丸二重枠 / 平行四辺形スラント） */
   gaugeDesign: GaugeDesign
   /** 枠線・角丸・スキューなどの数値調整 */

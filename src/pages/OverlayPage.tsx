@@ -3548,6 +3548,9 @@ export function OverlayPage() {
               config?.hp.rouletteBandTechniqueFontScalePercent ??
               100
             }
+            gaugeBandCompactFontScalePercent={
+              config?.attack.comboTechniqueResultFontScalePercent ?? 100
+            }
           />
         </HpGaugeTopBand>
       )}
@@ -3563,10 +3566,18 @@ export function OverlayPage() {
             matchedLength={comboChallenge.matchedLength}
             endsAt={comboChallenge.endsAt}
             gaugeWidthPx={config.hp.width}
+            challengeFontScalePercent={config.attack.comboTechniqueChallengeFontScalePercent}
           />
         </HpGaugeTopBand>
       )}
-      <div className="overlay-hp-stack">
+      <div
+        className="overlay-hp-stack"
+        style={{
+          ['--overlay-banner-font-scale' as string]: String(
+            Math.min(2, Math.max(0.5, (config.display.overlayBannerFontScalePercent ?? 100) / 100))
+          ),
+        }}
+      >
         {sicknessDialogueVisible && (
           <p className="sickness-debuff-dialogue" aria-hidden>
             ぉぇ・・気持ち悪い・・
@@ -3612,6 +3623,7 @@ export function OverlayPage() {
           dodgeSlideDirection={gaugeDodgeDirection}
           onSpinEnd={handleRouletteSpinEnd}
           onComplete={handleRouletteComplete}
+          panelFontScalePercent={config.hp.roulettePanelFontScalePercent}
         />
       )}
       {/* ダメージ数値表示（HPゲージの外側に表示） */}
@@ -3619,6 +3631,7 @@ export function OverlayPage() {
         <DamageNumber
           key={damage.id}
           id={damage.id}
+          fontScalePercent={config.display.damageHealPopupFontScalePercent}
           amount={damage.amount}
           isCritical={damage.isCritical}
           isBleed={damage.isBleed}
@@ -3634,6 +3647,7 @@ export function OverlayPage() {
           key={heal.id}
           id={heal.id}
           amount={heal.amount}
+          fontScalePercent={config.display.damageHealPopupFontScalePercent}
           healColors={config.healColors}
         />
       ))}
