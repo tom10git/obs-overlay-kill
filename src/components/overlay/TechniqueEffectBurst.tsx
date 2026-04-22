@@ -2,12 +2,21 @@
  * HPゲージ直上・ゲージ幅いっぱいの帯に載せる技発動演出（技ごとにプリセットが異なる）
  */
 
-import type { CSSProperties } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import type { TechniqueEffectKind } from '../../constants/techniqueEffectKinds'
-import { getTechniqueEffectKind } from '../../constants/techniqueEffectKinds'
+import {
+  buildTechniqueBurstVisualStyles,
+  getTechniqueEffectKind,
+  getTechniqueBurstArtParams,
+} from '../../constants/techniqueEffectKinds'
+import { TechniqueBurstArtCanvas } from './TechniqueBurstArtCanvas'
+import { TechniqueBurstArtSvg } from './TechniqueBurstArtSvg'
 import './TechniqueEffectBurst.css'
+import './TechniqueEffectBurst-finale-kinds.css'
 import './TechniqueEffectBurst-extra.css'
 import './TechniqueEffectBurst-kinds.css'
+import './TechniqueEffectBurst-variants.css'
 
 export interface TechniqueEffectBurstProps {
   techniqueName: string
@@ -21,7 +30,24 @@ export interface TechniqueEffectBurstProps {
    * fillGaugeBand かつ largeBandTypography でないとき（合わせ技成功の帯表示など）の技名スケール（50〜200%、既定 100）
    */
   gaugeBandCompactFontScalePercent?: number
+  /** 成功時など、終盤にきらびやかな爆発フィニッシュを重ねる */
+  finale?: boolean
   className?: string
+}
+
+function FinaleLayers({ kind, style }: { kind: TechniqueEffectKind; style?: CSSProperties }) {
+  return (
+    <div className={`tefx-finale tefx-finale--${kind}`} style={style} aria-hidden>
+      <div className="tefx-layer tefx-finale__flash" />
+      <div className="tefx-layer tefx-finale__burst" />
+      <div className="tefx-layer tefx-finale__orbs" />
+      <div className="tefx-layer tefx-finale__shards" />
+      <div className="tefx-layer tefx-finale__glitter" />
+      <div className="tefx-layer tefx-finale__ring-wrap">
+        <div className="tefx-finale__ring" />
+      </div>
+    </div>
+  )
 }
 
 function TefxCommonLayers({ kind }: { kind: TechniqueEffectKind }) {
@@ -59,11 +85,17 @@ function KindLayers({ kind }: { kind: TechniqueEffectKind }) {
           {sig}
           <div className="tefx-layer tefx-meteor-sky" aria-hidden />
           <div className="tefx-layer tefx-meteor-debris" aria-hidden />
+          <div className="tefx-layer tefx-meteor-rock tefx-meteor-rock--1" aria-hidden />
+          <div className="tefx-layer tefx-meteor-rock tefx-meteor-rock--2" aria-hidden />
+          <div className="tefx-layer tefx-meteor-rock tefx-meteor-rock--3" aria-hidden />
           <div className="tefx-layer tefx-meteor-streak tefx-meteor-streak--a" aria-hidden />
           <div className="tefx-layer tefx-meteor-streak tefx-meteor-streak--b" aria-hidden />
           <div className="tefx-layer tefx-meteor-streak tefx-meteor-streak--c" aria-hidden />
+          <div className="tefx-layer tefx-meteor-streak tefx-meteor-streak--d" aria-hidden />
+          <div className="tefx-layer tefx-meteor-streak tefx-meteor-streak--e" aria-hidden />
           <div className="tefx-layer tefx-meteor-impact" aria-hidden />
           <div className="tefx-layer tefx-meteor-shockwave" aria-hidden />
+          <div className="tefx-layer tefx-meteor-crater" aria-hidden />
         </>
       )
     case 'void':
@@ -84,11 +116,16 @@ function KindLayers({ kind }: { kind: TechniqueEffectKind }) {
           {sig}
           <div className="tefx-layer tefx-tempest-cloud" aria-hidden />
           <div className="tefx-layer tefx-tempest-rain" aria-hidden />
+          <div className="tefx-layer tefx-tempest-fork" aria-hidden />
+          <div className="tefx-layer tefx-tempest-fork tefx-tempest-fork--mirror" aria-hidden />
           <div className="tefx-layer tefx-tempest-bolt tefx-tempest-bolt--1" aria-hidden />
           <div className="tefx-layer tefx-tempest-bolt tefx-tempest-bolt--2" aria-hidden />
           <div className="tefx-layer tefx-tempest-bolt tefx-tempest-bolt--3" aria-hidden />
           <div className="tefx-layer tefx-tempest-bolt tefx-tempest-bolt--4" aria-hidden />
           <div className="tefx-layer tefx-tempest-bolt tefx-tempest-bolt--5" aria-hidden />
+          <div className="tefx-layer tefx-tempest-bolt tefx-tempest-bolt--6" aria-hidden />
+          <div className="tefx-layer tefx-tempest-bolt tefx-tempest-bolt--7" aria-hidden />
+          <div className="tefx-layer tefx-tempest-inazuma" aria-hidden />
           <div className="tefx-layer tefx-tempest-afterglow" aria-hidden />
         </>
       )
@@ -179,9 +216,15 @@ export function TechniqueEffectBurst({
   largeBandTypography = false,
   rouletteBandFontScalePercent = 100,
   gaugeBandCompactFontScalePercent = 100,
+  finale = false,
   className = '',
 }: TechniqueEffectBurstProps) {
+  const tefxRef = useRef<HTMLDivElement>(null)
+  const [finalePortalTarget, setFinalePortalTarget] = useState<HTMLElement | null>(null)
   const kind = getTechniqueEffectKind(techniqueName)
+  const burstVisual = useMemo(() => buildTechniqueBurstVisualStyles(techniqueName), [techniqueName])
+  const burstArt = useMemo(() => getTechniqueBurstArtParams(techniqueName), [techniqueName])
+  const slashMotif = useMemo(() => techniqueName.includes('斬'), [techniqueName])
   const isPhantom = kind === 'phantom'
   const bandLarge =
     fillGaugeBand && largeBandTypography ? ' tefx--fill-gauge-band-large-type' : ''
@@ -197,23 +240,52 @@ export function TechniqueEffectBurst({
     return undefined
   })()
 
+  // フィニッシュ演出だけは、ゲージ形状マスク（hp-gauge-wrapper overflow: hidden）の外に出したい。
+  // 可能なら hp-gauge-frame 直下へ portal して描画する（frame は overflow でクリップされない）。
+  useLayoutEffect(() => {
+    if (!finale) {
+      setFinalePortalTarget(null)
+      return
+    }
+    const el = tefxRef.current
+    if (!el) return
+    const frame = el.closest('.hp-gauge-frame') as HTMLElement | null
+    setFinalePortalTarget(frame)
+  }, [finale])
+
   return (
     <div
-      className={`tefx tefx--${kind}${fillGaugeBand ? ' tefx--fill-gauge-band' : ''}${bandLarge} ${className}`.trim()}
-      style={bandFontStyle}
+      className={`tefx-wrap${fillGaugeBand ? ' tefx-wrap--fill-gauge-band' : ''} ${className}`.trim()}
       aria-hidden
     >
-      <KindLayers kind={kind} />
-      <TefxCommonLayers kind={kind} />
-      <div className="tefx__text-plane">
-        {isPhantom ? (
-          <div className="tefx__title-stack">
-            <span className="tefx__phantom-echo">{techniqueName}</span>
+      {/* フィニッシュ爆発はマスク（ゲージ形状）外にも飛び出させたいので、マスク対象(tefx)の外側に描画する */}
+      {finale &&
+        (finalePortalTarget
+          ? createPortal(<FinaleLayers kind={kind} style={burstVisual.finale} />, finalePortalTarget)
+          : <FinaleLayers kind={kind} style={burstVisual.finale} />)}
+      <div
+        className={`tefx tefx--${kind} tefx--pat-${burstArt.pattern}${slashMotif ? ' tefx--slash-motif' : ''}${fillGaugeBand ? ' tefx--fill-gauge-band' : ''}${bandLarge}`.trim()}
+        style={{ ...burstVisual.root, ...bandFontStyle }}
+        ref={tefxRef}
+      >
+        <KindLayers kind={kind} />
+        {slashMotif && <div className="tefx-layer tefx-slash-cut" aria-hidden />}
+        {slashMotif && <div className="tefx-layer tefx-slash-cut tefx-slash-cut--echo" aria-hidden />}
+        <TechniqueBurstArtCanvas art={burstArt} effectKind={kind} techniqueName={techniqueName} />
+        <TechniqueBurstArtSvg art={burstArt} />
+        <div className="tefx-layer tefx-entropy" aria-hidden />
+        <div className="tefx-layer tefx-distort" aria-hidden />
+        <TefxCommonLayers kind={kind} />
+        <div className="tefx__text-plane">
+          {isPhantom ? (
+            <div className="tefx__title-stack">
+              <span className="tefx__phantom-echo">{techniqueName}</span>
+              <p className="tefx__name">{techniqueName}</p>
+            </div>
+          ) : (
             <p className="tefx__name">{techniqueName}</p>
-          </div>
-        ) : (
-          <p className="tefx__name">{techniqueName}</p>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )

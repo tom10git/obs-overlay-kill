@@ -1,0 +1,55 @@
+/**
+ * カワイソウニ: HP ゲージ上の Canvas グリッチ（Photoshop 系の近未来ノイズ）
+ * 参照: https://www.adobe.com/jp/learn/photoshop/web/jp-1min-feature-ps-glitch?ntd=1
+ */
+.kawaii-souni-glitch-canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  /* 親の overflow:hidden で端を切り、右端の白塊・横帯の端を視野外へ寄せる */
+  transform: translate(-50%, -50%) scale(1.08);
+  transform-origin: center center;
+  display: block;
+  pointer-events: none;
+  /* HP 数値（z-index 1000）より下・ゲージ塗りより上 */
+  z-index: 990;
+  mix-blend-mode: hard-light;
+  opacity: 1;
+  /* 下（数値帯）・右をアルファで弱める（描画ロジックはそのまま） */
+  -webkit-mask-image:
+    linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 64%,
+      rgba(0, 0, 0, 0.55) 80%,
+      rgba(0, 0, 0, 0.18) 94%,
+      rgba(0, 0, 0, 0.06) 100%
+    ),
+    linear-gradient(
+      to left,
+      #000 0%,
+      #000 84%,
+      rgba(0, 0, 0, 0.45) 94%,
+      rgba(0, 0, 0, 0.1) 100%
+    );
+  mask-image:
+    linear-gradient(
+      to bottom,
+      #000 0%,
+      #000 64%,
+      rgba(0, 0, 0, 0.55) 80%,
+      rgba(0, 0, 0, 0.18) 94%,
+      rgba(0, 0, 0, 0.06) 100%
+    ),
+    linear-gradient(
+      to left,
+      #000 0%,
+      #000 84%,
+      rgba(0, 0, 0, 0.45) 94%,
+      rgba(0, 0, 0, 0.1) 100%
+    );
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}

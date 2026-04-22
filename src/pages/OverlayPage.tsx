@@ -15,6 +15,7 @@ import { useAutoReply } from '../hooks/useAutoReply'
 import { useStrengthBuffState } from '../hooks/useStrengthBuffState'
 import { HPGauge } from '../components/overlay/HPGauge'
 import { DamageNumber } from '../components/overlay/DamageNumber'
+import { KawaiiSouniDamageFloat } from '../components/overlay/KawaiiSouniDamageFloat'
 import { HealNumber } from '../components/overlay/HealNumber'
 import { ComboTechniquePrompt } from '../components/overlay/ComboTechniquePrompt'
 import { HpGaugeTopBand } from '../components/overlay/HpGaugeTopBand'
@@ -34,6 +35,13 @@ import {
   STREAMER_OVERKILL_DIALOGUE_JA,
   STREAMER_OVERKILL_DIALOGUE_MS,
 } from '../constants/hpGaugeOverlay'
+import {
+  isKawaiiSouniTechniqueName,
+  KAWAI_SOUNI_CONSECUTIVE_HEALS_TO_CLEAR,
+  KAWAI_SOUNI_DRAIN_INTERVAL_MS,
+  KAWAI_SOUNI_DRAIN_STOP_AT_HP,
+  KAWAI_SOUNI_TECHNIQUE_NAME,
+} from '../constants/kawaiiSouniTechnique'
 import { TECHNIQUE_EFFECT_BURST_MS } from '../constants/techniqueEffects'
 import { advanceComboTechniqueInput } from '../utils/comboTechniqueInput'
 import { techniqueNameFromComboTarget } from '../utils/techniqueEffectName'
@@ -219,6 +227,63 @@ export function OverlayPage() {
   }>>([])
   const damageIdRef = useRef(0)
 
+  /** カワイソウニ debuff 中の被ダメ: 「カワイソウニ」ラベルを扇方向へ1件 */
+  const [kawaiiSouniFloatLabels, setKawaiiSouniFloatLabels] = useState<
+    Array<{ id: number; angleDeg: number; distancePx: number }>
+  >([])
+  const kawaiiSouniFloatIdRef = useRef(0)
+
+  /** カワイソウニ debuff 中: ゲージ上の Canvas グリッチ表示 */
+  const [kawaiiSouniGlitchCanvasActive, setKawaiiSouniGlitchCanvasActive] = useState(false)
+  const [kawaiiSouniGlitchPulse, setKawaiiSouniGlitchPulse] = useState(0)
+
+  /** 「カワイソウニ」成功時の HP ドット（10 秒毎・HP2 で停止） */
+  const kawaiiSouniDrainIntervalRef = useRef<number | null>(null)
+  const maybeStartKawaiiSouniHpDrainRef = useRef<(raw: string) => void>(() => {})
+  /** ドットが有効なあいだ true（連続ヒール解除・HP2・HP0・リセットで false） */
+  const kawaiiSouniDebuffActiveRef = useRef(false)
+  const kawaiiSouniHealStreakRef = useRef(0)
+  /** true の間は reduceHP を「ダメージ」とみなして連続ヒールをリセットしない（ドット本体） */
+  const kawaiiSouniDotDamageRef = useRef(false)
+  const registerKawaiiSouniHealProgressRef = useRef<() => void>(() => {})
+
+  const stopKawaiiSouniHpDrain = useCallback(() => {
+    if (kawaiiSouniDrainIntervalRef.current != null) {
+      window.clearInterval(kawaiiSouniDrainIntervalRef.current)
+      kawaiiSouniDrainIntervalRef.current = null
+      logger.debug('[カワイソウニ] HPドットタイマーを停止しました')
+    }
+    kawaiiSouniDebuffActiveRef.current = false
+    kawaiiSouniHealStreakRef.current = 0
+    setKawaiiSouniGlitchCanvasActive(false)
+    setKawaiiSouniGlitchPulse(0)
+  }, [])
+
+  const maybeResetKawaiiHealStreakOnStreamerDamage = useCallback(() => {
+    if (kawaiiSouniDotDamageRef.current) return
+    if (!kawaiiSouniDebuffActiveRef.current) return
+    if (kawaiiSouniHealStreakRef.current > 0) {
+      logger.debug('[カワイソウニ] ダメージを受けたため連続ヒールをリセット')
+    }
+    kawaiiSouniHealStreakRef.current = 0
+  }, [])
+
+  const registerKawaiiSouniHealProgress = useCallback(() => {
+    if (!kawaiiSouniDebuffActiveRef.current) return
+    kawaiiSouniHealStreakRef.current += 1
+    logger.debug(
+      `[カワイソウニ] 連続ヒール ${kawaiiSouniHealStreakRef.current}/${KAWAI_SOUNI_CONSECUTIVE_HEALS_TO_CLEAR}`
+    )
+    if (kawaiiSouniHealStreakRef.current >= KAWAI_SOUNI_CONSECUTIVE_HEALS_TO_CLEAR) {
+      stopKawaiiSouniHpDrain()
+      logger.info('[カワイソウニ] 連続ヒールでデバフ解除')
+    }
+  }, [stopKawaiiSouniHpDrain])
+
+  useEffect(() => {
+    registerKawaiiSouniHealProgressRef.current = registerKawaiiSouniHealProgress
+  }, [registerKawaiiSouniHealProgress])
+
   // 回復数値表示管理（HPゲージの外側に表示）
   const [healNumbers, setHealNumbers] = useState<Array<{
     id: number
@@ -259,6 +324,7 @@ export function OverlayPage() {
     name: string
     largeBandTypography?: boolean
     rouletteBandFontScalePercent?: number
+    finale?: boolean
   } | null>(null)
   const rouletteBonusLockRef = useRef(false)
   /** スピン終了コールバックで最新のルーレット state を参照する（HP0 effect との競合回避にも使う） */
@@ -758,16 +824,40 @@ export function OverlayPage() {
 
   const reduceHPTracked = useCallback(
     (amount: number) => {
-      if (amount > 0) notifyStreamerDamageDuringSickness(amount)
+      if (amount > 0) {
+        maybeResetKawaiiHealStreakOnStreamerDamage()
+        if (kawaiiSouniDebuffActiveRef.current && !kawaiiSouniDotDamageRef.current) {
+          setKawaiiSouniGlitchPulse((p) => p + 1)
+        }
+        if (kawaiiSouniDebuffActiveRef.current) {
+          kawaiiSouniFloatIdRef.current += 1
+          const fid = kawaiiSouniFloatIdRef.current
+          /** 上方向を中心とした扇（約100°）。0°=右、-90°=上 */
+          const angleDeg = -140 + Math.random() * 100
+          /** 以前は 88〜256px。ゲージ周りに収まるよう短めに */
+          const distancePx = 52 + Math.random() * 92
+          setKawaiiSouniFloatLabels((prev) => [...prev, { id: fid, angleDeg, distancePx }])
+          window.setTimeout(() => {
+            setKawaiiSouniFloatLabels((prev) => prev.filter((x) => x.id !== fid))
+          }, 3000)
+        }
+        notifyStreamerDamageDuringSickness(amount)
+      }
       reduceHP(amount)
     },
-    [reduceHP, notifyStreamerDamageDuringSickness]
+    [
+      reduceHP,
+      notifyStreamerDamageDuringSickness,
+      maybeResetKawaiiHealStreakOnStreamerDamage,
+      setKawaiiSouniGlitchPulse,
+    ]
   )
 
   const resetStreamerHp = useCallback(() => {
     cancelSickness()
+    stopKawaiiSouniHpDrain()
     resetHP()
-  }, [cancelSickness, resetHP])
+  }, [cancelSickness, resetHP, stopKawaiiSouniHpDrain])
 
   const sendPvpBlockedMessage = useCallback((type: 'attack' | 'heal', errorLabel: string) => {
     if (!config?.pvp?.autoReplyBlockedByZeroHp) return
@@ -895,6 +985,51 @@ export function OverlayPage() {
     reduceHPRef.current = reduceHPTracked
     logger.debug('[reduceHPRef更新] reduceHP関数を更新しました', reduceHPTracked)
   }, [reduceHPTracked])
+
+  const maybeStartKawaiiSouniHpDrain = useCallback(
+    (rawName: string) => {
+      if (!isKawaiiSouniTechniqueName(rawName)) return
+      stopKawaiiSouniHpDrain()
+      if (hpCurrentSyncRef.current <= KAWAI_SOUNI_DRAIN_STOP_AT_HP) {
+        logger.debug('[カワイソウニ] HPが既に停止ライン以下のためドットを開始しません')
+        return
+      }
+      kawaiiSouniDebuffActiveRef.current = true
+      kawaiiSouniHealStreakRef.current = 0
+      setKawaiiSouniGlitchCanvasActive(true)
+      setKawaiiSouniGlitchPulse(1)
+      kawaiiSouniDrainIntervalRef.current = window.setInterval(() => {
+        const cur = hpCurrentSyncRef.current
+        if (cur <= KAWAI_SOUNI_DRAIN_STOP_AT_HP) {
+          stopKawaiiSouniHpDrain()
+          return
+        }
+        kawaiiSouniDotDamageRef.current = true
+        try {
+          reduceHPRef.current(1)
+        } finally {
+          kawaiiSouniDotDamageRef.current = false
+        }
+        setKawaiiSouniGlitchPulse((p) => p + 1)
+        damageIdRef.current += 1
+        const damageId = damageIdRef.current
+        setDamageNumbers((prev) => [...prev, { id: damageId, amount: 1, isCritical: false }])
+        window.setTimeout(() => {
+          setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
+        }, 1500)
+      }, KAWAI_SOUNI_DRAIN_INTERVAL_MS)
+      logger.debug(
+        `[カワイソウニ] HPドット開始（${KAWAI_SOUNI_DRAIN_INTERVAL_MS / 1000}秒毎・HP${KAWAI_SOUNI_DRAIN_STOP_AT_HP}で停止）`
+      )
+    },
+    [stopKawaiiSouniHpDrain, setKawaiiSouniGlitchCanvasActive, setKawaiiSouniGlitchPulse]
+  )
+
+  useEffect(() => {
+    maybeStartKawaiiSouniHpDrainRef.current = maybeStartKawaiiSouniHpDrain
+  }, [maybeStartKawaiiSouniHpDrain])
+
+  useEffect(() => () => stopKawaiiSouniHpDrain(), [stopKawaiiSouniHpDrain])
 
   // HPが変化したときにエフェクトを適用
   useEffect(() => {
@@ -1185,13 +1320,14 @@ export function OverlayPage() {
   )
 
   const fireTechniqueEffectBurst = useCallback(
-    (name: string, opts?: { largeBandTypography?: boolean }) => {
+    (name: string, opts?: { largeBandTypography?: boolean; finale?: boolean }) => {
       const trimmed = name.trim()
       if (!trimmed) return
       const scale = config?.hp.rouletteBandTechniqueFontScalePercent ?? 100
       setTechniqueEffectBurst({
         id: Date.now(),
         name: trimmed,
+        ...(opts?.finale ? { finale: true } : {}),
         ...(opts?.largeBandTypography
           ? { largeBandTypography: true, rouletteBandFontScalePercent: scale }
           : {}),
@@ -1216,7 +1352,8 @@ export function OverlayPage() {
     const rb = rouletteBonusRef.current
     if (!rb?.success) return
     applyRouletteBonusDamageRef.current(rb.attackerUserId, { noDamage: rb.noDamage === true })
-    fireTechniqueEffectBurstRef.current(rb.landedName, { largeBandTypography: true })
+    fireTechniqueEffectBurstRef.current(rb.landedName, { largeBandTypography: true, finale: true })
+    maybeStartKawaiiSouniHpDrainRef.current(rb.landedName)
   }, [])
 
   const handleRouletteComplete = useCallback(() => {
@@ -1234,10 +1371,12 @@ export function OverlayPage() {
         raw
       )
       if (completed) {
-        fireTechniqueEffectBurst(
-          techniqueNameFromComboTarget(comboState.targetFull, comboState.inputPrefix)
-        )
+        const landedTechniqueName = techniqueNameFromComboTarget(comboState.targetFull, comboState.inputPrefix)
+        fireTechniqueEffectBurst(landedTechniqueName, {
+          finale: true,
+        })
         applyComboTechniqueBonusDamage(comboState.userId, { noDamage: comboState.noDamage === true })
+        maybeStartKawaiiSouniHpDrain(landedTechniqueName)
         if (comboExpireTimerRef.current != null) {
           window.clearTimeout(comboExpireTimerRef.current)
           comboExpireTimerRef.current = null
@@ -1253,13 +1392,14 @@ export function OverlayPage() {
       }
       return false
     },
-    [applyComboTechniqueBonusDamage, fireTechniqueEffectBurst]
+    [applyComboTechniqueBonusDamage, fireTechniqueEffectBurst, maybeStartKawaiiSouniHpDrain]
   )
 
   // HPが0になったときにすべての出血ダメージタイマーを停止
   useEffect(() => {
     if (currentHP <= 0) {
       logger.debug('[出血ダメージ停止] HPが0になったため、すべての出血ダメージタイマーを停止します')
+      stopKawaiiSouniHpDrain()
       bleedTimersRef.current.forEach((timers) => {
         window.clearInterval(timers.intervalTimer)
         window.clearTimeout(timers.durationTimer)
@@ -1281,7 +1421,7 @@ export function OverlayPage() {
         rouletteBonusLockRef.current = false
       }
     }
-  }, [currentHP, stopRepeat])
+  }, [currentHP, stopRepeat, stopKawaiiSouniHpDrain])
 
   const runPvpCounterAfterAttack = useCallback(
     (
@@ -1758,6 +1898,7 @@ export function OverlayPage() {
               if (hpCurrentSyncRef.current > 0) {
                 setDamageEffectActive(false)
                 increaseHP(reverseHealAmount)
+                registerKawaiiSouniHealProgressRef.current()
 
                 // 回復数値を表示（反転回復ぶん）
                 healIdRef.current += 1
@@ -1849,6 +1990,7 @@ export function OverlayPage() {
         registerHealStreak(currentHP, maxHP)
         const newHP = Math.min(maxHP, currentHP + healAmount)
         increaseHP(healAmount)
+        registerKawaiiSouniHealProgressRef.current()
         // 回復数値を表示
         healIdRef.current += 1
         const healId = healIdRef.current
@@ -2306,6 +2448,7 @@ export function OverlayPage() {
           if (hpCurrentSyncRef.current > 0) {
             setDamageEffectActive(false)
             increaseHP(reverseHealAmount)
+            registerKawaiiSouniHealProgressRef.current()
 
             // 回復数値を表示（テストモードの反転回復ぶん）
             healIdRef.current += 1
@@ -2520,6 +2663,7 @@ export function OverlayPage() {
     registerHealStreak(currentHP, maxHP)
     // HPを回復
     increaseHP(healAmount)
+    registerKawaiiSouniHealProgressRef.current()
 
     // 回復数値を表示（本番の回復ハンドラと同じ表現）
     healIdRef.current += 1
@@ -3264,6 +3408,7 @@ export function OverlayPage() {
             registerHealStreak(currentHP, maxHP)
             const newHP = Math.min(maxHP, currentHP + healAmount)
             increaseHP(healAmount)
+            registerKawaiiSouniHealProgressRef.current()
             if (config.heal.effectEnabled) showHealEffect()
             if (config.retry.soundEnabled) playRetrySound()
             // 回復時自動返信（攻撃コマンドと同様）。{username} は配信者なので「配信者」に置換
@@ -3295,6 +3440,7 @@ export function OverlayPage() {
 
           if (healAmount > 0) {
             increaseHP(healAmount)
+            registerKawaiiSouniHealProgressRef.current()
           }
           // HP最大でも「コマンドは有効」にしたいので、効果音/演出は常に実行（設定ON時）
           if (config.heal.effectEnabled) showHealEffect()
@@ -3607,6 +3753,7 @@ export function OverlayPage() {
             techniqueName={techniqueEffectBurst.name}
             fillGaugeBand
             largeBandTypography={techniqueEffectBurst.largeBandTypography === true}
+            finale={techniqueEffectBurst.finale === true}
             rouletteBandFontScalePercent={
               techniqueEffectBurst.rouletteBandFontScalePercent ??
               config?.hp.rouletteBandTechniqueFontScalePercent ??
@@ -3667,6 +3814,8 @@ export function OverlayPage() {
           dodgeSlideActive={gaugeDodgeActive}
           dodgeSlideDirection={gaugeDodgeDirection}
           overkillGlitchBurst={overkillGlitchBurst}
+          kawaiiSouniGlitchCanvasActive={kawaiiSouniGlitchCanvasActive}
+          kawaiiSouniGlitchPulse={kawaiiSouniGlitchPulse}
         />
       </div>
       {rouletteBonus && (
@@ -3704,6 +3853,16 @@ export function OverlayPage() {
           angle={damage.angle}
           distance={damage.distance}
           damageColors={config.damageColors}
+        />
+      ))}
+      {kawaiiSouniFloatLabels.map((fl) => (
+        <KawaiiSouniDamageFloat
+          key={fl.id}
+          angleDeg={fl.angleDeg}
+          distancePx={fl.distancePx}
+          fontScalePercent={config.display.damageHealPopupFontScalePercent}
+          hpOffsetX={config.hp.x}
+          hpOffsetY={config.hp.y}
         />
       ))}
       {healNumbers.map((heal) => (
@@ -3965,6 +4124,29 @@ export function OverlayPage() {
                         title="必殺技を確定発動（隠し機能）"
                       >
                         必殺
+                      </button>
+                    </div>
+                  </div>
+                  <div className="test-panel-group">
+                    <span className="test-panel-group-label">カワイソウニ（テスト）</span>
+                    <div className="test-panel-btn-row">
+                      <button
+                        type="button"
+                        className="test-button test-kawaii-souni test-panel-action-btn"
+                        disabled={!isTestMode || currentHP <= KAWAI_SOUNI_DRAIN_STOP_AT_HP}
+                        onClick={() => maybeStartKawaiiSouniHpDrain(KAWAI_SOUNI_TECHNIQUE_NAME)}
+                        title={`合わせ技「${KAWAI_SOUNI_TECHNIQUE_NAME}」と同じ HP ドット・グリッチを開始（HP が ${KAWAI_SOUNI_DRAIN_STOP_AT_HP} 以下では開始しません）`}
+                      >
+                        発動
+                      </button>
+                      <button
+                        type="button"
+                        className="test-button test-kawaii-souni-clear test-panel-action-btn"
+                        disabled={!kawaiiSouniGlitchCanvasActive}
+                        onClick={() => stopKawaiiSouniHpDrain()}
+                        title="ドットとグリッチを手動で止める（テスト発動中だけでなく、本番でかかったデバフも止められます）"
+                      >
+                        解除
                       </button>
                     </div>
                   </div>

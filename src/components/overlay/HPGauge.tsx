@@ -10,6 +10,7 @@ import type { OverlayConfig } from '../../types/overlay'
 import { DEFAULT_GAUGE_SHAPE } from '../../utils/overlayConfig'
 import { buildHpGaugeFrameStyle, buildHpGaugeWrapperStyle } from '../../utils/hpGaugeAppearanceStyles'
 import { STREAMER_OVERKILL_GLITCH_MS } from '../../constants/hpGaugeOverlay'
+import { KawaiiSouniGlitchCanvas } from './KawaiiSouniGlitchCanvas'
 import { logger } from '../../lib/logger'
 import './HPGauge.css'
 import { useSound } from '../../hooks/useSound'
@@ -38,6 +39,10 @@ interface HPGaugeProps {
   dodgeSlideDirection?: 'left' | 'right'
   /** 増えるたびにオーバーキル用グリッチ演出を1回再生（HP0時の追撃） */
   overkillGlitchBurst?: number
+  /** カワイソウニ debuff 中の Canvas グリッチ層 */
+  kawaiiSouniGlitchCanvasActive?: boolean
+  /** 被ダメ・DOT のたびに増やしてグリッチをフラッシュ */
+  kawaiiSouniGlitchPulse?: number
 }
 
 /**
@@ -116,6 +121,8 @@ export function HPGauge({
   dodgeSlideActive = false,
   dodgeSlideDirection = 'left',
   overkillGlitchBurst = 0,
+  kawaiiSouniGlitchCanvasActive = false,
+  kawaiiSouniGlitchPulse = 0,
 }: HPGaugeProps) {
   const buffDuration = Math.max(0.001, buffDurationSeconds)
 
@@ -423,6 +430,9 @@ export function HPGauge({
                 easing={easing}
               />
             ))}
+            {kawaiiSouniGlitchCanvasActive && (
+              <KawaiiSouniGlitchCanvas key="kawaii-souni-glitch" pulseKey={kawaiiSouniGlitchPulse} />
+            )}
             <HPDisplay
               current={currentHP}
               max={maxHP}
@@ -430,6 +440,7 @@ export function HPGauge({
               showMaxHp={config.display.showMaxHp}
               gaugeDesign={gaugeDesign}
               gaugeSkewDeg={gs.skewDeg}
+              kawaiiSouniGlitchActive={kawaiiSouniGlitchCanvasActive}
             />
             {overkillGlitchActive && (
               <div key={overkillGlitchBurst} className="hp-gauge-overkill-noise-stack" aria-hidden>

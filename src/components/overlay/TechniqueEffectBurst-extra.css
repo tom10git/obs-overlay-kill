@@ -492,7 +492,8 @@
 
   0% {
     opacity: 0;
-    transform: translateX(-20%) skewX(-8deg);
+    /* 親の平行四辺形カウンター skew と合成すると境界がずれるため translate のみ */
+    transform: translateX(-20%);
   }
 
   30% {
@@ -501,7 +502,7 @@
 
   100% {
     opacity: 0;
-    transform: translateX(25%) skewX(-8deg);
+    transform: translateX(25%);
   }
 }
 
@@ -814,20 +815,34 @@
 
 /* ========== HPゲージ帯（fill-gauge-band）: 縦に細くても派手に見せる ========== */
 
+/* シグネチャ・共通オーバーレイをはみ出し描画（親 .tefx は overflow:visible）し、skew 時の角抜けを減らす */
+.tefx.tefx--fill-gauge-band .tefx-sig {
+  inset: -16%;
+  overflow: visible;
+}
+
+.tefx.tefx--fill-gauge-band .tefx-common {
+  inset: -16%;
+  overflow: visible;
+}
+
 .tefx.tefx--fill-gauge-band > .tefx-layer {
   filter: saturate(1.2) brightness(1.1) contrast(1.05);
 }
 
 .tefx.tefx--fill-gauge-band .tefx-common__scan {
+  inset: -14%;
   opacity: 0.58;
   background-size: 100% 150%;
 }
 
 .tefx.tefx--fill-gauge-band .tefx-common__sparkles {
+  inset: -14%;
   filter: brightness(1.4) saturate(1.18);
 }
 
 .tefx.tefx--fill-gauge-band .tefx-common__gloss {
+  inset: -12%;
   background: linear-gradient(
     125deg,
     transparent 28%,
@@ -840,11 +855,13 @@
 }
 
 .tefx.tefx--fill-gauge-band .tefx-common__grid {
+  inset: -28%;
   opacity: 0.085;
 }
 
 /* 帯内では走査・グロスが主役になりやすいようビネットを弱める（枠マッチ時は HpGaugeTopBand 側も調整） */
 .tefx.tefx--fill-gauge-band .tefx-common__vignette {
+  inset: -22%;
   background: radial-gradient(
     ellipse 88% 95% at 50% 48%,
     transparent 38%,
@@ -854,12 +871,12 @@
 
 /* inferno */
 .tefx.tefx--fill-gauge-band .tefx-inferno-glow {
-  inset: -6% -10% -2%;
+  inset: -14% -18% -8%;
   filter: brightness(1.12);
 }
 
 .tefx.tefx--fill-gauge-band .tefx-inferno-embers {
-  inset: 0 -3% 0;
+  inset: -6% -12% -6%;
   filter: brightness(1.15) saturate(1.1);
 }
 
@@ -874,7 +891,7 @@
 
 /* meteor */
 .tefx.tefx--fill-gauge-band .tefx-meteor-sky {
-  inset: -4%;
+  inset: -14%;
   opacity: 1;
 }
 
@@ -890,15 +907,35 @@
   opacity: 1;
 }
 
+.tefx.tefx--fill-gauge-band .tefx-meteor-rock {
+  width: 6px;
+  height: 10px;
+}
+
+.tefx.tefx--fill-gauge-band .tefx-meteor-rock--2 {
+  width: 5px;
+  height: 8px;
+}
+
+.tefx.tefx--fill-gauge-band .tefx-meteor-rock--3 {
+  width: 6px;
+  height: 9px;
+}
+
+.tefx.tefx--fill-gauge-band .tefx-meteor-crater {
+  inset: auto 10% -52% 10%;
+  height: 65%;
+}
+
 /* void */
 .tefx.tefx--fill-gauge-band .tefx-void-vortex {
-  inset: -10%;
+  inset: -20%;
   opacity: 0.95;
   filter: saturate(1.25) brightness(1.08);
 }
 
 .tefx.tefx--fill-gauge-band .tefx-void-rim {
-  inset: 2% 4% 6%;
+  inset: -6% -4% -2%;
   box-shadow: inset 0 0 28px rgba(120, 60, 200, 0.45);
 }
 
@@ -908,7 +945,7 @@
 
 /* tempest */
 .tefx.tefx--fill-gauge-band .tefx-tempest-cloud {
-  inset: -4%;
+  inset: -14%;
   filter: brightness(1.1);
 }
 
@@ -916,21 +953,25 @@
   filter: blur(0.5px);
 }
 
+.tefx.tefx--fill-gauge-band .tefx-tempest-fork {
+  filter: blur(0.28px);
+}
+
 /* glacier */
 .tefx.tefx--fill-gauge-band .tefx-glacier-fog {
-  inset: -6%;
+  inset: -14%;
   filter: brightness(1.08) saturate(1.08);
 }
 
 .tefx.tefx--fill-gauge-band .tefx-glacier-shard {
-  height: 95%;
-  bottom: 0;
+  height: 108%;
+  bottom: -4%;
   filter: brightness(1.1);
 }
 
 /* plasma */
 .tefx.tefx--fill-gauge-band .tefx-plasma-field {
-  inset: -12%;
+  inset: -22%;
   opacity: 1;
   filter: saturate(1.2) brightness(1.06);
 }
@@ -946,7 +987,7 @@
 
 /* radiance */
 .tefx.tefx--fill-gauge-band .tefx-radiance-bloom {
-  inset: -12%;
+  inset: -22%;
   filter: brightness(1.1);
 }
 
@@ -970,7 +1011,7 @@
 
 /* phantom */
 .tefx.tefx--fill-gauge-band .tefx-phantom-mist {
-  inset: -8%;
+  inset: -18%;
   filter: brightness(1.08);
 }
 
@@ -984,12 +1025,12 @@
 
 /* nova */
 .tefx.tefx--fill-gauge-band .tefx-nova-core {
-  inset: -14%;
+  inset: -24%;
   filter: brightness(1.12);
 }
 
 .tefx.tefx--fill-gauge-band .tefx-nova-rays {
-  inset: -18%;
+  inset: -30%;
   opacity: 1;
   filter: brightness(1.08);
 }
@@ -1030,5 +1071,338 @@
     tefx-name-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both,
     tefx-tre-rumble 2.4s ease-in-out both,
     tefx-name-pulse-gauge 2.2s ease-in-out 0.32s infinite;
+}
+
+/* ---------- 斬撃モチーフ（技名に「斬」・全 kind 共通で上層に刃線） ---------- */
+.tefx-slash-cut {
+  inset: -8%;
+  z-index: 6;
+  pointer-events: none;
+  background: linear-gradient(
+    118deg,
+    transparent 0%,
+    transparent 47.5%,
+    var(--tefx-slash-core, rgba(255, 255, 255, 0.92)) 49.1%,
+    var(--tefx-slash-edge, rgba(255, 255, 255, 0.45)) 49.75%,
+    transparent 50.6%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: tefx-slash-cut-a 0.42s cubic-bezier(0.18, 0.88, 0.22, 1) 0.22s both;
+}
+
+.tefx-slash-cut--echo {
+  animation-name: tefx-slash-cut-b;
+  animation-delay: 0.38s;
+  transform: scaleX(-1);
+  opacity: 0;
+}
+
+.tefx--inferno.tefx--slash-motif {
+  --tefx-slash-core: rgba(255, 245, 200, 0.95);
+  --tefx-slash-edge: rgba(255, 160, 80, 0.5);
+}
+
+.tefx--meteor.tefx--slash-motif {
+  --tefx-slash-core: rgba(255, 250, 235, 0.95);
+  --tefx-slash-edge: rgba(200, 220, 255, 0.45);
+}
+
+.tefx--void.tefx--slash-motif {
+  --tefx-slash-core: rgba(230, 210, 255, 0.92);
+  --tefx-slash-edge: rgba(140, 90, 220, 0.45);
+}
+
+.tefx--tempest.tefx--slash-motif {
+  --tefx-slash-core: rgba(240, 250, 255, 0.98);
+  --tefx-slash-edge: rgba(120, 200, 255, 0.55);
+}
+
+.tefx--glacier.tefx--slash-motif {
+  --tefx-slash-core: rgba(230, 252, 255, 0.95);
+  --tefx-slash-edge: rgba(120, 210, 255, 0.5);
+}
+
+.tefx--plasma.tefx--slash-motif {
+  --tefx-slash-core: rgba(255, 220, 250, 0.92);
+  --tefx-slash-edge: rgba(100, 255, 240, 0.45);
+}
+
+.tefx--radiance.tefx--slash-motif {
+  --tefx-slash-core: rgba(255, 252, 230, 0.96);
+  --tefx-slash-edge: rgba(255, 220, 120, 0.5);
+}
+
+.tefx--tremor.tefx--slash-motif {
+  --tefx-slash-core: rgba(255, 240, 210, 0.9);
+  --tefx-slash-edge: rgba(200, 160, 110, 0.45);
+}
+
+.tefx--phantom.tefx--slash-motif {
+  --tefx-slash-core: rgba(240, 220, 255, 0.92);
+  --tefx-slash-edge: rgba(180, 140, 255, 0.45);
+}
+
+.tefx--nova.tefx--slash-motif {
+  --tefx-slash-core: rgba(255, 250, 220, 0.96);
+  --tefx-slash-edge: rgba(255, 200, 90, 0.5);
+}
+
+@keyframes tefx-slash-cut-a {
+
+  0% {
+    opacity: 0;
+    transform: translateX(-38%) skewX(-7deg);
+  }
+
+  28% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(42%) skewX(-7deg);
+  }
+}
+
+@keyframes tefx-slash-cut-b {
+
+  0% {
+    opacity: 0;
+    transform: scaleX(-1) translateX(-32%) skewX(6deg);
+  }
+
+  30% {
+    opacity: 0.85;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleX(-1) translateX(36%) skewX(6deg);
+  }
+}
+
+/* ---------- meteor 隕石コア・追加落下・衝突痕 ---------- */
+.tefx-meteor-rock {
+  width: 9px;
+  height: 14px;
+  border-radius: 40% 45% 50% 40%;
+  background: radial-gradient(ellipse 80% 90% at 40% 35%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 210, 140, 0.85) 35%, rgba(120, 80, 60, 0.9) 100%);
+  box-shadow:
+    0 0 6px rgba(255, 200, 120, 0.9),
+    0 0 14px rgba(255, 160, 80, 0.55);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: tefx-met-rock 1.15s cubic-bezier(0.45, 0.02, 0.25, 1) both;
+}
+
+.tefx-meteor-rock--1 {
+  left: 22%;
+  top: -12%;
+  animation-delay: 0.02s;
+}
+
+.tefx-meteor-rock--2 {
+  left: 48%;
+  top: -18%;
+  width: 7px;
+  height: 11px;
+  animation-delay: 0.08s;
+}
+
+.tefx-meteor-rock--3 {
+  left: 72%;
+  top: -10%;
+  width: 8px;
+  height: 12px;
+  animation-delay: 0.14s;
+}
+
+.tefx-meteor-streak--d {
+  left: 52%;
+  width: 22%;
+  rotate: -18deg;
+  bottom: -48%;
+  height: 190%;
+  opacity: 0.65;
+  animation-delay: 0.06s;
+  filter: blur(2px);
+}
+
+.tefx-meteor-streak--e {
+  left: -8%;
+  width: 32%;
+  rotate: -40deg;
+  bottom: -52%;
+  height: 210%;
+  opacity: 0.5;
+  animation-delay: 0.18s;
+  filter: blur(3.5px);
+}
+
+.tefx-meteor-crater {
+  inset: auto 12% -42% 12%;
+  height: 55%;
+  border-radius: 50%;
+  scale: 1 0.28;
+  border: 2px solid rgba(255, 200, 140, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(255, 240, 200, 0.15),
+    inset 0 0 24px rgba(80, 50, 40, 0.35);
+  opacity: 0;
+  animation: tefx-met-crater 0.9s ease-out 0.82s both;
+  mix-blend-mode: screen;
+}
+
+@keyframes tefx-met-rock {
+
+  0% {
+    opacity: 0;
+    transform: translate(0, -140%) rotate(0deg);
+  }
+
+  55% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.35;
+    transform: translate(8px, 120vh) rotate(220deg);
+  }
+}
+
+@keyframes tefx-met-crater {
+
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  35% {
+    opacity: 0.85;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+}
+
+/* ---------- tempest 稲妻フォーク・チャタリング閃光 ---------- */
+.tefx-tempest-fork {
+  inset: 0;
+  opacity: 0;
+  background:
+    linear-gradient(172deg, transparent 36%, rgba(255, 255, 255, 0.92) 49.2%, transparent 51.5%),
+    linear-gradient(198deg, transparent 40%, rgba(220, 240, 255, 0.75) 49.8%, transparent 53%),
+    linear-gradient(158deg, transparent 44%, rgba(255, 255, 255, 0.55) 50.1%, transparent 52%);
+  mix-blend-mode: screen;
+  filter: blur(0.4px);
+  animation: tefx-tem-fork 0.32s ease-out 0.12s both;
+}
+
+.tefx-tempest-fork--mirror {
+  transform: scaleX(-1);
+  animation-delay: 0.22s;
+}
+
+.tefx-tempest-inazuma {
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.75) 0%, transparent 45%);
+  mix-blend-mode: screen;
+  animation: tefx-tem-inazuma 2.35s steps(1, end) both;
+  pointer-events: none;
+}
+
+.tefx-tempest-bolt--6 {
+  background: linear-gradient(88deg, transparent 42%, rgba(255, 255, 255, 0.92) 50%, transparent 58%);
+  transform: rotate(-14deg) scale(1.05);
+  animation: tefx-tem-bolt 0.14s ease-out 0.4s both;
+}
+
+.tefx-tempest-bolt--7 {
+  background: linear-gradient(132deg, transparent 38%, rgba(235, 248, 255, 0.9) 49%, transparent 56%);
+  transform: rotate(11deg);
+  animation: tefx-tem-bolt 0.16s ease-out 0.62s both;
+}
+
+@keyframes tefx-tem-fork {
+
+  0% {
+    opacity: 0;
+    filter: blur(4px) brightness(1);
+  }
+
+  25% {
+    opacity: 1;
+    filter: blur(0.2px) brightness(2);
+  }
+
+  100% {
+    opacity: 0;
+    filter: blur(2px) brightness(1);
+  }
+}
+
+@keyframes tefx-tem-inazuma {
+
+  0%,
+  100% {
+    opacity: 0;
+  }
+
+  1%,
+  2% {
+    opacity: 0.55;
+  }
+
+  3% {
+    opacity: 0;
+  }
+
+  7%,
+  8% {
+    opacity: 0.45;
+  }
+
+  9% {
+    opacity: 0;
+  }
+
+  14%,
+  15% {
+    opacity: 0.65;
+  }
+
+  16% {
+    opacity: 0;
+  }
+
+  22% {
+    opacity: 0.35;
+  }
+
+  23% {
+    opacity: 0;
+  }
+
+  31%,
+  32% {
+    opacity: 0.5;
+  }
+
+  33% {
+    opacity: 0;
+  }
+
+  41% {
+    opacity: 0.4;
+  }
+
+  42% {
+    opacity: 0;
+  }
 }
 

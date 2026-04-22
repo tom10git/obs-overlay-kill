@@ -1,0 +1,66 @@
+/**
+ * カワイソウニ debuff 中の被ダメ: ゲージ付近から上方向の扇にランダムで飛ぶラベル
+ */
+.kawaii-souni-damage-float {
+  position: fixed;
+  left: calc(50% + var(--hp-gauge-offset-x, 0px));
+  top: calc(50% + var(--hp-gauge-offset-y, 0px));
+  transform: translate(-50%, -50%);
+  font-size: calc(26px * var(--ks-float-font, 1));
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff5fb;
+  pointer-events: none;
+  z-index: 10004;
+  white-space: nowrap;
+  user-select: none;
+  text-shadow:
+    0 0 6px rgba(255, 100, 200, 0.95),
+    0 0 14px rgba(255, 60, 160, 0.75),
+    2px 2px 0 rgba(80, 255, 240, 0.35),
+    -2px -1px 0 rgba(255, 80, 180, 0.45);
+  /* 1 本のイージングで移動・不透明度をまとめて補間 */
+  animation: kawaii-souni-damage-float-motion 2.75s cubic-bezier(0.1, 0.88, 0.12, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes kawaii-souni-damage-float-motion {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(0, 0);
+  }
+
+  8% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate(0, 0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--ks-float-ex), var(--ks-float-ey));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .kawaii-souni-damage-float {
+    animation: kawaii-souni-damage-float-soft 2.35s cubic-bezier(0.12, 0.85, 0.18, 1) forwards;
+  }
+
+  @keyframes kawaii-souni-damage-float-soft {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) translate(0, 0);
+    }
+
+    10% {
+      opacity: 1;
+      transform: translate(-50%, -50%) translate(0, 0);
+    }
+
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) translate(var(--ks-float-ex), var(--ks-float-ey));
+    }
+  }
+}

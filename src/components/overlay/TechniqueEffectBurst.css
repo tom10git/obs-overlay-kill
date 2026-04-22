@@ -1,5 +1,16 @@
 /* 技発動帯 — プリセットごとにレイヤー構造・アニメが異なる */
 
+.tefx-wrap {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.tefx-wrap.tefx-wrap--fill-gauge-band {
+  height: 100%;
+}
+
 .tefx {
   container-type: inline-size;
   position: relative;
@@ -11,12 +22,10 @@
   border-radius: 10px;
   pointer-events: none;
   isolation: isolate;
-  background: linear-gradient(
-    155deg,
-    rgba(18, 16, 36, 0.94) 0%,
-    rgba(10, 12, 24, 0.97) 48%,
-    rgba(14, 12, 30, 0.95) 100%
-  );
+  background: linear-gradient(155deg,
+      rgba(18, 16, 36, 0.94) 0%,
+      rgba(10, 12, 24, 0.97) 48%,
+      rgba(14, 12, 30, 0.95) 100%);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.35),
@@ -37,6 +46,8 @@
   display: flex;
   flex-direction: column;
   /* レイヤーは絶対配置のまま、テキスト面だけフレックスで枠内中央に */
+  /* 平行四辺形の counter-skew や拡大レイヤーで角が抜けたときの黒地を減らす（外側は wrapper がクリップ） */
+  overflow: visible;
 }
 
 .tefx--fill-gauge-band .tefx__text-plane {
@@ -53,11 +64,9 @@
 
 /* 合わせ技成功など（帯内コンパクト表示）— --tefx-gauge-band-compact-font-scale は攻撃設定の %÷100 */
 .tefx--fill-gauge-band:not(.tefx--fill-gauge-band-large-type) .tefx__name {
-  font-size: clamp(
-    calc(0.55rem * var(--tefx-gauge-band-compact-font-scale, 1)),
-    calc(12cqh * var(--tefx-gauge-band-compact-font-scale, 1)),
-    calc(1.05rem * var(--tefx-gauge-band-compact-font-scale, 1))
-  );
+  font-size: clamp(calc(0.55rem * var(--tefx-gauge-band-compact-font-scale, 1)),
+      calc(12cqh * var(--tefx-gauge-band-compact-font-scale, 1)),
+      calc(1.05rem * var(--tefx-gauge-band-compact-font-scale, 1)));
 }
 
 .tefx--fill-gauge-band .tefx__title-stack {
@@ -69,30 +78,24 @@
 }
 
 .tefx--fill-gauge-band:not(.tefx--fill-gauge-band-large-type) .tefx__phantom-echo {
-  font-size: clamp(
-    calc(0.55rem * var(--tefx-gauge-band-compact-font-scale, 1)),
-    calc(12cqh * var(--tefx-gauge-band-compact-font-scale, 1)),
-    calc(1.05rem * var(--tefx-gauge-band-compact-font-scale, 1))
-  );
+  font-size: clamp(calc(0.55rem * var(--tefx-gauge-band-compact-font-scale, 1)),
+      calc(12cqh * var(--tefx-gauge-band-compact-font-scale, 1)),
+      calc(1.05rem * var(--tefx-gauge-band-compact-font-scale, 1)));
   letter-spacing: 0.08em;
 }
 
 /* ルーレット追加攻撃など — ゲージ帯のまま技名を読みやすいサイズに（--tefx-roulette-band-font-scale は設定の %） */
 .tefx.tefx--fill-gauge-band.tefx--fill-gauge-band-large-type .tefx__name {
-  font-size: clamp(
-    calc(0.82rem * var(--tefx-roulette-band-font-scale, 1)),
-    min(calc(22cqh * var(--tefx-roulette-band-font-scale, 1)), calc(5.2cqw * var(--tefx-roulette-band-font-scale, 1))),
-    calc(1.42rem * var(--tefx-roulette-band-font-scale, 1))
-  );
+  font-size: clamp(calc(0.82rem * var(--tefx-roulette-band-font-scale, 1)),
+      min(calc(22cqh * var(--tefx-roulette-band-font-scale, 1)), calc(5.2cqw * var(--tefx-roulette-band-font-scale, 1))),
+      calc(1.42rem * var(--tefx-roulette-band-font-scale, 1)));
   letter-spacing: 0.1em;
 }
 
 .tefx.tefx--fill-gauge-band.tefx--fill-gauge-band-large-type .tefx__phantom-echo {
-  font-size: clamp(
-    calc(0.82rem * var(--tefx-roulette-band-font-scale, 1)),
-    min(calc(22cqh * var(--tefx-roulette-band-font-scale, 1)), calc(5.2cqw * var(--tefx-roulette-band-font-scale, 1))),
-    calc(1.42rem * var(--tefx-roulette-band-font-scale, 1))
-  );
+  font-size: clamp(calc(0.82rem * var(--tefx-roulette-band-font-scale, 1)),
+      min(calc(22cqh * var(--tefx-roulette-band-font-scale, 1)), calc(5.2cqw * var(--tefx-roulette-band-font-scale, 1))),
+      calc(1.42rem * var(--tefx-roulette-band-font-scale, 1)));
   letter-spacing: 0.1em;
 }
 
@@ -101,6 +104,427 @@
   z-index: 1;
   pointer-events: none;
   box-sizing: border-box;
+}
+
+/* 技名ごとの Canvas アート（30パターン・screen で発色） */
+.tefx-art-canvas {
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: block;
+  mix-blend-mode: screen;
+  opacity: 0.78;
+}
+
+.tefx.tefx--fill-gauge-band .tefx-art-canvas {
+  opacity: 0.62;
+}
+
+.tefx-art-svg {
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  display: block;
+  mix-blend-mode: soft-light;
+  opacity: 0.42;
+}
+
+.tefx.tefx--fill-gauge-band .tefx-art-svg {
+  opacity: 0.32;
+}
+
+/* 上乗せ Canvas が読みづらい kind は不透明度を底上げ（帯レイアウトは fill 用で上書き） */
+.tefx--inferno .tefx-art-canvas,
+.tefx--meteor .tefx-art-canvas,
+.tefx--nova .tefx-art-canvas,
+.tefx--phantom .tefx-art-canvas,
+.tefx--plasma .tefx-art-canvas,
+.tefx--radiance .tefx-art-canvas,
+.tefx--glacier .tefx-art-canvas,
+.tefx--void .tefx-art-canvas,
+.tefx--tremor .tefx-art-canvas,
+.tefx--tempest .tefx-art-canvas {
+  opacity: 0.9;
+}
+
+.tefx.tefx--fill-gauge-band.tefx--inferno .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--meteor .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--nova .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--phantom .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--plasma .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--radiance .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--glacier .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--void .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--tremor .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--tempest .tefx-art-canvas {
+  opacity: 0.72;
+}
+
+.tefx--phantom .tefx-art-svg,
+.tefx--radiance .tefx-art-svg,
+.tefx--glacier .tefx-art-svg,
+.tefx--void .tefx-art-svg,
+.tefx--tremor .tefx-art-svg {
+  opacity: 0.52;
+}
+
+.tefx.tefx--fill-gauge-band.tefx--phantom .tefx-art-svg,
+.tefx.tefx--fill-gauge-band.tefx--radiance .tefx-art-svg,
+.tefx.tefx--fill-gauge-band.tefx--glacier .tefx-art-svg,
+.tefx.tefx--fill-gauge-band.tefx--void .tefx-art-svg,
+.tefx.tefx--fill-gauge-band.tefx--tremor .tefx-art-svg {
+  opacity: 0.38;
+}
+
+/* ---------- finale (success finish explosion) ---------- */
+.tefx-finale {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  /* translate プロパティは環境により未対応があり得るため、transform で確実に中央寄せする */
+  transform: translate(-50%, -50%);
+  /* HPゲージ中心に正方形で出す（帯やゲージ形状に合わせてマスクしない） */
+  --tefx-finale-size: min(560px, 78vmin);
+  width: var(--tefx-finale-size);
+  height: var(--tefx-finale-size);
+  z-index: 30;
+  /* hp-gauge-frame 内で前面寄り */
+  pointer-events: none;
+  /* 正方形の境目が見えないよう、要素自体も円形に寄せる（maskが弱い環境のフォールバック） */
+  border-radius: 999px;
+  clip-path: circle(50% at 50% 50%);
+  isolation: isolate;
+  /* 円形に広がり、外周ほど透過が強く見えるようにマスク */
+  --tefx-finale-mask: radial-gradient(circle at 50% 50%,
+      rgba(0, 0, 0, 1) 0 48%,
+      rgba(0, 0, 0, 0.92) 56%,
+      rgba(0, 0, 0, 0.55) 68%,
+      rgba(0, 0, 0, 0.18) 78%,
+      rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-image: var(--tefx-finale-mask);
+  mask-image: var(--tefx-finale-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  /* フィナーレ配色（既定＝暖色ゴールド）。種別は TechniqueEffectBurst-finale-kinds.css の .tefx-finale--{kind} で上書き */
+  --fin-fl-a: rgba(255, 255, 255, 0.95);
+  --fin-fl-b: rgba(255, 240, 200, 0.55);
+  --fin-fl-c: rgba(255, 210, 120, 0.18);
+  --fin-br-a: rgba(255, 255, 255, 0.55);
+  --fin-br-b: rgba(255, 240, 200, 0.22);
+  --fin-br-c: rgba(255, 220, 140, 0.18);
+  --fin-br-d: rgba(255, 250, 220, 0.22);
+  --fin-br-e: rgba(255, 210, 120, 0.12);
+  --fin-sp-1: rgba(255, 255, 255, 0.98);
+  --fin-sp-2: rgba(255, 235, 180, 0.92);
+  --fin-sp-3: rgba(255, 220, 140, 0.92);
+  --fin-sp-4: rgba(255, 240, 200, 0.9);
+  --fin-sp-5: rgba(255, 215, 130, 0.92);
+  --fin-sp-6: rgba(255, 220, 150, 0.88);
+  --fin-sp-7: rgba(255, 230, 170, 0.88);
+  --fin-sp-8: rgba(255, 235, 180, 0.92);
+  --fin-gl-1: rgba(255, 250, 220, 0.35);
+  --fin-gl-2: rgba(255, 245, 210, 0.75);
+  --fin-gl-3: rgba(255, 245, 205, 0.7);
+  --fin-gl-4: rgba(255, 210, 120, 0.28);
+  --fin-rg: rgba(255, 245, 210, 0.6);
+  --fin-rs: rgba(255, 220, 140, 0.25);
+  --fin-sh-1: rgba(255, 255, 255, 0.9);
+  --fin-sh-2: rgba(255, 230, 160, 0.9);
+  --fin-sh-3: rgba(255, 210, 120, 0.85);
+  --fin-gt-1: rgba(255, 255, 255, 0.85);
+  --fin-gt-2: rgba(255, 230, 170, 0.8);
+  --fin-gt-3: rgba(255, 220, 140, 0.85);
+  --fin-gt-4: rgba(255, 240, 200, 0.85);
+}
+
+/* mask が効かない環境でも角を感じないよう、コーナーを減光して“円形っぽさ”を作る */
+.tefx-finale::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  z-index: 50;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(0, 0, 0, 0) 0 54%,
+    rgba(0, 0, 0, 0.25) 66%,
+    rgba(0, 0, 0, 0.62) 78%,
+    rgba(0, 0, 0, 0.92) 90%,
+    rgba(0, 0, 0, 1) 100%
+  );
+  mix-blend-mode: multiply;
+  filter: blur(8px);
+}
+
+/* リングは inset:auto＋座標指定のため除外 */
+.tefx-finale .tefx-layer:not(.tefx-finale__ring-wrap) {
+  inset: -38%;
+  opacity: 0;
+  mix-blend-mode: screen;
+  /* OBS(CEF)で親の mask が効かない場合に備えて、各レイヤーにも同じ円形マスクを掛ける */
+  -webkit-mask-image: var(--tefx-finale-mask);
+  mask-image: var(--tefx-finale-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.tefx-finale__flash {
+  inset: -28%;
+  background: radial-gradient(circle at 50% 50%, var(--fin-fl-a) 0%, var(--fin-fl-b) 24%, var(--fin-fl-c) 40%, transparent 66%);
+  filter: blur(4px);
+  animation: tefx-finale-flash 320ms ease-out 2480ms both;
+}
+
+.tefx-finale__burst {
+  /* 「放射線」っぽい硬い扇形ではなく、柔らかい光の放射＋中心の熱核 */
+  background-image:
+    radial-gradient(circle at 50% 52%, var(--fin-br-a) 0 10%, var(--fin-br-b) 22%, transparent 58%),
+    radial-gradient(ellipse 120% 90% at 50% 58%, var(--fin-br-c) 0%, transparent 62%),
+    repeating-conic-gradient(
+      from 0deg at 50% 52%,
+      rgba(255, 255, 255, 0) 0deg 10deg,
+      var(--fin-br-d) 10deg 12deg,
+      var(--fin-br-e) 12deg 14deg,
+      rgba(255, 255, 255, 0) 14deg 26deg
+    );
+  filter: blur(2.2px) saturate(1.15);
+  /* 円形に広がる感じを強める */
+  border-radius: 999px;
+  animation: tefx-finale-burst 820ms cubic-bezier(0.1, 0.9, 0.15, 1) 2520ms both;
+}
+
+.tefx-finale__orbs {
+  inset: -32%;
+  position: absolute;
+  /* 小さい光球が「パッと破裂」する勢いで下→上へ噴き上がる */
+  background-image:
+    radial-gradient(circle at 10% 92%, var(--fin-sp-1) 0 0.9px, transparent 2.6px),
+    radial-gradient(circle at 18% 96%, var(--fin-sp-2) 0 1.4px, transparent 3.4px),
+    radial-gradient(circle at 28% 90%, var(--fin-sp-1) 0 1.05px, transparent 3.1px),
+    radial-gradient(circle at 40% 98%, var(--fin-sp-3) 0 1.8px, transparent 4.1px),
+    radial-gradient(circle at 52% 92%, var(--fin-sp-1) 0 1.15px, transparent 3.2px),
+    radial-gradient(circle at 64% 97%, var(--fin-sp-4) 0 1.55px, transparent 3.8px),
+    radial-gradient(circle at 76% 90%, var(--fin-sp-1) 0 1.2px, transparent 3.3px),
+    radial-gradient(circle at 88% 96%, var(--fin-sp-5) 0 2.1px, transparent 4.5px);
+  background-size: 78px 92px;
+  background-repeat: repeat;
+  /* 玉の発光感 */
+  filter:
+    blur(0.15px)
+    brightness(1.45)
+    saturate(1.25)
+    drop-shadow(0 0 18px var(--fin-gl-3))
+    drop-shadow(0 0 46px var(--fin-gl-4));
+  opacity: 0;
+  animation: tefx-finale-orbs 560ms cubic-bezier(0.1, 0.9, 0.15, 1) 2520ms both;
+}
+
+.tefx-finale__orbs::before,
+.tefx-finale__orbs::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+/* 追加レイヤー: より小さい玉（密度アップ） */
+.tefx-finale__orbs::before {
+  background-image:
+    radial-gradient(circle at 12% 96%, var(--fin-sp-1) 0 0.6px, transparent 2px),
+    radial-gradient(circle at 26% 90%, var(--fin-sp-6) 0 1.05px, transparent 2.8px),
+    radial-gradient(circle at 44% 98%, var(--fin-sp-1) 0 0.75px, transparent 2.3px),
+    radial-gradient(circle at 58% 92%, var(--fin-sp-6) 0 1.2px, transparent 3.2px),
+    radial-gradient(circle at 72% 96%, var(--fin-sp-1) 0 0.7px, transparent 2.3px),
+    radial-gradient(circle at 88% 90%, var(--fin-sp-7) 0 1.35px, transparent 3.4px);
+  background-size: 56px 64px;
+  opacity: 0.9;
+  filter: blur(0.2px) drop-shadow(0 0 10px var(--fin-gl-1));
+  animation: tefx-finale-orbs2 520ms cubic-bezier(0.1, 0.9, 0.15, 1) 2520ms both;
+}
+
+/* 追加レイヤー: 大きめの玉（インパクト） */
+.tefx-finale__orbs::after {
+  background-image:
+    radial-gradient(circle at 16% 94%, var(--fin-sp-1) 0 2.8px, transparent 6.6px),
+    radial-gradient(circle at 38% 98%, var(--fin-sp-3) 0 3.4px, transparent 7.2px),
+    radial-gradient(circle at 62% 92%, var(--fin-sp-1) 0 2.6px, transparent 6.4px),
+    radial-gradient(circle at 84% 96%, var(--fin-sp-8) 0 3.8px, transparent 7.8px);
+  background-size: 140px 160px;
+  opacity: 0.7;
+  filter: blur(0.05px) drop-shadow(0 0 26px var(--fin-gl-2));
+  animation: tefx-finale-orbs3 600ms cubic-bezier(0.1, 0.9, 0.15, 1) 2520ms both;
+}
+
+.tefx-finale__ring-wrap {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  inset: auto;
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: tefx-finale-ring 900ms ease-out 2550ms both;
+  /* リングは border なので、tefx-layer のマスクだけだと外周が残りやすい。個別にもマスクを当てる */
+  -webkit-mask-image: var(--tefx-finale-mask);
+  mask-image: var(--tefx-finale-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.tefx-finale__ring {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  border: 2px solid var(--fin-rg);
+  box-shadow: 0 0 34px var(--fin-rs);
+  -webkit-mask-image: var(--tefx-finale-mask);
+  mask-image: var(--tefx-finale-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+.tefx-finale__shards {
+  inset: -26%;
+  background-image:
+    radial-gradient(circle at 12% 86%, var(--fin-sh-1) 0 2px, transparent 4px),
+    radial-gradient(circle at 22% 78%, var(--fin-sh-2) 0 1.5px, transparent 4px),
+    radial-gradient(circle at 35% 90%, var(--fin-sh-1) 0 1.8px, transparent 4px),
+    radial-gradient(circle at 55% 80%, var(--fin-sh-3) 0 1.6px, transparent 4px),
+    radial-gradient(circle at 70% 88%, var(--fin-sh-1) 0 2.2px, transparent 4.5px),
+    radial-gradient(circle at 86% 76%, var(--fin-sh-2) 0 1.6px, transparent 4px);
+  filter: blur(0.6px);
+  animation: tefx-finale-shards 900ms ease-out 2540ms both;
+}
+
+.tefx-finale__glitter {
+  inset: -36%;
+  background-image:
+    radial-gradient(circle at 18% 62%, var(--fin-gt-1) 0 1px, transparent 2px),
+    radial-gradient(circle at 26% 72%, var(--fin-gt-2) 0 1px, transparent 2px),
+    radial-gradient(circle at 44% 64%, var(--fin-gt-1) 0 1px, transparent 2px),
+    radial-gradient(circle at 62% 70%, var(--fin-gt-3) 0 1px, transparent 2px),
+    radial-gradient(circle at 76% 60%, var(--fin-gt-1) 0 1px, transparent 2px),
+    radial-gradient(circle at 84% 74%, var(--fin-gt-4) 0 1px, transparent 2px);
+  opacity: 0;
+  filter: blur(0.2px);
+  animation: tefx-finale-glitter 1100ms ease-out 2520ms both;
+}
+
+@keyframes tefx-finale-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  35% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes tefx-finale-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.65) rotate(-8deg);
+  }
+
+  25% {
+    opacity: 0.95;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.34) rotate(18deg);
+  }
+}
+
+@keyframes tefx-finale-orbs {
+  0% { opacity: 0; transform: translateY(38%) scale(0.95); background-position: 0 80%; }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-52%) scale(1.03); background-position: 26px -160%; }
+}
+
+@keyframes tefx-finale-orbs2 {
+  0% { opacity: 0; transform: translateY(44%) scale(0.96); background-position: 0 95%; }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-60%) scale(1.02); background-position: -22px -190%; }
+}
+
+@keyframes tefx-finale-orbs3 {
+  0% { opacity: 0; transform: translateY(30%) scale(0.9); background-position: 0 70%; }
+  20% { opacity: 0.9; }
+  100% { opacity: 0; transform: translateY(-44%) scale(1.08); background-position: 34px -150%; }
+}
+
+@keyframes tefx-finale-ring {
+
+  /* 中央寄せは wrap 側で固定。ここでは回転・スケールのみ */
+  0% {
+    opacity: 0;
+    transform: rotate(-8deg) scale(0.55);
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: rotate(18deg) scale(1.18);
+  }
+}
+
+@keyframes tefx-finale-shards {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.9);
+  }
+
+  35% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-22px) scale(1.08);
+  }
+}
+
+@keyframes tefx-finale-glitter {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+    filter: blur(1.2px);
+  }
+
+  30% {
+    opacity: 0.9;
+    filter: blur(0.2px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.18);
+    filter: blur(2px);
+  }
 }
 
 /* 技名（平行四辺形ゲージ時は親で逆スキューを掛ける） */
@@ -159,12 +583,10 @@
 /* ---------- inferno ---------- */
 .tefx-inferno-glow {
   inset: -35%;
-  background: radial-gradient(
-    ellipse 90% 70% at 50% 85%,
-    rgba(255, 120, 40, 0.55) 0%,
-    rgba(255, 60, 20, 0.2) 42%,
-    transparent 68%
-  );
+  background: radial-gradient(ellipse 90% 70% at 50% 85%,
+      rgba(255, 120, 40, 0.55) 0%,
+      rgba(255, 60, 20, 0.2) 42%,
+      transparent 68%);
   animation: tefx-inf-pulse 2.2s ease-in-out both;
 }
 
@@ -207,19 +629,18 @@
 .tefx-meteor-streak {
   left: -20%;
   width: 45%;
-  height: 180%;
-  bottom: -40%;
+  height: 200%;
+  bottom: -55%;
   rotate: -32deg;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(255, 240, 200, 0.15) 35%,
-    rgba(255, 200, 120, 0.55) 55%,
-    rgba(255, 160, 80, 0.35) 70%,
-    transparent 100%
-  );
-  filter: blur(3px);
-  animation: tefx-met-fall 1.1s cubic-bezier(0.55, 0.05, 0.2, 1) both;
+  background: linear-gradient(180deg,
+      transparent 0%,
+      rgba(255, 250, 220, 0.22) 28%,
+      rgba(255, 220, 140, 0.72) 48%,
+      rgba(255, 170, 90, 0.55) 62%,
+      rgba(200, 120, 80, 0.35) 78%,
+      transparent 100%);
+  filter: blur(2.5px);
+  animation: tefx-met-fall 1.25s cubic-bezier(0.45, 0.02, 0.2, 1) both;
 }
 
 .tefx-meteor-streak--b {
@@ -231,10 +652,12 @@
 }
 
 .tefx-meteor-impact {
-  inset: auto -5% -30% -5%;
-  height: 70%;
-  background: radial-gradient(ellipse 80% 45% at 50% 100%, rgba(255, 240, 200, 0.65) 0%, transparent 65%);
-  animation: tefx-met-flash 0.45s ease-out 0.72s both;
+  inset: auto -8% -38% -8%;
+  height: 88%;
+  background:
+    radial-gradient(ellipse 55% 35% at 50% 100%, rgba(255, 255, 255, 0.55) 0%, transparent 55%),
+    radial-gradient(ellipse 85% 50% at 50% 100%, rgba(255, 230, 160, 0.75) 0%, transparent 68%);
+  animation: tefx-met-flash 0.55s ease-out 0.78s both;
   mix-blend-mode: screen;
 }
 
@@ -249,14 +672,12 @@
 /* ---------- void ---------- */
 .tefx-void-vortex {
   inset: -40%;
-  background: conic-gradient(
-    from 0deg at 50% 100%,
-    rgba(40, 20, 80, 0.55) 0deg,
-    rgba(120, 40, 160, 0.25) 90deg,
-    rgba(20, 10, 50, 0.65) 180deg,
-    rgba(90, 30, 140, 0.3) 270deg,
-    rgba(40, 20, 80, 0.55) 360deg
-  );
+  background: conic-gradient(from 0deg at 50% 100%,
+      rgba(40, 20, 80, 0.55) 0deg,
+      rgba(120, 40, 160, 0.25) 90deg,
+      rgba(20, 10, 50, 0.65) 180deg,
+      rgba(90, 30, 140, 0.3) 270deg,
+      rgba(40, 20, 80, 0.55) 360deg);
   animation: tefx-void-spin 3.2s linear both;
   opacity: 0.85;
 }
@@ -264,24 +685,27 @@
 .tefx-void-rim {
   inset: 5% 8% 12%;
   border-radius: 50%;
-  border: 1px solid rgba(160, 100, 255, 0.35);
-  box-shadow: inset 0 0 40px rgba(80, 20, 120, 0.35);
+  border: 1px solid rgba(180, 120, 255, 0.48);
+  box-shadow:
+    inset 0 0 48px rgba(90, 30, 140, 0.42),
+    0 0 28px rgba(120, 40, 200, 0.22);
   animation: tefx-void-contract 2.4s ease-in both;
 }
 
 .tefx-void-grains {
   inset: 0;
-  opacity: 0.12;
+  opacity: 0.2;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   animation: tefx-void-grain 0.4s steps(6) infinite;
   mix-blend-mode: overlay;
 }
 
 .tefx--void .tefx__name {
-  color: #e8d8ff;
+  color: #f0e8ff;
   text-shadow:
-    0 0 16px rgba(160, 100, 255, 0.75),
-    0 0 36px rgba(80, 40, 160, 0.4),
+    0 0 14px rgba(200, 150, 255, 0.95),
+    0 0 28px rgba(140, 80, 220, 0.55),
+    0 0 48px rgba(90, 40, 180, 0.35),
     0 2px 12px rgba(0, 0, 0, 0.95);
 }
 
@@ -295,15 +719,15 @@
 .tefx-tempest-bolt {
   inset: 0;
   opacity: 0;
-  background: linear-gradient(
-    165deg,
-    transparent 40%,
-    rgba(220, 240, 255, 0.95) 48%,
-    rgba(180, 220, 255, 0.4) 52%,
-    transparent 58%
-  );
-  filter: blur(1px);
+  background: linear-gradient(165deg,
+      transparent 38%,
+      rgba(240, 250, 255, 1) 47%,
+      rgba(200, 230, 255, 0.55) 51%,
+      rgba(120, 190, 255, 0.25) 54%,
+      transparent 60%);
+  filter: blur(0.85px);
   mix-blend-mode: screen;
+  box-shadow: 0 0 22px 6px rgba(200, 235, 255, 0.35);
 }
 
 .tefx-tempest-bolt--1 {
@@ -332,8 +756,8 @@
 
 /* ---------- glacier ---------- */
 .tefx-glacier-fog {
-  inset: -20%;
-  background: radial-gradient(ellipse 95% 75% at 50% 100%, rgba(180, 230, 255, 0.4) 0%, transparent 60%);
+  inset: -22%;
+  background: radial-gradient(ellipse 100% 78% at 50% 100%, rgba(190, 240, 255, 0.58) 0%, transparent 62%);
   animation: tefx-gla-breathe 2.6s ease-in-out both;
 }
 
@@ -341,12 +765,10 @@
   bottom: -5%;
   width: 22%;
   height: 85%;
-  background: linear-gradient(
-    180deg,
-    rgba(240, 252, 255, 0.55) 0%,
-    rgba(160, 220, 255, 0.15) 60%,
-    transparent 100%
-  );
+  background: linear-gradient(180deg,
+      rgba(248, 255, 255, 0.78) 0%,
+      rgba(170, 235, 255, 0.32) 55%,
+      transparent 100%);
   clip-path: polygon(50% 0%, 100% 30%, 85% 100%, 15% 100%, 0% 30%);
   filter: blur(0.5px);
   opacity: 0;
@@ -373,41 +795,36 @@
 
 .tefx-glacier-shine {
   inset: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 35%,
-    rgba(255, 255, 255, 0.25) 50%,
-    transparent 65%
-  );
+  background: linear-gradient(105deg,
+      transparent 32%,
+      rgba(255, 255, 255, 0.42) 50%,
+      transparent 68%);
   animation: tefx-gla-sweep 1.4s ease-in-out 0.4s both;
 }
 
 .tefx--glacier .tefx__name {
-  color: #f4fcff;
+  color: #f8feff;
   text-shadow:
-    0 0 12px rgba(120, 220, 255, 0.85),
-    0 0 26px rgba(80, 180, 220, 0.4),
-    0 2px 10px rgba(0, 0, 0, 0.9);
+    0 0 14px rgba(160, 240, 255, 0.95),
+    0 0 32px rgba(90, 200, 240, 0.55),
+    0 0 52px rgba(60, 170, 220, 0.28),
+    0 2px 10px rgba(0, 0, 0, 0.92);
 }
 
 /* ---------- plasma ---------- */
 .tefx-plasma-field {
   inset: -25%;
   background:
-    repeating-linear-gradient(
-      90deg,
+    repeating-linear-gradient(90deg,
       transparent 0 8px,
       rgba(255, 0, 200, 0.04) 8px 9px,
-      transparent 9px 20px
-    ),
-    repeating-linear-gradient(
-      0deg,
+      transparent 9px 20px),
+    repeating-linear-gradient(0deg,
       transparent 0 10px,
       rgba(0, 255, 240, 0.05) 10px 11px,
-      transparent 11px 22px
-    );
+      transparent 11px 22px);
   animation: tefx-pla-shift 3s linear both;
-  opacity: 0.9;
+  opacity: 0.96;
 }
 
 .tefx-plasma-arc {
@@ -449,8 +866,8 @@
 
 /* ---------- radiance ---------- */
 .tefx-radiance-bloom {
-  inset: -30%;
-  background: radial-gradient(ellipse 85% 70% at 50% 95%, rgba(255, 250, 220, 0.5) 0%, transparent 65%);
+  inset: -32%;
+  background: radial-gradient(ellipse 88% 72% at 50% 95%, rgba(255, 252, 230, 0.68) 0%, rgba(255, 235, 160, 0.22) 42%, transparent 66%);
   animation: tefx-rad-bloom 2.3s ease-out both;
 }
 
@@ -458,8 +875,8 @@
   top: -20%;
   bottom: -10%;
   width: 18%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, transparent 100%);
-  filter: blur(8px);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 248, 200, 0.35) 45%, transparent 100%);
+  filter: blur(7px);
   opacity: 0;
 }
 
@@ -487,23 +904,26 @@
   width: min(95%, 480px);
   aspect-ratio: 3 / 1;
   border-radius: 50%;
-  border: 2px solid rgba(255, 248, 200, 0.45);
-  box-shadow: 0 0 30px rgba(255, 240, 180, 0.25);
+  border: 2px solid rgba(255, 250, 210, 0.58);
+  box-shadow:
+    0 0 36px rgba(255, 230, 140, 0.38),
+    0 0 72px rgba(255, 210, 100, 0.18);
   animation: tefx-rad-ring 2s ease-out both;
 }
 
 .tefx--radiance .tefx__name {
   color: #fffef8;
   text-shadow:
-    0 0 16px rgba(255, 240, 180, 0.95),
-    0 0 36px rgba(255, 220, 120, 0.4),
+    0 0 14px rgba(255, 250, 220, 0.98),
+    0 0 28px rgba(255, 230, 150, 0.65),
+    0 0 52px rgba(255, 200, 80, 0.38),
     0 2px 10px rgba(0, 0, 0, 0.88);
 }
 
 /* ---------- tremor ---------- */
 .tefx-tremor-dust {
   inset: 0;
-  background: radial-gradient(ellipse 100% 60% at 50% 100%, rgba(120, 90, 60, 0.35) 0%, transparent 55%);
+  background: radial-gradient(ellipse 100% 62% at 50% 100%, rgba(140, 105, 70, 0.48) 0%, rgba(90, 70, 50, 0.18) 48%, transparent 58%);
   animation: tefx-tre-dust 2.4s ease-out both;
 }
 
@@ -511,18 +931,16 @@
   bottom: 0;
   height: 40%;
   width: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(40, 35, 30, 0.85) 8%,
-    transparent 9%,
-    transparent 45%,
-    rgba(30, 28, 25, 0.9) 52%,
-    transparent 54%,
-    transparent 78%,
-    rgba(35, 32, 28, 0.8) 88%,
-    transparent 91%
-  );
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(40, 35, 30, 0.85) 8%,
+      transparent 9%,
+      transparent 45%,
+      rgba(30, 28, 25, 0.9) 52%,
+      transparent 54%,
+      transparent 78%,
+      rgba(35, 32, 28, 0.8) 88%,
+      transparent 91%);
   opacity: 0;
   filter: blur(0.5px);
 }
@@ -533,28 +951,29 @@
 
 .tefx-tremor-crack--2 {
   height: 32%;
-  background: linear-gradient(
-    90deg,
-    transparent 20%,
-    rgba(50, 45, 40, 0.75) 35%,
-    transparent 38%,
-    transparent 62%,
-    rgba(45, 40, 35, 0.8) 72%,
-    transparent 76%
-  );
+  background: linear-gradient(90deg,
+      transparent 20%,
+      rgba(50, 45, 40, 0.75) 35%,
+      transparent 38%,
+      transparent 62%,
+      rgba(45, 40, 35, 0.8) 72%,
+      transparent 76%);
   animation: tefx-tre-crack 0.4s ease-out 0.45s both;
 }
 
 .tefx-tremor-shock {
   inset: 15% 5% 20%;
-  border: 1px solid rgba(200, 180, 140, 0.2);
+  border: 1px solid rgba(220, 195, 150, 0.32);
+  box-shadow: inset 0 0 40px rgba(80, 60, 40, 0.15);
   animation: tefx-tre-shock 2s ease-out both;
 }
 
 .tefx--tremor .tefx__name {
-  color: #fff4e0;
+  color: #fff6e8;
   text-shadow:
-    0 0 10px rgba(200, 170, 120, 0.6),
+    0 0 12px rgba(240, 200, 140, 0.85),
+    0 0 28px rgba(200, 150, 90, 0.45),
+    0 0 44px rgba(160, 110, 60, 0.22),
     0 2px 10px rgba(0, 0, 0, 0.92);
   animation: tefx-name-in 1.05s cubic-bezier(0.22, 1, 0.36, 1) both,
     tefx-tre-rumble 2.4s ease-in-out both;
@@ -562,36 +981,37 @@
 
 /* ---------- phantom ---------- */
 .tefx-phantom-mist {
-  inset: -25%;
-  background: radial-gradient(ellipse 90% 80% at 50% 90%, rgba(100, 60, 160, 0.35) 0%, transparent 60%);
+  inset: -28%;
+  background: radial-gradient(ellipse 92% 82% at 50% 90%, rgba(120, 70, 200, 0.55) 0%, rgba(70, 40, 120, 0.28) 45%, transparent 62%);
   animation: tefx-pha-mist 2.6s ease-in-out both;
 }
 
 .tefx-phantom-orbs {
   inset: 0;
   background-image:
-    radial-gradient(circle at 20% 70%, rgba(200, 160, 255, 0.35) 0 20%, transparent 21%),
-    radial-gradient(circle at 80% 65%, rgba(160, 120, 220, 0.3) 0 18%, transparent 19%);
-  filter: blur(12px);
+    radial-gradient(circle at 20% 70%, rgba(220, 180, 255, 0.52) 0 22%, transparent 23%),
+    radial-gradient(circle at 80% 65%, rgba(190, 140, 255, 0.46) 0 20%, transparent 21%);
+  filter: blur(9px);
   animation: tefx-pha-orbs 3s ease-in-out both;
 }
 
 .tefx-phantom-scan {
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(220, 200, 255, 0.12) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(240, 220, 255, 0.26) 48%,
+      rgba(255, 250, 255, 0.14) 50%,
+      transparent 100%);
   translate: -100% 0;
   animation: tefx-pha-scan 1.6s ease-in-out 0.3s both;
 }
 
 .tefx--phantom .tefx__name {
-  color: #f0e8ff;
+  color: #f6f0ff;
   text-shadow:
-    0 0 14px rgba(180, 140, 255, 0.75),
+    0 0 12px rgba(220, 190, 255, 0.95),
+    0 0 28px rgba(160, 110, 230, 0.55),
+    0 0 48px rgba(120, 70, 200, 0.28),
     0 2px 12px rgba(0, 0, 0, 0.92);
 }
 
@@ -604,11 +1024,9 @@
 
 .tefx-nova-rays {
   inset: -40%;
-  background: repeating-conic-gradient(
-    from 0deg at 50% 85%,
-    rgba(255, 240, 200, 0.12) 0deg 6deg,
-    transparent 6deg 14deg
-  );
+  background: repeating-conic-gradient(from 0deg at 50% 85%,
+      rgba(255, 240, 200, 0.12) 0deg 6deg,
+      transparent 6deg 14deg);
   animation: tefx-nov-spin 2.8s linear both;
   mix-blend-mode: screen;
 }
@@ -716,16 +1134,16 @@
 
   0% {
     opacity: 0;
-    transform: translate(-30%, -60%) scale(0.6);
+    transform: translate(-35%, -95%) scale(0.45);
   }
 
-  55% {
+  45% {
     opacity: 1;
   }
 
   100% {
-    opacity: 0.85;
-    transform: translate(10%, 8%) scale(1);
+    opacity: 0.92;
+    transform: translate(18%, 42%) scale(1.05);
   }
 }
 
@@ -733,16 +1151,16 @@
 
   0% {
     opacity: 0;
-    transform: scale(0.85);
+    transform: scale(0.75);
   }
 
-  40% {
+  35% {
     opacity: 1;
   }
 
   100% {
     opacity: 0;
-    transform: scale(1.1);
+    transform: scale(1.28);
   }
 }
 
@@ -798,14 +1216,22 @@
 
   0% {
     opacity: 0;
+    filter: blur(0.85px) brightness(1);
   }
 
-  15% {
+  12% {
     opacity: 1;
+    filter: blur(0.35px) brightness(1.85);
+  }
+
+  28% {
+    opacity: 0.85;
+    filter: blur(1px) brightness(1.2);
   }
 
   100% {
     opacity: 0;
+    filter: blur(1.2px) brightness(1);
   }
 }
 
@@ -841,7 +1267,7 @@
 
   0%,
   100% {
-    opacity: 0.65;
+    opacity: 0.78;
   }
 
   50% {
@@ -861,7 +1287,7 @@
   }
 
   100% {
-    opacity: 0.75;
+    opacity: 0.9;
     transform: translateY(-8px) scale(1);
   }
 }
@@ -915,11 +1341,11 @@
 
   0%,
   100% {
-    opacity: 0.4;
+    opacity: 0.52;
   }
 
   50% {
-    opacity: 0.85;
+    opacity: 0.94;
   }
 }
 
@@ -940,11 +1366,15 @@
 
   0% {
     opacity: 0;
-    transform: scaleY(0.3);
+    transform: scaleY(0.25);
+  }
+
+  55% {
+    opacity: 1;
   }
 
   100% {
-    opacity: 0.75;
+    opacity: 0.92;
     transform: scaleY(1);
   }
 }
@@ -977,7 +1407,7 @@
   }
 
   100% {
-    opacity: 0.35;
+    opacity: 0.52;
   }
 }
 
@@ -1006,7 +1436,7 @@
   }
 
   100% {
-    opacity: 0.15;
+    opacity: 0.26;
     transform: scale(1);
   }
 }
@@ -1019,19 +1449,19 @@
   }
 
   15% {
-    transform: translate(-3px, 1px);
+    transform: translate(-5px, 2px);
   }
 
   30% {
-    transform: translate(4px, -1px);
+    transform: translate(6px, -2px);
   }
 
   45% {
-    transform: translate(-2px, 2px);
+    transform: translate(-4px, 3px);
   }
 
   60% {
-    transform: translate(3px, 0);
+    transform: translate(5px, -1px);
   }
 }
 
@@ -1056,7 +1486,7 @@
   }
 
   50% {
-    transform: translate(6px, -8px);
+    transform: translate(10px, -11px);
   }
 }
 

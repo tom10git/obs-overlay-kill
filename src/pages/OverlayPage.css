@@ -1309,6 +1309,26 @@
   background: rgba(200, 120, 50, 0.5);
 }
 
+.test-button.test-kawaii-souni {
+  background: rgba(160, 50, 120, 0.42);
+  color: #fff;
+  border: 1px solid rgba(255, 120, 200, 0.55);
+}
+
+.test-button.test-kawaii-souni:hover:not(:disabled) {
+  background: rgba(190, 60, 140, 0.52);
+}
+
+.test-button.test-kawaii-souni-clear {
+  background: rgba(55, 55, 75, 0.45);
+  color: #fff;
+  border: 1px solid rgba(140, 140, 170, 0.5);
+}
+
+.test-button.test-kawaii-souni-clear:hover:not(:disabled) {
+  background: rgba(70, 70, 95, 0.55);
+}
+
 .test-button.test-recapture {
   background: rgba(0, 100, 180, 0.35);
   color: #fff;
