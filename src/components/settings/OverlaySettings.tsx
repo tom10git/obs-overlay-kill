@@ -5079,6 +5079,43 @@ export const OverlaySettings = forwardRef<
                     </ul>
                   </div>
                 )}
+                {config.test.enabled && (
+                  <div className="settings-row">
+                    <label>
+                      HPを減らさない攻撃コマンド（テスト用）:
+                      <input
+                        type="text"
+                        value={
+                          inputValues["attack.testNoDamageCommand"] ??
+                          String(config.attack.testNoDamageCommand ?? "!testhit")
+                        }
+                        onChange={(e) => {
+                          setInputValues((prev) => ({
+                            ...prev,
+                            "attack.testNoDamageCommand": e.target.value,
+                          }));
+                        }}
+                        onBlur={() => {
+                          const raw = (inputValues["attack.testNoDamageCommand"] ??
+                            String(config.attack.testNoDamageCommand ?? "!testhit")).trim();
+                          const next = raw.length > 0 ? raw : "!testhit";
+                          setConfig({
+                            ...config,
+                            attack: { ...config.attack, testNoDamageCommand: next },
+                          });
+                          setInputValues((prev) => {
+                            const n = { ...prev };
+                            delete n["attack.testNoDamageCommand"];
+                            return n;
+                          });
+                        }}
+                        placeholder="例: !testhit"
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
             )}
           </div>

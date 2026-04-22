@@ -234,6 +234,8 @@ export function OverlayPage() {
     userName: string
     /** チャレンジ開始時の接頭辞（完了時に技名へ切り出す） */
     inputPrefix: string
+    /** テスト用: HPを減らさない攻撃由来か */
+    noDamage?: boolean
   }
 
   const [comboChallenge, setComboChallenge] = useState<ComboChallengeState | null>(null)
@@ -248,6 +250,8 @@ export function OverlayPage() {
     /** 成功時: COMBO_TECHNIQUE_NAMES 内の停止インデックス（演出・追加攻撃の技名と一致） */
     landIndex: number
     attackerUserId: string
+    /** テスト用: HPを減らさない攻撃由来か */
+    noDamage?: boolean
   }
   const [rouletteBonus, setRouletteBonus] = useState<RouletteBonusState | null>(null)
   const [techniqueEffectBurst, setTechniqueEffectBurst] = useState<{
@@ -1117,7 +1121,7 @@ export function OverlayPage() {
   }, [playFinishingMoveSound])
 
   const applyComboTechniqueBonusDamage = useCallback(
-    (attackerUserId: string) => {
+    (attackerUserId: string, opts?: { noDamage?: boolean }) => {
       if (!config) return
       const bonus = getAttackDamage(
         config.attack,
@@ -1128,7 +1132,9 @@ export function OverlayPage() {
         config.pvp?.strengthBuffTarget
       )
       if (bonus < 1) return
-      reduceHPTracked(bonus)
+      if (!opts?.noDamage) {
+        reduceHPTracked(bonus)
+      }
       if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.damageShakeEnabled) {
         const eff = config.obsWebSocket.effects
         void tryObsEffect('combo technique: shake', () =>
@@ -1147,7 +1153,7 @@ export function OverlayPage() {
   )
 
   const applyRouletteBonusDamage = useCallback(
-    (attackerUserId: string) => {
+    (attackerUserId: string, opts?: { noDamage?: boolean }) => {
       if (!config) return
       const bonus = getAttackDamage(
         config.attack,
@@ -1158,7 +1164,9 @@ export function OverlayPage() {
         config.pvp?.strengthBuffTarget
       )
       if (bonus < 1) return
-      reduceHPTracked(bonus)
+      if (!opts?.noDamage) {
+        reduceHPTracked(bonus)
+      }
       if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.damageShakeEnabled) {
         const eff = config.obsWebSocket.effects
         void tryObsEffect('roulette bonus: shake', () =>
@@ -1207,7 +1215,7 @@ export function OverlayPage() {
   const handleRouletteSpinEnd = useCallback(() => {
     const rb = rouletteBonusRef.current
     if (!rb?.success) return
-    applyRouletteBonusDamageRef.current(rb.attackerUserId)
+    applyRouletteBonusDamageRef.current(rb.attackerUserId, { noDamage: rb.noDamage === true })
     fireTechniqueEffectBurstRef.current(rb.landedName, { largeBandTypography: true })
   }, [])
 
@@ -1229,7 +1237,7 @@ export function OverlayPage() {
         fireTechniqueEffectBurst(
           techniqueNameFromComboTarget(comboState.targetFull, comboState.inputPrefix)
         )
-        applyComboTechniqueBonusDamage(comboState.userId)
+        applyComboTechniqueBonusDamage(comboState.userId, { noDamage: comboState.noDamage === true })
         if (comboExpireTimerRef.current != null) {
           window.clearTimeout(comboExpireTimerRef.current)
           comboExpireTimerRef.current = null
@@ -1276,7 +1284,11 @@ export function OverlayPage() {
   }, [currentHP, stopRepeat])
 
   const runPvpCounterAfterAttack = useCallback(
-    (event: ChannelPointEvent | { rewardId: string; userId?: string; userName?: string }) => {
+    (
+      event:
+        | ChannelPointEvent
+        | { rewardId: string; userId?: string; userName?: string; noDamage?: boolean }
+    ) => {
       if (!config) return
       if (
         !config.pvp?.enabled ||
@@ -1286,6 +1298,7 @@ export function OverlayPage() {
       ) {
         return
       }
+      const noDamage = 'noDamage' in event && event.noDamage === true
       ensureViewerHP(event.userId)
       let targetUserId: string
       let targetUserName: string
@@ -1300,26 +1313,38 @@ export function OverlayPage() {
         targetUserName = userIdToDisplayNameRef.current.get(picked) ?? (picked === event.userId ? (event.userName ?? event.userId) : picked)
       }
       const sa = config.pvp.streamerAttack
-      const result = applyViewerDamage(
-        targetUserId,
-        getAttackDamage(sa),
-        sa
-      )
-      const hp = result.newHP
+      const hp = (() => {
+        if (noDamage) {
+          const state = getViewerHPCurrent(targetUserId) ?? getViewerHP(targetUserId)
+          return state?.current ?? viewerMaxHP
+        }
+        const result = applyViewerDamage(targetUserId, getAttackDamage(sa), sa)
+        return result.newHP
+      })()
       const max = viewerMaxHP
       const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
       const reply = fillTemplate(tpl, { username: targetUserName, hp, max })
       if (config.pvp.autoReplyAttackCounter) {
         sendAutoReply(reply, '[PvP] 攻撃時自動返信の送信失敗')
       }
-      if (result.newHP === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
+      if (!noDamage && hp === 0 && config.pvp.messageWhenViewerZeroHp?.trim() && config.pvp.autoReplyWhenViewerZeroHp) {
         const zeroMsg = fillTemplate(config.pvp.messageWhenViewerZeroHp, { username: targetUserName }).trim()
         if (zeroMsg) {
           sendAutoReply(zeroMsg, '[PvP] 視聴者HP0自動返信の送信失敗')
         }
       }
     },
-    [config, username, ensureViewerHP, getViewerUserIds, applyViewerDamage, viewerMaxHP, sendAutoReply]
+    [
+      config,
+      username,
+      ensureViewerHP,
+      getViewerUserIds,
+      getViewerHPCurrent,
+      getViewerHP,
+      applyViewerDamage,
+      viewerMaxHP,
+      sendAutoReply,
+    ]
   )
 
   /** 配信者HP0時の命中攻撃：オーバーキル演出（HPは変えない） */
@@ -1406,14 +1431,17 @@ export function OverlayPage() {
 
   // 攻撃イベントハンドラ（PvP時は発動者を lastAttacker に保存）
   const handleAttackEvent = useCallback(
-    (event: ChannelPointEvent | { rewardId: string; userId?: string; userName?: string }) => {
+    (
+      event: ChannelPointEvent | { rewardId: string; userId?: string; userName?: string; noDamage?: boolean }
+    ) => {
       if (!config) return
 
       const isRewardIdMatch = event.rewardId === config.attack.rewardId && config.attack.rewardId.length > 0
       const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.attack.customText && config.attack.customText.length > 0
       const isViewerAttackCommandMatch = event.rewardId === 'viewer-attack-command'
+      const isTestNoDamageMatch = event.rewardId === 'test-no-damage-command'
 
-      if (!isRewardIdMatch && !isCustomTextMatch && !isViewerAttackCommandMatch) return
+      if (!isRewardIdMatch && !isCustomTextMatch && !isViewerAttackCommandMatch && !isTestNoDamageMatch) return
 
       if (config.pvp?.enabled && event.userId) {
         lastAttackerRef.current = {
@@ -1431,7 +1459,7 @@ export function OverlayPage() {
         return
       }
 
-      if (isRewardIdMatch || isCustomTextMatch || isViewerAttackCommandMatch) {
+      if (isRewardIdMatch || isCustomTextMatch || isViewerAttackCommandMatch || isTestNoDamageMatch) {
         // ミス判定（HP0は上で除外済み。ここでも ref を見て二重にガード）
         let shouldDamage = true
         if (hpCurrentSyncRef.current > 0 && config.attack.missEnabled) {
@@ -1442,6 +1470,7 @@ export function OverlayPage() {
         }
 
         if (shouldDamage) {
+          const noDamage = 'noDamage' in event && event.noDamage === true
           // 反転回復の判定（この攻撃で「HPが減ったあとに回復」するか。0なら通常ダメージのみ）
           let reverseHealAmount = 0
           if (config.pvp?.streamerHealOnAttackEnabled && (config.pvp.streamerHealOnAttackProbability ?? 0) > 0) {
@@ -1508,8 +1537,10 @@ export function OverlayPage() {
             }
           }
           // ダメージ適用後のHPを計算（反転回復を判定するため）
-          const hpAfterDamage = Math.max(0, streamerHpNow - finalDamage)
-          reduceHPTracked(finalDamage)
+          const hpAfterDamage = Math.max(0, streamerHpNow - (noDamage ? 0 : finalDamage))
+          if (!noDamage) {
+            reduceHPTracked(finalDamage)
+          }
           // OBS WebSocket: ダメージ演出（ソースレイヤー操作）
           if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
             const eff = config.obsWebSocket.effects
@@ -1556,6 +1587,7 @@ export function OverlayPage() {
               userId: attackerUserId,
               userName: event.userName ?? event.userId ?? '視聴者',
               inputPrefix: comboPrefix,
+              noDamage,
             }
             comboChallengeRef.current = next
             setComboChallenge(next)
@@ -1582,6 +1614,7 @@ export function OverlayPage() {
               landedName,
               landIndex,
               attackerUserId,
+              noDamage,
             })
           }
 
@@ -1631,7 +1664,9 @@ export function OverlayPage() {
                 const currentReduceHP = reduceHPRef.current
                 if (currentReduceHP && typeof currentReduceHP === 'function') {
                   logger.debug(`[出血ダメージ適用] reduceHPRef.currentを呼び出します`)
-                  currentReduceHP(bleedDamage)
+                  if (!noDamage) {
+                    currentReduceHP(bleedDamage)
+                  }
                   playDotDebuffTickSound(config.attack, dotDebuffKind, {
                     playBleed: playBleedSound,
                     playPoison: playDotPoisonSound,
@@ -1660,7 +1695,9 @@ export function OverlayPage() {
                   // フォールバック: reduceHPを直接使用
                   if (reduceHPTracked && typeof reduceHPTracked === 'function') {
                     logger.debug('[出血ダメージ] フォールバック: reduceHPTrackedを直接使用')
-                    reduceHPTracked(bleedDamage)
+                    if (!noDamage) {
+                      reduceHPTracked(bleedDamage)
+                    }
                     playDotDebuffTickSound(config.attack, dotDebuffKind, {
                       playBleed: playBleedSound,
                       playPoison: playDotPoisonSound,
@@ -2634,6 +2671,30 @@ export function OverlayPage() {
 
       // 1つのメッセージで1つのコマンドのみを実行する（攻撃を優先）
       let commandMatched = false
+
+      // テスト用: HPを減らさない攻撃コマンド（配信者のみ・テストモード時のみ）
+      const testNoDamageCmd = (config.attack.testNoDamageCommand ?? '!testhit').trim()
+      if (
+        !commandMatched &&
+        isTestMode &&
+        testNoDamageCmd.length > 0 &&
+        user?.id &&
+        message.user.id === user.id
+      ) {
+        const isMatch = isCommandMatch(messageLower, testNoDamageCmd)
+        if (isMatch) {
+          processedChatMessagesRef.current.add(message.id)
+          commandMatched = true
+          handleAttackEvent({
+            rewardId: 'test-no-damage-command',
+            // 配信者が打つテストコマンドでも「視聴者攻撃扱い」にして、合わせ技・ルーレット抽選が走るようにする
+            userId: 'test-user',
+            userName: 'TestUser',
+            noDamage: true,
+          })
+          return
+        }
+      }
 
       // PvP: 配信者のカウンター攻撃コマンド（配信者のみ実行可能）
       if (

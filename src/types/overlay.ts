@@ -139,6 +139,11 @@ export interface AttackConfig {
   comboTechniqueChallengeFontScalePercent: number
   /** オーバーレイ上の攻撃シミュレーション（リワード攻撃とは別経路） */
   testPanelSimulation: TestPanelAttackSimulationConfig
+  /**
+   * テスト用（テストモード時のみ）: HPゲージを減らさない攻撃コマンド。
+   * デバフ付与・合わせ技・ルーレットなどの発動確認に使う。
+   */
+  testNoDamageCommand?: string
   survivalHp1Enabled: boolean // 攻撃でHPが0になる場合に一定確率で1残す機能の有効/無効
   survivalHp1Probability: number // HPが1残る確率（0-100）
   survivalHp1Message: string // 食いしばり発動時に表示するカスタムメッセージ

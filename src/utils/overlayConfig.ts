@@ -165,6 +165,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     comboTechniqueResultFontScalePercent: 100,
     comboTechniqueChallengeFontScalePercent: 100,
     testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
+    testNoDamageCommand: '!testhit',
     survivalHp1Enabled: false,
     survivalHp1Probability: 30,
     survivalHp1Message: '食いしばり!',
@@ -880,6 +881,10 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       ? Math.round(Number(attackConfig.comboTechniqueChallengeFontScalePercent) || DEFAULT_CONFIG.attack.comboTechniqueChallengeFontScalePercent)
       : DEFAULT_CONFIG.attack.comboTechniqueChallengeFontScalePercent,
     testPanelSimulation: sanitizeTestPanelSimulation(attackConfig.testPanelSimulation, legacyTestForPanelSim),
+    testNoDamageCommand:
+      typeof attackConfig.testNoDamageCommand === 'string' && isValidLength(attackConfig.testNoDamageCommand, 1, 50)
+        ? (attackConfig.testNoDamageCommand as string).replace(/[<>"']/g, '')
+        : DEFAULT_CONFIG.attack.testNoDamageCommand,
     survivalHp1Enabled: typeof attackConfig.survivalHp1Enabled === 'boolean' ? attackConfig.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(attackConfig.survivalHp1Probability), 0, 100)
       ? Number(attackConfig.survivalHp1Probability) || 30
