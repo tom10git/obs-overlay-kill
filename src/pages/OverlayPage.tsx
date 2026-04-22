@@ -1346,7 +1346,9 @@ export function OverlayPage() {
         lastStreamerAttackerRef.current = null
       }
 
-      const attackerUserId = event.userId && user?.id && event.userId !== user.id ? event.userId : undefined
+      // 視聴者攻撃（メッセージコマンド / カスタムテキスト含む）は、配信者IDが未取得でも attacker を扱えるようにする
+      const broadcasterId = user?.id
+      const attackerUserId = event.userId && (!broadcasterId || event.userId !== broadcasterId) ? event.userId : undefined
       const buffUserId =
         testMode && config.pvp?.strengthBuffTarget === 'individual' ? 'test-user' : attackerUserId
 
@@ -1459,7 +1461,8 @@ export function OverlayPage() {
           }
           // クリティカル判定（今回の攻撃のベースダメージは getAttackDamage で決定）
           // 視聴者が攻撃する場合、バフを考慮する
-          const attackerUserId = event.userId && user?.id && event.userId !== user.id ? event.userId : undefined
+          const broadcasterId = user?.id
+          const attackerUserId = event.userId && (!broadcasterId || event.userId !== broadcasterId) ? event.userId : undefined
           let baseDamage = getAttackDamage(
             config.attack,
             attackerUserId,
