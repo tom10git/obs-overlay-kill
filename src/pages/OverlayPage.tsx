@@ -1631,7 +1631,14 @@ export function OverlayPage() {
           // クリティカル判定（今回の攻撃のベースダメージは getAttackDamage で決定）
           // 視聴者が攻撃する場合、バフを考慮する
           const broadcasterId = user?.id
-          const attackerUserId = event.userId && (!broadcasterId || event.userId !== broadcasterId) ? event.userId : undefined
+          const attackerUserIdBase =
+            event.userId && (!broadcasterId || event.userId !== broadcasterId) ? event.userId : undefined
+          // テストモードでは、配信者が攻撃カスタムテキストを打っても「視聴者攻撃扱い」にする（合わせ技・ルーレット検証用）
+          const attackerUserId =
+            attackerUserIdBase ??
+            (isTestMode && event.rewardId === 'custom-text' && broadcasterId && event.userId === broadcasterId
+              ? 'test-user'
+              : undefined)
           let baseDamage = getAttackDamage(
             config.attack,
             attackerUserId,
@@ -1710,12 +1717,17 @@ export function OverlayPage() {
             showCritical(config.animation.duration)
           }
 
-          // 合わせ技チャンス（30%・プロンプト表示中は重複なし・視聴者が配信者を攻撃したときのみ）
+          // 合わせ技チャンス（通常30%・プロンプト表示中は重複なし・視聴者が配信者を攻撃したときのみ）
           if (
             config.attack.comboTechniqueEnabled !== false &&
             attackerUserId &&
             !comboChallengeRef.current &&
-            Math.random() < COMBO_TECHNIQUE_TRIGGER_PROBABILITY
+            (() => {
+              const p = isTestMode
+                ? Math.max(0, Math.min(1, (config.attack.testPanelSimulation.comboTriggerPercent ?? 30) / 100))
+                : COMBO_TECHNIQUE_TRIGGER_PROBABILITY
+              return Math.random() < p
+            })()
           ) {
             const comboMs = Math.min(300_000, Math.max(3_000, config.attack.comboTechniqueDurationSec * 1000))
             const comboPrefix = config.attack.comboTechniqueInputPrefix
@@ -1739,14 +1751,24 @@ export function OverlayPage() {
             }, comboMs)
           }
 
-          // 追加攻撃ルーレット（40%・合わせ技とは別。技名リストのみ共通）
+          // 追加攻撃ルーレット（通常40%・合わせ技とは別。技名リストのみ共通）
           if (
             attackerUserId &&
             !rouletteBonusLockRef.current &&
-            Math.random() < ROULETTE_BONUS_TRIGGER_PROBABILITY
+            (() => {
+              const p = isTestMode
+                ? Math.max(0, Math.min(1, (config.attack.testPanelSimulation.rouletteTriggerPercent ?? 40) / 100))
+                : ROULETTE_BONUS_TRIGGER_PROBABILITY
+              return Math.random() < p
+            })()
           ) {
             rouletteBonusLockRef.current = true
-            const rbSuccess = Math.random() < ROULETTE_BONUS_SUCCESS_PROBABILITY
+            const rbSuccess = (() => {
+              const p = isTestMode
+                ? Math.max(0, Math.min(1, (config.attack.testPanelSimulation.rouletteSuccessPercent ?? 50) / 100))
+                : ROULETTE_BONUS_SUCCESS_PROBABILITY
+              return Math.random() < p
+            })()
             const { landedName, landIndex } = pickRouletteStripSkill(COMBO_TECHNIQUE_NAMES)
             setRouletteBonus({
               id: Date.now(),
