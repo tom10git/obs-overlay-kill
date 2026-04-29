@@ -105,3 +105,52 @@ export function clearLogBuffer() {
   buffer.length = 0
   subscribers.forEach((fn) => fn())
 }
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+function formatDateForFile(ts: number): string {
+  const d = new Date(ts)
+  const y = d.getFullYear()
+  const m = pad2(d.getMonth() + 1)
+  const day = pad2(d.getDate())
+  const hh = pad2(d.getHours())
+  const mm = pad2(d.getMinutes())
+  const ss = pad2(d.getSeconds())
+  return `${y}${m}${day}-${hh}${mm}${ss}`
+}
+
+export function formatLogBufferJsonl(entries: readonly LogEntry[] = buffer): string {
+  // 解析しやすいように JSON Lines で出力する
+  return entries
+    .map((e) =>
+      JSON.stringify({
+        ts: e.ts,
+        iso: new Date(e.ts).toISOString(),
+        level: e.level,
+        message: e.message,
+        ...(e.detail ? { detail: e.detail } : {}),
+      })
+    )
+    .join('\n')
+}
+
+export function downloadLogBufferAsText(options?: { filename?: string; content?: string }) {
+  const content = options?.content ?? formatLogBufferJsonl()
+  const filename = options?.filename ?? `obs-overlay-debug-${formatDateForFile(Date.now())}.txt`
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  try {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  } finally {
+    // revoke は少し待った方が安全
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+}

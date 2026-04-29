@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import { getLogBuffer, subscribeLogs, clearLogBuffer, type LogEntry } from '../lib/logger'
+import {
+  getLogBuffer,
+  subscribeLogs,
+  clearLogBuffer,
+  downloadLogBufferAsText,
+  type LogEntry,
+} from '../lib/logger'
 import './DebugLog.css'
 
 function formatTime(ts: number): string {
@@ -46,6 +52,13 @@ export function DebugLog() {
       {open && (
         <div className="debug-log-panel">
           <div className="debug-log-toolbar">
+            <button
+              type="button"
+              className="debug-log-clear"
+              onClick={() => downloadLogBufferAsText()}
+            >
+              ダウンロード
+            </button>
             <button type="button" className="debug-log-clear" onClick={() => clearLogBuffer()}>
               クリア
             </button>

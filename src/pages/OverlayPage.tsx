@@ -1660,14 +1660,45 @@ export function OverlayPage() {
   const applyComboTechniqueInputSlice = useCallback(
     (raw: string): boolean => {
       const comboState = comboChallengeRef.current
-      if (!comboState || Date.now() >= comboState.endsAt) return false
+      if (!comboState) return false
+      if (Date.now() >= comboState.endsAt) {
+        logger.debug('[combo] input ignored: expired', {
+          now: Date.now(),
+          endsAt: comboState.endsAt,
+          userId: comboState.userId,
+          matchedLength: comboState.matchedLength,
+          targetFull: comboState.targetFull,
+        })
+        return false
+      }
+      // Twitchチャットは見た目が同じでも半角/全角・濁点分離などで文字が一致しないことがあるため、
+      // 照合は NFKC 正規化した文字列同士で行う。
+      const rawNormalized = raw.normalize('NFKC')
+      const rawPreview =
+        rawNormalized.length > 240 ? `${rawNormalized.slice(0, 240)}…(${rawNormalized.length})` : rawNormalized
       const { newMatchedLength, completed } = advanceComboTechniqueInput(
         comboState.targetFull,
         comboState.matchedLength,
-        raw
+        rawNormalized
       )
+      logger.debug('[combo] advance', {
+        userId: comboState.userId,
+        matchedBefore: comboState.matchedLength,
+        matchedAfter: newMatchedLength,
+        completed,
+        targetFull: comboState.targetFull,
+        raw: rawPreview,
+      })
       if (completed) {
         const landedTechniqueName = techniqueNameFromComboTarget(comboState.targetFull, comboState.inputPrefix)
+        logger.info('[combo] completed', {
+          userId: comboState.userId,
+          userName: comboState.userName,
+          landedTechniqueName,
+          targetFull: comboState.targetFull,
+          inputPrefix: comboState.inputPrefix,
+          endsAt: comboState.endsAt,
+        })
         playComboTechniqueSound()
         fireAttackEffectBurst('combo')
         fireTechniqueEffectBurst(landedTechniqueName, {
@@ -2039,10 +2070,11 @@ export function OverlayPage() {
             })()
           ) {
             const comboMs = Math.min(300_000, Math.max(3_000, config.attack.comboTechniqueDurationSec * 1000))
-            const comboPrefix = config.attack.comboTechniqueInputPrefix
+            const comboPrefix = config.attack.comboTechniqueInputPrefix.normalize('NFKC')
             const endsAt = Date.now() + comboMs
+            const targetFull = `${comboPrefix}${pickRandomComboTechniqueName()}`.normalize('NFKC')
             const next: ComboChallengeState = {
-              targetFull: `${comboPrefix}${pickRandomComboTechniqueName()}`,
+              targetFull,
               matchedLength: 0,
               endsAt,
               userId: attackerUserId,
@@ -2050,11 +2082,30 @@ export function OverlayPage() {
               inputPrefix: comboPrefix,
               noDamage,
             }
+            logger.info('[combo] challenge started', {
+              userId: next.userId,
+              userName: next.userName,
+              now: Date.now(),
+              endsAt: next.endsAt,
+              durationMs: comboMs,
+              inputPrefix: next.inputPrefix,
+              targetFull: next.targetFull,
+              isTestMode,
+              noDamage: next.noDamage === true,
+            })
             comboChallengeRef.current = next
             setComboChallenge(next)
             if (comboExpireTimerRef.current != null) window.clearTimeout(comboExpireTimerRef.current)
             comboExpireTimerRef.current = window.setTimeout(() => {
               comboExpireTimerRef.current = null
+              logger.info('[combo] challenge expired', {
+                userId: next.userId,
+                userName: next.userName,
+                now: Date.now(),
+                endsAt: next.endsAt,
+                matchedLength: comboChallengeRef.current?.matchedLength ?? next.matchedLength,
+                targetFull: next.targetFull,
+              })
               comboChallengeRef.current = null
               setComboChallenge(null)
             }, comboMs)
@@ -2585,10 +2636,11 @@ export function OverlayPage() {
         Math.random() * 100 < config.attack.testPanelSimulation.comboTriggerPercent
       ) {
         const comboMs = Math.min(300_000, Math.max(3_000, config.attack.comboTechniqueDurationSec * 1000))
-        const comboPrefix = config.attack.comboTechniqueInputPrefix
+        const comboPrefix = config.attack.comboTechniqueInputPrefix.normalize('NFKC')
         const endsAt = Date.now() + comboMs
+        const targetFull = `${comboPrefix}${pickRandomComboTechniqueName()}`.normalize('NFKC')
         const next: ComboChallengeState = {
-          targetFull: `${comboPrefix}${pickRandomComboTechniqueName()}`,
+          targetFull,
           matchedLength: 0,
           endsAt,
           userId: 'test-user',
@@ -3105,10 +3157,30 @@ export function OverlayPage() {
               message.user.id === user.id))
         if (canInputThisCombo && comboState) {
           const comboInputRaw = stripEmotesFromMessage(message.message, message.emotes)
+          logger.debug('[combo] chat input accepted', {
+            messageId: message.id,
+            fromUserId: message.user.id,
+            fromUserName: message.user.displayName || message.user.login || message.user.id,
+            targetUserId: comboState.userId,
+            now: Date.now(),
+            endsAt: comboState.endsAt,
+            matchedLength: comboState.matchedLength,
+            targetFull: comboState.targetFull,
+            raw: comboInputRaw.length > 240 ? `${comboInputRaw.slice(0, 240)}…(${comboInputRaw.length})` : comboInputRaw,
+          })
           if (applyComboTechniqueInputSlice(comboInputRaw)) {
             processedChatMessagesRef.current.add(message.id)
             return
           }
+        } else if (comboState && message.user.id === comboState.userId) {
+          logger.debug('[combo] chat input rejected', {
+            messageId: message.id,
+            fromUserId: message.user.id,
+            now: Date.now(),
+            endsAt: comboState.endsAt,
+            comboEnabled: config.attack.comboTechniqueEnabled,
+            isTestMode,
+          })
         }
       }
 
