@@ -4,7 +4,8 @@
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
-const MAX_BUFFER = 200
+// 解析用にある程度長めに残す（必要なら後で設定化）
+const MAX_BUFFER = 2000
 
 export type LogEntry = {
   ts: number

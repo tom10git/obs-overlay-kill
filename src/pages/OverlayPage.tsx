@@ -1959,15 +1959,6 @@ export function OverlayPage() {
               reverseHealAmount = getStreamerHealOnAttackAmount(config.pvp)
             }
           }
-          // 配信者HPを0にした「倒した」表示用：視聴者が攻撃したときだけ攻撃者を記録
-          if (event.userId && user?.id && event.userId !== user.id) {
-            lastStreamerAttackerRef.current = {
-              userId: event.userId,
-              userName: event.userName ?? event.userId,
-            }
-          } else if (!event.userId || event.userId === user?.id) {
-            lastStreamerAttackerRef.current = null
-          }
           // クリティカル判定（今回の攻撃のベースダメージは getAttackDamage で決定）
           // 視聴者が攻撃する場合、バフを考慮する
           const broadcasterId = user?.id
@@ -2027,6 +2018,18 @@ export function OverlayPage() {
           const hpAfterDamage = Math.max(0, streamerHpNow - (noDamage ? 0 : finalDamage))
           if (!noDamage) {
             reduceHPTracked(finalDamage)
+          }
+          // 配信者HPを0にした「倒した」表示用：HPが0になった“この攻撃”の発動者を記録（配信者本人も含む）
+          if (!noDamage && hpAfterDamage <= 0) {
+            if (event.userId) {
+              const isBroadcaster = broadcasterId && event.userId === broadcasterId
+              const resolvedName =
+                event.userName ??
+                (isBroadcaster ? (user?.display_name || user?.login || event.userId) : event.userId)
+              lastStreamerAttackerRef.current = { userId: event.userId, userName: resolvedName }
+            } else {
+              lastStreamerAttackerRef.current = null
+            }
           }
           // OBS WebSocket: ダメージ演出（ソースレイヤー操作）
           if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
@@ -3122,6 +3125,16 @@ export function OverlayPage() {
   const processedChatMessagesRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
+    logger.info('[chat] state', {
+      channel: chatChannel,
+      connected: chatConnected,
+      identity: !!chatConnectOptions,
+      hasToken: !!chatToken,
+      username: username || null,
+    })
+  }, [chatChannel, chatConnected, chatConnectOptions, chatToken, username])
+
+  useEffect(() => {
     // カスタムテキストのチャット監視（テストモードでも有効）
     if (!config || !chatChannel) {
       return
@@ -3142,6 +3155,37 @@ export function OverlayPage() {
       // 既に処理済みのメッセージはスキップ
       if (processedChatMessagesRef.current.has(message.id)) {
         return
+      }
+
+      // 合わせ技調査: チャレンジ中は「メッセージを見たか/誰の発言か/弾いた理由」を必ず残す
+      if (config.attack.comboTechniqueEnabled && comboChallengeRef.current) {
+        const comboState = comboChallengeRef.current
+        const now = Date.now()
+        const expired = now >= comboState.endsAt
+        const isTargetUser = message.user.id === comboState.userId
+        const isTestTarget =
+          isTestMode &&
+          comboState.userId === 'test-user' &&
+          user?.id &&
+          message.user.id === user.id
+        const canInput = !expired && (isTargetUser || isTestTarget)
+        const preview = message.message.length > 180 ? `${message.message.slice(0, 180)}…(${message.message.length})` : message.message
+        logger.debug('[combo] chat seen', {
+          messageId: message.id,
+          fromUserId: message.user.id,
+          fromUserName: message.user.displayName || message.user.login || message.user.id,
+          preview,
+          now,
+          combo: {
+            targetUserId: comboState.userId,
+            endsAt: comboState.endsAt,
+            expired,
+            matchedLength: comboState.matchedLength,
+            canInput,
+            isTargetUser,
+            isTestTarget,
+          },
+        })
       }
 
       // 合わせ技: チャレンジ中は対象ユーザーがチャットで技名を順に入力（誤入力してもマッチ位置は維持）

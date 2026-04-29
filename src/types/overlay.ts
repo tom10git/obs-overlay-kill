@@ -23,7 +23,7 @@ export interface HPConfig {
    */
   rouletteOffsetX: number
   rouletteOffsetY: number
-  /** 配信者HPが0になったときにチャットへ送る自動返信メッセージ。{attacker} で攻撃した視聴者名に置換（空なら送信しない） */
+  /** 配信者HPが0になったときにチャットへ送る自動返信メッセージ。{attacker} で「HPを0にした攻撃者名（配信者/視聴者）」に置換（空なら送信しない） */
   messageWhenZeroHp: string
 }
 

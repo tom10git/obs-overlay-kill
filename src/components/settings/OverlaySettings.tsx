@@ -7255,7 +7255,7 @@ export const OverlaySettings = forwardRef<
               <div className="settings-row">
                 <label>
                   配信者HPが0になったときの自動返信メッセージ（{"{attacker}"}{" "}
-                  で攻撃した視聴者名に置換）:
+                  で「HPを0にした攻撃者名（配信者/視聴者）」に置換）:
                   <input
                     type="text"
                     value={
