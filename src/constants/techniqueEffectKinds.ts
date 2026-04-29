@@ -26,39 +26,71 @@ export type TechniqueEffectKind =
 function getSlashKind(name: string): TechniqueEffectKind {
   // 斬撃タイプの中でも見た目が単調にならないよう、技名の語彙で種別を振り分ける
   if (name.includes('紅')) return 'inferno'
+  if (name.includes('クリムゾン') || name.includes('インフェルノ')) return 'inferno'
   if (name.includes('蒼')) return 'glacier'
+  if (name.includes('アズール') || name.includes('フロスト')) return 'glacier'
   if (name.includes('雷') || name.includes('風')) return 'tempest'
+  if (name.includes('ライジン') || name.includes('ウィンド') || name.includes('テンペスト')) return 'tempest'
   if (name.includes('影') || name.includes('黒')) return 'void'
+  if (name.includes('ヴォイド')) return 'void'
   if (name.includes('白') || name.includes('月')) return 'radiance'
+  if (name.includes('ムーンライト') || name.includes('ホワイト')) return 'radiance'
   if (name.includes('虎')) return 'tremor'
   if (name.includes('龍')) return 'nova'
+  if (name.includes('ノヴァ') || name.includes('アーク')) return 'nova'
   if (name.includes('ブレイド')) return 'phantom'
   if (name.includes('シャドウ')) return 'phantom'
+  if (name.includes('シャドー') || name.includes('ファントム')) return 'phantom'
   return 'tremor'
 }
 
 function getMagicKind(name: string): TechniqueEffectKind {
   if (name.includes('カワイソウニ')) return 'phantom'
   if (name.includes('星詠') || name.includes('アストラ')) return 'nova'
+  if (name.includes('ネビュラ') || name.includes('セレスティア') || name.includes('アストラル')) return 'nova'
   if (name.includes('深淵') || name.includes('虚無')) return 'void'
+  if (name.includes('エクリプス') || name.includes('カオス') || name.includes('ゼロ') || name.includes('ノクターン'))
+    return 'void'
   if (name.includes('聖光') || name.includes('月詠')) return 'radiance'
+  if (name.includes('ルミナ') || name.includes('プリズム') || name.includes('オラクル'))
+    return 'radiance'
   if (name.includes('氷華')) return 'glacier'
   if (name.includes('雷帝')) return 'tempest'
   if (name.includes('焔王')) return 'inferno'
+  if (name.includes('ソラリス')) return 'inferno'
   if (name.includes('霊峰')) return 'tremor'
   if (name.includes('ルーン') || name.includes('秘儀')) return 'plasma'
+  if (
+    name.includes('エーテル') ||
+    name.includes('アーケイン') ||
+    name.includes('グリモア') ||
+    name.includes('マナ') ||
+    name.includes('スピリット')
+  )
+    return 'plasma'
+  if (name.includes('ミラージュ') || name.includes('シンフォニア')) return 'phantom'
   return 'radiance'
 }
 
 function getShootingKind(name: string): TechniqueEffectKind {
   if (name.includes('流星') || name.includes('彗星') || name.includes('銀河')) return 'meteor'
+  if (name.includes('メテオ')) return 'meteor'
   if (name.includes('閃光') || name.includes('白夜')) return 'radiance'
+  if (name.includes('フォトン')) return 'radiance'
   if (name.includes('雷鳴')) return 'tempest'
+  if (name.includes('ブリッツ')) return 'tempest'
   if (name.includes('黒翼')) return 'void'
+  if (name.includes('ブラックアウト') || name.includes('スモーク') || name.includes('ホワイトノイズ')) return 'void'
   if (name.includes('蒼穹')) return 'nova'
+  if (name.includes('ノヴァ') || name.includes('スカイ')) return 'nova'
   if (name.includes('金剛')) return 'tremor'
+  if (name.includes('スティール') || name.includes('アイアン')) return 'tremor'
+  if (name.includes('ヘイル')) return 'glacier'
   if (name.includes('烈火')) return 'inferno'
   if (name.includes('バレット') || name.includes('キャノン')) return 'plasma'
+  if (name.includes('プラズマ') || name.includes('レイザー')) return 'plasma'
+  if (name.includes('マグナム') || name.includes('バスター') || name.includes('ストライカー') || name.includes('オーバードライブ'))
+    return 'plasma'
   return 'meteor'
 }
 

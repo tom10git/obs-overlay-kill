@@ -1,0 +1,155 @@
+obs-overlay-kill: 合わせ技が入力しても発火しない調査用デバッグデータ
+作成日: 2026-04-29
+
+このファイルは「合わせ技（Combo Technique）」が“入力したのに発火しない”ときに、
+原因を特定するために必要な観測点と、コード上の弾かれ条件をまとめたものです。
+
+
+====================
+結論（まず疑うべき）
+====================
+1) 入力が判定に届いていない（canInputThisCombo が false）
+   - チャレンジ未発生 / 期限切れ / ユーザーID不一致 で入力が無視されます。
+
+2) targetFull と入力文字列が一致していない
+   - 特に「接頭辞（comboTechniqueInputPrefix）」の文字が一致しないと完走できません。
+   - 例: 表示が「合わせ技：」(全角コロン) なのに、入力が「合わせ技:」(半角コロン) など。
+   - また、入力側が “技名だけ” を打っていると、先頭の接頭辞分が満たせず永遠に完了しません。
+
+
+====================
+実装上の流れ（どこで何が起きるか）
+====================
+チャレンジ発生:
+  src/pages/OverlayPage.tsx 内で攻撃イベント時にチャレンジを生成。
+  ComboChallengeState.targetFull = `${comboPrefix}${pickRandomComboTechniqueName()}`
+  ComboChallengeState.inputPrefix = comboPrefix
+  ComboChallengeState.userId = attackerUserId
+  ComboChallengeState.endsAt = Date.now() + comboMs
+
+入力処理:
+  src/pages/OverlayPage.tsx の useEffect で Twitch chat を監視し、
+  合わせ技チャレンジ中は対象ユーザーのメッセージだけを `applyComboTechniqueInputSlice` に渡します。
+
+判定ロジック:
+  src/utils/comboTechniqueInput.ts の `advanceComboTechniqueInput` が、
+  targetFull の文字列を先頭から順に、入力中に“同じ文字が出たら”進める方式で照合します。
+  不一致文字は無視されるが、targetFull の全ての文字が入力中に順番通り出現する必要があります。
+
+完了時:
+  `completed` の場合、エフェクト + 追加ダメージを発火し、チャレンジを終了します。
+
+
+====================
+合わせ技が「無視される」条件（最重要）
+====================
+以下のいずれかだと、入力は 1文字も判定に入らず、matchedLength が増えません。
+
+- チャレンジが存在しない:
+  comboChallengeRef.current が null
+
+- 期限切れ:
+  Date.now() >= comboState.endsAt
+
+- 入力者が対象ユーザーでない:
+  message.user.id !== comboState.userId
+
+- テストモード特殊条件:
+  test-user の場合、配信者本人の user.id からのメッセージだけ受け付ける
+
+該当箇所（抜粋・要点）:
+  src/pages/OverlayPage.tsx
+    canInputThisCombo =
+      comboState &&
+      Date.now() < comboState.endsAt &&
+      (message.user.id === comboState.userId || (isTestMode && ...))
+
+
+====================
+「判定はされているのに完走しない」典型原因
+====================
+1) 接頭辞の文字が合っていない
+   - targetFull には接頭辞が含まれています（例: 「合わせ技：」）。
+   - 入力メッセージに、その接頭辞文字列が含まれない限り completed になりません。
+   - 全角/半角差、句読点差、スペース混入、似た文字（: / ：）を要チェック。
+
+2) 視聴者が「技名だけ」を入力している
+   - targetFull が「合わせ技：<技名>」の場合、技名だけ入力しても prefix 部分が進まず完了しません。
+
+3) エモート除去で文字列が変形している
+   - stripEmotesFromMessage は emote 範囲をスペースに置換します。
+   - 接頭辞・技名の途中に emote が混ざると、その部分の一致が起きなくなります。
+
+
+====================
+今すぐ確認できる“必要な観測値”
+====================
+以下が分かると、ほぼ一発で原因が特定できます。
+
+- 現在のチャレンジ表示文字列:
+  comboChallenge.targetFull（画面に出ているはず）
+
+- 現在の入力進捗:
+  comboChallenge.matchedLength（画面で色が付いている位置）
+
+- 設定の接頭辞:
+  config.attack.comboTechniqueInputPrefix（Overlay Settings 側の値）
+
+- 実際にチャットから渡っている入力（エモート除去後）:
+  comboInputRaw = stripEmotesFromMessage(message.message, message.emotes)
+
+- 入力が無視されていないか:
+  canInputThisCombo の真偽
+  message.user.id と comboState.userId の一致
+  Date.now() と comboState.endsAt の関係
+
+
+====================
+再現手順（最短）
+====================
+1) テストモードで合わせ技チャレンジを発生させる
+   - Overlay の設定画面にあるテストパネルで combo を発生させる（またはテスト攻撃をトリガー）。
+
+2) 画面に表示された targetFull をそのままコピーしてチャットに投稿する
+   - これで発火しない場合:
+     - canInputThisCombo が false（ユーザー不一致/期限切れ/チャレンジ未生成）の可能性が高い
+     - もしくは「表示とチャットの文字」が実際は一致していない（全角記号差など）
+
+3) “技名だけ” を投稿した場合に発火しないなら、仕様として prefix が必須になっています。
+
+
+====================
+原因候補チェックリスト
+====================
+- [ ] 画面に表示されている targetFull に prefix が含まれているか
+- [ ] 視聴者は prefix も含めて入力しているか（全角/半角も一致しているか）
+- [ ] 視聴者の userId が comboChallenge.userId と一致しているか
+- [ ] 入力した時点で残り秒が 0 になっていないか（期限切れ）
+- [ ] メッセージに emote が混ざっていないか（prefix/技名を壊していないか）
+
+
+====================
+関連ファイル（参照用）
+====================
+- src/pages/OverlayPage.tsx
+  - ComboChallengeState 定義
+  - チャット監視（canInputThisCombo）
+  - applyComboTechniqueInputSlice（completed 時の発火）
+
+- src/utils/comboTechniqueInput.ts
+  - advanceComboTechniqueInput（照合ロジック）
+
+- src/utils/techniqueEffectName.ts
+  - techniqueNameFromComboTarget（完了時に prefix を除いて技名にする）
+
+- src/constants/comboTechnique.ts
+  - comboTechniqueInputPrefix の既定（COMBO_TECHNIQUE_PREFIX = '合わせ技：'）
+
+
+====================
+補足: なぜ「技名だけ」だと完了しないのか
+====================
+advanceComboTechniqueInput は targetFull を先頭から順に一致させていくため、
+targetFull の先頭に prefix が入っている限り、入力メッセージ中に prefix が含まれないと
+matchedLength が 0 のまま進まず completed になりません。
+

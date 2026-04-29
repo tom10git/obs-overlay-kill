@@ -66,6 +66,11 @@ function detectSlashVariant(name: string): SlashVariant {
   if (s.includes('ラッシュ')) return 'rush'
   if (s.includes('ブレイク')) return 'break'
   if (s.includes('牙')) return 'fang'
+  // 追加語尾（カタカナ/英語風）
+  if (s.includes('スプリット')) return 'break'
+  if (s.includes('フィニッシュ')) return 'break'
+  if (s.includes('ダブル') || s.includes('トリプル')) return 'rush'
+  if (s.includes('エッジ')) return 'fang'
   // 単漢字語尾（斬/断/裂/閃）は上の語尾より優先度を下げつつも差を出す
   if (s.endsWith('断')) return 'break'
   if (s.endsWith('裂')) return 'fang'
@@ -91,17 +96,26 @@ type SlashHead =
 function detectSlashHead(name: string): SlashHead {
   const s = name.trim()
   if (s.includes('紅刃')) return 'kurenai'
+  if (s.includes('クリムゾン') || s.includes('インフェルノ')) return 'kurenai'
   if (s.includes('蒼刃')) return 'aoi'
+  if (s.includes('アズール') || s.includes('フロスト')) return 'aoi'
   if (s.includes('雷刃')) return 'raijin'
+  if (s.includes('ライジン') || s.includes('テンペスト')) return 'raijin'
   if (s.includes('影刃')) return 'kage'
   if (s.includes('白刃')) return 'shiro'
+  if (s.includes('ホワイト')) return 'shiro'
   if (s.includes('黒刃')) return 'kuro'
+  if (s.includes('ヴォイド')) return 'kuro'
   if (s.includes('月刃')) return 'tsuki'
+  if (s.includes('ムーンライト')) return 'tsuki'
   if (s.includes('虎刃')) return 'tora'
   if (s.includes('龍刃')) return 'ryu'
+  if (s.includes('ノヴァ')) return 'ryu'
   if (s.includes('風刃')) return 'kaze'
+  if (s.includes('ウィンド')) return 'kaze'
   if (s.includes('ブレイド')) return 'blade'
   if (s.includes('シャドウ')) return 'shadow'
+  if (s.includes('シャドー') || s.includes('ファントム')) return 'shadow'
   return 'other'
 }
 
