@@ -55,7 +55,7 @@ import {
   streamerFinishingMoveDamageFraction,
 } from '../constants/konamiStreamerBuff'
 import { TECHNIQUE_EFFECT_BURST_MS } from '../constants/techniqueEffects'
-import { advanceComboTechniqueInput } from '../utils/comboTechniqueInput'
+import { advanceComboTechniqueInput, normalizeComboTechniqueText } from '../utils/comboTechniqueInput'
 import { techniqueNameFromComboTarget } from '../utils/techniqueEffectName'
 import { useSound } from '../hooks/useSound'
 import { getAdminUsername, getDefaultChannel } from '../config/admin'
@@ -1673,11 +1673,12 @@ export function OverlayPage() {
       }
       // Twitchチャットは見た目が同じでも半角/全角・濁点分離などで文字が一致しないことがあるため、
       // 照合は NFKC 正規化した文字列同士で行う。
-      const rawNormalized = raw.normalize('NFKC')
+      const rawNormalized = normalizeComboTechniqueText(raw.normalize('NFKC'))
+      const targetNormalized = normalizeComboTechniqueText(comboState.targetFull.normalize('NFKC'))
       const rawPreview =
         rawNormalized.length > 240 ? `${rawNormalized.slice(0, 240)}…(${rawNormalized.length})` : rawNormalized
       const { newMatchedLength, completed } = advanceComboTechniqueInput(
-        comboState.targetFull,
+        targetNormalized,
         comboState.matchedLength,
         rawNormalized
       )
@@ -1687,6 +1688,7 @@ export function OverlayPage() {
         matchedAfter: newMatchedLength,
         completed,
         targetFull: comboState.targetFull,
+        targetNormalized,
         raw: rawPreview,
       })
       if (completed) {
@@ -3162,13 +3164,14 @@ export function OverlayPage() {
         const comboState = comboChallengeRef.current
         const now = Date.now()
         const expired = now >= comboState.endsAt
+        const allowAny = config.attack.comboTechniqueAllowAnyUserInput !== false
         const isTargetUser = message.user.id === comboState.userId
         const isTestTarget =
           isTestMode &&
           comboState.userId === 'test-user' &&
           user?.id &&
           message.user.id === user.id
-        const canInput = !expired && (isTargetUser || isTestTarget)
+        const canInput = !expired && (allowAny || isTargetUser || isTestTarget)
         const preview = message.message.length > 180 ? `${message.message.slice(0, 180)}…(${message.message.length})` : message.message
         logger.debug('[combo] chat seen', {
           messageId: message.id,
@@ -3182,6 +3185,7 @@ export function OverlayPage() {
             expired,
             matchedLength: comboState.matchedLength,
             canInput,
+            allowAny,
             isTargetUser,
             isTestTarget,
           },
@@ -3191,10 +3195,12 @@ export function OverlayPage() {
       // 合わせ技: チャレンジ中は対象ユーザーがチャットで技名を順に入力（誤入力してもマッチ位置は維持）
       if (config.attack.comboTechniqueEnabled !== false) {
         const comboState = comboChallengeRef.current
+        const allowAny = config.attack.comboTechniqueAllowAnyUserInput !== false
         const canInputThisCombo =
           comboState &&
           Date.now() < comboState.endsAt &&
-          (message.user.id === comboState.userId ||
+          (allowAny ||
+            message.user.id === comboState.userId ||
             (isTestMode &&
               comboState.userId === 'test-user' &&
               user?.id &&
@@ -3206,6 +3212,7 @@ export function OverlayPage() {
             fromUserId: message.user.id,
             fromUserName: message.user.displayName || message.user.login || message.user.id,
             targetUserId: comboState.userId,
+            allowAny,
             now: Date.now(),
             endsAt: comboState.endsAt,
             matchedLength: comboState.matchedLength,

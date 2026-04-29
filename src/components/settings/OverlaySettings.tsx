@@ -2639,6 +2639,24 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.comboTechniqueAllowAnyUserInput !== false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueAllowAnyUserInput: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    合わせ技チャンス中、誰でも入力で進行できる（おすすめ）
+                  </label>
+                </div>
                 <h4 className="settings-subsection-title">オーバーキル（配信者HP0・オーバーレイ経路）</h4>
                 <p className="settings-hint">
                   配信者HPが0のとき、<strong>チャンネルポイントを経由しないオーバーレイからの攻撃</strong>を受けた場合の演出です。視聴者リワードの攻撃には影響しません。

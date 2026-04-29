@@ -159,6 +159,8 @@ export interface AttackConfig {
   comboTechniqueDurationSec: number
   /** チャット等で入力する目標文字列の先頭接頭辞（技名の前に付く） */
   comboTechniqueInputPrefix: string
+  /** true のとき、合わせ技チャレンジ中は「誰でも」入力で進行できる（既定: true） */
+  comboTechniqueAllowAnyUserInput: boolean
   /**
    * 合わせ技入力成功時、HPゲージ帯に出す技名テキストの相対サイズ（50〜200、100＝既定）
    * 追加攻撃ルーレット成功時のサイズ（hp.rouletteBandTechniqueFontScalePercent）とは別

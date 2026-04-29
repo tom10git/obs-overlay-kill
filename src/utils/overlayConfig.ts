@@ -184,6 +184,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     comboTechniqueEnabled: true,
     comboTechniqueDurationSec: 30,
     comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+    comboTechniqueAllowAnyUserInput: true,
     comboTechniqueResultFontScalePercent: 100,
     comboTechniqueChallengeFontScalePercent: 100,
     testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
@@ -322,6 +323,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueEnabled: true,
       comboTechniqueDurationSec: 30,
       comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+      comboTechniqueAllowAnyUserInput: true,
       comboTechniqueResultFontScalePercent: 100,
       comboTechniqueChallengeFontScalePercent: 100,
       testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
@@ -446,6 +448,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueEnabled: true,
       comboTechniqueDurationSec: 30,
       comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+      comboTechniqueAllowAnyUserInput: true,
       comboTechniqueResultFontScalePercent: 100,
       comboTechniqueChallengeFontScalePercent: 100,
       testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
@@ -969,6 +972,10 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       const max = 40
       return s.length > max ? s.slice(0, max) : s
     })(),
+    comboTechniqueAllowAnyUserInput:
+      typeof attackConfig.comboTechniqueAllowAnyUserInput === 'boolean'
+        ? attackConfig.comboTechniqueAllowAnyUserInput
+        : DEFAULT_CONFIG.attack.comboTechniqueAllowAnyUserInput,
     comboTechniqueResultFontScalePercent: isInRange(Number(attackConfig.comboTechniqueResultFontScalePercent), 50, 200)
       ? Math.round(Number(attackConfig.comboTechniqueResultFontScalePercent) || DEFAULT_CONFIG.attack.comboTechniqueResultFontScalePercent)
       : DEFAULT_CONFIG.attack.comboTechniqueResultFontScalePercent,
@@ -1494,6 +1501,10 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       const max = 40
       return s.length > max ? s.slice(0, max) : s
     })(),
+    comboTechniqueAllowAnyUserInput:
+      typeof sa.comboTechniqueAllowAnyUserInput === 'boolean'
+        ? sa.comboTechniqueAllowAnyUserInput
+        : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueAllowAnyUserInput,
     comboTechniqueResultFontScalePercent: isInRange(Number(sa.comboTechniqueResultFontScalePercent), 50, 200)
       ? Math.round(Number(sa.comboTechniqueResultFontScalePercent) || DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueResultFontScalePercent)
       : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueResultFontScalePercent,
@@ -1605,6 +1616,10 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       const max = 40
       return s.length > max ? s.slice(0, max) : s
     })(),
+    comboTechniqueAllowAnyUserInput:
+      typeof vva.comboTechniqueAllowAnyUserInput === 'boolean'
+        ? vva.comboTechniqueAllowAnyUserInput
+        : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueAllowAnyUserInput,
     comboTechniqueResultFontScalePercent: isInRange(Number(vva.comboTechniqueResultFontScalePercent), 50, 200)
       ? Math.round(Number(vva.comboTechniqueResultFontScalePercent) || DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueResultFontScalePercent)
       : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueResultFontScalePercent,
