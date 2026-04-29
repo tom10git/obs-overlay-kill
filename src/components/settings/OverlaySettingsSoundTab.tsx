@@ -543,6 +543,208 @@ export function OverlaySettingsSoundTab({
           </p>
         )}
 
+        <h4 className="settings-subsection-title">合わせ技・ルーレット（成功時）</h4>
+        <p className="settings-hint">
+          通常攻撃SEとは別に、合わせ技成功時・追加攻撃ルーレット成功時の効果音を設定できます。
+        </p>
+        <div className="settings-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.attack.comboTechniqueSoundEnabled}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  attack: { ...config.attack, comboTechniqueSoundEnabled: e.target.checked },
+                })
+              }
+            />
+            合わせ技成功時の効果音を有効にする
+          </label>
+        </div>
+        {config.attack.comboTechniqueSoundEnabled && (
+          <div className="settings-row">
+            <label>
+              効果音URL:
+              <div className="settings-url-with-button">
+                <input
+                  type="text"
+                  value={config.attack.comboTechniqueSoundUrl}
+                  onChange={(e) => {
+                    const url = e.target.value
+                    if (isValidUrl(url)) {
+                      setConfig({
+                        ...config,
+                        attack: { ...config.attack, comboTechniqueSoundUrl: url },
+                      })
+                    } else {
+                      setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
+                      setTimeout(() => setMessage(null), 3000)
+                    }
+                  }}
+                  placeholder="空欄の場合は鳴りません"
+                />
+                <button
+                  type="button"
+                  className="settings-action-secondary settings-url-browse"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    openSoundFilePicker((dataUrl) => {
+                      setConfig({
+                        ...config,
+                        attack: { ...config.attack, comboTechniqueSoundUrl: dataUrl },
+                      })
+                    })
+                  }}
+                  title="音声ファイルを選んでURLに自動入力（data:audio）"
+                >
+                  参照...
+                </button>
+              </div>
+            </label>
+            <label>
+              音量:
+              <input
+                type="text"
+                value={
+                  inputValues['attack.comboTechniqueSoundVolume'] ??
+                  String(config.attack.comboTechniqueSoundVolume)
+                }
+                onChange={(e) => {
+                  setInputValues((prev) => ({ ...prev, 'attack.comboTechniqueSoundVolume': e.target.value }))
+                }}
+                onBlur={(e) => {
+                  const value = e.target.value.trim()
+                  if (value === '' || isNaN(parseFloat(value))) {
+                    setConfig({
+                      ...config,
+                      attack: { ...config.attack, comboTechniqueSoundVolume: 0.7 },
+                    })
+                    setInputValues((prev) => {
+                      const next = { ...prev }
+                      delete next['attack.comboTechniqueSoundVolume']
+                      return next
+                    })
+                  } else {
+                    const num = parseFloat(value)
+                    if (!isNaN(num)) {
+                      setConfig({
+                        ...config,
+                        attack: { ...config.attack, comboTechniqueSoundVolume: Math.min(1, Math.max(0, num)) },
+                      })
+                      setInputValues((prev) => {
+                        const next = { ...prev }
+                        delete next['attack.comboTechniqueSoundVolume']
+                        return next
+                      })
+                    }
+                  }
+                }}
+              />
+            </label>
+          </div>
+        )}
+
+        <div className="settings-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.attack.rouletteSoundEnabled}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  attack: { ...config.attack, rouletteSoundEnabled: e.target.checked },
+                })
+              }
+            />
+            追加攻撃ルーレット成功時の効果音を有効にする
+          </label>
+        </div>
+        {config.attack.rouletteSoundEnabled && (
+          <div className="settings-row">
+            <label>
+              効果音URL:
+              <div className="settings-url-with-button">
+                <input
+                  type="text"
+                  value={config.attack.rouletteSoundUrl}
+                  onChange={(e) => {
+                    const url = e.target.value
+                    if (isValidUrl(url)) {
+                      setConfig({
+                        ...config,
+                        attack: { ...config.attack, rouletteSoundUrl: url },
+                      })
+                    } else {
+                      setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
+                      setTimeout(() => setMessage(null), 3000)
+                    }
+                  }}
+                  placeholder="空欄の場合は鳴りません"
+                />
+                <button
+                  type="button"
+                  className="settings-action-secondary settings-url-browse"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    openSoundFilePicker((dataUrl) => {
+                      setConfig({
+                        ...config,
+                        attack: { ...config.attack, rouletteSoundUrl: dataUrl },
+                      })
+                    })
+                  }}
+                  title="音声ファイルを選んでURLに自動入力（data:audio）"
+                >
+                  参照...
+                </button>
+              </div>
+            </label>
+            <label>
+              音量:
+              <input
+                type="text"
+                value={
+                  inputValues['attack.rouletteSoundVolume'] ??
+                  String(config.attack.rouletteSoundVolume)
+                }
+                onChange={(e) => {
+                  setInputValues((prev) => ({ ...prev, 'attack.rouletteSoundVolume': e.target.value }))
+                }}
+                onBlur={(e) => {
+                  const value = e.target.value.trim()
+                  if (value === '' || isNaN(parseFloat(value))) {
+                    setConfig({
+                      ...config,
+                      attack: { ...config.attack, rouletteSoundVolume: 0.7 },
+                    })
+                    setInputValues((prev) => {
+                      const next = { ...prev }
+                      delete next['attack.rouletteSoundVolume']
+                      return next
+                    })
+                  } else {
+                    const num = parseFloat(value)
+                    if (!isNaN(num)) {
+                      setConfig({
+                        ...config,
+                        attack: { ...config.attack, rouletteSoundVolume: Math.min(1, Math.max(0, num)) },
+                      })
+                      setInputValues((prev) => {
+                        const next = { ...prev }
+                        delete next['attack.rouletteSoundVolume']
+                        return next
+                      })
+                    }
+                  }
+                }}
+              />
+            </label>
+          </div>
+        )}
+
         {config.attack.bleedEnabled && (
           <>
             <p className="settings-hint">
@@ -1148,6 +1350,105 @@ export function OverlaySettingsSoundTab({
                 </span>
               </label>
             </div>
+          </>
+        )}
+
+        <div className="settings-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.pvp.konamiStreamerBuffEnabled ?? true}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  pvp: { ...config.pvp, konamiStreamerBuffEnabled: e.target.checked },
+                })
+              }
+            />
+            チャットのコナミコード（配信者バフ）を有効にする
+          </label>
+        </div>
+        <div className="settings-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={config.pvp.konamiStreamerBuffSoundEnabled ?? false}
+              disabled={config.pvp.konamiStreamerBuffEnabled === false}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  pvp: { ...config.pvp, konamiStreamerBuffSoundEnabled: e.target.checked },
+                })
+              }
+            />
+            コナミバフ（配信者）発動時の効果音を有効にする
+          </label>
+        </div>
+        {config.pvp.konamiStreamerBuffEnabled !== false && config.pvp.konamiStreamerBuffSoundEnabled && (
+          <>
+            <div className="settings-row">
+              <label>
+                効果音URL:
+                <div className="settings-url-with-button">
+                  <input
+                    type="text"
+                    value={config.pvp.konamiStreamerBuffSoundUrl ?? ''}
+                    onChange={(e) => {
+                      const url = e.target.value
+                      if (url === '' || isValidUrl(url)) {
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, konamiStreamerBuffSoundUrl: url },
+                        })
+                      } else {
+                        setMessage('無効なURLです。http://、https://、data:audio、または相対パスを入力してください。')
+                        setTimeout(() => setMessage(null), 3000)
+                      }
+                    }}
+                    placeholder="空欄の場合は効果音なし"
+                  />
+                  <button
+                    type="button"
+                    className="settings-action-secondary settings-url-browse"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      openSoundFilePicker((dataUrl) => {
+                        setConfig({
+                          ...config,
+                          pvp: { ...config.pvp, konamiStreamerBuffSoundUrl: dataUrl },
+                        })
+                      })
+                    }}
+                    title="音声ファイルを選んでURLに自動入力（data:audio）"
+                  >
+                    参照...
+                  </button>
+                </div>
+              </label>
+              <label>
+                音量:
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={config.pvp.konamiStreamerBuffSoundVolume ?? 0.7}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      pvp: { ...config.pvp, konamiStreamerBuffSoundVolume: Number(e.target.value) },
+                    })
+                  }
+                />
+                <span style={{ marginLeft: '8px', minWidth: '40px', display: 'inline-block' }}>
+                  {Math.round((config.pvp.konamiStreamerBuffSoundVolume ?? 0.7) * 100)}%
+                </span>
+              </label>
+            </div>
+            <p className="settings-hint">
+              チャットのコナミコードで発動したときに再生されます。
+            </p>
           </>
         )}
 

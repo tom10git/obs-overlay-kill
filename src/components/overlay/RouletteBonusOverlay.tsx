@@ -42,6 +42,8 @@ export interface RouletteBonusOverlayProps {
   dodgeSlideDirection?: 'left' | 'right'
   /** パネル全体の文字・行高の相対スケール（50〜200%、既定 100） */
   panelFontScalePercent?: number
+  /** 連鎖ルーレット段数（0=通常、1以上で連鎖表示） */
+  chainDepth?: number
 }
 
 export function RouletteBonusOverlay({
@@ -62,6 +64,7 @@ export function RouletteBonusOverlay({
   dodgeSlideActive = false,
   dodgeSlideDirection = 'left',
   panelFontScalePercent = 100,
+  chainDepth = 0,
 }: RouletteBonusOverlayProps) {
   const [phase, setPhase] = useState<'spin' | 'result'>('spin')
   const stripRef = useRef<HTMLDivElement>(null)
@@ -187,6 +190,9 @@ export function RouletteBonusOverlay({
           <div className="roulette-bonus-title-row">
             <span className="roulette-bonus-title__tag">BONUS</span>
             <span className="roulette-bonus-title__label">追加攻撃ルーレット</span>
+            {chainDepth > 0 && (
+              <span className="roulette-bonus-title__chain">連鎖 {chainDepth}段目</span>
+            )}
           </div>
           <div className="roulette-bonus-viewport">
             <div ref={stripRef} className="roulette-bonus-strip-wrap">

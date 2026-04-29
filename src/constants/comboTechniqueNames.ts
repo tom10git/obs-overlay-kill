@@ -1,211 +1,241 @@
 /**
- * 合わせ技・ルーレット共通の技名プール。
- * 演出 kind ごとに分類し、各ブロック内は日本語ロケール順（localeCompare 'ja'）。
- * 結合順: inferno → meteor → void → tempest → glacier → plasma → radiance → tremor → phantom → nova
- *
- * 語感とエフェクト kind の対応メモ:
- * - inferno: 炎・爆発・赤系／竜ブレス・ドラグブレ（竜の破断イメージ）。
- * - meteor: 星・彗星・落下軌道のみ。
- * - void: 闇・深淵・裂け目・影の「間」。影縫は闇に沈む縫い目として void。
- * - tempest: 雷・風・嵐。熱雷光・砂嵐拳・スパイラルフラッシュ（帯電螺旋）。
- * - plasma: イオン・量子・磁気・分光（プリズム）。極光は発光現象のため radiance。
- * - radiance: 極光・聖光・月・クレスト（光の峰）。
- * - tremor: 大地・岩・鉄の質量。真打／極意は「地に足の奥義」として tremor。
- * - phantom: 精神・夢・桜・クオリア・ミラー・幽玄の歩法。
- * - nova: 大収束・カルマ渦・竜の決壊・裂空・終幕のヴェール。
+ * 合わせ技・ルーレット共通の技名プール（1000件固定）。
+ * 構成: 斬撃 334 / 魔法 333（カワイソウニ含む）/ 射撃 333
  */
 
-export const INFERNO_TECHNIQUE_NAMES = [
-  'クリムゾンレッグ',
-  'グレネイドヒート',
-  'スコーチヒート',
-  'ドラグブレ',
-  'フレア',
-  'ブレイズ',
-  'フレイムリング',
-  'ヘルフレア',
-  '炎レイ',
-  '炎幕',
-  '焔牙',
-  '業火斬',
-  '紅フレア',
-  '紅煌刃',
-  '竜ブレス',
-] as const
+function buildTechniqueNames(
+  heads: readonly string[],
+  tails: readonly string[],
+  targetCount: number
+): readonly string[] {
+  // 際限なく偏らないよう、全組み合わせ生成→決定論的シャッフル→先頭 targetCount で切り出す。
+  const allNames: string[] = []
+  const separators = ['', '・']
+  for (const h of heads) {
+    for (const t of tails) {
+      for (const sep of separators) {
+        // 区切りなしで「月詠」 + 「詠」みたいな語のダブりが起きるのを回避する
+        // （sep='' のときだけ判定）
+        if (sep === '' && h.endsWith(t)) continue
+        allNames.push(`${h}${sep}${t}`)
+      }
+    }
+  }
 
-export const METEOR_TECHNIQUE_NAMES = [
-  'コズモパルス',
-  'コメット',
-  'メテオ',
-  '銀コメット',
-  '銀メテオ',
-  '銀流星',
-  '空ダイブ',
-  '星火',
-  '星堕',
-  '蒼スター',
-  '夜空閃',
-  '流星刃',
-  '彗星脚',
-] as const
+  // Deterministic PRNG（FNV-1a + mulberry32）
+  let seed = 2166136261
+  const str = `${heads.join('|')}>${tails.join('|')}>${targetCount}`
+  for (let i = 0; i < str.length; i += 1) {
+    seed ^= str.charCodeAt(i)
+    seed = Math.imul(seed, 16777619)
+  }
+  const rand = (() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let a = seed >>> 0
+    return () => {
+      a |= 0
+      a = (a + 0x6d2b79f5) | 0
+      let t = Math.imul(a ^ (a >>> 15), 1 | a)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+  })()
 
-export const VOID_TECHNIQUE_NAMES = [
-  'アビスドロップ',
-  'イクリプス',
-  'ヴォイド',
-  'ヴォイドショット',
-  'ヴォイドリフト',
-  'シャドウ',
-  'ダークスラッシュ',
-  'ディープナイト',
-  'ブラックブレード',
-  'ヘルゲート',
-  'ルナウェッジ',
-  '闇ゲート',
-  '闇刃',
-  '影縫',
-  '夜ニト',
-] as const
+  // Fisher–Yates shuffle
+  for (let i = allNames.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[allNames[i]!, allNames[j]!] = [allNames[j]!, allNames[i]!]
+  }
 
-export const TEMPEST_TECHNIQUE_NAMES = [
-  'ゲイル',
-  'ゲイルフラッシュ',
-  'サンダー',
-  'ショック',
-  'ストームキ',
-  'スパーク',
-  'スパイラルフラッシュ',
-  'パープルボルト',
-  'レイヴン',
-  '轟雷',
-  '砂嵐拳',
-  '疾雷',
-  '迅風',
-  '熱雷光',
-  '風切',
-  '雷ボルト',
-  '雷神',
-  '雷陣',
-  '雷鳴斬',
-  '嵐ゲイル',
-  '烈風脚',
-] as const
+  // 体感で「漢字だらけ」に見えやすいので、漢字あり/なしをある程度均す。
+  // ※判定は「漢字を1文字でも含むか」。記号やカタカナ/ひらがなだけなら nonKanji 扱い。
+  const han = /\p{Script=Han}/u
+  const nonKanji: string[] = []
+  const withKanji: string[] = []
+  for (const n of allNames) {
+    if (han.test(n)) withKanji.push(n)
+    else nonKanji.push(n)
+  }
 
-export const GLACIER_TECHNIQUE_NAMES = [
-  'アイスエッジ',
-  'アクアフロウ',
-  'ブリザ',
-  'フロスト',
-  'フロストラ',
-  '雪嵐',
-  '絶零',
-  '蒼ブレイド',
-  '蒼潮',
-  '蒼氷',
-  '蒼落',
-  '凍結波',
-  '氷ジェイル',
-  '氷刃陣',
-  '氷壁',
-] as const
+  const out: string[] = []
+  const desiredNonKanjiRatio = 0.6
+  while (out.length < targetCount && (nonKanji.length > 0 || withKanji.length > 0)) {
+    const wantNon =
+      out.length === 0 ? true : out.filter((s) => !han.test(s)).length / out.length < desiredNonKanjiRatio
+    if (wantNon) out.push(nonKanji.shift() ?? withKanji.shift()!)
+    else out.push(withKanji.shift() ?? nonKanji.shift()!)
+  }
 
-export const PLASMA_TECHNIQUE_NAMES = [
-  'アストラ',
-  'イオン裂',
-  'チェイン',
-  'プラズマ',
-  'プリズム',
-  '閃磁',
-  '陽子砲',
-  '量子閃',
-] as const
+  return out.slice(0, targetCount)
+}
 
-export const RADIANCE_TECHNIQUE_NAMES = [
-  'アルカナ',
-  'オーラ',
-  'クレスト',
-  'ヘイロー',
-  'ルミナ',
-  'ルミナオーラ',
-  '極光',
-  '月光',
-  '光明刃',
-  '光理',
-  '瞬光',
-  '曙光',
-  '聖フォース',
-  '聖裁',
-  '天光',
-  '白ヴェール',
-] as const
+export const SLASH_TECHNIQUE_NAMES = buildTechniqueNames(
+  [
+    '紅刃',
+    '蒼刃',
+    '雷刃',
+    '影刃',
+    '白刃',
+    '黒刃',
+    '月刃',
+    '虎刃',
+    '龍刃',
+    '風刃',
+    'ブレイド',
+    'シャドウ',
+    // 追加 head（漢字密度を下げて、見た目の圧を軽くする）
+    'クリムゾン',
+    'アズール',
+    'ライジン',
+    'ムーンライト',
+    'ウィンド',
+    'ホワイト',
+    'ブラック',
+    'ファントム',
+    'ノヴァ',
+    'フロスト',
+    'インフェルノ',
+    'テンペスト',
+    'アーク',
+    'ヴォイド',
+  ],
+  [
+    '斬',
+    '断',
+    '裂',
+    '閃',
+    '牙',
+    'ラッシュ',
+    'ブレイク',
+    'クロス',
+    // 追加 tail（漢字寄りになりすぎないよう、音感/英語風を混ぜる）
+    'スラッシュ',
+    'ストライク',
+    'エッジ',
+    'フィニッシュ',
+    'スプリット',
+    'ダブル',
+    'トリプル',
+  ],
+  334
+)
 
-export const TREMOR_TECHNIQUE_NAMES = [
-  'ヴォルブレイク',
-  'グランド',
-  'ストーンショット',
-  'タイガースラ',
-  'マウンテンクラ',
-  'ランス',
-  '岩砕',
-  '金バレット',
-  '鋼シールド',
-  '震撃',
-  '大地割',
-  '地クラック',
-  '地嶺',
-  '鉄ウィップ',
-  '鉄拳',
-  '鉄崩',
-] as const
+const generatedMagicNames = buildTechniqueNames(
+  [
+    '星詠',
+    '深淵',
+    '聖光',
+    '虚無',
+    '氷華',
+    '雷帝',
+    '焔王',
+    '霊峰',
+    '月詠',
+    '秘儀',
+    'ルーン',
+    'アストラ',
+    // 追加 head（カタカナ寄りでギラつき・魔法感）
+    'ネビュラ',
+    'エーテル',
+    'アーケイン',
+    'セレスティア',
+    'オラクル',
+    'ルミナ',
+    'ミラージュ',
+    'エクリプス',
+    'カオス',
+    'ゼロ',
+    'スピリット',
+    'シンフォニア',
+    'プリズム',
+    'グリモア',
+    'ソラリス',
+    'ノクターン',
+    'アストラル',
+    'マナ',
+  ],
+  [
+    '術',
+    '詠',
+    '陣',
+    '符',
+    '唱',
+    'スペル',
+    'ミスト',
+    'オーラ',
+    // 追加 tail（漢字を減らして語感でバリエーション）
+    'キャスト',
+    'チャント',
+    'チャーム',
+    'ブレッシング',
+    'カース',
+    'ゲート',
+    'ブースト',
+  ],
+  333
+)
 
-export const PHANTOM_TECHNIQUE_NAMES = [
-  'カワイソウニ',
-  'クオリア',
-  'スワロウフラッシュ',
-  'ソウル',
-  'ドレイン',
-  'ナイトメア',
-  'ファントム',
-  'ファントムステップ',
-  'ブレイド',
-  'ホーククロー',
-  'マジックミラー',
-  'ミスト',
-  'ミラージュス',
-  '影舞',
-  '桜吹雪',
-  '神楽ステップ',
-  '霧幻',
-  '幽歩',
-  '朧剣',
-  '朧歩',
-] as const
+// 専用デバフ連携に使う名称は維持する。
+export const MAGIC_TECHNIQUE_NAMES = ['カワイソウニ', ...generatedMagicNames.slice(1, 333)] as const
 
-export const NOVA_TECHNIQUE_NAMES = [
-  'ヴェール',
-  'カルマヴォルテ',
-  'ドラゴンスト',
-  'ノヴァ',
-  '界崩',
-  '核熱',
-  '極意',
-  '終焉閃',
-  '真打',
-  '星爆',
-  '超新星',
-  '裂空',
-] as const
+export const SHOOTING_TECHNIQUE_NAMES = buildTechniqueNames(
+  [
+    '流星',
+    '閃光',
+    '雷鳴',
+    '彗星',
+    '黒翼',
+    '蒼穹',
+    '金剛',
+    '白夜',
+    '烈火',
+    '銀河',
+    'バレット',
+    'キャノン',
+    // 追加 head（ミリタリー/サイバー寄りを増やす）
+    'ストライカー',
+    'レイザー',
+    'プラズマ',
+    'フォトン',
+    'バスター',
+    'ハンター',
+    'スカイ',
+    'ブラックアウト',
+    'ホワイトノイズ',
+    'オーバードライブ',
+    'マグナム',
+    'ヘイル',
+    'ブリッツ',
+    'メテオ',
+    'ノヴァ',
+    'スティール',
+    'アイアン',
+    'スモーク',
+  ],
+  [
+    '弾',
+    '砲',
+    '射',
+    '撃',
+    '閃',
+    'ショット',
+    'バースト',
+    'スナイプ',
+    // 追加 tail（カタカナ寄りで弾丸/爆発感を維持）
+    'ラピッド',
+    'フルオート',
+    'スプレッド',
+    'エクスプロード',
+    'ロックオン',
+    'チェイン',
+    'スタンピード',
+  ],
+  333
+)
 
-/** 全151件・上記 kind 順で連結（ルーレット／合わせ技で同一プール） */
+/** 全1000件・タイプ順で連結（ルーレット／合わせ技で同一プール） */
 export const COMBO_TECHNIQUE_NAMES = [
-  ...INFERNO_TECHNIQUE_NAMES,
-  ...METEOR_TECHNIQUE_NAMES,
-  ...VOID_TECHNIQUE_NAMES,
-  ...TEMPEST_TECHNIQUE_NAMES,
-  ...GLACIER_TECHNIQUE_NAMES,
-  ...PLASMA_TECHNIQUE_NAMES,
-  ...RADIANCE_TECHNIQUE_NAMES,
-  ...TREMOR_TECHNIQUE_NAMES,
-  ...PHANTOM_TECHNIQUE_NAMES,
-  ...NOVA_TECHNIQUE_NAMES,
+  ...SLASH_TECHNIQUE_NAMES,
+  ...MAGIC_TECHNIQUE_NAMES,
+  ...SHOOTING_TECHNIQUE_NAMES,
 ] as const

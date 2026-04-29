@@ -5,6 +5,7 @@
 import type {
   AttackBleedVariant,
   AttackDebuffKind,
+  ComboRouletteOverlayVisual,
   GaugeDesign,
   GaugeShapeConfig,
   OverlayConfig,
@@ -51,6 +52,12 @@ const DEFAULT_TEST_PANEL_SIMULATION: TestPanelAttackSimulationConfig = {
   rouletteBonusEnabled: true,
   rouletteTriggerPercent: 40,
   rouletteSuccessPercent: 50,
+}
+
+function sanitizeComboRouletteVisual(raw: unknown): ComboRouletteOverlayVisual {
+  if (raw === 'glassCanvas') return 'glassCanvas'
+  if (raw === 'slashArc') return 'slashArc'
+  return 'webm'
 }
 
 function sanitizeTestPanelSimulation(
@@ -158,7 +165,22 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundEnabled: false,
     soundUrl: '',
     soundVolume: 0.7,
+    comboTechniqueSoundEnabled: false,
+    comboTechniqueSoundUrl: '',
+    comboTechniqueSoundVolume: 0.7,
+    rouletteSoundEnabled: false,
+    rouletteSoundUrl: '',
+    rouletteSoundVolume: 0.7,
     filterEffectEnabled: true,
+    attackEffectEnabled: false,
+    attackEffectVisual: 'webm',
+    attackEffectVideoUrl: '',
+    comboTechniqueEffectEnabled: false,
+    comboTechniqueEffectVisual: 'webm',
+    comboTechniqueEffectVideoUrl: '',
+    rouletteEffectEnabled: false,
+    rouletteEffectVisual: 'webm',
+    rouletteEffectVideoUrl: '',
     comboTechniqueEnabled: true,
     comboTechniqueDurationSec: 30,
     comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
@@ -281,7 +303,22 @@ const DEFAULT_CONFIG: OverlayConfig = {
       soundEnabled: false,
       soundUrl: '',
       soundVolume: 0.7,
+    comboTechniqueSoundEnabled: false,
+    comboTechniqueSoundUrl: '',
+    comboTechniqueSoundVolume: 0.7,
+    rouletteSoundEnabled: false,
+    rouletteSoundUrl: '',
+    rouletteSoundVolume: 0.7,
       filterEffectEnabled: true,
+    attackEffectEnabled: false,
+    attackEffectVisual: 'webm',
+    attackEffectVideoUrl: '',
+    comboTechniqueEffectEnabled: false,
+    comboTechniqueEffectVisual: 'webm',
+    comboTechniqueEffectVideoUrl: '',
+    rouletteEffectEnabled: false,
+    rouletteEffectVisual: 'webm',
+    rouletteEffectVideoUrl: '',
       comboTechniqueEnabled: true,
       comboTechniqueDurationSec: 30,
       comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
@@ -336,6 +373,10 @@ const DEFAULT_CONFIG: OverlayConfig = {
     strengthBuffSoundEnabled: false,
     strengthBuffSoundUrl: '',
     strengthBuffSoundVolume: 0.7,
+    konamiStreamerBuffEnabled: true,
+    konamiStreamerBuffSoundEnabled: false,
+    konamiStreamerBuffSoundUrl: '',
+    konamiStreamerBuffSoundVolume: 0.7,
     viewerFinishingMoveEnabled: true,
     viewerFinishingMoveProbability: 0.01,
     finishingMoveText: '必殺技！',
@@ -386,7 +427,22 @@ const DEFAULT_CONFIG: OverlayConfig = {
       soundEnabled: false,
       soundUrl: '',
       soundVolume: 0.7,
+    comboTechniqueSoundEnabled: false,
+    comboTechniqueSoundUrl: '',
+    comboTechniqueSoundVolume: 0.7,
+    rouletteSoundEnabled: false,
+    rouletteSoundUrl: '',
+    rouletteSoundVolume: 0.7,
       filterEffectEnabled: true,
+    attackEffectEnabled: false,
+    attackEffectVisual: 'webm',
+    attackEffectVideoUrl: '',
+    comboTechniqueEffectEnabled: false,
+    comboTechniqueEffectVisual: 'webm',
+    comboTechniqueEffectVideoUrl: '',
+    rouletteEffectEnabled: false,
+    rouletteEffectVisual: 'webm',
+    rouletteEffectVideoUrl: '',
       comboTechniqueEnabled: true,
       comboTechniqueDurationSec: 30,
       comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
@@ -861,7 +917,46 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundVolume: isInRange(Number(attackConfig.soundVolume), 0, 1)
       ? Number(attackConfig.soundVolume) || 0.7
       : 0.7,
+    comboTechniqueSoundEnabled:
+      typeof attackConfig.comboTechniqueSoundEnabled === 'boolean' ? attackConfig.comboTechniqueSoundEnabled : false,
+    comboTechniqueSoundUrl:
+      typeof attackConfig.comboTechniqueSoundUrl === 'string' && isValidUrl(attackConfig.comboTechniqueSoundUrl)
+        ? attackConfig.comboTechniqueSoundUrl
+        : '',
+    comboTechniqueSoundVolume: isInRange(Number(attackConfig.comboTechniqueSoundVolume), 0, 1)
+      ? Number(attackConfig.comboTechniqueSoundVolume) || 0.7
+      : 0.7,
+    rouletteSoundEnabled:
+      typeof attackConfig.rouletteSoundEnabled === 'boolean' ? attackConfig.rouletteSoundEnabled : false,
+    rouletteSoundUrl:
+      typeof attackConfig.rouletteSoundUrl === 'string' && isValidUrl(attackConfig.rouletteSoundUrl)
+        ? attackConfig.rouletteSoundUrl
+        : '',
+    rouletteSoundVolume: isInRange(Number(attackConfig.rouletteSoundVolume), 0, 1)
+      ? Number(attackConfig.rouletteSoundVolume) || 0.7
+      : 0.7,
     filterEffectEnabled: typeof attackConfig.filterEffectEnabled === 'boolean' ? attackConfig.filterEffectEnabled : true,
+    attackEffectEnabled:
+      typeof attackConfig.attackEffectEnabled === 'boolean' ? attackConfig.attackEffectEnabled : false,
+    attackEffectVisual: sanitizeComboRouletteVisual(attackConfig.attackEffectVisual),
+    attackEffectVideoUrl:
+      typeof attackConfig.attackEffectVideoUrl === 'string' && isValidUrl(attackConfig.attackEffectVideoUrl)
+        ? attackConfig.attackEffectVideoUrl
+        : '',
+    comboTechniqueEffectEnabled:
+      typeof attackConfig.comboTechniqueEffectEnabled === 'boolean' ? attackConfig.comboTechniqueEffectEnabled : false,
+    comboTechniqueEffectVisual: sanitizeComboRouletteVisual(attackConfig.comboTechniqueEffectVisual),
+    comboTechniqueEffectVideoUrl:
+      typeof attackConfig.comboTechniqueEffectVideoUrl === 'string' && isValidUrl(attackConfig.comboTechniqueEffectVideoUrl)
+        ? attackConfig.comboTechniqueEffectVideoUrl
+        : '',
+    rouletteEffectEnabled:
+      typeof attackConfig.rouletteEffectEnabled === 'boolean' ? attackConfig.rouletteEffectEnabled : false,
+    rouletteEffectVisual: sanitizeComboRouletteVisual(attackConfig.rouletteEffectVisual),
+    rouletteEffectVideoUrl:
+      typeof attackConfig.rouletteEffectVideoUrl === 'string' && isValidUrl(attackConfig.rouletteEffectVideoUrl)
+        ? attackConfig.rouletteEffectVideoUrl
+        : '',
     comboTechniqueEnabled: typeof attackConfig.comboTechniqueEnabled === 'boolean' ? attackConfig.comboTechniqueEnabled : true,
     comboTechniqueDurationSec: (() => {
       const n = Math.floor(Number(attackConfig.comboTechniqueDurationSec))
@@ -1347,7 +1442,46 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundEnabled: typeof sa.soundEnabled === 'boolean' ? sa.soundEnabled : false,
     soundUrl: typeof sa.soundUrl === 'string' ? sa.soundUrl : '',
     soundVolume: isInRange(Number(sa.soundVolume), 0, 1) ? Number(sa.soundVolume) || 0.7 : 0.7,
+    comboTechniqueSoundEnabled:
+      typeof sa.comboTechniqueSoundEnabled === 'boolean' ? sa.comboTechniqueSoundEnabled : false,
+    comboTechniqueSoundUrl:
+      typeof sa.comboTechniqueSoundUrl === 'string' && isValidUrl(sa.comboTechniqueSoundUrl)
+        ? sa.comboTechniqueSoundUrl
+        : '',
+    comboTechniqueSoundVolume: isInRange(Number(sa.comboTechniqueSoundVolume), 0, 1)
+      ? Number(sa.comboTechniqueSoundVolume) || 0.7
+      : 0.7,
+    rouletteSoundEnabled:
+      typeof sa.rouletteSoundEnabled === 'boolean' ? sa.rouletteSoundEnabled : false,
+    rouletteSoundUrl:
+      typeof sa.rouletteSoundUrl === 'string' && isValidUrl(sa.rouletteSoundUrl)
+        ? sa.rouletteSoundUrl
+        : '',
+    rouletteSoundVolume: isInRange(Number(sa.rouletteSoundVolume), 0, 1)
+      ? Number(sa.rouletteSoundVolume) || 0.7
+      : 0.7,
     filterEffectEnabled: typeof sa.filterEffectEnabled === 'boolean' ? sa.filterEffectEnabled : true,
+    attackEffectEnabled:
+      typeof sa.attackEffectEnabled === 'boolean' ? sa.attackEffectEnabled : false,
+    attackEffectVisual: sanitizeComboRouletteVisual(sa.attackEffectVisual),
+    attackEffectVideoUrl:
+      typeof sa.attackEffectVideoUrl === 'string' && isValidUrl(sa.attackEffectVideoUrl)
+        ? sa.attackEffectVideoUrl
+        : '',
+    comboTechniqueEffectEnabled:
+      typeof sa.comboTechniqueEffectEnabled === 'boolean' ? sa.comboTechniqueEffectEnabled : false,
+    comboTechniqueEffectVisual: sanitizeComboRouletteVisual(sa.comboTechniqueEffectVisual),
+    comboTechniqueEffectVideoUrl:
+      typeof sa.comboTechniqueEffectVideoUrl === 'string' && isValidUrl(sa.comboTechniqueEffectVideoUrl)
+        ? sa.comboTechniqueEffectVideoUrl
+        : '',
+    rouletteEffectEnabled:
+      typeof sa.rouletteEffectEnabled === 'boolean' ? sa.rouletteEffectEnabled : false,
+    rouletteEffectVisual: sanitizeComboRouletteVisual(sa.rouletteEffectVisual),
+    rouletteEffectVideoUrl:
+      typeof sa.rouletteEffectVideoUrl === 'string' && isValidUrl(sa.rouletteEffectVideoUrl)
+        ? sa.rouletteEffectVideoUrl
+        : '',
     comboTechniqueEnabled: typeof sa.comboTechniqueEnabled === 'boolean' ? sa.comboTechniqueEnabled : true,
     comboTechniqueDurationSec: (() => {
       const n = Math.floor(Number(sa.comboTechniqueDurationSec))
@@ -1419,7 +1553,46 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundEnabled: typeof vva.soundEnabled === 'boolean' ? vva.soundEnabled : false,
     soundUrl: typeof vva.soundUrl === 'string' ? vva.soundUrl : '',
     soundVolume: isInRange(Number(vva.soundVolume), 0, 1) ? Number(vva.soundVolume) || 0.7 : 0.7,
+    comboTechniqueSoundEnabled:
+      typeof vva.comboTechniqueSoundEnabled === 'boolean' ? vva.comboTechniqueSoundEnabled : false,
+    comboTechniqueSoundUrl:
+      typeof vva.comboTechniqueSoundUrl === 'string' && isValidUrl(vva.comboTechniqueSoundUrl)
+        ? vva.comboTechniqueSoundUrl
+        : '',
+    comboTechniqueSoundVolume: isInRange(Number(vva.comboTechniqueSoundVolume), 0, 1)
+      ? Number(vva.comboTechniqueSoundVolume) || 0.7
+      : 0.7,
+    rouletteSoundEnabled:
+      typeof vva.rouletteSoundEnabled === 'boolean' ? vva.rouletteSoundEnabled : false,
+    rouletteSoundUrl:
+      typeof vva.rouletteSoundUrl === 'string' && isValidUrl(vva.rouletteSoundUrl)
+        ? vva.rouletteSoundUrl
+        : '',
+    rouletteSoundVolume: isInRange(Number(vva.rouletteSoundVolume), 0, 1)
+      ? Number(vva.rouletteSoundVolume) || 0.7
+      : 0.7,
     filterEffectEnabled: typeof vva.filterEffectEnabled === 'boolean' ? vva.filterEffectEnabled : true,
+    attackEffectEnabled:
+      typeof vva.attackEffectEnabled === 'boolean' ? vva.attackEffectEnabled : false,
+    attackEffectVisual: sanitizeComboRouletteVisual(vva.attackEffectVisual),
+    attackEffectVideoUrl:
+      typeof vva.attackEffectVideoUrl === 'string' && isValidUrl(vva.attackEffectVideoUrl)
+        ? vva.attackEffectVideoUrl
+        : '',
+    comboTechniqueEffectEnabled:
+      typeof vva.comboTechniqueEffectEnabled === 'boolean' ? vva.comboTechniqueEffectEnabled : false,
+    comboTechniqueEffectVisual: sanitizeComboRouletteVisual(vva.comboTechniqueEffectVisual),
+    comboTechniqueEffectVideoUrl:
+      typeof vva.comboTechniqueEffectVideoUrl === 'string' && isValidUrl(vva.comboTechniqueEffectVideoUrl)
+        ? vva.comboTechniqueEffectVideoUrl
+        : '',
+    rouletteEffectEnabled:
+      typeof vva.rouletteEffectEnabled === 'boolean' ? vva.rouletteEffectEnabled : false,
+    rouletteEffectVisual: sanitizeComboRouletteVisual(vva.rouletteEffectVisual),
+    rouletteEffectVideoUrl:
+      typeof vva.rouletteEffectVideoUrl === 'string' && isValidUrl(vva.rouletteEffectVideoUrl)
+        ? vva.rouletteEffectVideoUrl
+        : '',
     comboTechniqueEnabled: typeof vva.comboTechniqueEnabled === 'boolean' ? vva.comboTechniqueEnabled : true,
     comboTechniqueDurationSec: (() => {
       const n = Math.floor(Number(vva.comboTechniqueDurationSec))
@@ -1520,6 +1693,30 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
         return pvpConfig.strengthBuffSoundVolume
       }
       const num = Number(pvpConfig.strengthBuffSoundVolume)
+      if (!isNaN(num) && num >= 0 && num <= 1) {
+        return num
+      }
+      return 0.7
+    })(),
+    konamiStreamerBuffEnabled:
+      typeof pvpConfig.konamiStreamerBuffEnabled === 'boolean' ? pvpConfig.konamiStreamerBuffEnabled : true,
+    konamiStreamerBuffSoundEnabled:
+      typeof pvpConfig.konamiStreamerBuffSoundEnabled === 'boolean' ? pvpConfig.konamiStreamerBuffSoundEnabled : false,
+    konamiStreamerBuffSoundUrl: typeof pvpConfig.konamiStreamerBuffSoundUrl === 'string'
+      ? (pvpConfig.konamiStreamerBuffSoundUrl.trim() === '' || isValidUrl(pvpConfig.konamiStreamerBuffSoundUrl)
+        ? pvpConfig.konamiStreamerBuffSoundUrl.trim()
+        : '')
+      : '',
+    konamiStreamerBuffSoundVolume: (() => {
+      if (
+        typeof pvpConfig.konamiStreamerBuffSoundVolume === 'number' &&
+        !isNaN(pvpConfig.konamiStreamerBuffSoundVolume) &&
+        pvpConfig.konamiStreamerBuffSoundVolume >= 0 &&
+        pvpConfig.konamiStreamerBuffSoundVolume <= 1
+      ) {
+        return pvpConfig.konamiStreamerBuffSoundVolume
+      }
+      const num = Number(pvpConfig.konamiStreamerBuffSoundVolume)
       if (!isNaN(num) && num >= 0 && num <= 1) {
         return num
       }

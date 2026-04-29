@@ -1,0 +1,19 @@
+/* 斬撃モチーフ専用の Canvas 現象レイヤ（属性：稲妻/炎/氷/虚無…） */
+.tefx-slash-element-canvas {
+  inset: -20%;
+  z-index: 6;
+  width: 140%;
+  height: 140%;
+  left: -20%;
+  top: -20%;
+  display: block;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.92;
+  filter: saturate(1.05) brightness(1.05);
+}
+
+.tefx.tefx--fill-gauge-band .tefx-slash-element-canvas {
+  opacity: 0.8;
+}
+

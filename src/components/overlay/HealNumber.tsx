@@ -3,6 +3,7 @@
  * ダメージ表示と同じ位置・アニメーションを使い、色だけ変える
  */
 
+import { memo, useMemo } from 'react'
 import './DamageNumber.css'
 import { glowTextStyleFromHex } from '../../utils/glowTextStyle'
 
@@ -16,8 +17,8 @@ interface HealNumberProps {
   }
 }
 
-export function HealNumber({ id, amount, fontScalePercent = 100, healColors }: HealNumberProps) {
-  const style = glowTextStyleFromHex(healColors?.normal || '#00ff88', 'heal')
+function HealNumberImpl({ id, amount, fontScalePercent = 100, healColors }: HealNumberProps) {
+  const style = useMemo(() => glowTextStyleFromHex(healColors?.normal || '#00ff88', 'heal'), [healColors?.normal])
   const popupScale = Math.min(200, Math.max(50, Math.round(fontScalePercent))) / 100
 
   return (
@@ -34,4 +35,6 @@ export function HealNumber({ id, amount, fontScalePercent = 100, healColors }: H
     </div>
   )
 }
+
+export const HealNumber = memo(HealNumberImpl)
 

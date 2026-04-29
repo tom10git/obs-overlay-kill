@@ -1,0 +1,18 @@
+/* 全画面（親は #root / .overlay-page。body へ portal しない — body の flex と干渉し OBS で消えることがある） */
+.normal-attack-glass-root {
+  display: block;
+  isolation: isolate;
+  /* 100vh だけだとモバイルで下端が欠けることがある — レイヤーは常にビューポートいっぱいに */
+  min-width: 100vw;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.normal-attack-glass-root .normal-attack-glass-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  pointer-events: none;
+}

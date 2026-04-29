@@ -68,6 +68,24 @@
   color: rgba(235, 238, 255, 0.72);
 }
 
+.roulette-bonus-title__chain {
+  font-size: clamp(
+    calc(0.52rem * var(--roulette-panel-font-scale, 1)),
+    calc(2.4cqw * var(--roulette-panel-font-scale, 1)),
+    calc(0.66rem * var(--roulette-panel-font-scale, 1))
+  );
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.1rem 0.32rem;
+  border-radius: 999px;
+  color: rgba(255, 246, 210, 0.96);
+  background: linear-gradient(120deg, rgba(255, 162, 72, 0.32), rgba(255, 88, 132, 0.26));
+  border: 1px solid rgba(255, 210, 130, 0.35);
+  box-shadow:
+    0 0 12px rgba(255, 132, 92, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
 .roulette-bonus-viewport {
   position: relative;
   height: var(--roulette-viewport-h, 33px);

@@ -9,6 +9,7 @@
   z-index: 1000;
   pointer-events: none;
   user-select: none;
+  white-space: nowrap;
   width: 100%;
 }
 

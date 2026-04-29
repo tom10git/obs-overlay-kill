@@ -2214,6 +2214,231 @@ export const OverlaySettings = forwardRef<
                     攻撃時のフィルターエフェクトを有効にする
                   </label>
                 </div>
+                <h4 className="settings-subsection-title">攻撃エフェクト（WebM / 内蔵Canvas）</h4>
+                <p className="settings-hint">
+                  通常命中・合わせ技成功・ルーレット成功それぞれで、透過 WebM・内蔵ガラス着弾・内蔵斬撃フラッシュから選べます。WebM のときだけ URL が必要です（任意・各チェック ON 時のみ再生）。
+                </p>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.attackEffectEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            attackEffectEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    通常攻撃（命中）エフェクトを有効にする
+                  </label>
+                </div>
+                {config.attack.attackEffectEnabled && (
+                  <>
+                    <div className="settings-row">
+                      <label>
+                        映像の種類:
+                        <select
+                          value={config.attack.attackEffectVisual ?? 'webm'}
+                          onChange={(e) => {
+                            const v = e.target.value
+                            const attackEffectVisual =
+                              v === 'glassCanvas' ? 'glassCanvas' : v === 'slashArc' ? 'slashArc' : 'webm'
+                            setConfig({
+                              ...config,
+                              attack: {
+                                ...config.attack,
+                                attackEffectVisual,
+                              },
+                            })
+                          }}
+                        >
+                          <option value="webm">透過 WebM（下の URL）</option>
+                          <option value="glassCanvas">内蔵: ガラス着弾 Canvas（約3.5秒・URL 不要）</option>
+                          <option value="slashArc">内蔵: 斬撃フラッシュ（全画面 Canvas・約0.75秒・URL 不要）</option>
+                        </select>
+                      </label>
+                    </div>
+                    {(config.attack.attackEffectVisual ?? 'webm') === 'webm' && (
+                      <div className="settings-row">
+                        <label>
+                          WebM URL:
+                          <input
+                            type="text"
+                            value={config.attack.attackEffectVideoUrl}
+                            onChange={(e) => {
+                              const url = e.target.value;
+                              if (isValidUrl(url)) {
+                                setConfig({
+                                  ...config,
+                                  attack: {
+                                    ...config.attack,
+                                    attackEffectVideoUrl: url,
+                                  },
+                                });
+                              } else {
+                                setMessage(
+                                  "無効なURLです。http://、https://、または相対パスを入力してください。",
+                                );
+                                setTimeout(() => setMessage(null), 3000);
+                              }
+                            }}
+                            placeholder="例: src/images/attack.webm または https://..."
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.comboTechniqueEffectEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueEffectEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    合わせ技成功エフェクトを有効にする
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    合わせ技成功 — 映像の種類:
+                    <select
+                      value={config.attack.comboTechniqueEffectVisual ?? 'webm'}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        const comboTechniqueEffectVisual =
+                          v === 'glassCanvas' ? 'glassCanvas' : v === 'slashArc' ? 'slashArc' : 'webm'
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueEffectVisual,
+                          },
+                        })
+                      }}
+                    >
+                      <option value="webm">透過 WebM（下の URL）</option>
+                      <option value="glassCanvas">内蔵: ガラス着弾 Canvas（約3.5秒・URL 不要）</option>
+                      <option value="slashArc">内蔵: 斬撃フラッシュ（全画面 Canvas・約0.75秒・URL 不要）</option>
+                    </select>
+                  </label>
+                </div>
+                {config.attack.comboTechniqueEffectEnabled &&
+                  (config.attack.comboTechniqueEffectVisual ?? 'webm') === 'webm' && (
+                    <div className="settings-row">
+                      <label>
+                        WebM URL:
+                        <input
+                          type="text"
+                          value={config.attack.comboTechniqueEffectVideoUrl}
+                          onChange={(e) => {
+                            const url = e.target.value;
+                            if (isValidUrl(url)) {
+                              setConfig({
+                                ...config,
+                                attack: {
+                                  ...config.attack,
+                                  comboTechniqueEffectVideoUrl: url,
+                                },
+                              });
+                            } else {
+                              setMessage(
+                                "無効なURLです。http://、https://、または相対パスを入力してください。",
+                              );
+                              setTimeout(() => setMessage(null), 3000);
+                            }
+                          }}
+                          placeholder="例: src/images/combo.webm または https://..."
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.rouletteEffectEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            rouletteEffectEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    追加攻撃ルーレット成功エフェクトを有効にする
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    ルーレット成功 — 映像の種類:
+                    <select
+                      value={config.attack.rouletteEffectVisual ?? 'webm'}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        const rouletteEffectVisual =
+                          v === 'glassCanvas' ? 'glassCanvas' : v === 'slashArc' ? 'slashArc' : 'webm'
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            rouletteEffectVisual,
+                          },
+                        })
+                      }}
+                    >
+                      <option value="webm">透過 WebM（下の URL）</option>
+                      <option value="glassCanvas">内蔵: ガラス着弾 Canvas（約3.5秒・URL 不要）</option>
+                      <option value="slashArc">内蔵: 斬撃フラッシュ（全画面 Canvas・約0.75秒・URL 不要）</option>
+                    </select>
+                  </label>
+                </div>
+                {config.attack.rouletteEffectEnabled &&
+                  (config.attack.rouletteEffectVisual ?? 'webm') === 'webm' && (
+                    <div className="settings-row">
+                      <label>
+                        WebM URL:
+                        <input
+                          type="text"
+                          value={config.attack.rouletteEffectVideoUrl}
+                          onChange={(e) => {
+                            const url = e.target.value;
+                            if (isValidUrl(url)) {
+                              setConfig({
+                                ...config,
+                                attack: {
+                                  ...config.attack,
+                                  rouletteEffectVideoUrl: url,
+                                },
+                              });
+                            } else {
+                              setMessage(
+                                "無効なURLです。http://、https://、または相対パスを入力してください。",
+                              );
+                              setTimeout(() => setMessage(null), 3000);
+                            }
+                          }}
+                          placeholder="例: src/images/roulette.webm または https://..."
+                        />
+                      </label>
+                    </div>
+                  )}
                 <h4 className="settings-subsection-title">合わせ技（入力ルール・視聴者リワードと共通）</h4>
                 <p className="settings-hint">
                   ヒット後の入力チャレンジの<strong>制限時間</strong>と、目標文字列の<strong>先頭接頭辞</strong>です。チャンネルポイントの攻撃でも同じルールが使われます。チャレンジのON/OFFはオーバーレイ右下のコントロールからも切り替えられます。

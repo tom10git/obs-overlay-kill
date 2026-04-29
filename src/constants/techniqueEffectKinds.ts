@@ -6,16 +6,9 @@
 import type { CSSProperties } from 'react'
 import {
   COMBO_TECHNIQUE_NAMES,
-  GLACIER_TECHNIQUE_NAMES,
-  INFERNO_TECHNIQUE_NAMES,
-  METEOR_TECHNIQUE_NAMES,
-  NOVA_TECHNIQUE_NAMES,
-  PHANTOM_TECHNIQUE_NAMES,
-  PLASMA_TECHNIQUE_NAMES,
-  RADIANCE_TECHNIQUE_NAMES,
-  TEMPEST_TECHNIQUE_NAMES,
-  TREMOR_TECHNIQUE_NAMES,
-  VOID_TECHNIQUE_NAMES,
+  MAGIC_TECHNIQUE_NAMES,
+  SHOOTING_TECHNIQUE_NAMES,
+  SLASH_TECHNIQUE_NAMES,
 } from './comboTechniqueNames'
 
 export type TechniqueEffectKind =
@@ -30,36 +23,52 @@ export type TechniqueEffectKind =
   | 'phantom'
   | 'nova'
 
-/** 下記は comboTechniqueNames.ts と同一配列（ソート済み・演出 kind と一致） */
-const INFERNO = INFERNO_TECHNIQUE_NAMES
-const METEOR = METEOR_TECHNIQUE_NAMES
-const VOID = VOID_TECHNIQUE_NAMES
-const TEMPEST = TEMPEST_TECHNIQUE_NAMES
-const GLACIER = GLACIER_TECHNIQUE_NAMES
-const PLASMA = PLASMA_TECHNIQUE_NAMES
-const RADIANCE = RADIANCE_TECHNIQUE_NAMES
-const TREMOR = TREMOR_TECHNIQUE_NAMES
-const PHANTOM = PHANTOM_TECHNIQUE_NAMES
-const NOVA = NOVA_TECHNIQUE_NAMES
-
-function entriesFor(names: readonly string[], kind: TechniqueEffectKind): [string, TechniqueEffectKind][] {
-  return names.map((n) => [n, kind])
+function getSlashKind(name: string): TechniqueEffectKind {
+  // 斬撃タイプの中でも見た目が単調にならないよう、技名の語彙で種別を振り分ける
+  if (name.includes('紅')) return 'inferno'
+  if (name.includes('蒼')) return 'glacier'
+  if (name.includes('雷') || name.includes('風')) return 'tempest'
+  if (name.includes('影') || name.includes('黒')) return 'void'
+  if (name.includes('白') || name.includes('月')) return 'radiance'
+  if (name.includes('虎')) return 'tremor'
+  if (name.includes('龍')) return 'nova'
+  if (name.includes('ブレイド')) return 'phantom'
+  if (name.includes('シャドウ')) return 'phantom'
+  return 'tremor'
 }
 
-/** 技名 → 演出種別（COMBO_TECHNIQUE_NAMES の件数ぶんすべてカバー） */
+function getMagicKind(name: string): TechniqueEffectKind {
+  if (name.includes('カワイソウニ')) return 'phantom'
+  if (name.includes('星詠') || name.includes('アストラ')) return 'nova'
+  if (name.includes('深淵') || name.includes('虚無')) return 'void'
+  if (name.includes('聖光') || name.includes('月詠')) return 'radiance'
+  if (name.includes('氷華')) return 'glacier'
+  if (name.includes('雷帝')) return 'tempest'
+  if (name.includes('焔王')) return 'inferno'
+  if (name.includes('霊峰')) return 'tremor'
+  if (name.includes('ルーン') || name.includes('秘儀')) return 'plasma'
+  return 'radiance'
+}
+
+function getShootingKind(name: string): TechniqueEffectKind {
+  if (name.includes('流星') || name.includes('彗星') || name.includes('銀河')) return 'meteor'
+  if (name.includes('閃光') || name.includes('白夜')) return 'radiance'
+  if (name.includes('雷鳴')) return 'tempest'
+  if (name.includes('黒翼')) return 'void'
+  if (name.includes('蒼穹')) return 'nova'
+  if (name.includes('金剛')) return 'tremor'
+  if (name.includes('烈火')) return 'inferno'
+  if (name.includes('バレット') || name.includes('キャノン')) return 'plasma'
+  return 'meteor'
+}
+
+/** 技名 → 演出種別（3タイプ構成: 斬撃 / 魔法 / 射撃） */
 export const TECHNIQUE_EFFECT_KIND_BY_NAME: Readonly<Record<string, TechniqueEffectKind>> =
   Object.freeze(
     Object.fromEntries([
-      ...entriesFor(INFERNO, 'inferno'),
-      ...entriesFor(METEOR, 'meteor'),
-      ...entriesFor(VOID, 'void'),
-      ...entriesFor(TEMPEST, 'tempest'),
-      ...entriesFor(GLACIER, 'glacier'),
-      ...entriesFor(PLASMA, 'plasma'),
-      ...entriesFor(RADIANCE, 'radiance'),
-      ...entriesFor(TREMOR, 'tremor'),
-      ...entriesFor(PHANTOM, 'phantom'),
-      ...entriesFor(NOVA, 'nova'),
+      ...SLASH_TECHNIQUE_NAMES.map((n) => [n, getSlashKind(n)] as const),
+      ...MAGIC_TECHNIQUE_NAMES.map((n) => [n, getMagicKind(n)] as const),
+      ...SHOOTING_TECHNIQUE_NAMES.map((n) => [n, getShootingKind(n)] as const),
     ])
   )
 

@@ -6,12 +6,18 @@ import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from '
 import { createPortal } from 'react-dom'
 import type { TechniqueEffectKind } from '../../constants/techniqueEffectKinds'
 import {
+  MAGIC_TECHNIQUE_NAMES,
+  SHOOTING_TECHNIQUE_NAMES,
+  SLASH_TECHNIQUE_NAMES,
+} from '../../constants/comboTechniqueNames'
+import {
   buildTechniqueBurstVisualStyles,
   getTechniqueEffectKind,
   getTechniqueBurstArtParams,
 } from '../../constants/techniqueEffectKinds'
 import { TechniqueBurstArtCanvas } from './TechniqueBurstArtCanvas'
 import { TechniqueBurstArtSvg } from './TechniqueBurstArtSvg'
+import { SlashElementCanvas } from './SlashElementCanvas'
 import './TechniqueEffectBurst.css'
 import './TechniqueEffectBurst-finale-kinds.css'
 import './TechniqueEffectBurst-extra.css'
@@ -33,6 +39,70 @@ export interface TechniqueEffectBurstProps {
   /** 成功時など、終盤にきらびやかな爆発フィニッシュを重ねる */
   finale?: boolean
   className?: string
+}
+
+type TechniqueNameType = 'slash' | 'magic' | 'shooting' | 'other'
+
+const SLASH_NAME_SET = new Set<string>(SLASH_TECHNIQUE_NAMES)
+const MAGIC_NAME_SET = new Set<string>(MAGIC_TECHNIQUE_NAMES)
+const SHOOTING_NAME_SET = new Set<string>(SHOOTING_TECHNIQUE_NAMES)
+
+function getTechniqueNameType(name: string): TechniqueNameType {
+  const s = name.trim()
+  // 雷鳴*（射撃名）は演出上スラッシュ扱いに寄せる
+  if (SHOOTING_NAME_SET.has(s) && s.startsWith('雷鳴')) return 'slash'
+  if (SLASH_NAME_SET.has(s)) return 'slash'
+  if (MAGIC_NAME_SET.has(s)) return 'magic'
+  if (SHOOTING_NAME_SET.has(s)) return 'shooting'
+  return 'other'
+}
+
+type SlashVariant = 'default' | 'rush' | 'break' | 'cross' | 'fang'
+
+function detectSlashVariant(name: string): SlashVariant {
+  const s = name.trim()
+  // 語尾の質感に合わせて“見せ方”を変える
+  if (s.includes('クロス')) return 'cross'
+  if (s.includes('ラッシュ')) return 'rush'
+  if (s.includes('ブレイク')) return 'break'
+  if (s.includes('牙')) return 'fang'
+  // 単漢字語尾（斬/断/裂/閃）は上の語尾より優先度を下げつつも差を出す
+  if (s.endsWith('断')) return 'break'
+  if (s.endsWith('裂')) return 'fang'
+  if (s.endsWith('閃')) return 'rush'
+  return 'default'
+}
+
+type SlashHead =
+  | 'kurenai' // 紅刃
+  | 'aoi' // 蒼刃
+  | 'raijin' // 雷刃
+  | 'kage' // 影刃
+  | 'shiro' // 白刃
+  | 'kuro' // 黒刃
+  | 'tsuki' // 月刃
+  | 'tora' // 虎刃
+  | 'ryu' // 龍刃
+  | 'kaze' // 風刃
+  | 'blade' // ブレイド
+  | 'shadow' // シャドウ
+  | 'other'
+
+function detectSlashHead(name: string): SlashHead {
+  const s = name.trim()
+  if (s.includes('紅刃')) return 'kurenai'
+  if (s.includes('蒼刃')) return 'aoi'
+  if (s.includes('雷刃')) return 'raijin'
+  if (s.includes('影刃')) return 'kage'
+  if (s.includes('白刃')) return 'shiro'
+  if (s.includes('黒刃')) return 'kuro'
+  if (s.includes('月刃')) return 'tsuki'
+  if (s.includes('虎刃')) return 'tora'
+  if (s.includes('龍刃')) return 'ryu'
+  if (s.includes('風刃')) return 'kaze'
+  if (s.includes('ブレイド')) return 'blade'
+  if (s.includes('シャドウ')) return 'shadow'
+  return 'other'
 }
 
 function FinaleLayers({ kind, style }: { kind: TechniqueEffectKind; style?: CSSProperties }) {
@@ -63,8 +133,16 @@ function TefxCommonLayers({ kind }: { kind: TechniqueEffectKind }) {
   )
 }
 
-function KindLayers({ kind }: { kind: TechniqueEffectKind }) {
+function KindLayers({
+  kind,
+  suppressKindFx = false,
+}: {
+  kind: TechniqueEffectKind
+  suppressKindFx?: boolean
+}) {
   const sig = <div className={`tefx-layer tefx-sig tefx-sig--${kind}`} aria-hidden />
+  // 斬撃モチーフは「刃線が主役」。kind 固有の背景レイヤが混ざると筋/面が残って見えやすいので抑止する。
+  if (suppressKindFx) return <>{sig}</>
   switch (kind) {
     case 'inferno':
       return (
@@ -210,6 +288,36 @@ function KindLayers({ kind }: { kind: TechniqueEffectKind }) {
   }
 }
 
+function TypeImpactLayers({ type }: { type: TechniqueNameType }) {
+  if (type === 'shooting') {
+    return (
+      <>
+        <div className="tefx-layer tefx-type-shooting-bang" aria-hidden />
+        <div className="tefx-layer tefx-type-shooting-sparks" aria-hidden />
+        <div className="tefx-layer tefx-type-shooting-flash" aria-hidden />
+        <div className="tefx-layer tefx-type-shooting-tracer tefx-type-shooting-tracer--1" aria-hidden />
+        <div className="tefx-layer tefx-type-shooting-tracer tefx-type-shooting-tracer--2" aria-hidden />
+        <div className="tefx-layer tefx-type-shooting-tracer tefx-type-shooting-tracer--3" aria-hidden />
+        <div className="tefx-layer tefx-type-shooting-impact" aria-hidden />
+      </>
+    )
+  }
+
+  if (type === 'magic') {
+    return (
+      <>
+        <div className="tefx-layer tefx-type-magic-glitter" aria-hidden />
+        <div className="tefx-layer tefx-type-magic-circle" aria-hidden />
+        <div className="tefx-layer tefx-type-magic-runes" aria-hidden />
+        <div className="tefx-layer tefx-type-magic-chant" aria-hidden />
+        <div className="tefx-layer tefx-type-magic-pulse" aria-hidden />
+      </>
+    )
+  }
+
+  return null
+}
+
 export function TechniqueEffectBurst({
   techniqueName,
   fillGaugeBand = false,
@@ -224,7 +332,17 @@ export function TechniqueEffectBurst({
   const kind = getTechniqueEffectKind(techniqueName)
   const burstVisual = useMemo(() => buildTechniqueBurstVisualStyles(techniqueName), [techniqueName])
   const burstArt = useMemo(() => getTechniqueBurstArtParams(techniqueName), [techniqueName])
-  const slashMotif = useMemo(() => techniqueName.includes('斬'), [techniqueName])
+  const techniqueType = useMemo(() => getTechniqueNameType(techniqueName), [techniqueName])
+  // SLASH_TECHNIQUE_NAMES 全般で DOM の tefx-slash-cut を出す
+  const slashStyleActive = techniqueType === 'slash'
+  const slashVariant = useMemo(() => (slashStyleActive ? detectSlashVariant(techniqueName) : 'default'), [
+    slashStyleActive,
+    techniqueName,
+  ])
+  const slashHead = useMemo(() => (slashStyleActive ? detectSlashHead(techniqueName) : 'other'), [
+    slashStyleActive,
+    techniqueName,
+  ])
   const isPhantom = kind === 'phantom'
   const bandLarge =
     fillGaugeBand && largeBandTypography ? ' tefx--fill-gauge-band-large-type' : ''
@@ -264,14 +382,55 @@ export function TechniqueEffectBurst({
           ? createPortal(<FinaleLayers kind={kind} style={burstVisual.finale} />, finalePortalTarget)
           : <FinaleLayers kind={kind} style={burstVisual.finale} />)}
       <div
-        className={`tefx tefx--${kind} tefx--pat-${burstArt.pattern}${slashMotif ? ' tefx--slash-motif' : ''}${fillGaugeBand ? ' tefx--fill-gauge-band' : ''}${bandLarge}`.trim()}
+        className={`tefx tefx--${kind} tefx--type-${techniqueType}${slashStyleActive ? ' tefx--slash-motif' : ''}${slashStyleActive ? ` tefx--slash-variant-${slashVariant}` : ''}${slashStyleActive ? ` tefx--slash-head-${slashHead}` : ''}${fillGaugeBand ? ' tefx--fill-gauge-band' : ''}${bandLarge}`.trim()}
         style={{ ...burstVisual.root, ...bandFontStyle }}
         ref={tefxRef}
       >
-        <KindLayers kind={kind} />
-        {slashMotif && <div className="tefx-layer tefx-slash-cut" aria-hidden />}
-        {slashMotif && <div className="tefx-layer tefx-slash-cut tefx-slash-cut--echo" aria-hidden />}
-        <TechniqueBurstArtCanvas art={burstArt} effectKind={kind} techniqueName={techniqueName} />
+        <KindLayers kind={kind} suppressKindFx={slashStyleActive} />
+        <TypeImpactLayers type={techniqueType} />
+        {slashStyleActive && <div className="tefx-layer tefx-slash-cut" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-cut tefx-slash-cut--echo" aria-hidden />}
+        {/* 斬撃モチーフ: 刃線だけだと「切ってる感」が薄いので火花/命中演出も重ねる */}
+        {slashStyleActive && slashVariant === 'cross' && (
+          <div className="tefx-layer tefx-slash-cut tefx-slash-cut--cross" aria-hidden />
+        )}
+        {slashStyleActive && slashVariant !== 'cross' && (
+          <div className="tefx-layer tefx-slash-cut tefx-slash-cut--arc2" aria-hidden />
+        )}
+        {slashStyleActive && slashVariant === 'rush' && (
+          <>
+            <div className="tefx-layer tefx-slash-cut tefx-slash-cut--upper" aria-hidden />
+            <div className="tefx-layer tefx-slash-cut tefx-slash-cut--lower" aria-hidden />
+          </>
+        )}
+        {slashStyleActive && slashVariant === 'break' && (
+          <>
+            <div className="tefx-layer tefx-slash-cut tefx-slash-cut--drop" aria-hidden />
+            <div className="tefx-layer tefx-slash-cut tefx-slash-cut--rise" aria-hidden />
+          </>
+        )}
+        {slashStyleActive && slashVariant === 'fang' && (
+          <div className="tefx-layer tefx-slash-cut tefx-slash-cut--rise" aria-hidden />
+        )}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-sparks" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-impact-flash" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-impact-ring" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-impact-ring tefx-slash-impact-ring--echo" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-afterglow" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-aura" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-aura tefx-slash-aura--2" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-orbit" aria-hidden />}
+        {slashStyleActive && <SlashElementCanvas kind={kind} seed={burstArt.seed} slashHead={slashHead} />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-rift" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-shards" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-burst" aria-hidden />}
+        {slashStyleActive && <div className="tefx-layer tefx-slash-glitter" aria-hidden />}
+        {/* 斬撃モチーフは放射線状の筋（radiance等）が邪魔になりやすいので、Canvas の kind 上乗せは抑止 */}
+        <TechniqueBurstArtCanvas
+          art={burstArt}
+          effectKind={slashStyleActive ? undefined : kind}
+          techniqueName={techniqueName}
+        />
         <TechniqueBurstArtSvg art={burstArt} />
         <div className="tefx-layer tefx-entropy" aria-hidden />
         <div className="tefx-layer tefx-distort" aria-hidden />

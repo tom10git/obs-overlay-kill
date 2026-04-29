@@ -399,7 +399,7 @@ export function HPGauge({
         transform: 'translate(-50%, -50%)',
       }}
     >
-      <div className={motionClassNames}>
+      <div className={motionClassNames} style={{ position: 'relative', zIndex: 1 }}>
       <div
         className={[
           'hp-gauge-frame',

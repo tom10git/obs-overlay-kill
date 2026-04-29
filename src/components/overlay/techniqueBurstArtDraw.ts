@@ -655,6 +655,324 @@ function drawMoonGlowOverlay(
   ctx.fill()
 }
 
+function buildNameCodes(name: string): number[] {
+  const codes: number[] = []
+  for (let i = 0; i < name.length; i++) {
+    codes.push(name.charCodeAt(i))
+  }
+  return codes
+}
+
+function drawTechniqueNameFingerprintOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  name: string,
+  reducedMotion: boolean
+): void {
+  const codes = buildNameCodes(name)
+  if (codes.length === 0) return
+  const u = Math.min(w, h)
+
+  // 1) Top signature barcode (character-by-character deterministic widths/heights/colors)
+  const maxBars = 20
+  const count = Math.min(maxBars, codes.length * 2)
+  const left = w * 0.08
+  const width = w * 0.84
+  const step = width / Math.max(1, count)
+  for (let i = 0; i < count; i++) {
+    const code = codes[i % codes.length] ?? 0
+    const barW = step * (0.3 + (code % 5) * 0.15)
+    const barH = h * (0.04 + (code % 7) * 0.008)
+    const x = left + i * step
+    const pulse = reducedMotion ? 0.75 : 0.65 + Math.sin(tt * (1.4 + (i % 4) * 0.2) + i * 0.3) * 0.25
+    const hue = (code * 7 + i * 13) % 360
+    ctx.fillStyle = `hsla(${hue}, 92%, 68%, ${0.18 + pulse * 0.24})`
+    ctx.fillRect(x, h * 0.08, barW, barH)
+  }
+
+  // 2) Bottom mirrored barcode (different mapping to avoid similar top/bottom rhythm)
+  for (let i = 0; i < count; i++) {
+    const code = codes[(codes.length - 1 - (i % codes.length) + codes.length) % codes.length] ?? 0
+    const barW = step * (0.28 + (code % 6) * 0.12)
+    const barH = h * (0.035 + (code % 9) * 0.007)
+    const x = left + i * step
+    const pulse = reducedMotion ? 0.72 : 0.62 + Math.cos(tt * (1.3 + (i % 3) * 0.25) + i * 0.22) * 0.24
+    const hue = (code * 11 + i * 9 + 140) % 360
+    ctx.fillStyle = `hsla(${hue}, 88%, 64%, ${0.15 + pulse * 0.2})`
+    ctx.fillRect(x, h * 0.88 - barH, barW, barH)
+  }
+
+  // 3) Character radial markers around center (highly name-specific silhouette)
+  const cx = w * 0.5
+  const cy = h * 0.52
+  for (let i = 0; i < codes.length; i++) {
+    const code = codes[i] ?? 0
+    const ang = (i / Math.max(1, codes.length)) * Math.PI * 2 + (code % 37) * 0.03
+    const r = u * (0.17 + (code % 19) * 0.008)
+    const mx = cx + Math.cos(ang) * r
+    const my = cy + Math.sin(ang) * r * 0.74
+    const len = u * (0.03 + (code % 8) * 0.006)
+    const dir = reducedMotion ? 0 : tt * (0.25 + (code % 5) * 0.05)
+    const x2 = mx + Math.cos(ang + dir) * len
+    const y2 = my + Math.sin(ang + dir) * len
+    const hue = (code * 5 + i * 21 + 40) % 360
+    ctx.strokeStyle = `hsla(${hue}, 96%, 74%, 0.34)`
+    ctx.lineWidth = 1 + (code % 3) * 0.5
+    ctx.beginPath()
+    ctx.moveTo(mx, my)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+  }
+}
+
+function detectTechniqueNameMotif(name: string): 'slash' | 'magic' | 'shooting' | 'none' {
+  const slashTokens = ['刃', '斬', '断', '裂', '牙', 'ラッシュ', 'ブレイク', 'クロス']
+  const magicTokens = ['術', '詠', '陣', '符', '唱', 'スペル', 'ミスト', 'オーラ', 'ルーン', 'アストラ', 'カワイソウニ']
+  const shootingTokens = ['弾', '砲', '射', '撃', 'ショット', 'バースト', 'スナイプ', 'バレット', 'キャノン']
+
+  // 雷鳴* は射撃語尾でも見た目をスラッシュへ寄せる
+  if (name.startsWith('雷鳴')) return 'slash'
+  if (shootingTokens.some((token) => name.includes(token))) return 'shooting'
+  if (magicTokens.some((token) => name.includes(token))) return 'magic'
+  if (slashTokens.some((token) => name.includes(token))) return 'slash'
+  return 'none'
+}
+
+type NaturalDisasterKind = 'none' | 'fire' | 'storm' | 'meteor' | 'frost' | 'quake'
+
+function detectNaturalDisasterKind(name: string): NaturalDisasterKind {
+  if (
+    ['流星', '彗星', 'メテオ', '隕', '星'].some((t) => name.includes(t))
+  ) return 'meteor'
+  if (
+    ['雷', '嵐', '豪雨', '暴風', '台風'].some((t) => name.includes(t))
+  ) return 'storm'
+  if (
+    ['烈火', '業火', '火', '炎', '焔', '爆'].some((t) => name.includes(t))
+  ) return 'fire'
+  if (
+    ['吹雪', '氷', '雪', '凍'].some((t) => name.includes(t))
+  ) return 'frost'
+  if (
+    ['震', '地', '崩', '裂'].some((t) => name.includes(t))
+  ) return 'quake'
+  return 'none'
+}
+
+function detectNameAccentKinds(name: string): TechniqueEffectKind[] {
+  const accents: TechniqueEffectKind[] = []
+  const pushUnique = (kind: TechniqueEffectKind) => {
+    if (!accents.includes(kind)) accents.push(kind)
+  }
+
+  // 語尾・語彙ごとの「追加アクセント」を重ね、同タイプ内の差を強める
+  if (name.includes('ラッシュ')) pushUnique('tempest')
+  if (name.includes('ブレイク')) pushUnique('tremor')
+  if (name.includes('クロス')) pushUnique('radiance')
+  if (name.includes('牙')) pushUnique('phantom')
+
+  if (name.includes('詠') || name.includes('唱')) pushUnique('nova')
+  if (name.includes('陣') || name.includes('符')) pushUnique('plasma')
+  if (name.includes('ミスト')) pushUnique('glacier')
+  if (name.includes('オーラ')) pushUnique('radiance')
+
+  if (name.includes('砲') || name.includes('キャノン')) pushUnique('tremor')
+  if (name.includes('スナイプ')) pushUnique('phantom')
+  if (name.includes('バースト')) pushUnique('inferno')
+  if (name.includes('ショット')) pushUnique('plasma')
+
+  return accents
+}
+
+function drawNameShootingOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const bursts = reducedMotion ? 2 : 4
+  const speed = reducedMotion ? 0.8 : 1.35
+  for (let i = 0; i < bursts; i++) {
+    const y = h * (0.25 + stableRand(seed, i, 301) * 0.5)
+    const phase = (tt * speed + stableRand(seed, i, 302)) % 1
+    const x = -w * 0.1 + phase * w * 1.2
+    const len = w * (0.18 + stableRand(seed, i, 303) * 0.18)
+    const grad = ctx.createLinearGradient(x, y, x + len, y)
+    grad.addColorStop(0, 'rgba(255,255,255,0.95)')
+    grad.addColorStop(0.4, 'rgba(255,210,130,0.58)')
+    grad.addColorStop(1, 'rgba(255,140,70,0)')
+    ctx.strokeStyle = grad
+    ctx.lineWidth = 1.2 + stableRand(seed, i, 304) * 1.6
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    ctx.lineTo(x + len, y + (stableRand(seed, i, 305) - 0.5) * h * 0.08)
+    ctx.stroke()
+  }
+}
+
+function drawNameMagicOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const cx = w * 0.5
+  const cy = h * 0.54
+  const u = Math.min(w, h)
+  const ringCount = reducedMotion ? 2 : 3
+  for (let i = 0; i < ringCount; i++) {
+    const r = u * (0.15 + i * 0.08 + Math.sin(tt * 1.9 + i) * 0.015)
+    ctx.strokeStyle = `rgba(220, 200, 255, ${0.24 - i * 0.05})`
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, tt * (0.2 + i * 0.07), tt * (0.2 + i * 0.07) + Math.PI * 1.6)
+    ctx.stroke()
+  }
+
+  const glyphs = reducedMotion ? 10 : 18
+  for (let g = 0; g < glyphs; g++) {
+    const ang = (g / glyphs) * Math.PI * 2 + tt * 0.35
+    const r = u * 0.22
+    const gx = cx + Math.cos(ang) * r
+    const gy = cy + Math.sin(ang) * r * 0.75
+    const s = 3 + stableRand(seed, g, 311) * 2
+    ctx.strokeStyle = `rgba(245, 230, 255, ${0.2 + stableRand(seed, g, 312) * 0.25})`
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(gx - s, gy)
+    ctx.lineTo(gx + s, gy)
+    ctx.moveTo(gx, gy - s)
+    ctx.lineTo(gx, gy + s)
+    ctx.stroke()
+  }
+}
+
+function drawNameSlashOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  seed: number,
+  reducedMotion: boolean,
+  name: string
+): void {
+  const codes = buildNameCodes(name)
+  if (codes.length === 0) return
+
+  // 端から端へ斬る 4 本（reduced motion 時は 3 本）
+  const cuts = reducedMotion ? 3 : 4
+  const u = Math.min(w, h)
+  const margin = u * 0.42
+
+  const baseCode = codes[0] ?? 0
+  const baseDir = (baseCode + (seed % 13)) % 2 === 0 ? 1 : -1
+  const hueBase = (215 + (baseCode % 55) + (seed % 23)) % 360
+
+  // Quadratic Bezier helper
+  const quadAt = (x0: number, y0: number, cx: number, cy: number, x1: number, y1: number, t: number) => {
+    const it = 1 - t
+    return {
+      x: it * it * x0 + 2 * it * t * cx + t * t * x1,
+      y: it * it * y0 + 2 * it * t * cy + t * t * y1,
+    }
+  }
+  const quadDeriv = (x0: number, y0: number, cx: number, cy: number, x1: number, y1: number, t: number) => {
+    return {
+      x: 2 * (1 - t) * (cx - x0) + 2 * t * (x1 - cx),
+      y: 2 * (1 - t) * (cy - y0) + 2 * t * (y1 - cy),
+    }
+  }
+
+  for (let i = 0; i < cuts; i++) {
+    const code = codes[i % codes.length] ?? 0
+
+    // start/end are outside screen to guarantee edge-to-edge coverage
+    const x0 = baseDir === 1 ? -margin : w + margin
+    const x1 = baseDir === 1 ? w + margin : -margin
+
+    const tJ = stableRand(seed, i, 910) - 0.5
+    const tJ2 = stableRand(seed, i, 911) - 0.5
+
+    const y0 = h * (0.12 + i * (0.78 / Math.max(1, cuts - 1))) + tJ * h * 0.08
+    const y1 = h * (0.88 - i * (0.78 / Math.max(1, cuts - 1))) + tJ2 * h * 0.08
+
+    const dx = x1 - x0
+    const dy = y1 - y0
+    const len = Math.hypot(dx, dy) || 1
+    const px = -dy / len
+    const py = dx / len
+
+    const curveAmp = u * (0.18 + stableRand(seed, i, 920) * 0.26) * (0.9 + (code % 9) * 0.05)
+    const cX = (x0 + x1) * 0.5 + px * curveAmp * (0.75 + (tJ * 0.6 + 0.5) * 0.5) * baseDir
+    const cY = (y0 + y1) * 0.5 + py * curveAmp * (0.65 + (tJ2 * 0.5 + 0.5) * 0.6)
+
+    const hue = (hueBase + code * 0.07 + i * 14) % 360
+
+    // Glow pass
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
+    ctx.shadowBlur = reducedMotion ? 10 : 18
+    ctx.shadowColor = `hsla(${hue}, 95%, 65%, 0.35)`
+    ctx.strokeStyle = `hsla(${hue}, 95%, 70%, ${0.12 + stableRand(seed, i, 930) * 0.08})`
+    ctx.lineWidth = 9 + stableRand(seed, i, 931) * 6
+    ctx.beginPath()
+    ctx.moveTo(x0, y0)
+    ctx.quadraticCurveTo(cX, cY, x1, y1)
+    ctx.stroke()
+
+    // Core pass
+    ctx.shadowBlur = 0
+    const coreGrad = ctx.createLinearGradient(x0, y0, x1, y1)
+    coreGrad.addColorStop(0, 'rgba(255,255,255,0)')
+    coreGrad.addColorStop(0.25, `hsla(${hue}, 98%, 88%, 0.18)`)
+    coreGrad.addColorStop(0.5, `hsla(${hue}, 98%, 92%, 0.82)`)
+    coreGrad.addColorStop(0.78, `hsla(${hue}, 98%, 88%, 0.22)`)
+    coreGrad.addColorStop(1, 'rgba(180,220,255,0)')
+    ctx.strokeStyle = coreGrad
+    ctx.lineWidth = 3.2 + stableRand(seed, i, 932) * 1.5
+    ctx.beginPath()
+    ctx.moveTo(x0, y0)
+    ctx.quadraticCurveTo(cX, cY, x1, y1)
+    ctx.stroke()
+
+    // Slash ticks (impact highlights) along the curve
+    const tickN = reducedMotion ? 2 : 3
+    for (let k = 0; k < tickN; k++) {
+      const tt = 0.22 + (k + 1) / (tickN + 2)
+      const p = quadAt(x0, y0, cX, cY, x1, y1, tt)
+      const d = quadDeriv(x0, y0, cX, cY, x1, y1, tt)
+      const dl = Math.hypot(d.x, d.y) || 1
+      const nx = -d.y / dl
+      const ny = d.x / dl
+      const tickLen = u * (0.02 + (code % 7) * 0.0015)
+      ctx.strokeStyle = `hsla(${(hue + 14) % 360}, 98%, 96%, 0.65)`
+      ctx.lineWidth = 1 + stableRand(seed, i * 10 + k, 940) * 0.9
+      ctx.beginPath()
+      ctx.moveTo(p.x - nx * tickLen, p.y - ny * tickLen)
+      ctx.lineTo(p.x + nx * tickLen, p.y + ny * tickLen)
+      ctx.stroke()
+    }
+
+    // Impact glow near end
+    const impactR = u * (0.035 + stableRand(seed, i, 950) * 0.02)
+    const impact = ctx.createRadialGradient(x1, y1, 0, x1, y1, impactR)
+    impact.addColorStop(0, `hsla(${hue}, 98%, 92%, ${0.45 + stableRand(seed, i, 951) * 0.2})`)
+    impact.addColorStop(0.4, `hsla(${hue}, 98%, 70%, 0.18)`)
+    impact.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = impact
+    ctx.beginPath()
+    ctx.arc(x1, y1, impactR, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.restore()
+  }
+}
+
 export function drawTechniqueBurstArt(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -682,8 +1000,10 @@ export function drawTechniqueBurstArt(
   ctx.globalCompositeOperation = 'source-over'
   ctx.clearRect(0, 0, w, h)
   ctx.globalCompositeOperation = 'lighter'
-
-  switch (pat) {
+  const name = techniqueName?.trim() ?? ''
+  const motif = detectTechniqueNameMotif(name)
+  if (name.length === 0) {
+    switch (pat) {
     case 0: {
       for (let r = 0; r < 10; r++) {
         const pulse = Math.sin(tt * 2.1 + r * 0.55) * 0.5 + 0.5
@@ -1624,8 +1944,17 @@ export function drawTechniqueBurstArt(
       }
       break
     }
-    default:
-      break
+      default:
+        break
+    }
+  } else {
+    // 斬撃は DOM の tefx-slash-cut で見せたいので、キャンバス側の指紋ノイズを抑制して邪魔しない
+    // （雷鳴撃もスラッシュ強制なので、同様に指紋ノイズを抑制）
+    if (motif === 'slash') {
+      // 空のまま（kind 側の効果は下の effectKind 分岐で描画される）
+    } else {
+      drawTechniqueNameFingerprintOverlay(ctx, w, h, tt, name, reducedMotion)
+    }
   }
 
   if (effectKind === 'meteor') {
@@ -1659,7 +1988,6 @@ export function drawTechniqueBurstArt(
     drawInfernoFireOverlay(ctx, w, h, tt, s, reducedMotion)
   }
 
-  const name = techniqueName?.trim() ?? ''
   if (name.includes('桜')) {
     drawSakuraOverlay(ctx, w, h, tt, s, reducedMotion)
   }
@@ -1668,6 +1996,52 @@ export function drawTechniqueBurstArt(
   }
   if (name.includes('月')) {
     drawMoonGlowOverlay(ctx, w, h, tt, s, reducedMotion)
+  }
+  if (motif === 'shooting') {
+    drawNameShootingOverlay(ctx, w, h, tt, s, reducedMotion)
+  }
+  if (motif === 'magic') {
+    drawNameMagicOverlay(ctx, w, h, tt, s, reducedMotion)
+  }
+  if (motif === 'slash') {
+    drawNameSlashOverlay(ctx, w, h, s, reducedMotion, name)
+  }
+
+  // 斬撃モチーフは「刃線が主役」。語彙アクセント（放射線/稲妻/地割れ等）が混ざると
+  // 放射状の筋が“静止して見える”ことがあるため、追加アクセントは出さない。
+  if (motif !== 'slash') {
+    const disaster = detectNaturalDisasterKind(name)
+    if (disaster === 'meteor') {
+      drawMeteorTrailOverlay(ctx, w, h, tt, s ^ 0x31a5, reducedMotion)
+    }
+    if (disaster === 'storm') {
+      drawTempestLightningOverlay(ctx, w, h, tt, s ^ 0x52c7, reducedMotion)
+    }
+    if (disaster === 'fire') {
+      drawInfernoFireOverlay(ctx, w, h, tt, s ^ 0x91f3, reducedMotion)
+    }
+    if (disaster === 'frost') {
+      drawGlacierFrostOverlay(ctx, w, h, tt, s ^ 0x4be1, reducedMotion)
+    }
+    if (disaster === 'quake') {
+      drawTremorDustOverlay(ctx, w, h, tt, s ^ 0x7d2b, reducedMotion)
+    }
+
+    const accentKinds = detectNameAccentKinds(name)
+    for (let i = 0; i < accentKinds.length; i++) {
+      const accentSeed = s ^ (0x9e37 + i * 0x51c3)
+      const accentKind = accentKinds[i]!
+      if (accentKind === 'meteor') drawMeteorTrailOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+      if (accentKind === 'void') drawVoidVeinOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+      if (accentKind === 'glacier') drawGlacierFrostOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+      if (accentKind === 'radiance') drawRadianceRayOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+      if (accentKind === 'nova') drawNovaBurstOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+      if (accentKind === 'phantom') drawPhantomMistOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+      if (accentKind === 'tremor') drawTremorDustOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+      if (accentKind === 'plasma') drawPlasmaFilamentOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+      if (accentKind === 'tempest') drawTempestLightningOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+      if (accentKind === 'inferno') drawInfernoFireOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+    }
   }
 
   ctx.restore()

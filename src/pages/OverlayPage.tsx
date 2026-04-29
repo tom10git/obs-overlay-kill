@@ -14,12 +14,16 @@ import { useTwitchChat } from '../hooks/useTwitchChat'
 import { useAutoReply } from '../hooks/useAutoReply'
 import { useStrengthBuffState } from '../hooks/useStrengthBuffState'
 import { HPGauge } from '../components/overlay/HPGauge'
-import { DamageNumber } from '../components/overlay/DamageNumber'
+import { KonamiBurnCanvas } from '../components/overlay/KonamiBurnCanvas'
+import { DamageNumber, type DamagePopupKind } from '../components/overlay/DamageNumber'
 import { KawaiiSouniDamageFloat } from '../components/overlay/KawaiiSouniDamageFloat'
 import { HealNumber } from '../components/overlay/HealNumber'
 import { ComboTechniquePrompt } from '../components/overlay/ComboTechniquePrompt'
 import { HpGaugeTopBand } from '../components/overlay/HpGaugeTopBand'
 import { TechniqueEffectBurst } from '../components/overlay/TechniqueEffectBurst'
+import { AttackEffectBurst } from '../components/overlay/AttackEffectBurst'
+import { NormalAttackGlassCanvas } from '../components/overlay/NormalAttackGlassCanvas'
+import { SlashArcCanvas } from '../components/overlay/SlashArcCanvas'
 import { RouletteBonusOverlay } from '../components/overlay/RouletteBonusOverlay'
 import {
   COMBO_TECHNIQUE_NAMES,
@@ -27,6 +31,8 @@ import {
   pickRandomComboTechniqueName,
 } from '../constants/comboTechnique'
 import {
+  ROULETTE_BONUS_CHAIN_MAX_DEPTH,
+  ROULETTE_BONUS_CHAIN_TRIGGER_PROBABILITY,
   pickRouletteStripSkill,
   ROULETTE_BONUS_SUCCESS_PROBABILITY,
   ROULETTE_BONUS_TRIGGER_PROBABILITY,
@@ -42,11 +48,17 @@ import {
   KAWAI_SOUNI_DRAIN_STOP_AT_HP,
   KAWAI_SOUNI_TECHNIQUE_NAME,
 } from '../constants/kawaiiSouniTechnique'
+import {
+  isKonamiStreamerBuffChatMessage,
+  KONAMI_STREAMER_BUFF_KAWAI_SOUNI_DRAIN_INTERVAL_MS,
+  scaleKonamiBuffedStat,
+  streamerFinishingMoveDamageFraction,
+} from '../constants/konamiStreamerBuff'
 import { TECHNIQUE_EFFECT_BURST_MS } from '../constants/techniqueEffects'
 import { advanceComboTechniqueInput } from '../utils/comboTechniqueInput'
 import { techniqueNameFromComboTarget } from '../utils/techniqueEffectName'
 import { useSound } from '../hooks/useSound'
-import { getAdminUsername } from '../config/admin'
+import { getAdminUsername, getDefaultChannel } from '../config/admin'
 import { useTwitchUser } from '../hooks/useTwitchUser'
 import { twitchChat } from '../utils/twitchChat'
 import { stripEmotesFromMessage } from '../utils/chatMessage'
@@ -142,6 +154,8 @@ function getStreamerHealOnAttackAmount(pvp: {
 
 export function OverlayPage() {
   const username = getAdminUsername() || ''
+  /** チャット購読先（ログイン名優先。未設定時は VITE_DEFAULT_CHANNEL のみでも受信可能） */
+  const chatChannel = (username.trim() || getDefaultChannel()?.trim() || '').trim()
   const { user, loading: userLoading } = useTwitchUser(username)
   const sendAutoReply = useAutoReply(username, user?.id)
   // MISS表示（短時間だけ表示してCSSアニメーションさせる）
@@ -151,12 +165,6 @@ export function OverlayPage() {
   // クリティカル表示（短時間だけ表示してCSSアニメーションさせる）
   const [criticalVisible, setCriticalVisible] = useState(false)
   const criticalTimerRef = useRef<number | null>(null)
-
-  // #region agent log (critical freeze debug)
-  useEffect(() => {
-    fetch('http://127.0.0.1:7398/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b3c271' }, body: JSON.stringify({ sessionId: 'b3c271', runId: 'pre-fix', hypothesisId: 'A|B|C|D', location: 'OverlayPage.tsx:criticalVisibleEffect', message: 'criticalVisible changed', data: { criticalVisible }, timestamp: Date.now() }) }).catch(() => { })
-  }, [criticalVisible])
-  // #endregion agent log (critical freeze debug)
 
   // 必殺技エフェクト表示
   const [finishingMoveFlashVisible, setFinishingMoveFlashVisible] = useState(false)
@@ -168,6 +176,7 @@ export function OverlayPage() {
   const finishingMoveFilterTimerRef = useRef<number | null>(null)
   const finishingMoveTextTimerRef = useRef<number | null>(null)
   const playFinishingMoveSoundRef = useRef<() => void>(() => { })
+  const playKonamiStreamerBuffSoundRef = useRef<() => void>(() => {})
 
   const obsConsoleDebugEnabled = useMemo(() => {
     try {
@@ -219,6 +228,7 @@ export function OverlayPage() {
     id: number
     amount: number
     isCritical: boolean
+    popupKind?: DamagePopupKind
     isBleed?: boolean
     dotDebuffKind?: AttackDebuffKind
     bleedColor?: string
@@ -239,13 +249,23 @@ export function OverlayPage() {
 
   /** 「カワイソウニ」成功時の HP ドット（10 秒毎・HP2 で停止） */
   const kawaiiSouniDrainIntervalRef = useRef<number | null>(null)
-  const maybeStartKawaiiSouniHpDrainRef = useRef<(raw: string) => void>(() => {})
+  const maybeStartKawaiiSouniHpDrainRef = useRef<(raw: string) => void>(() => { })
   /** ドットが有効なあいだ true（連続ヒール解除・HP2・HP0・リセットで false） */
   const kawaiiSouniDebuffActiveRef = useRef(false)
   const kawaiiSouniHealStreakRef = useRef(0)
   /** true の間は reduceHP を「ダメージ」とみなして連続ヒールをリセットしない（ドット本体） */
   const kawaiiSouniDotDamageRef = useRef(false)
-  const registerKawaiiSouniHealProgressRef = useRef<() => void>(() => {})
+  const registerKawaiiSouniHealProgressRef = useRef<() => void>(() => { })
+
+  type KonamiStreamerBuffSnapshot = {
+    maxHp: number
+    streamerDamage: number
+    streamerDamageMin: number
+    streamerDamageMax: number
+  }
+  const konamiStreamerBuffSnapshotRef = useRef<KonamiStreamerBuffSnapshot | null>(null)
+  const konamiStreamerBuffActiveRef = useRef(false)
+  const [konamiStreamerBuffActive, setKonamiStreamerBuffActive] = useState(false)
 
   const stopKawaiiSouniHpDrain = useCallback(() => {
     if (kawaiiSouniDrainIntervalRef.current != null) {
@@ -315,10 +335,17 @@ export function OverlayPage() {
     /** 成功時: COMBO_TECHNIQUE_NAMES 内の停止インデックス（演出・追加攻撃の技名と一致） */
     landIndex: number
     attackerUserId: string
+    chainDepth: number
+    /** テスト攻撃由来か（確率設定の参照先に使う） */
+    isTestMode?: boolean
     /** テスト用: HPを減らさない攻撃由来か */
     noDamage?: boolean
   }
   const [rouletteBonus, setRouletteBonus] = useState<RouletteBonusState | null>(null)
+  type AttackEffectBurstState =
+    | { id: number; mode: 'webm'; videoUrl: string }
+    | { id: number; mode: 'glassCanvas'; playbackKey: number }
+  const [attackEffectBurst, setAttackEffectBurst] = useState<AttackEffectBurstState | null>(null)
   const [techniqueEffectBurst, setTechniqueEffectBurst] = useState<{
     id: number
     name: string
@@ -326,7 +353,21 @@ export function OverlayPage() {
     rouletteBandFontScalePercent?: number
     finale?: boolean
   } | null>(null)
+  /** 技名に「斬」を含むときの全画面斬撃フラッシュ（SlashArcCanvas） */
+  const [slashArcFxKey, setSlashArcFxKey] = useState<number | null>(null)
   const rouletteBonusLockRef = useRef(false)
+  const pendingRouletteChainRef = useRef<{
+    attackerUserId: string
+    chainDepth: number
+    isTestMode: boolean
+    noDamage?: boolean
+  } | null>(null)
+  /** ルーレット表示中に来た通常攻撃の「追加ルーレット抽選」をFIFOで予約する */
+  const pendingRouletteReserveQueueRef = useRef<Array<{
+    attackerUserId: string
+    isTestMode: boolean
+    noDamage?: boolean
+  }>>([])
   /** スピン終了コールバックで最新のルーレット state を参照する（HP0 effect との競合回避にも使う） */
   const rouletteBonusRef = useRef<RouletteBonusState | null>(null)
   rouletteBonusRef.current = rouletteBonus
@@ -507,17 +548,11 @@ export function OverlayPage() {
   )
 
   const showCritical = useCallback(
-    (durationMs: number) => {
-      // #region agent log (critical freeze debug)
-      fetch('http://127.0.0.1:7398/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b3c271' }, body: JSON.stringify({ sessionId: 'b3c271', runId: 'pre-fix', hypothesisId: 'A|B|C', location: 'OverlayPage.tsx:showCritical(entry)', message: 'showCritical called', data: { durationMs, durationMsType: typeof durationMs, computedTimeoutMs: Math.max(200, durationMs), hadExistingTimer: criticalTimerRef.current != null }, timestamp: Date.now() }) }).catch(() => { })
-      // #endregion agent log (critical freeze debug)
-
+    (_durationMs: number) => {
+      const CRITICAL_POP_MS = 720
       setCriticalVisible(false) // 連続発火でもアニメーションをリスタートさせる
       // 次フレームでtrueに戻す
       requestAnimationFrame(() => {
-        // #region agent log (critical freeze debug)
-        fetch('http://127.0.0.1:7398/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b3c271' }, body: JSON.stringify({ sessionId: 'b3c271', runId: 'pre-fix', hypothesisId: 'B|C', location: 'OverlayPage.tsx:showCritical(raf)', message: 'requestAnimationFrame fired (about to setCriticalVisible true)', data: {}, timestamp: Date.now() }) }).catch(() => { })
-        // #endregion agent log (critical freeze debug)
         setCriticalVisible(true)
       })
 
@@ -525,12 +560,9 @@ export function OverlayPage() {
         window.clearTimeout(criticalTimerRef.current)
       }
       criticalTimerRef.current = window.setTimeout(() => {
-        // #region agent log (critical freeze debug)
-        fetch('http://127.0.0.1:7398/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'b3c271' }, body: JSON.stringify({ sessionId: 'b3c271', runId: 'pre-fix', hypothesisId: 'A|B|D', location: 'OverlayPage.tsx:showCritical(timeout)', message: 'critical timeout fired (about to hide)', data: {}, timestamp: Date.now() }) }).catch(() => { })
-        // #endregion agent log (critical freeze debug)
         setCriticalVisible(false)
         criticalTimerRef.current = null
-      }, Math.max(200, durationMs))
+      }, CRITICAL_POP_MS)
     },
     []
   )
@@ -859,6 +891,24 @@ export function OverlayPage() {
     resetHP()
   }, [cancelSickness, resetHP, stopKawaiiSouniHpDrain])
 
+  const clearKonamiStreamerBuffIfActive = useCallback(() => {
+    const snap = konamiStreamerBuffSnapshotRef.current
+    if (!snap || !konamiStreamerBuffActiveRef.current) return
+    konamiStreamerBuffActiveRef.current = false
+    konamiStreamerBuffSnapshotRef.current = null
+    setKonamiStreamerBuffActive(false)
+    updateConfigLocal({
+      hp: { max: snap.maxHp, current: 0 },
+      pvp: {
+        streamerAttack: {
+          damage: snap.streamerDamage,
+          damageMin: snap.streamerDamageMin,
+          damageMax: snap.streamerDamageMax,
+        },
+      },
+    })
+  }, [updateConfigLocal])
+
   const sendPvpBlockedMessage = useCallback((type: 'attack' | 'heal', errorLabel: string) => {
     if (!config?.pvp?.autoReplyBlockedByZeroHp) return
     const msg = type === 'heal'
@@ -998,6 +1048,9 @@ export function OverlayPage() {
       kawaiiSouniHealStreakRef.current = 0
       setKawaiiSouniGlitchCanvasActive(true)
       setKawaiiSouniGlitchPulse(1)
+      const drainIntervalMs = konamiStreamerBuffActiveRef.current
+        ? KONAMI_STREAMER_BUFF_KAWAI_SOUNI_DRAIN_INTERVAL_MS
+        : KAWAI_SOUNI_DRAIN_INTERVAL_MS
       kawaiiSouniDrainIntervalRef.current = window.setInterval(() => {
         const cur = hpCurrentSyncRef.current
         if (cur <= KAWAI_SOUNI_DRAIN_STOP_AT_HP) {
@@ -1017,13 +1070,56 @@ export function OverlayPage() {
         window.setTimeout(() => {
           setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
         }, 1500)
-      }, KAWAI_SOUNI_DRAIN_INTERVAL_MS)
+      }, drainIntervalMs)
       logger.debug(
-        `[カワイソウニ] HPドット開始（${KAWAI_SOUNI_DRAIN_INTERVAL_MS / 1000}秒毎・HP${KAWAI_SOUNI_DRAIN_STOP_AT_HP}で停止）`
+        `[カワイソウニ] HPドット開始（${drainIntervalMs / 1000}秒毎・HP${KAWAI_SOUNI_DRAIN_STOP_AT_HP}で停止）`
       )
     },
     [stopKawaiiSouniHpDrain, setKawaiiSouniGlitchCanvasActive, setKawaiiSouniGlitchPulse]
   )
+
+  const activateKonamiStreamerBuff = useCallback(() => {
+    if (!config) return
+    if (config.pvp?.konamiStreamerBuffEnabled === false) return
+    if (konamiStreamerBuffActiveRef.current) return
+
+    const hp = config.hp
+    const sa = config.pvp?.streamerAttack ?? getDefaultConfig().pvp.streamerAttack
+    const dmgMin = sa.damageMin ?? sa.damage
+    const dmgMax = sa.damageMax ?? sa.damage
+    const snapshot = {
+      maxHp: hp.max,
+      streamerDamage: sa.damage,
+      streamerDamageMin: dmgMin,
+      streamerDamageMax: dmgMax,
+    }
+
+    updateConfigLocal({
+      hp: {
+        max: scaleKonamiBuffedStat(hp.max),
+        current: scaleKonamiBuffedStat(hp.current),
+      },
+      pvp: {
+        streamerAttack: {
+          damage: scaleKonamiBuffedStat(sa.damage),
+          damageMin: scaleKonamiBuffedStat(dmgMin),
+          damageMax: scaleKonamiBuffedStat(dmgMax),
+        },
+      },
+    })
+
+    konamiStreamerBuffSnapshotRef.current = snapshot
+    konamiStreamerBuffActiveRef.current = true
+    setKonamiStreamerBuffActive(true)
+
+    if (config.pvp?.konamiStreamerBuffSoundEnabled) {
+      playKonamiStreamerBuffSoundRef.current()
+    }
+
+    if (kawaiiSouniDebuffActiveRef.current) {
+      maybeStartKawaiiSouniHpDrain(KAWAI_SOUNI_TECHNIQUE_NAME)
+    }
+  }, [config, updateConfigLocal, maybeStartKawaiiSouniHpDrain])
 
   useEffect(() => {
     maybeStartKawaiiSouniHpDrainRef.current = maybeStartKawaiiSouniHpDrain
@@ -1146,6 +1242,14 @@ export function OverlayPage() {
     () => (config?.attack.soundUrl?.trim() || ''),
     [config?.attack.soundUrl]
   )
+  const comboTechniqueSoundUrl = useMemo(
+    () => (config?.attack.comboTechniqueSoundUrl?.trim() || ''),
+    [config?.attack.comboTechniqueSoundUrl]
+  )
+  const rouletteSoundUrl = useMemo(
+    () => (config?.attack.rouletteSoundUrl?.trim() || ''),
+    [config?.attack.rouletteSoundUrl]
+  )
   const missSoundUrl = useMemo(
     () => (config?.attack.missSoundUrl?.trim() || ''),
     [config?.attack.missSoundUrl]
@@ -1182,6 +1286,10 @@ export function OverlayPage() {
     () => (config?.pvp?.strengthBuffSoundUrl?.trim() || ''),
     [config?.pvp?.strengthBuffSoundUrl]
   )
+  const konamiStreamerBuffSoundUrl = useMemo(
+    () => (config?.pvp?.konamiStreamerBuffSoundUrl?.trim() || ''),
+    [config?.pvp?.konamiStreamerBuffSoundUrl]
+  )
   const finishingMoveSoundUrl = useMemo(
     () => (config?.pvp?.finishingMoveSoundUrl?.trim() || ''),
     [config?.pvp?.finishingMoveSoundUrl]
@@ -1191,6 +1299,16 @@ export function OverlayPage() {
     src: attackSoundUrl,
     enabled: config?.attack.soundEnabled && !!attackSoundUrl,
     volume: config?.attack.soundVolume || 0.7,
+  })
+  const { play: playComboTechniqueSound } = useSound({
+    src: comboTechniqueSoundUrl,
+    enabled: config?.attack.comboTechniqueSoundEnabled && !!comboTechniqueSoundUrl,
+    volume: config?.attack.comboTechniqueSoundVolume || 0.7,
+  })
+  const { play: playRouletteSound } = useSound({
+    src: rouletteSoundUrl,
+    enabled: config?.attack.rouletteSoundEnabled && !!rouletteSoundUrl,
+    volume: config?.attack.rouletteSoundVolume || 0.7,
   })
 
   const { play: playMissSound } = useSound({
@@ -1246,6 +1364,14 @@ export function OverlayPage() {
     enabled: config?.pvp?.strengthBuffSoundEnabled && !!strengthBuffSoundUrl,
     volume: config?.pvp?.strengthBuffSoundVolume || 0.7,
   })
+  const { play: playKonamiStreamerBuffSound } = useSound({
+    src: konamiStreamerBuffSoundUrl,
+    enabled:
+      config?.pvp?.konamiStreamerBuffEnabled !== false &&
+      config?.pvp?.konamiStreamerBuffSoundEnabled &&
+      !!konamiStreamerBuffSoundUrl,
+    volume: config?.pvp?.konamiStreamerBuffSoundVolume || 0.7,
+  })
   const { play: playFinishingMoveSound } = useSound({
     src: finishingMoveSoundUrl,
     enabled: config?.pvp?.finishingMoveSoundEnabled && !!finishingMoveSoundUrl,
@@ -1254,9 +1380,12 @@ export function OverlayPage() {
   useEffect(() => {
     playFinishingMoveSoundRef.current = playFinishingMoveSound
   }, [playFinishingMoveSound])
+  useEffect(() => {
+    playKonamiStreamerBuffSoundRef.current = playKonamiStreamerBuffSound
+  }, [playKonamiStreamerBuffSound])
 
   const applyComboTechniqueBonusDamage = useCallback(
-    (attackerUserId: string, opts?: { noDamage?: boolean }) => {
+    (attackerUserId: string, opts?: { noDamage?: boolean; popupKind?: DamagePopupKind }) => {
       if (!config) return
       const bonus = getAttackDamage(
         config.attack,
@@ -1278,7 +1407,7 @@ export function OverlayPage() {
       }
       damageIdRef.current += 1
       const damageId = damageIdRef.current
-      setDamageNumbers((prev) => [...prev, { id: damageId, amount: bonus, isCritical: false }])
+      setDamageNumbers((prev) => [...prev, { id: damageId, amount: bonus, isCritical: false, popupKind: opts?.popupKind ?? 'combo' }])
       window.setTimeout(() => {
         setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
       }, 1500)
@@ -1288,7 +1417,7 @@ export function OverlayPage() {
   )
 
   const applyRouletteBonusDamage = useCallback(
-    (attackerUserId: string, opts?: { noDamage?: boolean }) => {
+    (attackerUserId: string, opts?: { noDamage?: boolean; popupKind?: DamagePopupKind }) => {
       if (!config) return
       const bonus = getAttackDamage(
         config.attack,
@@ -1310,7 +1439,7 @@ export function OverlayPage() {
       }
       damageIdRef.current += 1
       const damageId = damageIdRef.current
-      setDamageNumbers((prev) => [...prev, { id: damageId, amount: bonus, isCritical: false }])
+      setDamageNumbers((prev) => [...prev, { id: damageId, amount: bonus, isCritical: false, popupKind: opts?.popupKind ?? 'roulette' }])
       window.setTimeout(() => {
         setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
       }, 1500)
@@ -1319,8 +1448,61 @@ export function OverlayPage() {
     [config, reduceHPTracked, tryObsEffect, playAttackSound]
   )
 
+  const fireAttackEffectBurst = useCallback(
+    (kind: 'normal' | 'combo' | 'roulette') => {
+      const a = config?.attack
+      if (!a) return
+      const id = Date.now()
+      if (kind === 'normal') {
+        if (!a.attackEffectEnabled) return
+        const vis = a.attackEffectVisual ?? 'webm'
+        if (vis === 'slashArc') {
+          setSlashArcFxKey(id)
+          return
+        }
+        if (vis === 'glassCanvas') {
+          setAttackEffectBurst({ id, mode: 'glassCanvas', playbackKey: id })
+          return
+        }
+        if (!a.attackEffectVideoUrl.trim()) return
+        setAttackEffectBurst({ id, mode: 'webm', videoUrl: a.attackEffectVideoUrl.trim() })
+        return
+      }
+      if (kind === 'combo') {
+        if (!a.comboTechniqueEffectEnabled) return
+        const vis = a.comboTechniqueEffectVisual ?? 'webm'
+        if (vis === 'slashArc') {
+          setSlashArcFxKey(id)
+          return
+        }
+        if (vis === 'glassCanvas') {
+          setAttackEffectBurst({ id, mode: 'glassCanvas', playbackKey: id })
+          return
+        }
+        const url = a.comboTechniqueEffectVideoUrl.trim()
+        if (!url) return
+        setAttackEffectBurst({ id, mode: 'webm', videoUrl: url })
+        return
+      }
+      if (!a.rouletteEffectEnabled) return
+      const visR = a.rouletteEffectVisual ?? 'webm'
+      if (visR === 'slashArc') {
+        setSlashArcFxKey(id)
+        return
+      }
+      if (visR === 'glassCanvas') {
+        setAttackEffectBurst({ id, mode: 'glassCanvas', playbackKey: id })
+        return
+      }
+      const url = a.rouletteEffectVideoUrl.trim()
+      if (!url) return
+      setAttackEffectBurst({ id, mode: 'webm', videoUrl: url })
+    },
+    [config?.attack]
+  )
+
   const fireTechniqueEffectBurst = useCallback(
-    (name: string, opts?: { largeBandTypography?: boolean; finale?: boolean }) => {
+    (name: string, opts?: { largeBandTypography?: boolean; finale?: boolean; skipSlashArcCanvas?: boolean }) => {
       const trimmed = name.trim()
       if (!trimmed) return
       const scale = config?.hp.rouletteBandTechniqueFontScalePercent ?? 100
@@ -1332,6 +1514,9 @@ export function OverlayPage() {
           ? { largeBandTypography: true, rouletteBandFontScalePercent: scale }
           : {}),
       })
+      if (!opts?.skipSlashArcCanvas && trimmed.includes('斬')) {
+        setSlashArcFxKey(Date.now())
+      }
     },
     [config?.hp.rouletteBandTechniqueFontScalePercent]
   )
@@ -1342,24 +1527,135 @@ export function OverlayPage() {
     return () => window.clearTimeout(t)
   }, [techniqueEffectBurst])
 
+  useEffect(() => {
+    if (slashArcFxKey == null) return
+    const t = window.setTimeout(() => setSlashArcFxKey(null), 1200)
+    return () => window.clearTimeout(t)
+  }, [slashArcFxKey])
+
   /** 親の再レンダーで参照が変わらないようにする（ルーレットの transition 購読が毎回張り直されない） */
   const applyRouletteBonusDamageRef = useRef(applyRouletteBonusDamage)
   applyRouletteBonusDamageRef.current = applyRouletteBonusDamage
   const fireTechniqueEffectBurstRef = useRef(fireTechniqueEffectBurst)
   fireTechniqueEffectBurstRef.current = fireTechniqueEffectBurst
 
+  const startRouletteBonus = useCallback(
+    (params: {
+      attackerUserId: string
+      isTestMode: boolean
+      noDamage?: boolean
+      chainDepth?: number
+      skipTriggerRoll?: boolean
+    }): boolean => {
+      if (!config) return false
+      if (!params.attackerUserId || rouletteBonusLockRef.current) return false
+      const depth = Math.max(0, Math.floor(params.chainDepth ?? 0))
+      if (!params.skipTriggerRoll) {
+        const triggerProbability = params.isTestMode
+          ? Math.max(0, Math.min(1, (config.attack.testPanelSimulation.rouletteTriggerPercent ?? 40) / 100))
+          : ROULETTE_BONUS_TRIGGER_PROBABILITY
+        if (Math.random() >= triggerProbability) return false
+      }
+      const successProbability = params.isTestMode
+        ? Math.max(0, Math.min(1, (config.attack.testPanelSimulation.rouletteSuccessPercent ?? 50) / 100))
+        : ROULETTE_BONUS_SUCCESS_PROBABILITY
+      const rbSuccess = Math.random() < successProbability
+      const { landedName, landIndex } = pickRouletteStripSkill(COMBO_TECHNIQUE_NAMES)
+      rouletteBonusLockRef.current = true
+      setRouletteBonus({
+        id: Date.now(),
+        success: rbSuccess,
+        landedName,
+        landIndex,
+        attackerUserId: params.attackerUserId,
+        chainDepth: depth,
+        isTestMode: params.isTestMode,
+        noDamage: params.noDamage,
+      })
+      return true
+    },
+    [config]
+  )
+
+  const reserveRouletteBonus = useCallback(
+    (params: {
+      attackerUserId: string
+      isTestMode: boolean
+      noDamage?: boolean
+    }) => {
+      if (!params.attackerUserId) return
+      pendingRouletteReserveQueueRef.current.push({
+        attackerUserId: params.attackerUserId,
+        isTestMode: params.isTestMode,
+        noDamage: params.noDamage,
+      })
+    },
+    []
+  )
+
   const handleRouletteSpinEnd = useCallback(() => {
     const rb = rouletteBonusRef.current
     if (!rb?.success) return
-    applyRouletteBonusDamageRef.current(rb.attackerUserId, { noDamage: rb.noDamage === true })
-    fireTechniqueEffectBurstRef.current(rb.landedName, { largeBandTypography: true, finale: true })
+    playRouletteSound()
+    fireAttackEffectBurst('roulette')
+    applyRouletteBonusDamageRef.current(rb.attackerUserId, {
+      noDamage: rb.noDamage === true,
+      popupKind: (rb.chainDepth ?? 0) > 0 ? 'rouletteChain' : 'roulette',
+    })
+    fireTechniqueEffectBurstRef.current(rb.landedName, {
+      largeBandTypography: true,
+      finale: true,
+      // ルーレットは設定した演出種類だけを出す。技名内の「斬」による暗黙の斬撃追加は行わない。
+      skipSlashArcCanvas: true,
+    })
     maybeStartKawaiiSouniHpDrainRef.current(rb.landedName)
-  }, [])
+    const chainDepth = Math.max(0, rb.chainDepth ?? 0)
+    const canChain = chainDepth < ROULETTE_BONUS_CHAIN_MAX_DEPTH
+    if (!canChain) return
+    const chainTriggerProbability = rb.isTestMode
+      ? Math.max(0, Math.min(1, (config?.attack.testPanelSimulation.rouletteTriggerPercent ?? 40) / 100))
+      : ROULETTE_BONUS_CHAIN_TRIGGER_PROBABILITY
+    if (Math.random() < chainTriggerProbability) {
+      pendingRouletteChainRef.current = {
+        attackerUserId: rb.attackerUserId,
+        chainDepth: chainDepth + 1,
+        isTestMode: rb.isTestMode === true,
+        noDamage: rb.noDamage,
+      }
+    }
+  }, [
+    fireAttackEffectBurst,
+    playRouletteSound,
+    config?.attack.testPanelSimulation.rouletteTriggerPercent,
+  ])
 
   const handleRouletteComplete = useCallback(() => {
     rouletteBonusLockRef.current = false
     setRouletteBonus(null)
-  }, [])
+    const pendingChain = pendingRouletteChainRef.current
+    if (pendingChain) {
+      pendingRouletteChainRef.current = null
+      window.setTimeout(() => {
+        startRouletteBonus({
+          attackerUserId: pendingChain.attackerUserId,
+          chainDepth: pendingChain.chainDepth,
+          isTestMode: pendingChain.isTestMode,
+          noDamage: pendingChain.noDamage,
+          skipTriggerRoll: true,
+        })
+      }, 0)
+      return
+    }
+    const pendingReserve = pendingRouletteReserveQueueRef.current.shift()
+    if (!pendingReserve) return
+    window.setTimeout(() => {
+      startRouletteBonus({
+        attackerUserId: pendingReserve.attackerUserId,
+        isTestMode: pendingReserve.isTestMode,
+        noDamage: pendingReserve.noDamage,
+      })
+    }, 0)
+  }, [startRouletteBonus])
 
   const applyComboTechniqueInputSlice = useCallback(
     (raw: string): boolean => {
@@ -1372,8 +1668,11 @@ export function OverlayPage() {
       )
       if (completed) {
         const landedTechniqueName = techniqueNameFromComboTarget(comboState.targetFull, comboState.inputPrefix)
+        playComboTechniqueSound()
+        fireAttackEffectBurst('combo')
         fireTechniqueEffectBurst(landedTechniqueName, {
           finale: true,
+          skipSlashArcCanvas: (config?.attack.comboTechniqueEffectVisual ?? 'webm') === 'slashArc',
         })
         applyComboTechniqueBonusDamage(comboState.userId, { noDamage: comboState.noDamage === true })
         maybeStartKawaiiSouniHpDrain(landedTechniqueName)
@@ -1392,12 +1691,20 @@ export function OverlayPage() {
       }
       return false
     },
-    [applyComboTechniqueBonusDamage, fireTechniqueEffectBurst, maybeStartKawaiiSouniHpDrain]
+    [
+      applyComboTechniqueBonusDamage,
+      fireAttackEffectBurst,
+      fireTechniqueEffectBurst,
+      maybeStartKawaiiSouniHpDrain,
+      playComboTechniqueSound,
+      config?.attack.comboTechniqueEffectVisual,
+    ]
   )
 
   // HPが0になったときにすべての出血ダメージタイマーを停止
   useEffect(() => {
     if (currentHP <= 0) {
+      clearKonamiStreamerBuffIfActive()
       logger.debug('[出血ダメージ停止] HPが0になったため、すべての出血ダメージタイマーを停止します')
       stopKawaiiSouniHpDrain()
       bleedTimersRef.current.forEach((timers) => {
@@ -1420,8 +1727,10 @@ export function OverlayPage() {
       if (rouletteBonusRef.current == null) {
         rouletteBonusLockRef.current = false
       }
+      pendingRouletteChainRef.current = null
+      pendingRouletteReserveQueueRef.current = []
     }
-  }, [currentHP, stopRepeat, stopKawaiiSouniHpDrain])
+  }, [currentHP, stopRepeat, stopKawaiiSouniHpDrain, clearKonamiStreamerBuffIfActive])
 
   const runPvpCounterAfterAttack = useCallback(
     (
@@ -1549,7 +1858,7 @@ export function OverlayPage() {
 
       damageIdRef.current += 1
       const damageId = damageIdRef.current
-      setDamageNumbers((prev) => [...prev, { id: damageId, amount: finalDamage, isCritical }])
+      setDamageNumbers((prev) => [...prev, { id: damageId, amount: finalDamage, isCritical, popupKind: isCritical ? 'critical' : 'normal' }])
       setTimeout(() => {
         setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
       }, isCritical ? 1800 : 1500)
@@ -1656,8 +1965,8 @@ export function OverlayPage() {
             const threshold = probability * 100 // 0.01% → 1, 1% → 100, 100% → 10000
             if (finishingMoveRoll < threshold) {
               isFinishingMove = true
-              // 必殺技ダメージ: 現在のHPの1/2（最低1）
-              const finishingDamage = Math.max(1, Math.floor(streamerHpNow / 2))
+              const fmFrac = streamerFinishingMoveDamageFraction(konamiStreamerBuffActiveRef.current)
+              const finishingDamage = Math.max(1, Math.floor(streamerHpNow * fmFrac))
               baseDamage = finishingDamage
               // 必殺技エフェクトを発動
               showFinishingMoveEffect()
@@ -1675,7 +1984,7 @@ export function OverlayPage() {
 
           let finalDamage = baseDamage
           let isCritical = false
-          // 必殺技時はクリティカル判定を行わず、固定で「現在HPの1/2ダメージ」
+          // 必殺技時はクリティカル判定を行わず、現在 HP に比例した固定割合ダメージ
           if (config.attack.criticalEnabled && !isFinishingMove) {
             const criticalRoll = Math.random() * 100
             if (criticalRoll < config.attack.criticalProbability) {
@@ -1707,7 +2016,7 @@ export function OverlayPage() {
           // ダメージ数値を表示
           damageIdRef.current += 1
           const damageId = damageIdRef.current
-          setDamageNumbers((prev) => [...prev, { id: damageId, amount: finalDamage, isCritical }])
+          setDamageNumbers((prev) => [...prev, { id: damageId, amount: finalDamage, isCritical, popupKind: isCritical ? 'critical' : 'normal' }])
           // 1.5秒後に削除（アニメーション終了後）
           setTimeout(() => {
             setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
@@ -1752,32 +2061,11 @@ export function OverlayPage() {
           }
 
           // 追加攻撃ルーレット（通常40%・合わせ技とは別。技名リストのみ共通）
-          if (
-            attackerUserId &&
-            !rouletteBonusLockRef.current &&
-            (() => {
-              const p = isTestMode
-                ? Math.max(0, Math.min(1, (config.attack.testPanelSimulation.rouletteTriggerPercent ?? 40) / 100))
-                : ROULETTE_BONUS_TRIGGER_PROBABILITY
-              return Math.random() < p
-            })()
-          ) {
-            rouletteBonusLockRef.current = true
-            const rbSuccess = (() => {
-              const p = isTestMode
-                ? Math.max(0, Math.min(1, (config.attack.testPanelSimulation.rouletteSuccessPercent ?? 50) / 100))
-                : ROULETTE_BONUS_SUCCESS_PROBABILITY
-              return Math.random() < p
-            })()
-            const { landedName, landIndex } = pickRouletteStripSkill(COMBO_TECHNIQUE_NAMES)
-            setRouletteBonus({
-              id: Date.now(),
-              success: rbSuccess,
-              landedName,
-              landIndex,
-              attackerUserId,
-              noDamage,
-            })
+          if (attackerUserId) {
+            const started = startRouletteBonus({ attackerUserId, isTestMode, noDamage })
+            if (!started && rouletteBonusLockRef.current) {
+              reserveRouletteBonus({ attackerUserId, isTestMode, noDamage })
+            }
           }
 
           // 出血ダメージ判定（別枠として計算）
@@ -1800,6 +2088,7 @@ export function OverlayPage() {
 
               // DOTが付与された攻撃では、攻撃SEを種別で置き換える（設定があれば）
               if (!isFinishingMove) {
+                fireAttackEffectBurst('normal')
                 if (dotDebuffKind === 'poison') {
                   const played = config.attack.dotPoisonAttackSoundEnabled && !!config.attack.dotPoisonAttackSoundUrl?.trim()
                   if (played) playDotPoisonAttackSound()
@@ -1899,15 +2188,17 @@ export function OverlayPage() {
               bleedTimersRef.current.set(bleedId, { intervalTimer, durationTimer })
               logger.debug(`[出血ダメージ開始] タイマーを設定しました。intervalTimer: ${intervalTimer}, durationTimer: ${durationTimer}`)
             }
-            // 出血判定はしたが失敗（DOTなし）→ 通常の攻撃SE
-            if (!bleedSuccess && config.attack.soundEnabled && !isFinishingMove) {
-              playAttackSound()
+            // 出血判定はしたが失敗（DOTなし）→ 命中エフェクト＋通常の攻撃SE
+            if (!bleedSuccess && !isFinishingMove) {
+              fireAttackEffectBurst('normal')
+              if (config.attack.soundEnabled) playAttackSound()
             }
           } else {
             logger.debug(`[出血ダメージ判定] bleedEnabled: false`)
-            // DOTなし攻撃は通常の攻撃SE
-            if (config.attack.soundEnabled && !isFinishingMove) {
-              playAttackSound()
+            // DOTなし攻撃: 命中エフェクトは SE とは独立、攻撃 SE は設定時のみ
+            if (!isFinishingMove) {
+              fireAttackEffectBurst('normal')
+              if (config.attack.soundEnabled) playAttackSound()
             }
           }
           // 反転回復: この攻撃のモーション後（durationMs後）に回復（1回の攻撃フローで「減る→回復」を完結）
@@ -1980,6 +2271,7 @@ export function OverlayPage() {
       applyViewerDamage,
       runPvpCounterAfterAttack,
       applyStreamerOverkillHit,
+      fireAttackEffectBurst,
     ]
   )
 
@@ -2222,8 +2514,8 @@ export function OverlayPage() {
         const threshold = probability * 100 // 0.01% → 1, 1% → 100, 100% → 10000
         if (finishingMoveRoll < threshold) {
           isFinishingMove = true
-          // 必殺技ダメージ: 現在のHPの1/2（最低1）
-          baseDamage = Math.max(1, Math.floor(testStreamerHp / 2))
+          const fmFrac = streamerFinishingMoveDamageFraction(konamiStreamerBuffActiveRef.current)
+          baseDamage = Math.max(1, Math.floor(testStreamerHp * fmFrac))
           // 必殺技エフェクトを発動
           showFinishingMoveEffect()
         }
@@ -2275,7 +2567,7 @@ export function OverlayPage() {
       // ダメージ数値を表示
       damageIdRef.current += 1
       const damageId = damageIdRef.current
-      setDamageNumbers((prev) => [...prev, { id: damageId, amount: finalDamage, isCritical }])
+      setDamageNumbers((prev) => [...prev, { id: damageId, amount: finalDamage, isCritical, popupKind: isCritical ? 'critical' : 'normal' }])
       // 1.5秒後に削除（アニメーション終了後）
       setTimeout(() => {
         setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
@@ -2314,22 +2606,11 @@ export function OverlayPage() {
       }
 
       // 追加攻撃ルーレット（テスト攻撃・合わせ技とは別）
-      if (
-        config.attack.testPanelSimulation.rouletteBonusEnabled &&
-        !rouletteBonusLockRef.current &&
-        Math.random() * 100 < config.attack.testPanelSimulation.rouletteTriggerPercent
-      ) {
-        rouletteBonusLockRef.current = true
-        const rbSuccess =
-          Math.random() * 100 < config.attack.testPanelSimulation.rouletteSuccessPercent
-        const { landedName, landIndex } = pickRouletteStripSkill(COMBO_TECHNIQUE_NAMES)
-        setRouletteBonus({
-          id: Date.now(),
-          success: rbSuccess,
-          landedName,
-          landIndex,
-          attackerUserId: 'test-user',
-        })
+      if (config.attack.testPanelSimulation.rouletteBonusEnabled) {
+        const started = startRouletteBonus({ attackerUserId: 'test-user', isTestMode: true })
+        if (!started && rouletteBonusLockRef.current) {
+          reserveRouletteBonus({ attackerUserId: 'test-user', isTestMode: true })
+        }
       }
 
       // 出血ダメージ判定（別枠として計算）
@@ -2361,8 +2642,9 @@ export function OverlayPage() {
         const bleedTickColor = testBleedParams.damageColor
         const dotDebuffKind = testBleedParams.debuffKind
 
-        // DOTが付与された攻撃では、攻撃SEを種別で置き換える（設定があれば）
+        // DOTが付与された攻撃では、命中エフェクトと攻撃SE（種別で置き換え可）
         if (!isFinishingMove) {
+          fireAttackEffectBurst('normal')
           if (dotDebuffKind === 'poison') {
             const played = config.attack.dotPoisonAttackSoundEnabled && !!config.attack.dotPoisonAttackSoundUrl?.trim()
             if (played) playDotPoisonAttackSound()
@@ -2456,9 +2738,10 @@ export function OverlayPage() {
         bleedTimersRef.current.set(bleedId, { intervalTimer, durationTimer })
         logger.debug(`[テストモード 出血ダメージ開始] タイマーを設定しました。intervalTimer: ${intervalTimer}, durationTimer: ${durationTimer}`)
       } else {
-        // DOTなし攻撃は通常の攻撃SE
-        if (config.attack.soundEnabled && !isFinishingMove) {
-          playAttackSound()
+        // DOTなし攻撃: 命中エフェクトは SE とは独立
+        if (!isFinishingMove) {
+          fireAttackEffectBurst('normal')
+          if (config.attack.soundEnabled) playAttackSound()
         }
       }
       // 反転回復: この攻撃のモーション後（durationMs後）に回復（1回の攻撃フローで「減る→回復」を完結）
@@ -2524,6 +2807,7 @@ export function OverlayPage() {
     stopRepeat,
     tryObsEffect,
     applyStreamerOverkillHit,
+    fireAttackEffectBurst,
   ])
 
   const handleTestFinishingMove = useCallback(() => {
@@ -2543,9 +2827,9 @@ export function OverlayPage() {
       return
     }
 
-    // 必殺技ダメージ: 現在のHPの1/2（最低1）
     const fmHp = hpCurrentSyncRef.current
-    const finishingDamage = Math.max(1, Math.floor(fmHp / 2))
+    const fmFrac = streamerFinishingMoveDamageFraction(konamiStreamerBuffActiveRef.current)
+    const finishingDamage = Math.max(1, Math.floor(fmHp * fmFrac))
     logger.debug(`[テストモード] 必殺技を確定発動しました（現在HP=${fmHp} => ダメージ=${finishingDamage}）`)
 
     // 必殺技エフェクトを発動
@@ -2569,7 +2853,7 @@ export function OverlayPage() {
     // ダメージ数値を表示
     damageIdRef.current += 1
     const damageId = damageIdRef.current
-    setDamageNumbers((prev) => [...prev, { id: damageId, amount: finishingDamage, isCritical: false }])
+    setDamageNumbers((prev) => [...prev, { id: damageId, amount: finishingDamage, isCritical: false, popupKind: 'finishing' }])
     setTimeout(() => {
       setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
     }, 1500)
@@ -2782,12 +3066,12 @@ export function OverlayPage() {
 
   // チャットメッセージを監視（token ありなら identity で接続し、tmi.js の say で自動返信可能・channel-point アプリと同じ方式）
   const chatConnectOptions = username && chatToken ? { token: chatToken, username } : undefined
-  const { messages: chatMessages, isConnected: chatConnected } = useTwitchChat(username, 100, chatConnectOptions)
+  const { messages: chatMessages, isConnected: chatConnected } = useTwitchChat(chatChannel, 100, chatConnectOptions)
   const processedChatMessagesRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     // カスタムテキストのチャット監視（テストモードでも有効）
-    if (!config || !username) {
+    if (!config || !chatChannel) {
       return
     }
 
@@ -2832,6 +3116,15 @@ export function OverlayPage() {
       const normalizedMessage = stripEmotesFromMessage(message.message, message.emotes)
       const messageText = normalizedMessage.trim()
       const messageLower = messageText.toLowerCase()
+
+      if (isKonamiStreamerBuffChatMessage(messageText)) {
+        processedChatMessagesRef.current.add(message.id)
+        if (config.pvp?.konamiStreamerBuffEnabled !== false) {
+          activateKonamiStreamerBuff()
+        }
+        return
+      }
+
       const attackCustomText = config.attack.customText?.trim()
       const healCustomText = config.heal.customText?.trim()
 
@@ -3476,7 +3769,7 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, username, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice])
+  }, [chatMessages, config, isTestMode, chatChannel, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice, activateKonamiStreamerBuff])
 
   // body要素にoverflow:hiddenを適用
   useEffect(() => {
@@ -3751,6 +4044,31 @@ export function OverlayPage() {
           />
         </div>
       )}
+      {attackEffectBurst?.mode === 'webm' && (
+        <AttackEffectBurst
+          key={attackEffectBurst.id}
+          videoUrl={attackEffectBurst.videoUrl}
+          onDone={() => setAttackEffectBurst(null)}
+        />
+      )}
+      {attackEffectBurst?.mode === 'glassCanvas' && (
+        <NormalAttackGlassCanvas
+          key={attackEffectBurst.id}
+          canvasWidthPx={typeof window !== 'undefined' ? window.innerWidth : 1920}
+          canvasHeightPx={typeof window !== 'undefined' ? window.innerHeight : 1080}
+          playbackKey={attackEffectBurst.playbackKey}
+          onClipEnd={() => setAttackEffectBurst(null)}
+        />
+      )}
+      {slashArcFxKey != null && (
+        <SlashArcCanvas
+          key={slashArcFxKey}
+          playbackKey={slashArcFxKey}
+          canvasWidthPx={typeof window !== 'undefined' ? window.innerWidth : 1920}
+          canvasHeightPx={typeof window !== 'undefined' ? window.innerHeight : 1080}
+          onClipEnd={() => setSlashArcFxKey(null)}
+        />
+      )}
       {techniqueEffectBurst && (
         <HpGaugeTopBand
           gaugeWidthPx={config.hp.width}
@@ -3840,502 +4158,538 @@ export function OverlayPage() {
           kawaiiSouniGlitchPulse={kawaiiSouniGlitchPulse}
         />
       </div>
-      {rouletteBonus && (
-        <RouletteBonusOverlay
-          key={rouletteBonus.id}
-          names={COMBO_TECHNIQUE_NAMES}
-          landedName={rouletteBonus.landedName}
-          landIndex={rouletteBonus.landIndex}
-          success={rouletteBonus.success}
-          gaugeWidthPx={config.hp.width}
-          hpX={config.hp.x}
-          hpY={config.hp.y}
-          hpHeight={config.hp.height}
-          positionOffsetX={config?.hp.rouletteOffsetX ?? 0}
-          positionOffsetY={config?.hp.rouletteOffsetY ?? 0}
-          hitShakeActive={damageEffectActive}
-          dodgeSlideActive={gaugeDodgeActive}
-          dodgeSlideDirection={gaugeDodgeDirection}
-          onSpinEnd={handleRouletteSpinEnd}
-          onComplete={handleRouletteComplete}
-          panelFontScalePercent={config.hp.roulettePanelFontScalePercent}
-        />
-      )}
+      {konamiStreamerBuffActive && (
+        <div
+          className="overlay-konami-flame-root hp-gauge-konami-burn-wrap"
+          style={{
+            position: 'fixed',
+            left: `calc(50% + ${config.hp.x}px)`,
+            /* ゲージは中心基準。炎は下端＝ゲージ下端に合わせ、上へ伸ばす（hp.y を二重に効かせない） */
+            top: `calc(50% + ${config.hp.y}px + ${config.hp.height / 2}px)`,
+            transform: 'translate(-50%, -100%)',
+            width: `${Math.round(config.hp.width * 1.75)}px`,
+            height: `${Math.round(config.hp.height + config.hp.width * 2.85)}px`,
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        >
+          <KonamiBurnCanvas
+            canvasWidthPx={Math.round(config.hp.width * 1.75)}
+            canvasHeightPx={Math.round(config.hp.height + config.hp.width * 2.85)}
+          />
+        </div>
+      )
+      }
+      {
+        rouletteBonus && (
+          <RouletteBonusOverlay
+            key={rouletteBonus.id}
+            names={COMBO_TECHNIQUE_NAMES}
+            landedName={rouletteBonus.landedName}
+            landIndex={rouletteBonus.landIndex}
+            success={rouletteBonus.success}
+            gaugeWidthPx={config.hp.width}
+            hpX={config.hp.x}
+            hpY={config.hp.y}
+            hpHeight={config.hp.height}
+            positionOffsetX={config?.hp.rouletteOffsetX ?? 0}
+            positionOffsetY={config?.hp.rouletteOffsetY ?? 0}
+            hitShakeActive={damageEffectActive}
+            dodgeSlideActive={gaugeDodgeActive}
+            dodgeSlideDirection={gaugeDodgeDirection}
+            onSpinEnd={handleRouletteSpinEnd}
+            onComplete={handleRouletteComplete}
+            panelFontScalePercent={config.hp.roulettePanelFontScalePercent}
+            chainDepth={rouletteBonus.chainDepth}
+          />
+        )
+      }
       {/* ダメージ数値表示（HPゲージの外側に表示） */}
-      {damageNumbers.map((damage) => (
-        <DamageNumber
-          key={damage.id}
-          id={damage.id}
-          fontScalePercent={config.display.damageHealPopupFontScalePercent}
-          amount={damage.amount}
-          isCritical={damage.isCritical}
-          isBleed={damage.isBleed}
-          dotDebuffKind={damage.dotDebuffKind ?? 'bleed'}
-          bleedColorOverride={damage.bleedColor}
-          angle={damage.angle}
-          distance={damage.distance}
-          damageColors={config.damageColors}
-        />
-      ))}
-      {kawaiiSouniFloatLabels.map((fl) => (
-        <KawaiiSouniDamageFloat
-          key={fl.id}
-          angleDeg={fl.angleDeg}
-          distancePx={fl.distancePx}
-          fontScalePercent={config.display.damageHealPopupFontScalePercent}
-          hpOffsetX={config.hp.x}
-          hpOffsetY={config.hp.y}
-        />
-      ))}
-      {healNumbers.map((heal) => (
-        <HealNumber
-          key={heal.id}
-          id={heal.id}
-          amount={heal.amount}
-          fontScalePercent={config.display.damageHealPopupFontScalePercent}
-          healColors={config.healColors}
-        />
-      ))}
+      {
+        damageNumbers.map((damage) => (
+          <DamageNumber
+            key={damage.id}
+            id={damage.id}
+            fontScalePercent={config.display.damageHealPopupFontScalePercent}
+            amount={damage.amount}
+            isCritical={damage.isCritical}
+            popupKind={damage.popupKind}
+            isBleed={damage.isBleed}
+            dotDebuffKind={damage.dotDebuffKind ?? 'bleed'}
+            bleedColorOverride={damage.bleedColor}
+            angle={damage.angle}
+            distance={damage.distance}
+            damageColors={config.damageColors}
+          />
+        ))
+      }
+      {
+        kawaiiSouniFloatLabels.map((fl) => (
+          <KawaiiSouniDamageFloat
+            key={fl.id}
+            angleDeg={fl.angleDeg}
+            distancePx={fl.distancePx}
+            fontScalePercent={config.display.damageHealPopupFontScalePercent}
+            hpOffsetX={config.hp.x}
+            hpOffsetY={config.hp.y}
+          />
+        ))
+      }
+      {
+        healNumbers.map((heal) => (
+          <HealNumber
+            key={heal.id}
+            id={heal.id}
+            amount={heal.amount}
+            fontScalePercent={config.display.damageHealPopupFontScalePercent}
+            healColors={config.healColors}
+          />
+        ))
+      }
       {/* 本番ビルドでもパネルは表示（テストボタンは設定でテストモード ON のときのみ有効） */}
-      {showEmbeddedTestUi && (
-        <div className="test-drawer-root">
-          <button
-            type="button"
-            className={`test-drawer-toggle${showTestControls ? ' test-drawer-toggle--open' : ''}`}
-            onClick={() => setShowTestControls(!showTestControls)}
-            title={showTestControls ? 'テストパネルを閉じる' : 'テストパネルを開く'}
-            aria-expanded={showTestControls}
-            aria-controls="overlay-test-panel"
-            aria-label={showTestControls ? 'テストパネルを閉じる' : 'テストパネルを開く'}
-          >
-            <span className="test-drawer-toggle-inner" aria-hidden>
-              <span className="test-drawer-toggle-bar" />
-              <span className="test-drawer-toggle-bar" />
-              <span className="test-drawer-toggle-bar" />
-            </span>
-          </button>
-          <div
-            id="overlay-test-panel"
-            className={`test-controls${showTestControls ? ' test-controls--open' : ''}`}
-            style={{
-              right: 0,
-              top: testPanelSize.top,
-              bottom: testPanelSize.bottom,
-              width: testPanelSize.width,
-            }}
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".json"
-              className="test-panel-file-input"
-              onChange={async (e) => {
-                const file = e.target.files?.[0]
-                if (!file) return
-
-                try {
-                  const text = await file.text()
-                  const jsonConfig = JSON.parse(text)
-                  const validated = validateAndSanitizeConfig(jsonConfig)
-
-                  updateConfigLocal(validated as Partial<OverlayConfig>)
-                  logger.debug('✅ 設定ファイルを読み込みました')
-                } catch (error) {
-                  logger.error('❌ 設定ファイルの読み込みに失敗しました:', error)
-                  alert('設定ファイルの読み込みに失敗しました。JSON形式が正しいか確認してください。')
-                } finally {
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = ''
-                  }
-                }
+      {
+        showEmbeddedTestUi && (
+          <div className="test-drawer-root">
+            <button
+              type="button"
+              className={`test-drawer-toggle${showTestControls ? ' test-drawer-toggle--open' : ''}`}
+              onClick={() => setShowTestControls(!showTestControls)}
+              title={showTestControls ? 'テストパネルを閉じる' : 'テストパネルを開く'}
+              aria-expanded={showTestControls}
+              aria-controls="overlay-test-panel"
+              aria-label={showTestControls ? 'テストパネルを閉じる' : 'テストパネルを開く'}
+            >
+              <span className="test-drawer-toggle-inner" aria-hidden>
+                <span className="test-drawer-toggle-bar" />
+                <span className="test-drawer-toggle-bar" />
+                <span className="test-drawer-toggle-bar" />
+              </span>
+            </button>
+            <div
+              id="overlay-test-panel"
+              className={`test-controls${showTestControls ? ' test-controls--open' : ''}`}
+              style={{
+                right: 0,
+                top: testPanelSize.top,
+                bottom: testPanelSize.bottom,
+                width: testPanelSize.width,
               }}
-            />
-            <div className="test-controls-scroll">
-              <div className="test-controls-inner test-panel">
-                <div className="test-panel-topbar">
-                  <span className="test-panel-title">テストパネル</span>
-                  <div className="test-panel-topbar-actions">
-                    {config && (
-                      <>
-                        <button
-                          type="button"
-                          className="test-panel-tool-btn test-panel-tool-btn--primary"
-                          onClick={async () => {
-                            const merged = overlaySettingsRef.current?.flushPendingFieldInputs() ?? config
-                            logger.debug('[設定保存] 保存する設定:', {
-                              strengthBuffSoundEnabled: merged.pvp?.strengthBuffSoundEnabled,
-                              strengthBuffSoundUrl: merged.pvp?.strengthBuffSoundUrl,
-                              strengthBuffSoundVolume: merged.pvp?.strengthBuffSoundVolume,
-                              pvp: merged.pvp,
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".json"
+                className="test-panel-file-input"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+
+                  try {
+                    const text = await file.text()
+                    const jsonConfig = JSON.parse(text)
+                    const validated = validateAndSanitizeConfig(jsonConfig)
+
+                    updateConfigLocal(validated as Partial<OverlayConfig>)
+                    logger.debug('✅ 設定ファイルを読み込みました')
+                  } catch (error) {
+                    logger.error('❌ 設定ファイルの読み込みに失敗しました:', error)
+                    alert('設定ファイルの読み込みに失敗しました。JSON形式が正しいか確認してください。')
+                  } finally {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = ''
+                    }
+                  }
+                }}
+              />
+              <div className="test-controls-scroll">
+                <div className="test-controls-inner test-panel">
+                  <div className="test-panel-topbar">
+                    <span className="test-panel-title">テストパネル</span>
+                    <div className="test-panel-topbar-actions">
+                      {config && (
+                        <>
+                          <button
+                            type="button"
+                            className="test-panel-tool-btn test-panel-tool-btn--primary"
+                            onClick={async () => {
+                              const merged = overlaySettingsRef.current?.flushPendingFieldInputs() ?? config
+                              logger.debug('[設定保存] 保存する設定:', {
+                                strengthBuffSoundEnabled: merged.pvp?.strengthBuffSoundEnabled,
+                                strengthBuffSoundUrl: merged.pvp?.strengthBuffSoundUrl,
+                                strengthBuffSoundVolume: merged.pvp?.strengthBuffSoundVolume,
+                                pvp: merged.pvp,
+                              })
+                              const success = await saveOverlayConfig(merged)
+                              if (success) {
+                                setShowSaveDialog(true)
+                                setTimeout(() => {
+                                  setShowSaveDialog(false)
+                                }, 3000)
+                              } else {
+                                alert('設定の保存に失敗しました。')
+                              }
+                            }}
+                            title="現在の設定をサーバーに保存"
+                          >
+                            保存
+                          </button>
+                          <button
+                            type="button"
+                            className="test-panel-tool-btn"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              fileInputRef.current?.click()
+                            }}
+                            title="ローカルの JSON から設定を読み込み（反映後は「保存」で確定）"
+                            disabled={configLoading}
+                          >
+                            {configLoading ? '…' : '読込'}
+                          </button>
+                          <button
+                            type="button"
+                            className="test-panel-tool-btn"
+                            onClick={() => {
+                              if (!confirm('設定をデフォルト値にリセットしますか？')) return
+                              replaceConfig(getDefaultConfig())
+                            }}
+                            title="オーバーレイ設定を初期値に戻す（サーバーへ反映するには「保存」）"
+                            disabled={!config}
+                          >
+                            リセット
+                          </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        className={`test-panel-segment ${showTestSettings ? 'test-panel-segment--on' : ''}`}
+                        onClick={() => setShowTestSettings(!showTestSettings)}
+                        title={showTestSettings ? '詳細設定を閉じる' : '詳細設定を開く'}
+                      >
+                        設定
+                      </button>
+                    </div>
+                  </div>
+                  {showTestSettings && config && (
+                    <div className="test-settings-panel test-settings-panel--embedded">
+                      <div className="test-settings-embedded-toolbar test-settings-embedded-toolbar--compact">
+                        <button type="button" className="test-button test-save test-panel-preset-btn" onClick={() => applyTestPreset('safe')}>
+                          プリセット: 配信（安全）
+                        </button>
+                        <button type="button" className="test-button test-reload test-panel-preset-btn" onClick={() => applyTestPreset('allOn')}>
+                          プリセット: 検証（全ON）
+                        </button>
+                      </div>
+                      <OverlaySettings
+                        ref={overlaySettingsRef}
+                        embedded
+                        config={config}
+                        onConfigChange={replaceConfig}
+                      />
+                    </div>
+                  )}
+                  <div className="test-panel-status">
+                    <span className="test-panel-hp-readout" title="メインゲージの現在値">
+                      HP {currentHP.toLocaleString()} / {maxHP.toLocaleString()}
+                    </span>
+                    <span className="test-panel-hint">
+                      {isTestMode
+                        ? '攻撃・回復・全員全回復は長押しで連打できます。'
+                        : '「設定」で「テストモードを有効にする」にチェックすると操作できます。'}
+                    </span>
+                  </div>
+                  {isTestMode && (
+                    <div className="test-panel-group test-panel-combo-group">
+                      <span className="test-panel-group-label">合わせ技</span>
+                      <label className="test-panel-combo-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config.attack.comboTechniqueEnabled !== false}
+                          onChange={(e) =>
+                            replaceConfig({
+                              ...config,
+                              attack: { ...config.attack, comboTechniqueEnabled: e.target.checked },
                             })
-                            const success = await saveOverlayConfig(merged)
-                            if (success) {
-                              setShowSaveDialog(true)
-                              setTimeout(() => {
-                                setShowSaveDialog(false)
-                              }, 3000)
-                            } else {
-                              alert('設定の保存に失敗しました。')
+                          }
+                        />
+                        <span>合わせ技を有効にする</span>
+                      </label>
+                      <div className="test-panel-combo-row">
+                        <input
+                          type="text"
+                          className="test-panel-combo-input"
+                          value={comboTestPanelInput}
+                          onChange={(e) => setComboTestPanelInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              submitComboFromTestPanel()
                             }
                           }}
-                          title="現在の設定をサーバーに保存"
+                          disabled={config.attack.comboTechniqueEnabled === false || !comboChallenge}
+                          placeholder={
+                            config.attack.comboTechniqueEnabled === false
+                              ? 'オフのときは発生・入力しません'
+                              : !config.attack.testPanelSimulation.comboChanceEnabled
+                                ? '攻撃設定で、オーバーレイからの攻撃の合わせ技抽選をOFFにしています'
+                                : comboChallenge
+                                  ? 'チャットと同じく分割入力可（Enter / 送信）'
+                                  : `攻撃ヒット（${config.attack.testPanelSimulation.comboTriggerPercent}%）でチャンス表示`
+                          }
+                          autoComplete="off"
+                          spellCheck={false}
+                          aria-label="合わせ技テスト入力"
+                        />
+                        <button
+                          type="button"
+                          className="test-button test-panel-combo-submit"
+                          disabled={config.attack.comboTechniqueEnabled === false || !comboChallenge}
+                          onClick={submitComboFromTestPanel}
                         >
-                          保存
+                          送信
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="test-panel-actions">
+                    <div className="test-panel-group">
+                      <span className="test-panel-group-label">ダメージ・回復</span>
+                      <div className="test-panel-btn-row">
+                        <button
+                          type="button"
+                          className="test-button test-attack test-panel-action-btn"
+                          disabled={!isTestMode}
+                          onPointerDown={(e) => {
+                            e.preventDefault()
+                            if (isTestMode) startRepeat(triggerAttack, 200)
+                          }}
+                          onPointerUp={stopRepeat}
+                          onPointerLeave={stopRepeat}
+                          onPointerCancel={stopRepeat}
+                          title={
+                            config?.attack.testPanelSimulation.overkillOnZeroHp
+                              ? '長押しで連打（HP0のときはオーバーキル演出）'
+                              : '長押しで連打（HP0のときはオーバーキル演出なし）'
+                          }
+                        >
+                          攻撃
                         </button>
                         <button
                           type="button"
-                          className="test-panel-tool-btn"
-                          onClick={(e) => {
+                          className="test-button test-heal test-panel-action-btn"
+                          disabled={!isTestMode || currentHP <= 0}
+                          onPointerDown={(e) => {
                             e.preventDefault()
-                            e.stopPropagation()
-                            fileInputRef.current?.click()
+                            if (isTestMode && currentHP > 0) startRepeat(triggerHeal, 200)
                           }}
-                          title="ローカルの JSON から設定を読み込み（反映後は「保存」で確定）"
-                          disabled={configLoading}
+                          onPointerUp={stopRepeat}
+                          onPointerLeave={stopRepeat}
+                          onPointerCancel={stopRepeat}
+                          title="長押しで連打"
                         >
-                          {configLoading ? '…' : '読込'}
+                          回復
                         </button>
                         <button
                           type="button"
-                          className="test-panel-tool-btn"
-                          onClick={() => {
-                            if (!confirm('設定をデフォルト値にリセットしますか？')) return
-                            replaceConfig(getDefaultConfig())
-                          }}
-                          title="オーバーレイ設定を初期値に戻す（サーバーへ反映するには「保存」）"
-                          disabled={!config}
+                          className="test-button test-attack test-panel-action-btn"
+                          disabled={!isTestMode || currentHP <= 0 || !(config?.pvp?.viewerFinishingMoveEnabled ?? true)}
+                          onClick={handleTestFinishingMove}
+                          title="必殺技を確定発動（隠し機能）"
                         >
-                          リセット
+                          必殺
                         </button>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      className={`test-panel-segment ${showTestSettings ? 'test-panel-segment--on' : ''}`}
-                      onClick={() => setShowTestSettings(!showTestSettings)}
-                      title={showTestSettings ? '詳細設定を閉じる' : '詳細設定を開く'}
-                    >
-                      設定
-                    </button>
-                  </div>
-                </div>
-                {showTestSettings && config && (
-                  <div className="test-settings-panel test-settings-panel--embedded">
-                    <div className="test-settings-embedded-toolbar test-settings-embedded-toolbar--compact">
-                      <button type="button" className="test-button test-save test-panel-preset-btn" onClick={() => applyTestPreset('safe')}>
-                        プリセット: 配信（安全）
-                      </button>
-                      <button type="button" className="test-button test-reload test-panel-preset-btn" onClick={() => applyTestPreset('allOn')}>
-                        プリセット: 検証（全ON）
-                      </button>
+                      </div>
                     </div>
-                    <OverlaySettings
-                      ref={overlaySettingsRef}
-                      embedded
-                      config={config}
-                      onConfigChange={replaceConfig}
-                    />
-                  </div>
-                )}
-                <div className="test-panel-status">
-                  <span className="test-panel-hp-readout" title="メインゲージの現在値">
-                    HP {currentHP.toLocaleString()} / {maxHP.toLocaleString()}
-                  </span>
-                  <span className="test-panel-hint">
-                    {isTestMode
-                      ? '攻撃・回復・全員全回復は長押しで連打できます。'
-                      : '「設定」で「テストモードを有効にする」にチェックすると操作できます。'}
-                  </span>
-                </div>
-                {isTestMode && (
-                  <div className="test-panel-group test-panel-combo-group">
-                    <span className="test-panel-group-label">合わせ技</span>
-                    <label className="test-panel-combo-toggle">
-                      <input
-                        type="checkbox"
-                        checked={config.attack.comboTechniqueEnabled !== false}
-                        onChange={(e) =>
-                          replaceConfig({
-                            ...config,
-                            attack: { ...config.attack, comboTechniqueEnabled: e.target.checked },
-                          })
-                        }
-                      />
-                      <span>合わせ技を有効にする</span>
-                    </label>
-                    <div className="test-panel-combo-row">
-                      <input
-                        type="text"
-                        className="test-panel-combo-input"
-                        value={comboTestPanelInput}
-                        onChange={(e) => setComboTestPanelInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                    <div className="test-panel-group">
+                      <span className="test-panel-group-label">カワイソウニ（テスト）</span>
+                      <div className="test-panel-btn-row">
+                        <button
+                          type="button"
+                          className="test-button test-kawaii-souni test-panel-action-btn"
+                          disabled={!isTestMode || currentHP <= KAWAI_SOUNI_DRAIN_STOP_AT_HP}
+                          onClick={() => maybeStartKawaiiSouniHpDrain(KAWAI_SOUNI_TECHNIQUE_NAME)}
+                          title={`合わせ技「${KAWAI_SOUNI_TECHNIQUE_NAME}」と同じ HP ドット・グリッチを開始（HP が ${KAWAI_SOUNI_DRAIN_STOP_AT_HP} 以下では開始しません）`}
+                        >
+                          発動
+                        </button>
+                        <button
+                          type="button"
+                          className="test-button test-kawaii-souni-clear test-panel-action-btn"
+                          disabled={!kawaiiSouniGlitchCanvasActive}
+                          onClick={() => stopKawaiiSouniHpDrain()}
+                          title="ドットとグリッチを手動で止める（テスト発動中だけでなく、本番でかかったデバフも止められます）"
+                        >
+                          解除
+                        </button>
+                      </div>
+                    </div>
+                    <div className="test-panel-group">
+                      <span className="test-panel-group-label">リセット・バフ</span>
+                      <div className="test-panel-btn-row">
+                        <button
+                          type="button"
+                          onClick={triggerReset}
+                          className="test-button test-reset test-panel-action-btn"
+                          disabled={!isTestMode || currentHP >= maxHP}
+                          title="メインゲージを全回復"
+                        >
+                          全回復
+                        </button>
+                        <button
+                          type="button"
+                          className="test-button test-reset test-panel-action-btn"
+                          disabled={!isTestMode}
+                          onPointerDown={(e) => {
                             e.preventDefault()
-                            submitComboFromTestPanel()
-                          }
-                        }}
-                        disabled={config.attack.comboTechniqueEnabled === false || !comboChallenge}
-                        placeholder={
-                          config.attack.comboTechniqueEnabled === false
-                            ? 'オフのときは発生・入力しません'
-                            : !config.attack.testPanelSimulation.comboChanceEnabled
-                              ? '攻撃設定で、オーバーレイからの攻撃の合わせ技抽選をOFFにしています'
-                              : comboChallenge
-                                ? 'チャットと同じく分割入力可（Enter / 送信）'
-                                : `攻撃ヒット（${config.attack.testPanelSimulation.comboTriggerPercent}%）でチャンス表示`
-                        }
-                        autoComplete="off"
-                        spellCheck={false}
-                        aria-label="合わせ技テスト入力"
-                      />
-                      <button
-                        type="button"
-                        className="test-button test-panel-combo-submit"
-                        disabled={config.attack.comboTechniqueEnabled === false || !comboChallenge}
-                        onClick={submitComboFromTestPanel}
-                      >
-                        送信
-                      </button>
-                    </div>
-                  </div>
-                )}
-                <div className="test-panel-actions">
-                  <div className="test-panel-group">
-                    <span className="test-panel-group-label">ダメージ・回復</span>
-                    <div className="test-panel-btn-row">
-                      <button
-                        type="button"
-                        className="test-button test-attack test-panel-action-btn"
-                        disabled={!isTestMode}
-                        onPointerDown={(e) => {
-                          e.preventDefault()
-                          if (isTestMode) startRepeat(triggerAttack, 200)
-                        }}
-                        onPointerUp={stopRepeat}
-                        onPointerLeave={stopRepeat}
-                        onPointerCancel={stopRepeat}
-                        title={
-                          config?.attack.testPanelSimulation.overkillOnZeroHp
-                            ? '長押しで連打（HP0のときはオーバーキル演出）'
-                            : '長押しで連打（HP0のときはオーバーキル演出なし）'
-                        }
-                      >
-                        攻撃
-                      </button>
-                      <button
-                        type="button"
-                        className="test-button test-heal test-panel-action-btn"
-                        disabled={!isTestMode || currentHP <= 0}
-                        onPointerDown={(e) => {
-                          e.preventDefault()
-                          if (isTestMode && currentHP > 0) startRepeat(triggerHeal, 200)
-                        }}
-                        onPointerUp={stopRepeat}
-                        onPointerLeave={stopRepeat}
-                        onPointerCancel={stopRepeat}
-                        title="長押しで連打"
-                      >
-                        回復
-                      </button>
-                      <button
-                        type="button"
-                        className="test-button test-attack test-panel-action-btn"
-                        disabled={!isTestMode || currentHP <= 0 || !(config?.pvp?.viewerFinishingMoveEnabled ?? true)}
-                        onClick={handleTestFinishingMove}
-                        title="必殺技を確定発動（隠し機能）"
-                      >
-                        必殺
-                      </button>
-                    </div>
-                  </div>
-                  <div className="test-panel-group">
-                    <span className="test-panel-group-label">カワイソウニ（テスト）</span>
-                    <div className="test-panel-btn-row">
-                      <button
-                        type="button"
-                        className="test-button test-kawaii-souni test-panel-action-btn"
-                        disabled={!isTestMode || currentHP <= KAWAI_SOUNI_DRAIN_STOP_AT_HP}
-                        onClick={() => maybeStartKawaiiSouniHpDrain(KAWAI_SOUNI_TECHNIQUE_NAME)}
-                        title={`合わせ技「${KAWAI_SOUNI_TECHNIQUE_NAME}」と同じ HP ドット・グリッチを開始（HP が ${KAWAI_SOUNI_DRAIN_STOP_AT_HP} 以下では開始しません）`}
-                      >
-                        発動
-                      </button>
-                      <button
-                        type="button"
-                        className="test-button test-kawaii-souni-clear test-panel-action-btn"
-                        disabled={!kawaiiSouniGlitchCanvasActive}
-                        onClick={() => stopKawaiiSouniHpDrain()}
-                        title="ドットとグリッチを手動で止める（テスト発動中だけでなく、本番でかかったデバフも止められます）"
-                      >
-                        解除
-                      </button>
-                    </div>
-                  </div>
-                  <div className="test-panel-group">
-                    <span className="test-panel-group-label">リセット・バフ</span>
-                    <div className="test-panel-btn-row">
-                      <button
-                        type="button"
-                        onClick={triggerReset}
-                        className="test-button test-reset test-panel-action-btn"
-                        disabled={!isTestMode || currentHP >= maxHP}
-                        title="メインゲージを全回復"
-                      >
-                        全回復
-                      </button>
-                      <button
-                        type="button"
-                        className="test-button test-reset test-panel-action-btn"
-                        disabled={!isTestMode}
-                        onPointerDown={(e) => {
-                          e.preventDefault()
-                          if (!isTestMode) return
-                          const triggerResetAll = () => {
-                            if (!config) return
-                            resetStreamerHp()
-                            getViewerUserIds().forEach((id) => setViewerHP(id, viewerMaxHP))
-                            if (config.heal.effectEnabled) showHealEffect()
-                            if (config.retry.soundEnabled) playRetrySound()
-                          }
-                          startRepeat(triggerResetAll, 200)
-                        }}
-                        onPointerUp={stopRepeat}
-                        onPointerLeave={stopRepeat}
-                        onPointerCancel={stopRepeat}
-                        title="視聴者ゲージも含め全員・長押しで連打"
-                      >
-                        全員回復
-                      </button>
-                      <button
-                        type="button"
-                        className="test-button test-strength test-panel-action-btn"
-                        disabled={!isTestMode}
-                        onClick={handleTestStrengthBuff}
-                        title="ストレングスバフを付与"
-                      >
-                        バフ
-                      </button>
+                            if (!isTestMode) return
+                            const triggerResetAll = () => {
+                              if (!config) return
+                              resetStreamerHp()
+                              getViewerUserIds().forEach((id) => setViewerHP(id, viewerMaxHP))
+                              if (config.heal.effectEnabled) showHealEffect()
+                              if (config.retry.soundEnabled) playRetrySound()
+                            }
+                            startRepeat(triggerResetAll, 200)
+                          }}
+                          onPointerUp={stopRepeat}
+                          onPointerLeave={stopRepeat}
+                          onPointerCancel={stopRepeat}
+                          title="視聴者ゲージも含め全員・長押しで連打"
+                        >
+                          全員回復
+                        </button>
+                        <button
+                          type="button"
+                          className="test-button test-strength test-panel-action-btn"
+                          disabled={!isTestMode}
+                          onClick={handleTestStrengthBuff}
+                          title="ストレングスバフを付与"
+                        >
+                          バフ
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
+              <div
+                className="test-settings-resize-handle test-settings-resize-handle--n"
+                title="上端でドラッグしてリサイズ"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  setTestPanelResize({
+                    edge: 'n',
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    startW: testPanelSize.width,
+                    startTop: testPanelSize.top,
+                    startRight: testPanelSize.right,
+                    startBottom: testPanelSize.bottom,
+                  })
+                }}
+              />
+              <div
+                className="test-settings-resize-handle test-settings-resize-handle--s"
+                title="下端でドラッグしてリサイズ"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  setTestPanelResize({
+                    edge: 's',
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    startW: testPanelSize.width,
+                    startTop: testPanelSize.top,
+                    startRight: testPanelSize.right,
+                    startBottom: testPanelSize.bottom,
+                  })
+                }}
+              />
+              <div
+                className="test-settings-resize-handle test-settings-resize-handle--e"
+                title="右端でドラッグしてリサイズ"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  setTestPanelResize({
+                    edge: 'e',
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    startW: testPanelSize.width,
+                    startTop: testPanelSize.top,
+                    startRight: testPanelSize.right,
+                    startBottom: testPanelSize.bottom,
+                  })
+                }}
+              />
+              <div
+                className="test-settings-resize-handle test-settings-resize-handle--w"
+                title="左端でドラッグしてリサイズ"
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  setTestPanelResize({
+                    edge: 'w',
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    startW: testPanelSize.width,
+                    startTop: testPanelSize.top,
+                    startRight: testPanelSize.right,
+                    startBottom: testPanelSize.bottom,
+                  })
+                }}
+              />
             </div>
-            <div
-              className="test-settings-resize-handle test-settings-resize-handle--n"
-              title="上端でドラッグしてリサイズ"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                setTestPanelResize({
-                  edge: 'n',
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  startW: testPanelSize.width,
-                  startTop: testPanelSize.top,
-                  startRight: testPanelSize.right,
-                  startBottom: testPanelSize.bottom,
-                })
-              }}
-            />
-            <div
-              className="test-settings-resize-handle test-settings-resize-handle--s"
-              title="下端でドラッグしてリサイズ"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                setTestPanelResize({
-                  edge: 's',
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  startW: testPanelSize.width,
-                  startTop: testPanelSize.top,
-                  startRight: testPanelSize.right,
-                  startBottom: testPanelSize.bottom,
-                })
-              }}
-            />
-            <div
-              className="test-settings-resize-handle test-settings-resize-handle--e"
-              title="右端でドラッグしてリサイズ"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                setTestPanelResize({
-                  edge: 'e',
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  startW: testPanelSize.width,
-                  startTop: testPanelSize.top,
-                  startRight: testPanelSize.right,
-                  startBottom: testPanelSize.bottom,
-                })
-              }}
-            />
-            <div
-              className="test-settings-resize-handle test-settings-resize-handle--w"
-              title="左端でドラッグしてリサイズ"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                setTestPanelResize({
-                  edge: 'w',
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  startW: testPanelSize.width,
-                  startTop: testPanelSize.top,
-                  startRight: testPanelSize.right,
-                  startBottom: testPanelSize.bottom,
-                })
-              }}
-            />
           </div>
-        </div>
-      )}
+        )
+      }
       {/* 保存成功ダイアログ */}
-      {showSaveDialog && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            backgroundColor: '#2d2d2d',
-            color: '#fff',
-            padding: '20px 30px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
-            zIndex: 10000,
-            border: '2px solid #4CAF50',
-            minWidth: '300px',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ marginBottom: '15px', fontSize: '18px', fontWeight: 'bold', color: '#4CAF50' }}>
-            ✅ 保存完了
-          </div>
-          <div style={{ marginBottom: '15px', fontSize: '14px' }}>
-            設定を正常に保存しました。
-          </div>
-          <button
-            onClick={() => setShowSaveDialog(false)}
+      {
+        showSaveDialog && (
+          <div
             style={{
-              backgroundColor: '#4CAF50',
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              backgroundColor: '#2d2d2d',
               color: '#fff',
-              border: 'none',
-              padding: '8px 20px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 'bold',
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.backgroundColor = '#45a049'
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.backgroundColor = '#4CAF50'
+              padding: '20px 30px',
+              borderRadius: '8px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+              zIndex: 10000,
+              border: '2px solid #4CAF50',
+              minWidth: '300px',
+              textAlign: 'center',
             }}
           >
-            OK
-          </button>
-        </div>
-      )}
-    </div>
+            <div style={{ marginBottom: '15px', fontSize: '18px', fontWeight: 'bold', color: '#4CAF50' }}>
+              ✅ 保存完了
+            </div>
+            <div style={{ marginBottom: '15px', fontSize: '14px' }}>
+              設定を正常に保存しました。
+            </div>
+            <button
+              onClick={() => setShowSaveDialog(false)}
+              style={{
+                backgroundColor: '#4CAF50',
+                color: '#fff',
+                border: 'none',
+                padding: '8px 20px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold',
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#45a049'
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = '#4CAF50'
+              }}
+            >
+              OK
+            </button>
+          </div>
+        )
+      }
+    </div >
   )
 }

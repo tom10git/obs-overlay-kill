@@ -31,6 +31,14 @@ export interface HPConfig {
 export type AttackDebuffKind = 'bleed' | 'poison' | 'burn'
 
 /**
+ * 攻撃命中系オーバーレイ（通常命中・合わせ技成功・ルーレット成功）に重ねる映像。
+ * - webm: 透過 WebM（URL 指定）
+ * - glassCanvas: 内蔵のガラス着弾 Canvas（URL 不要）
+ * - slashArc: 内蔵の全画面斬撃フラッシュ Canvas（URL 不要・約0.75秒）
+ */
+export type ComboRouletteOverlayVisual = 'webm' | 'glassCanvas' | 'slashArc'
+
+/**
  * 攻撃命中時の持続ダメージ（DOT）バリエーション
  * 1件以上かつ weight>0 のみ抽選対象。未設定・0件時は bleedDamage 等の単一設定を使用（種別は bleed 扱い）
  */
@@ -121,7 +129,30 @@ export interface AttackConfig {
   soundEnabled: boolean // 攻撃効果音の有効/無効
   soundUrl: string // 攻撃効果音のURL
   soundVolume: number // 攻撃効果音の音量（0-1）
+  /** 合わせ技成功時の効果音（通常攻撃SEとは別） */
+  comboTechniqueSoundEnabled: boolean
+  comboTechniqueSoundUrl: string
+  comboTechniqueSoundVolume: number
+  /** 追加攻撃ルーレット成功時の効果音（通常攻撃SEとは別） */
+  rouletteSoundEnabled: boolean
+  rouletteSoundUrl: string
+  rouletteSoundVolume: number
   filterEffectEnabled: boolean // 攻撃時のフィルターエフェクトの有効/無効
+  /** 通常攻撃（命中）時の中央オーバーレイエフェクト（種類は attackEffectVisual） */
+  attackEffectEnabled: boolean
+  /** 通常攻撃（命中）時の映像（WebM / 内蔵ガラス / 内蔵斬撃） */
+  attackEffectVisual: ComboRouletteOverlayVisual
+  attackEffectVideoUrl: string
+  /** 合わせ技成功時の中央オーバーレイエフェクト（種類は comboTechniqueEffectVisual） */
+  comboTechniqueEffectEnabled: boolean
+  /** 合わせ技成功時の映像（WebM URL / 内蔵ガラスCanvas / 内蔵斬撃） */
+  comboTechniqueEffectVisual: ComboRouletteOverlayVisual
+  comboTechniqueEffectVideoUrl: string
+  /** 追加攻撃ルーレット成功時の中央オーバーレイエフェクト（種類は rouletteEffectVisual） */
+  rouletteEffectEnabled: boolean
+  /** ルーレット成功時の映像（WebM URL / 内蔵ガラスCanvas / 内蔵斬撃） */
+  rouletteEffectVisual: ComboRouletteOverlayVisual
+  rouletteEffectVideoUrl: string
   /** 合わせ技チャレンジ（攻撃ヒット後の入力追加ダメージ） */
   comboTechniqueEnabled: boolean
   /** 合わせ技チャレンジの入力制限時間（秒・3〜300） */
@@ -400,6 +431,12 @@ export interface PvPConfig {
   strengthBuffSoundUrl: string
   /** ストレングスバフ効果音の音量（0-1） */
   strengthBuffSoundVolume: number
+  /** チャットのコナミコードで配信者バフを発動できる */
+  konamiStreamerBuffEnabled: boolean
+  /** コナミコードで配信者バフが発動したときの効果音 */
+  konamiStreamerBuffSoundEnabled: boolean
+  konamiStreamerBuffSoundUrl: string
+  konamiStreamerBuffSoundVolume: number
   /** 視聴者側の攻撃で必殺技を発動する（隠し機能） */
   viewerFinishingMoveEnabled: boolean
   /** 必殺技の発動確率（0-100、デフォルト0.001） */

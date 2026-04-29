@@ -8,6 +8,12 @@ export const ROULETTE_BONUS_TRIGGER_PROBABILITY = 0.4
 /** ルーレットが成功扱いになる確率（演出終了時の判定） */
 export const ROULETTE_BONUS_SUCCESS_PROBABILITY = 0.5
 
+/** 成功時に「もう一度ルーレット」を連鎖抽選する確率 */
+export const ROULETTE_BONUS_CHAIN_TRIGGER_PROBABILITY = 0.35
+
+/** 連鎖ルーレットの最大段数（0=初回、1=連鎖1回目...） */
+export const ROULETTE_BONUS_CHAIN_MAX_DEPTH = 2
+
 /** スピンアニメーション時間（ms）— イージングは CSS cubic-bezier で指定 */
 export const ROULETTE_BONUS_SPIN_MS = 2100
 

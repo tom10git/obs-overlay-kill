@@ -6,7 +6,7 @@
 export const KAWAI_SOUNI_TECHNIQUE_NAME = 'カワイソウニ'
 
 /** ドット間隔（ミリ秒） */
-export const KAWAI_SOUNI_DRAIN_INTERVAL_MS = 10_000
+export const KAWAI_SOUNI_DRAIN_INTERVAL_MS = 5_000
 
 /** この HP 以下になったらドットを打たない（この値のまま維持） */
 export const KAWAI_SOUNI_DRAIN_STOP_AT_HP = 2

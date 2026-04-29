@@ -1,0 +1,16 @@
+.attack-effect-burst {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  display: grid;
+  place-items: center;
+}
+
+.attack-effect-burst__video {
+  width: min(100vw, 900px);
+  height: auto;
+  max-height: 100vh;
+  object-fit: contain;
+  filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.15));
+}
