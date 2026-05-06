@@ -174,7 +174,7 @@ export function OverlayPage() {
   const finishingMoveFilterTimerRef = useRef<number | null>(null)
   const finishingMoveTextTimerRef = useRef<number | null>(null)
   const playFinishingMoveSoundRef = useRef<() => void>(() => { })
-  const playKonamiStreamerBuffSoundRef = useRef<() => void>(() => {})
+  const playKonamiStreamerBuffSoundRef = useRef<() => void>(() => { })
 
   const obsConsoleDebugEnabled = useMemo(() => {
     try {
@@ -343,7 +343,12 @@ export function OverlayPage() {
   type AttackEffectBurstState =
     | { id: number; mode: 'webm'; videoUrl: string }
     | { id: number; mode: 'glassCanvas'; playbackKey: number }
-  const [attackEffectBurst, setAttackEffectBurst] = useState<AttackEffectBurstState | null>(null)
+  /**
+   * 攻撃エフェクトを同時に重ねると、WebM デコード負荷や合成負荷で「再生中にフリーズ→再開」が起きやすい。
+   * 連続発火はキューに積んで、1つずつ順番に再生する（途中停止もフリーズも避ける）。
+   */
+  const [attackEffectBursts, setAttackEffectBursts] = useState<AttackEffectBurstState[]>([])
+  const activeAttackEffectBurst = attackEffectBursts.length > 0 ? attackEffectBursts[0] : null
   const [techniqueEffectBurst, setTechniqueEffectBurst] = useState<{
     id: number
     name: string
@@ -353,6 +358,15 @@ export function OverlayPage() {
   } | null>(null)
   /** 技名に「斬」を含むときの全画面斬撃フラッシュ（SlashArcCanvas） */
   const [slashArcFxKey, setSlashArcFxKey] = useState<number | null>(null)
+  /**
+   * `Date.now()` は同一msに複数発火すると衝突し、key再利用で動画/Canvasが途中停止っぽく見えることがある。
+   * エフェクト類の key には単調増加IDを使う。
+   */
+  const effectKeySeqRef = useRef(0)
+  const allocEffectKey = useCallback(() => {
+    effectKeySeqRef.current += 1
+    return effectKeySeqRef.current
+  }, [])
   const rouletteBonusLockRef = useRef(false)
   const pendingRouletteChainRef = useRef<{
     attackerUserId: string
@@ -1437,7 +1451,10 @@ export function OverlayPage() {
       }
       damageIdRef.current += 1
       const damageId = damageIdRef.current
-      setDamageNumbers((prev) => [...prev, { id: damageId, amount: bonus, isCritical: false, popupKind: opts?.popupKind ?? 'roulette' }])
+      setDamageNumbers((prev) => [
+        ...prev,
+        { id: damageId, amount: bonus, isCritical: false, popupKind: opts?.popupKind ?? 'roulette' },
+      ])
       window.setTimeout(() => {
         setDamageNumbers((prev) => prev.filter((d) => d.id !== damageId))
       }, 1500)
@@ -1450,7 +1467,7 @@ export function OverlayPage() {
     (kind: 'normal' | 'combo' | 'roulette') => {
       const a = config?.attack
       if (!a) return
-      const id = Date.now()
+      const id = allocEffectKey()
       if (kind === 'normal') {
         if (!a.attackEffectEnabled) return
         const vis = a.attackEffectVisual ?? 'webm'
@@ -1459,11 +1476,11 @@ export function OverlayPage() {
           return
         }
         if (vis === 'glassCanvas') {
-          setAttackEffectBurst({ id, mode: 'glassCanvas', playbackKey: id })
+          setAttackEffectBursts((prev) => prev.concat({ id, mode: 'glassCanvas', playbackKey: id }))
           return
         }
         if (!a.attackEffectVideoUrl.trim()) return
-        setAttackEffectBurst({ id, mode: 'webm', videoUrl: a.attackEffectVideoUrl.trim() })
+        setAttackEffectBursts((prev) => prev.concat({ id, mode: 'webm', videoUrl: a.attackEffectVideoUrl.trim() }))
         return
       }
       if (kind === 'combo') {
@@ -1474,12 +1491,12 @@ export function OverlayPage() {
           return
         }
         if (vis === 'glassCanvas') {
-          setAttackEffectBurst({ id, mode: 'glassCanvas', playbackKey: id })
+          setAttackEffectBursts((prev) => prev.concat({ id, mode: 'glassCanvas', playbackKey: id }))
           return
         }
         const url = a.comboTechniqueEffectVideoUrl.trim()
         if (!url) return
-        setAttackEffectBurst({ id, mode: 'webm', videoUrl: url })
+        setAttackEffectBursts((prev) => prev.concat({ id, mode: 'webm', videoUrl: url }))
         return
       }
       if (!a.rouletteEffectEnabled) return
@@ -1489,14 +1506,14 @@ export function OverlayPage() {
         return
       }
       if (visR === 'glassCanvas') {
-        setAttackEffectBurst({ id, mode: 'glassCanvas', playbackKey: id })
+        setAttackEffectBursts((prev) => prev.concat({ id, mode: 'glassCanvas', playbackKey: id }))
         return
       }
       const url = a.rouletteEffectVideoUrl.trim()
       if (!url) return
-      setAttackEffectBurst({ id, mode: 'webm', videoUrl: url })
+      setAttackEffectBursts((prev) => prev.concat({ id, mode: 'webm', videoUrl: url }))
     },
-    [config?.attack]
+    [allocEffectKey, config?.attack]
   )
 
   const fireTechniqueEffectBurst = useCallback(
@@ -1505,7 +1522,7 @@ export function OverlayPage() {
       if (!trimmed) return
       const scale = config?.hp.rouletteBandTechniqueFontScalePercent ?? 100
       setTechniqueEffectBurst({
-        id: Date.now(),
+        id: allocEffectKey(),
         name: trimmed,
         ...(opts?.finale ? { finale: true } : {}),
         ...(opts?.largeBandTypography
@@ -1513,10 +1530,10 @@ export function OverlayPage() {
           : {}),
       })
       if (!opts?.skipSlashArcCanvas && trimmed.includes('斬')) {
-        setSlashArcFxKey(Date.now())
+        setSlashArcFxKey(allocEffectKey())
       }
     },
-    [config?.hp.rouletteBandTechniqueFontScalePercent]
+    [allocEffectKey, config?.hp.rouletteBandTechniqueFontScalePercent]
   )
 
   useEffect(() => {
@@ -1561,7 +1578,7 @@ export function OverlayPage() {
       const { landedName, landIndex } = pickRouletteStripSkill(COMBO_TECHNIQUE_NAMES)
       rouletteBonusLockRef.current = true
       setRouletteBonus({
-        id: Date.now(),
+        id: allocEffectKey(),
         success: rbSuccess,
         landedName,
         landIndex,
@@ -1572,7 +1589,7 @@ export function OverlayPage() {
       })
       return true
     },
-    [config]
+    [allocEffectKey, config]
   )
 
   const reserveRouletteBonus = useCallback(
@@ -4057,20 +4074,20 @@ export function OverlayPage() {
           />
         </div>
       )}
-      {attackEffectBurst?.mode === 'webm' && (
+      {activeAttackEffectBurst?.mode === 'webm' && (
         <AttackEffectBurst
-          key={attackEffectBurst.id}
-          videoUrl={attackEffectBurst.videoUrl}
-          onDone={() => setAttackEffectBurst(null)}
+          key={activeAttackEffectBurst.id}
+          videoUrl={activeAttackEffectBurst.videoUrl}
+          onDone={() => setAttackEffectBursts((prev) => prev.slice(1))}
         />
       )}
-      {attackEffectBurst?.mode === 'glassCanvas' && (
+      {activeAttackEffectBurst?.mode === 'glassCanvas' && (
         <NormalAttackGlassCanvas
-          key={attackEffectBurst.id}
+          key={activeAttackEffectBurst.id}
           canvasWidthPx={typeof window !== 'undefined' ? window.innerWidth : 1920}
           canvasHeightPx={typeof window !== 'undefined' ? window.innerHeight : 1080}
-          playbackKey={attackEffectBurst.playbackKey}
-          onClipEnd={() => setAttackEffectBurst(null)}
+          playbackKey={activeAttackEffectBurst.playbackKey}
+          onClipEnd={() => setAttackEffectBursts((prev) => prev.slice(1))}
         />
       )}
       {slashArcFxKey != null && (
@@ -4107,6 +4124,11 @@ export function OverlayPage() {
             fillGaugeBand
             largeBandTypography={techniqueEffectBurst.largeBandTypography === true}
             finale={techniqueEffectBurst.finale === true}
+            suppressContinuousCanvasAnimation={
+              // 成功系（合わせ技/ルーレット）は攻撃WebM/CanvasやルーレットUIと重なりやすいので、
+              // 帯の常時Canvasアニメを止めてフリーズを避ける。
+              true
+            }
             rouletteBandFontScalePercent={
               techniqueEffectBurst.rouletteBandFontScalePercent ??
               config?.hp.rouletteBandTechniqueFontScalePercent ??
@@ -4130,9 +4152,9 @@ export function OverlayPage() {
             transform: `translate(-50%, -100%) translate(${config.attack.comboTechniqueChallengeOffsetXPx}px, ${config.attack.comboTechniqueChallengeOffsetYPx}px)`,
             ...(config.attack.comboTechniqueChallengeWidthPx > 0
               ? {
-                  width: `min(${config.attack.comboTechniqueChallengeWidthPx}px, calc(100vw - 16px))`,
-                  maxWidth: `min(${config.attack.comboTechniqueChallengeWidthPx}px, calc(100vw - 16px))`,
-                }
+                width: `min(${config.attack.comboTechniqueChallengeWidthPx}px, calc(100vw - 16px))`,
+                maxWidth: `min(${config.attack.comboTechniqueChallengeWidthPx}px, calc(100vw - 16px))`,
+              }
               : {}),
           }}
         >

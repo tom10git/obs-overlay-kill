@@ -38,6 +38,11 @@ export interface TechniqueEffectBurstProps {
   gaugeBandCompactFontScalePercent?: number
   /** 成功時など、終盤にきらびやかな爆発フィニッシュを重ねる */
   finale?: boolean
+  /**
+   * true のとき、Canvas 系の常時アニメを止めて静止画寄りにする。
+   * 攻撃エフェクト（WebM/Canvas）と重なるとメインスレッド/デコードが詰まり「フリーズ→再開」に見えるため。
+   */
+  suppressContinuousCanvasAnimation?: boolean
   className?: string
 }
 
@@ -339,6 +344,7 @@ export function TechniqueEffectBurst({
   rouletteBandFontScalePercent = 100,
   gaugeBandCompactFontScalePercent = 100,
   finale = false,
+  suppressContinuousCanvasAnimation = false,
   className = '',
 }: TechniqueEffectBurstProps) {
   const tefxRef = useRef<HTMLDivElement>(null)
@@ -434,7 +440,14 @@ export function TechniqueEffectBurst({
         {slashStyleActive && <div className="tefx-layer tefx-slash-aura" aria-hidden />}
         {slashStyleActive && <div className="tefx-layer tefx-slash-aura tefx-slash-aura--2" aria-hidden />}
         {slashStyleActive && <div className="tefx-layer tefx-slash-orbit" aria-hidden />}
-        {slashStyleActive && <SlashElementCanvas kind={kind} seed={burstArt.seed} slashHead={slashHead} />}
+        {slashStyleActive && (
+          <SlashElementCanvas
+            kind={kind}
+            seed={burstArt.seed}
+            slashHead={slashHead}
+            forceReducedMotion={suppressContinuousCanvasAnimation}
+          />
+        )}
         {slashStyleActive && <div className="tefx-layer tefx-slash-rift" aria-hidden />}
         {slashStyleActive && <div className="tefx-layer tefx-slash-shards" aria-hidden />}
         {slashStyleActive && <div className="tefx-layer tefx-slash-burst" aria-hidden />}
@@ -444,6 +457,7 @@ export function TechniqueEffectBurst({
           art={burstArt}
           effectKind={slashStyleActive ? undefined : kind}
           techniqueName={techniqueName}
+          forceReducedMotion={suppressContinuousCanvasAnimation}
         />
         <TechniqueBurstArtSvg art={burstArt} />
         <div className="tefx-layer tefx-entropy" aria-hidden />

@@ -74,29 +74,6 @@ class TwitchChatClient {
 
         this.client.on('message', (ch: string, tags: ChatUserstate, message: string, self: boolean) => {
           void self
-          // #region agent log (debug-0aa2e9)
-          fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '0aa2e9' },
-            body: JSON.stringify({
-              sessionId: '0aa2e9',
-              runId: 'pre-fix',
-              hypothesisId: 'A|D',
-              location: 'twitchChat.ts:message',
-              message: 'tmi message received',
-              data: {
-                channel: ch,
-                tagsId: tags.id || null,
-                tagsUserId: tags['user-id'] || null,
-                tagsUsername: tags.username || null,
-                tagsDisplayName: (tags as { 'display-name'?: string })['display-name'] || null,
-                self,
-                msgLen: message?.length ?? 0,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {})
-          // #endregion
           const chatMessage: TwitchChatMessage = {
             id: tags.id || `${Date.now()}-${Math.random()}`,
             user: {

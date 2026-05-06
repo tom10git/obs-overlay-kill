@@ -3,7 +3,6 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { flushSync } from 'react-dom'
 import type { MutableRefObject } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { loadOverlayConfig, saveOverlayConfig, getDefaultConfig } from '../utils/overlayConfig'
@@ -99,44 +98,45 @@ export function useHPGauge({
   const reduceHP = useCallback(
     (amount: number) => {
       logger.debug(`[reduceHP呼び出し] ダメージ: ${amount}`)
-      flushSync(() => {
-        setConfig((prev) => {
-          if (!prev) {
-            logger.warn('[reduceHP] configがnullです')
-            return prev
+      // NOTE: ここで flushSync を使うと、演出のトランジション終了直後に同期レンダーが走り
+      // 80–200ms級のブロックが発生して「アニメが途中で止まった」ように見える。
+      // HP更新は通常の state update に戻し、ブロックを回避する。
+      setConfig((prev) => {
+        if (!prev) {
+          logger.warn('[reduceHP] configがnullです')
+          return prev
+        }
+        // HPが0以下の場合は何もしない（HPが上昇するバグを防ぐ）
+        if (prev.hp.current <= 0) {
+          logger.debug(`[reduceHP] HPが0以下のため、ダメージを適用しません（現在HP: ${prev.hp.current}）`)
+          return prev
+        }
+        let newHP = prev.hp.current - amount
+        // 攻撃でHPが0以下になる場合、攻撃前HPが2以上のときだけ一定確率で1残す（HP1の状態では発動しない）
+        if (
+          newHP <= 0 &&
+          prev.hp.current >= 2 &&
+          prev.attack.survivalHp1Enabled &&
+          prev.attack.survivalHp1Probability > 0
+        ) {
+          const roll = Math.random() * 100
+          if (roll < prev.attack.survivalHp1Probability) {
+            newHP = 1
+            const message = (prev.attack.survivalHp1Message || '食いしばり!').trim() || '食いしばり!'
+            onSurvivalHp1Ref.current?.(message)
+            logger.info(`[reduceHP] HP1残り発動 (確率${prev.attack.survivalHp1Probability}%、roll=${roll.toFixed(1)})`)
           }
-          // HPが0以下の場合は何もしない（HPが上昇するバグを防ぐ）
-          if (prev.hp.current <= 0) {
-            logger.debug(`[reduceHP] HPが0以下のため、ダメージを適用しません（現在HP: ${prev.hp.current}）`)
-            return prev
-          }
-          let newHP = prev.hp.current - amount
-          // 攻撃でHPが0以下になる場合、攻撃前HPが2以上のときだけ一定確率で1残す（HP1の状態では発動しない）
-          if (
-            newHP <= 0 &&
-            prev.hp.current >= 2 &&
-            prev.attack.survivalHp1Enabled &&
-            prev.attack.survivalHp1Probability > 0
-          ) {
-            const roll = Math.random() * 100
-            if (roll < prev.attack.survivalHp1Probability) {
-              newHP = 1
-              const message = (prev.attack.survivalHp1Message || '食いしばり!').trim() || '食いしばり!'
-              onSurvivalHp1Ref.current?.(message)
-              logger.info(`[reduceHP] HP1残り発動 (確率${prev.attack.survivalHp1Probability}%、roll=${roll.toFixed(1)})`)
-            }
-          }
-          newHP = Math.max(0, newHP)
-          hpCurrentSyncRef.current = newHP
-          logger.debug(`[reduceHP] HP更新: ${prev.hp.current} -> ${newHP}`)
-          return {
-            ...prev,
-            hp: {
-              ...prev.hp,
-              current: newHP,
-            },
-          }
-        })
+        }
+        newHP = Math.max(0, newHP)
+        hpCurrentSyncRef.current = newHP
+        logger.debug(`[reduceHP] HP更新: ${prev.hp.current} -> ${newHP}`)
+        return {
+          ...prev,
+          hp: {
+            ...prev.hp,
+            current: newHP,
+          },
+        }
       })
     },
     []

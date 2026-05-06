@@ -12,11 +12,19 @@ export interface TechniqueBurstArtCanvasProps {
   effectKind?: TechniqueEffectKind
   /** 指定時は語に応じた上乗せ（例: 「桜」を含む技名で花びら） */
   techniqueName?: string
+  /** true のとき、常時アニメを止めて静止画（1フレーム）にする */
+  forceReducedMotion?: boolean
 }
 
-export function TechniqueBurstArtCanvas({ art, effectKind, techniqueName }: TechniqueBurstArtCanvasProps) {
+export function TechniqueBurstArtCanvas({
+  art,
+  effectKind,
+  techniqueName,
+  forceReducedMotion = false,
+}: TechniqueBurstArtCanvasProps) {
   const ref = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
+  const lastDrawMsRef = useRef<number>(-1)
 
   useEffect(() => {
     const canvas = ref.current
@@ -74,11 +82,17 @@ export function TechniqueBurstArtCanvas({ art, effectKind, techniqueName }: Tech
     }
     mq.addEventListener('change', onMq)
 
-    if (mq.matches) {
+    const reduced = forceReducedMotion || mq.matches
+    if (reduced) {
       drawFrame(0)
     } else {
       const loop = (now: number) => {
-        drawFrame(now)
+        // メインスレッド負荷を抑えるため、帯アートは 30fps 程度に間引く（他エフェクトと同時発火しやすい）
+        const last = lastDrawMsRef.current
+        if (last < 0 || now - last >= 1000 / 30) {
+          lastDrawMsRef.current = now
+          drawFrame(now)
+        }
         rafRef.current = requestAnimationFrame(loop)
       }
       rafRef.current = requestAnimationFrame(loop)
@@ -89,7 +103,7 @@ export function TechniqueBurstArtCanvas({ art, effectKind, techniqueName }: Tech
       ro.disconnect()
       mq.removeEventListener('change', onMq)
     }
-  }, [art, effectKind, techniqueName])
+  }, [art, effectKind, techniqueName, forceReducedMotion])
 
   return <canvas ref={ref} className="tefx-layer tefx-art-canvas" aria-hidden />
 }

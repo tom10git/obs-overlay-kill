@@ -70,34 +70,41 @@ export function RouletteBonusOverlay({
   const stripRef = useRef<HTMLDivElement>(null)
   const spinDoneRef = useRef(false)
   const safeW = Math.max(120, gaugeWidthPx)
+  const spinStartPerfRef = useRef<number>(-1)
 
-  const { strip, startIdx, endIdx } = useMemo(() => {
+  const { strip, startIdx, endIdx, renderBaseIdx } = useMemo(() => {
     const n = names.length
     const failLabel = ROULETTE_STRIP_FAIL_LABEL
     if (n < 1) {
-      return { strip: ['—', failLabel] as string[], startIdx: 0, endIdx: 1 }
+      return { strip: ['—', failLabel] as string[], startIdx: 0, endIdx: 1, renderBaseIdx: 0 }
     }
     const successLandIndex = Math.max(0, Math.min(n - 1, Math.floor(landIndexProp)))
     // 各サイクル: 技名… + 最後に「失敗」マス（成功時は技名に止まり、失敗時は「失敗」に止まる）
     const cycle = [...names, failLabel]
     const cycleLen = cycle.length
-    const cycles = 28
-    const stripArr: string[] = []
-    for (let c = 0; c < cycles; c += 1) {
-      stripArr.push(...cycle)
-    }
-    const targetCycle = cycles - 3
+    // ルーレットは“長く回っている感”のため仮想的に長いストリップ長を持つが、
+    // DOM に全行を作ると重い。表示に必要な近傍だけをレンダリングする（windowing）。
+    const virtualCycles = 28
+    const virtualLen = virtualCycles * cycleLen
+    const targetCycle = virtualCycles - 3
     const end = success ? targetCycle * cycleLen + successLandIndex : targetCycle * cycleLen + n
     const back = 10 + Math.floor(Math.random() * 6)
     const start = Math.max(0, Math.min(end - 1, end - back))
-    return { strip: stripArr, startIdx: start, endIdx: end }
+    const PAD = 90
+    const base = Math.max(0, start - PAD)
+    const tail = Math.min(virtualLen - 1, end + PAD)
+    const stripArr: string[] = []
+    for (let idx = base; idx <= tail; idx += 1) {
+      stripArr.push(cycle[idx % cycleLen] ?? failLabel)
+    }
+    return { strip: stripArr, startIdx: start, endIdx: end, renderBaseIdx: base }
   }, [names, landIndexProp, success])
 
   const panelScale = Math.min(200, Math.max(50, Math.round(panelFontScalePercent))) / 100
   const rowH = ROULETTE_BONUS_ROW_HEIGHT_PX * panelScale
   const viewportH = ROULETTE_BONUS_VIEWPORT_HEIGHT_PX * panelScale
   /** 当たり行をビューポート縦中央に置く（窓が 1.5 行高でも刻みは rowH） */
-  const stripYForIndex = (idx: number) => viewportH / 2 - rowH / 2 - idx * rowH
+  const stripYForIndex = (idx: number) => viewportH / 2 - rowH / 2 - (idx - renderBaseIdx) * rowH
 
   useLayoutEffect(() => {
     const el = stripRef.current
@@ -105,27 +112,35 @@ export function RouletteBonusOverlay({
     const yStart = stripYForIndex(startIdx)
     const yEnd = stripYForIndex(endIdx)
     el.style.transition = 'none'
-    el.style.transform = `translateY(${yStart}px)`
+    el.style.transform = `translate3d(0, ${yStart}px, 0)`
+    spinStartPerfRef.current = performance.now()
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         el.style.transition = `transform ${ROULETTE_BONUS_SPIN_MS}ms cubic-bezier(0.1, 0.82, 0.12, 1)`
-        el.style.transform = `translateY(${yEnd}px)`
+        el.style.transform = `translate3d(0, ${yEnd}px, 0)`
       })
     })
     return () => cancelAnimationFrame(id)
-  }, [rowH, startIdx, endIdx, viewportH])
+  }, [rowH, startIdx, endIdx, viewportH, renderBaseIdx])
 
   useEffect(() => {
     const el = stripRef.current
     if (!el) return
+    let cancelled = false
+    let rafOuter = 0
+    let rafInner = 0
     const finishSpin = () => {
       if (spinDoneRef.current) return
       spinDoneRef.current = true
-      try {
-        onSpinEnd()
-      } finally {
-        setPhase('result')
-      }
+      // 先に結果表示へ切り替える。onSpinEnd は HP 減算・攻撃演出など重く、同期実行すると
+      // transition 終了直後にメインスレッドが詰まり「スピンが途中で止まった」ように見える。
+      setPhase('result')
+      rafOuter = requestAnimationFrame(() => {
+        rafInner = requestAnimationFrame(() => {
+          if (cancelled) return
+          onSpinEnd()
+        })
+      })
     }
     const onTransitionEnd = (e: TransitionEvent) => {
       if (e.target !== el) return
@@ -133,8 +148,11 @@ export function RouletteBonusOverlay({
       finishSpin()
     }
     el.addEventListener('transitionend', onTransitionEnd)
-    const fallback = window.setTimeout(finishSpin, ROULETTE_BONUS_SPIN_MS + 200)
+    const fallback = window.setTimeout(() => finishSpin(), ROULETTE_BONUS_SPIN_MS + 200)
     return () => {
+      cancelled = true
+      if (rafOuter) cancelAnimationFrame(rafOuter)
+      if (rafInner) cancelAnimationFrame(rafInner)
       el.removeEventListener('transitionend', onTransitionEnd)
       window.clearTimeout(fallback)
     }

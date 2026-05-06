@@ -106,28 +106,6 @@ export function useSicknessDebuff({
 
   const startRegenLoop = useCallback(
     (gen: number) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-        body: JSON.stringify({
-          sessionId: '5538da',
-          runId: 'pre-fix',
-          hypothesisId: 'H2',
-          location: 'useSicknessDebuff.ts:startRegenLoop',
-          message: 'startRegenLoop_enter',
-          data: {
-            gen,
-            genNow: generationRef.current,
-            phase: phaseRef.current,
-            cur: streamerHpSyncRef.current,
-            cap: regenCapRef.current,
-            rafActive: regenRafRef.current != null,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
       if (generationRef.current !== gen) return
       if (regenRafRef.current != null) return
       phaseRef.current = 'regen'
@@ -188,29 +166,6 @@ export function useSicknessDebuff({
   const scheduleWaitThenRegen = useCallback(
     (gen: number) => {
       const skipDup = waitRegenScheduledGenRef.current === gen
-      // #region agent log
-      fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-        body: JSON.stringify({
-          sessionId: '5538da',
-          runId: 'pre-fix',
-          hypothesisId: 'H1',
-          location: 'useSicknessDebuff.ts:scheduleWaitThenRegen',
-          message: skipDup ? 'wait_skipped_dup_gen' : 'wait_timer_armed',
-          data: {
-            gen,
-            skipDup,
-            prevScheduledGen: waitRegenScheduledGenRef.current,
-            waitMs: sicknessDebuffTiming.waitRegenAfterHalfMs,
-            phase: phaseRef.current,
-            cur: streamerHpSyncRef.current,
-            cap: regenCapRef.current,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
       if (skipDup) {
         return
       }
@@ -220,33 +175,10 @@ export function useSicknessDebuff({
         waitTimerRef.current = null
       }
       phaseRef.current = 'waiting'
-      const armAt = performance.now()
       waitTimerRef.current = window.setTimeout(() => {
         waitTimerRef.current = null
         // 半分後待機が完了したら、同一 generation で再度 schedule Wait できるようにする（疲労→再開など）
         waitRegenScheduledGenRef.current = null
-        // #region agent log
-        fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-          body: JSON.stringify({
-            sessionId: '5538da',
-            runId: 'pre-fix',
-            hypothesisId: 'H1',
-            location: 'useSicknessDebuff.ts:waitTimeout',
-            message: 'wait_fired',
-            data: {
-              gen,
-              genNow: generationRef.current,
-              phase: phaseRef.current,
-              cur: streamerHpSyncRef.current,
-              cap: regenCapRef.current,
-              elapsedSinceArmMs: Math.round(performance.now() - armAt),
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
         if (generationRef.current !== gen) return
         if (streamerHpSyncRef.current <= 0) {
           endDebuff()
@@ -267,54 +199,8 @@ export function useSicknessDebuff({
         waitTimerRef.current = null
       }
       phaseRef.current = 'waiting'
-      const armAt = performance.now()
-      // #region agent log
-      fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-        body: JSON.stringify({
-          sessionId: '5538da',
-          runId: 'post-fix-v3',
-          hypothesisId: 'H_wait_after_damage',
-          location: 'useSicknessDebuff.ts:scheduleWaitAfterDamageThenRegen',
-          message: 'wait_after_damage_armed',
-          data: {
-            gen,
-            genNow: generationRef.current,
-            phase: phaseRef.current,
-            cur: streamerHpSyncRef.current,
-            cap: regenCapRef.current,
-            waitMs: sicknessDebuffTiming.waitRegenAfterDamageMs,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
       waitTimerRef.current = window.setTimeout(() => {
         waitTimerRef.current = null
-        // #region agent log
-        fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-          body: JSON.stringify({
-            sessionId: '5538da',
-            runId: 'post-fix-v3',
-            hypothesisId: 'H3',
-            location: 'useSicknessDebuff.ts:waitAfterDamageTimeout',
-            message: 'wait_after_damage_fired',
-            data: {
-              gen,
-              genNow: generationRef.current,
-              phase: phaseRef.current,
-              cur: streamerHpSyncRef.current,
-              cap: regenCapRef.current,
-              waitMs: sicknessDebuffTiming.waitRegenAfterDamageMs,
-              elapsedSinceArmMs: Math.round(performance.now() - armAt),
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
         if (generationRef.current !== gen) return
         if (streamerHpSyncRef.current <= 0) {
           endDebuff()
@@ -345,26 +231,6 @@ export function useSicknessDebuff({
           return
         }
         if (sicknessDebuffTiming.dropPauseEnabled && dropPausedAtRef.current != null) {
-          // #region agent log
-          fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-            body: JSON.stringify({
-              sessionId: '5538da',
-              runId: 'post-fix-v3',
-              hypothesisId: 'H_drop_pause',
-              location: 'useSicknessDebuff.ts:dropStep',
-              message: 'drop_pause_released',
-              data: {
-                gen,
-                pausedForMs: Math.round(now - dropPausedAtRef.current),
-                cur: streamerHpSyncRef.current,
-                cap: regenCapRef.current,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {})
-          // #endregion
           // 停止していた時間は dropElapsedMsRef に加算しない（時間軸は別変数で管理）
           dropPausedAtRef.current = null
           dropPauseUntilRef.current = null
@@ -405,84 +271,14 @@ export function useSicknessDebuff({
         dropLastClampedRef.current = clamped
         if (dropVisibleResumePendingRef.current && prevClamped != null && clamped < prevClamped) {
           dropVisibleResumePendingRef.current = false
-          // #region agent log
-          fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-            body: JSON.stringify({
-              sessionId: '5538da',
-              runId: 'post-fix-v4',
-              hypothesisId: 'H_drop_resume',
-              location: 'useSicknessDebuff.ts:dropStep',
-              message: 'drop_visible_progress_after_resume',
-              data: {
-                gen,
-                t,
-                prevClamped,
-                clamped,
-                delta: prevClamped - clamped,
-                lerped,
-                damagedFloor,
-                targetHalf,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {})
-          // #endregion
         }
 
         if (dropJustResumedRef.current) {
           dropJustResumedRef.current = false
-          // #region agent log
-          fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-            body: JSON.stringify({
-              sessionId: '5538da',
-              runId: 'post-fix-v4',
-              hypothesisId: 'H_drop_resume',
-              location: 'useSicknessDebuff.ts:dropStep',
-              message: 'drop_progress_after_resume',
-              data: {
-                gen,
-                t,
-                lerped,
-                damagedFloor,
-                clamped,
-                targetHalf,
-                start,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {})
-          // #endregion
         }
 
         // 待機タイマーは「1/2ライン以下に到達した時点」から。攻撃で先に下げた場合もここで開始する（再攻撃でリセットしない）
         if (!halfCrossScheduleDoneRef.current && clamped <= targetHalf) {
-          // #region agent log
-          fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-            body: JSON.stringify({
-              sessionId: '5538da',
-              runId: 'pre-fix',
-              hypothesisId: 'H4',
-              location: 'useSicknessDebuff.ts:dropStep',
-              message: 'half_cross_schedule_wait',
-              data: {
-                gen,
-                lerped,
-                damagedFloor,
-                clamped,
-                targetHalf,
-                t,
-                start,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {})
-          // #endregion
           halfCrossScheduleDoneRef.current = true
           if (dropRafRef.current != null) {
             cancelAnimationFrame(dropRafRef.current)
@@ -545,29 +341,7 @@ export function useSicknessDebuff({
   const notifyStreamerDamageDuringSickness = useCallback((amount: number) => {
     if (amount <= 0) return
     if (phaseRef.current === 'idle') return
-    const capBefore = regenCapRef.current
     regenCapRef.current = Math.max(0, regenCapRef.current - amount)
-    // #region agent log
-    fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-      body: JSON.stringify({
-        sessionId: '5538da',
-        runId: 'pre-fix',
-        hypothesisId: 'H5',
-        location: 'useSicknessDebuff.ts:notifyStreamerDamage',
-        message: 'cap_after_notify',
-        data: {
-          amount,
-          phase: phaseRef.current,
-          cur: streamerHpSyncRef.current,
-          capBefore,
-          capAfter: regenCapRef.current,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
     if (phaseRef.current === 'dropping' && sicknessDebuffTiming.dropPauseEnabled) {
       // 落下（継続ダメージ）中の被ダメは「HPへの反映」は reduceHP 側で行いつつ、
       // 落下演出だけ一時停止して、最後の被ダメから一定時間後に再開させる（連打で延長）
@@ -583,35 +357,6 @@ export function useSicknessDebuff({
           dropPauseUntilRef.current = now + sicknessDebuffTiming.waitDropResumeAfterDamageMs
         }
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-        body: JSON.stringify({
-          sessionId: '5538da',
-          runId: 'post-fix-v3',
-          hypothesisId: 'H_drop_pause',
-          location: 'useSicknessDebuff.ts:notifyStreamerDamage',
-          message: shouldPauseDrop ? 'drop_pause_candidate' : 'drop_pause_ignored_small_damage',
-          data: {
-            amount,
-            pauseUntilMsFromNow: sicknessDebuffTiming.waitDropResumeAfterDamageMs,
-            minDamage: sicknessDebuffTiming.dropPauseMinDamage,
-            extendOnEachDamage: sicknessDebuffTiming.dropPauseExtendOnEachDamage,
-            applied,
-            wasPausedBefore: isPausedNow,
-            pauseUntilRemainingMs:
-              shouldPauseDrop && dropPauseUntilRef.current != null
-                ? Math.max(0, Math.round(dropPauseUntilRef.current - performance.now()))
-                : null,
-            phase: phaseRef.current,
-            cur: streamerHpSyncRef.current,
-            capAfter: regenCapRef.current,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
     }
   }, [])
 
@@ -644,21 +389,6 @@ export function useSicknessDebuff({
       return
     }
     if (currentHP < cap && regenRafRef.current == null) {
-      // #region agent log
-      fetch('http://127.0.0.1:7481/ingest/b7518fcf-b6ac-4bec-8052-ae2fa3ead10d', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5538da' },
-        body: JSON.stringify({
-          sessionId: '5538da',
-          runId: 'post-fix-v2',
-          hypothesisId: 'H3',
-          location: 'useSicknessDebuff.ts:useEffect',
-          message: 'effect_resume_regen_immediate_no_extra_wait',
-          data: { phase: phaseRef.current, currentHP, cap, gen: generationRef.current },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
       // 被ダメで止まった後の再開は、専用の待機時間を挟む（連続被ダメなら張り直し）
       scheduleWaitAfterDamageThenRegen(generationRef.current)
     }

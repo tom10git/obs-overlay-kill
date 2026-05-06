@@ -89,9 +89,16 @@ export interface SlashElementCanvasProps {
   kind: TechniqueEffectKind
   seed: number
   slashHead?: string
+  /** true のとき、常時アニメを止めて静止画（1フレーム）にする */
+  forceReducedMotion?: boolean
 }
 
-export function SlashElementCanvas({ kind, seed, slashHead }: SlashElementCanvasProps) {
+export function SlashElementCanvas({
+  kind,
+  seed,
+  slashHead,
+  forceReducedMotion = false,
+}: SlashElementCanvasProps) {
   const ref = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
 
@@ -406,7 +413,8 @@ export function SlashElementCanvas({ kind, seed, slashHead }: SlashElementCanvas
     const onMq = () => draw(performance.now())
     mq.addEventListener('change', onMq)
 
-    if (mq.matches) {
+    const reduced = forceReducedMotion || mq.matches
+    if (reduced) {
       draw(0)
     } else {
       const loop = (now: number) => {
@@ -421,7 +429,7 @@ export function SlashElementCanvas({ kind, seed, slashHead }: SlashElementCanvas
       ro.disconnect()
       mq.removeEventListener('change', onMq)
     }
-  }, [kind, pre, seed])
+  }, [kind, pre, seed, forceReducedMotion])
 
   // Canvas の中身は親のサイズに追従する（TechniqueBurstArtCanvas と同様）
   return <canvas ref={ref} className="tefx-layer tefx-slash-element-canvas" aria-hidden />
