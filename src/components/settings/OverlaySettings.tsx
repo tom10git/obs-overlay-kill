@@ -2493,6 +2493,283 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
+                <div className="settings-row">
+                  <label>
+                    長い技名の縮小開始（文字数・0で無効）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueChallengeLongTextThresholdChars"] ??
+                        String(config.attack.comboTechniqueChallengeLongTextThresholdChars)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueChallengeLongTextThresholdChars": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeLongTextThresholdChars: 18,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeLongTextThresholdChars"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          const clamped = Math.min(80, Math.max(0, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeLongTextThresholdChars: clamped,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeLongTextThresholdChars"];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    長い技名の縮小率（30〜100%、100＝縮小なし）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueChallengeLongTextScalePercent"] ??
+                        String(config.attack.comboTechniqueChallengeLongTextScalePercent)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueChallengeLongTextScalePercent": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeLongTextScalePercent: 85,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeLongTextScalePercent"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          const clamped = Math.min(100, Math.max(30, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeLongTextScalePercent: clamped,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeLongTextScalePercent"];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    チャンス表示の位置（ゲージ上からの距離 px・0〜300）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueChallengeGapAboveGaugePx"] ??
+                        String(config.attack.comboTechniqueChallengeGapAboveGaugePx)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueChallengeGapAboveGaugePx": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeGapAboveGaugePx: 10,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeGapAboveGaugePx"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          const clamped = Math.min(300, Math.max(0, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeGapAboveGaugePx: clamped,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeGapAboveGaugePx"];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    チャンス表示のオフセットX（px・-1000〜1000）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueChallengeOffsetXPx"] ??
+                        String(config.attack.comboTechniqueChallengeOffsetXPx)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueChallengeOffsetXPx": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeOffsetXPx: 0,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeOffsetXPx"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          const clamped = Math.min(1000, Math.max(-1000, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeOffsetXPx: clamped,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeOffsetXPx"];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    チャンス表示のオフセットY（px・-1000〜1000）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueChallengeOffsetYPx"] ??
+                        String(config.attack.comboTechniqueChallengeOffsetYPx)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueChallengeOffsetYPx": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeOffsetYPx: 0,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeOffsetYPx"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          const clamped = Math.min(1000, Math.max(-1000, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeOffsetYPx: clamped,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeOffsetYPx"];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    文字の寄せ:
+                    <select
+                      value={config.attack.comboTechniqueChallengeTextAlign}
+                      onChange={(e) => {
+                        const v = e.target.value as "left" | "center" | "right";
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeTextAlign: v,
+                          },
+                        });
+                      }}
+                    >
+                      <option value="left">左</option>
+                      <option value="center">中央</option>
+                      <option value="right">右</option>
+                    </select>
+                  </label>
+                </div>
                 <p className="settings-hint">
                   「合わせ技チャンス・残り秒」と、入力する<strong>目標文字</strong>の基準サイズです。
                 </p>

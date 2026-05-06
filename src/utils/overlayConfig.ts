@@ -186,6 +186,12 @@ const DEFAULT_CONFIG: OverlayConfig = {
     comboTechniqueAllowAnyUserInput: true,
     comboTechniqueResultFontScalePercent: 100,
     comboTechniqueChallengeFontScalePercent: 100,
+    comboTechniqueChallengeLongTextThresholdChars: 18,
+    comboTechniqueChallengeLongTextScalePercent: 85,
+    comboTechniqueChallengeGapAboveGaugePx: 10,
+    comboTechniqueChallengeOffsetXPx: 0,
+    comboTechniqueChallengeOffsetYPx: 0,
+    comboTechniqueChallengeTextAlign: 'center',
     testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
     testNoDamageCommand: '!testhit',
     survivalHp1Enabled: false,
@@ -323,6 +329,12 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueAllowAnyUserInput: true,
       comboTechniqueResultFontScalePercent: 100,
       comboTechniqueChallengeFontScalePercent: 100,
+      comboTechniqueChallengeLongTextThresholdChars: 18,
+      comboTechniqueChallengeLongTextScalePercent: 85,
+      comboTechniqueChallengeGapAboveGaugePx: 10,
+      comboTechniqueChallengeOffsetXPx: 0,
+      comboTechniqueChallengeOffsetYPx: 0,
+      comboTechniqueChallengeTextAlign: 'center',
       testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
@@ -447,6 +459,12 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueAllowAnyUserInput: true,
       comboTechniqueResultFontScalePercent: 100,
       comboTechniqueChallengeFontScalePercent: 100,
+      comboTechniqueChallengeLongTextThresholdChars: 18,
+      comboTechniqueChallengeLongTextScalePercent: 85,
+      comboTechniqueChallengeGapAboveGaugePx: 10,
+      comboTechniqueChallengeOffsetXPx: 0,
+      comboTechniqueChallengeOffsetYPx: 0,
+      comboTechniqueChallengeTextAlign: 'center',
       testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
@@ -977,6 +995,48 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     comboTechniqueChallengeFontScalePercent: isInRange(Number(attackConfig.comboTechniqueChallengeFontScalePercent), 50, 200)
       ? Math.round(Number(attackConfig.comboTechniqueChallengeFontScalePercent) || DEFAULT_CONFIG.attack.comboTechniqueChallengeFontScalePercent)
       : DEFAULT_CONFIG.attack.comboTechniqueChallengeFontScalePercent,
+    comboTechniqueChallengeLongTextThresholdChars: isInRange(
+      Number(attackConfig.comboTechniqueChallengeLongTextThresholdChars),
+      0,
+      80
+    )
+      ? Math.floor(
+        Number(attackConfig.comboTechniqueChallengeLongTextThresholdChars) ||
+            DEFAULT_CONFIG.attack.comboTechniqueChallengeLongTextThresholdChars
+      )
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeLongTextThresholdChars,
+    comboTechniqueChallengeLongTextScalePercent: isInRange(
+      Number(attackConfig.comboTechniqueChallengeLongTextScalePercent),
+      30,
+      100
+    )
+      ? Math.round(
+        Number(attackConfig.comboTechniqueChallengeLongTextScalePercent) ||
+            DEFAULT_CONFIG.attack.comboTechniqueChallengeLongTextScalePercent
+      )
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeLongTextScalePercent,
+    comboTechniqueChallengeGapAboveGaugePx: isInRange(
+      Number(attackConfig.comboTechniqueChallengeGapAboveGaugePx),
+      0,
+      300
+    )
+      ? Math.round(
+        Number(attackConfig.comboTechniqueChallengeGapAboveGaugePx) ||
+            DEFAULT_CONFIG.attack.comboTechniqueChallengeGapAboveGaugePx
+      )
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeGapAboveGaugePx,
+    comboTechniqueChallengeOffsetXPx: isInRange(Number(attackConfig.comboTechniqueChallengeOffsetXPx), -1000, 1000)
+      ? Math.round(Number(attackConfig.comboTechniqueChallengeOffsetXPx) || 0)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeOffsetXPx,
+    comboTechniqueChallengeOffsetYPx: isInRange(Number(attackConfig.comboTechniqueChallengeOffsetYPx), -1000, 1000)
+      ? Math.round(Number(attackConfig.comboTechniqueChallengeOffsetYPx) || 0)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeOffsetYPx,
+    comboTechniqueChallengeTextAlign:
+      attackConfig.comboTechniqueChallengeTextAlign === 'left' ||
+      attackConfig.comboTechniqueChallengeTextAlign === 'right' ||
+      attackConfig.comboTechniqueChallengeTextAlign === 'center'
+        ? (attackConfig.comboTechniqueChallengeTextAlign as 'left' | 'center' | 'right')
+        : DEFAULT_CONFIG.attack.comboTechniqueChallengeTextAlign,
     testPanelSimulation: sanitizeTestPanelSimulation(attackConfig.testPanelSimulation, legacyTestForPanelSim),
     testNoDamageCommand:
       typeof attackConfig.testNoDamageCommand === 'string' && isValidLength(attackConfig.testNoDamageCommand, 1, 50)
@@ -1504,6 +1564,18 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     comboTechniqueChallengeFontScalePercent: isInRange(Number(sa.comboTechniqueChallengeFontScalePercent), 50, 200)
       ? Math.round(Number(sa.comboTechniqueChallengeFontScalePercent) || DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeFontScalePercent)
       : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeFontScalePercent,
+    comboTechniqueChallengeLongTextThresholdChars: isInRange(Number(sa.comboTechniqueChallengeLongTextThresholdChars), 0, 80)
+      ? Math.floor(
+        Number(sa.comboTechniqueChallengeLongTextThresholdChars) ||
+            DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeLongTextThresholdChars
+      )
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeLongTextThresholdChars,
+    comboTechniqueChallengeLongTextScalePercent: isInRange(Number(sa.comboTechniqueChallengeLongTextScalePercent), 30, 100)
+      ? Math.round(
+        Number(sa.comboTechniqueChallengeLongTextScalePercent) ||
+            DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeLongTextScalePercent
+      )
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeLongTextScalePercent,
     testPanelSimulation: sanitizeTestPanelSimulation(sa.testPanelSimulation, undefined),
     survivalHp1Enabled: typeof sa.survivalHp1Enabled === 'boolean' ? sa.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(sa.survivalHp1Probability), 0, 100) ? Number(sa.survivalHp1Probability) || 30 : 30,
@@ -1618,6 +1690,18 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     comboTechniqueChallengeFontScalePercent: isInRange(Number(vva.comboTechniqueChallengeFontScalePercent), 50, 200)
       ? Math.round(Number(vva.comboTechniqueChallengeFontScalePercent) || DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeFontScalePercent)
       : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeFontScalePercent,
+    comboTechniqueChallengeLongTextThresholdChars: isInRange(Number(vva.comboTechniqueChallengeLongTextThresholdChars), 0, 80)
+      ? Math.floor(
+        Number(vva.comboTechniqueChallengeLongTextThresholdChars) ||
+            DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeLongTextThresholdChars
+      )
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeLongTextThresholdChars,
+    comboTechniqueChallengeLongTextScalePercent: isInRange(Number(vva.comboTechniqueChallengeLongTextScalePercent), 30, 100)
+      ? Math.round(
+        Number(vva.comboTechniqueChallengeLongTextScalePercent) ||
+            DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeLongTextScalePercent
+      )
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeLongTextScalePercent,
     testPanelSimulation: sanitizeTestPanelSimulation(vva.testPanelSimulation, undefined),
     survivalHp1Enabled: typeof vva.survivalHp1Enabled === 'boolean' ? vva.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(vva.survivalHp1Probability), 0, 100) ? Number(vva.survivalHp1Probability) || 30 : 30,

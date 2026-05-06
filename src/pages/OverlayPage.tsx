@@ -2078,7 +2078,8 @@ export function OverlayPage() {
             const targetFull = `${comboPrefix}${pickRandomComboTechniqueName()}`.normalize('NFKC')
             const next: ComboChallengeState = {
               targetFull,
-              matchedLength: 0,
+              // 「合わせ技：」などの接頭辞は入力不要にする（開始時点で一致済み扱い）
+              matchedLength: comboPrefix.length,
               endsAt,
               userId: attackerUserId,
               userName: event.userName ?? event.userId ?? '視聴者',
@@ -2536,7 +2537,8 @@ export function OverlayPage() {
         const targetFull = `${comboPrefix}${pickRandomComboTechniqueName()}`.normalize('NFKC')
         const next: ComboChallengeState = {
           targetFull,
-          matchedLength: 0,
+          // 「合わせ技：」などの接頭辞は入力不要にする（開始時点で一致済み扱い）
+          matchedLength: comboPrefix.length,
           endsAt,
           userId: 'test-user',
           userName: 'TestUser',
@@ -4122,6 +4124,10 @@ export function OverlayPage() {
           hpX={config.hp.x}
           hpY={config.hp.y}
           hpHeight={config.hp.height}
+          gapAboveGaugePx={config.attack.comboTechniqueChallengeGapAboveGaugePx}
+          style={{
+            transform: `translate(-50%, -100%) translate(${config.attack.comboTechniqueChallengeOffsetXPx}px, ${config.attack.comboTechniqueChallengeOffsetYPx}px)`,
+          }}
         >
           <ComboTechniquePrompt
             targetFull={comboChallenge.targetFull}
@@ -4129,6 +4135,9 @@ export function OverlayPage() {
             endsAt={comboChallenge.endsAt}
             gaugeWidthPx={config.hp.width}
             challengeFontScalePercent={config.attack.comboTechniqueChallengeFontScalePercent}
+            longTextThresholdChars={config.attack.comboTechniqueChallengeLongTextThresholdChars}
+            longTextScalePercent={config.attack.comboTechniqueChallengeLongTextScalePercent}
+            textAlign={config.attack.comboTechniqueChallengeTextAlign}
           />
         </HpGaugeTopBand>
       )}

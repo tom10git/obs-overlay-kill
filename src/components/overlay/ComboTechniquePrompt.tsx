@@ -13,11 +13,20 @@ export interface ComboTechniquePromptProps {
   gaugeWidthPx: number
   /** 50〜200＝%。既定 100（残り秒表示と入力文字の基準サイズ） */
   challengeFontScalePercent?: number
+  /**
+   * 文字数が多いときの追加縮小（「何文字以上で」「どのくらい小さく」）。
+   * - thresholdChars: この文字数以上で縮小を適用
+   * - scalePercent: 追加で掛ける倍率（30〜100、100＝縮小なし）
+   */
+  longTextThresholdChars?: number
+  longTextScalePercent?: number
+  /** 文字寄せ（レイアウト調整用） */
+  textAlign?: 'left' | 'center' | 'right'
 }
 
 function fitComboFontPx(charsEl: HTMLElement, availableWidthPx: number): number {
   const available = Math.max(48, availableWidthPx)
-  let lo = 7
+  let lo = 5
   let hi = 52
   const apply = (px: number) => {
     charsEl.style.fontSize = `${px}px`
@@ -25,7 +34,11 @@ function fitComboFontPx(charsEl: HTMLElement, availableWidthPx: number): number 
   apply(hi)
   if (charsEl.scrollWidth <= available) return hi
   apply(lo)
-  if (charsEl.scrollWidth > available) return lo
+  if (charsEl.scrollWidth > available) {
+    // lo でも収まらない場合は、比率で確実に収める（小数px可）
+    const ratio = available / Math.max(1, charsEl.scrollWidth)
+    return Math.max(4, lo * ratio)
+  }
   for (let i = 0; i < 28; i++) {
     const mid = (lo + hi) / 2
     apply(mid)
@@ -41,6 +54,9 @@ export function ComboTechniquePrompt({
   endsAt,
   gaugeWidthPx,
   challengeFontScalePercent = 100,
+  longTextThresholdChars = 18,
+  longTextScalePercent = 85,
+  textAlign = 'center',
 }: ComboTechniquePromptProps) {
   const [remainingSec, setRemainingSec] = useState(() =>
     Math.max(0, Math.ceil((endsAt - Date.now()) / 1000))
@@ -52,6 +68,14 @@ export function ComboTechniquePrompt({
   const safeGaugeW = Math.max(120, gaugeWidthPx)
   const challengeScale =
     Math.min(200, Math.max(50, Math.round(challengeFontScalePercent))) / 100
+  const chars = [...targetFull]
+  const longTextScale = (() => {
+    const threshold = Math.max(0, Math.floor(Number(longTextThresholdChars)))
+    const scale = Math.min(100, Math.max(30, Math.round(Number(longTextScalePercent)))) / 100
+    if (!threshold) return 1
+    if (chars.length < threshold) return 1
+    return scale
+  })()
 
   useLayoutEffect(() => {
     const root = rootRef.current
@@ -62,14 +86,14 @@ export function ComboTechniquePrompt({
       const innerPad = 14
       const w = root.clientWidth
       const px = fitComboFontPx(chars, w - innerPad)
-      setCharsFontPx(Math.max(7, Math.round(px * challengeScale)))
+      setCharsFontPx(Math.max(4, Math.round(px * challengeScale * longTextScale)))
     }
 
     run()
     const ro = new ResizeObserver(run)
     ro.observe(root)
     return () => ro.disconnect()
-  }, [targetFull, matchedLength, safeGaugeW, challengeScale])
+  }, [targetFull, matchedLength, safeGaugeW, challengeScale, longTextScale])
 
   useEffect(() => {
     const tick = () => {
@@ -80,13 +104,14 @@ export function ComboTechniquePrompt({
     return () => window.clearInterval(id)
   }, [endsAt])
 
-  const chars = [...targetFull]
-
   return (
     <div
       ref={rootRef}
       className="combo-technique-prompt"
-      style={{ ['--combo-challenge-font-scale' as string]: String(challengeScale) }}
+      style={{
+        ['--combo-challenge-font-scale' as string]: String(challengeScale),
+        textAlign,
+      }}
       aria-live="polite"
     >
       <p className="combo-technique-prompt__timer">合わせ技チャンス · 残り {remainingSec} 秒</p>

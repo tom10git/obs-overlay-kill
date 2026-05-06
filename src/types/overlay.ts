@@ -169,6 +169,26 @@ export interface AttackConfig {
    * 合わせ技チャンス表示（残り秒・入力目標）の相対サイズ（50〜200、100＝既定）
    */
   comboTechniqueChallengeFontScalePercent: number
+  /**
+   * 合わせ技チャンスの「入力目標」（大きい文字）の長い技名対策。
+   * この文字数以上のとき、`comboTechniqueChallengeFontScalePercent` に追加で縮小倍率を掛ける。
+   */
+  comboTechniqueChallengeLongTextThresholdChars: number
+  /**
+   * 長い技名の追加縮小倍率（30〜100、100＝縮小なし）。
+   * 例: 85 → 0.85倍。
+   */
+  comboTechniqueChallengeLongTextScalePercent: number
+  /**
+   * 合わせ技チャンス表示（残り秒＋入力目標）のレイアウト微調整。
+   * - gapAboveGaugePx: ゲージ上端から上に離す px（HpGaugeTopBand の既定 gap を上書き）
+   * - offsetX/Y: 表示全体をpxで平行移動
+   * - textAlign: 文字の寄せ（入力目標の見え方を調整）
+   */
+  comboTechniqueChallengeGapAboveGaugePx: number
+  comboTechniqueChallengeOffsetXPx: number
+  comboTechniqueChallengeOffsetYPx: number
+  comboTechniqueChallengeTextAlign: 'left' | 'center' | 'right'
   /** オーバーレイ上の攻撃シミュレーション（リワード攻撃とは別経路） */
   testPanelSimulation: TestPanelAttackSimulationConfig
   /**
