@@ -189,6 +189,16 @@ export interface AttackConfig {
   comboTechniqueChallengeOffsetXPx: number
   comboTechniqueChallengeOffsetYPx: number
   comboTechniqueChallengeTextAlign: 'left' | 'center' | 'right'
+  /**
+   * 合わせ技チャンス表示の幅（px）。
+   * 0 のときはゲージ幅に追従（従来挙動）。
+   */
+  comboTechniqueChallengeWidthPx: number
+  /**
+   * 合わせ技チャンス表示の高さ（px）。
+   * 0 のときは自動（従来挙動）。
+   */
+  comboTechniqueChallengeHeightPx: number
   /** オーバーレイ上の攻撃シミュレーション（リワード攻撃とは別経路） */
   testPanelSimulation: TestPanelAttackSimulationConfig
   /**

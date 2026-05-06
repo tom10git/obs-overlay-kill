@@ -192,6 +192,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
     comboTechniqueChallengeOffsetXPx: 0,
     comboTechniqueChallengeOffsetYPx: 0,
     comboTechniqueChallengeTextAlign: 'center',
+    comboTechniqueChallengeWidthPx: 0,
+    comboTechniqueChallengeHeightPx: 0,
     testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
     testNoDamageCommand: '!testhit',
     survivalHp1Enabled: false,
@@ -1037,6 +1039,18 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       attackConfig.comboTechniqueChallengeTextAlign === 'center'
         ? (attackConfig.comboTechniqueChallengeTextAlign as 'left' | 'center' | 'right')
         : DEFAULT_CONFIG.attack.comboTechniqueChallengeTextAlign,
+    comboTechniqueChallengeWidthPx: isInRange(Number(attackConfig.comboTechniqueChallengeWidthPx), 0, 4000)
+      ? Math.round(
+        Number(attackConfig.comboTechniqueChallengeWidthPx) ||
+            DEFAULT_CONFIG.attack.comboTechniqueChallengeWidthPx
+      )
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeWidthPx,
+    comboTechniqueChallengeHeightPx: isInRange(Number(attackConfig.comboTechniqueChallengeHeightPx), 0, 800)
+      ? Math.round(
+        Number(attackConfig.comboTechniqueChallengeHeightPx) ||
+            DEFAULT_CONFIG.attack.comboTechniqueChallengeHeightPx
+      )
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeHeightPx,
     testPanelSimulation: sanitizeTestPanelSimulation(attackConfig.testPanelSimulation, legacyTestForPanelSim),
     testNoDamageCommand:
       typeof attackConfig.testNoDamageCommand === 'string' && isValidLength(attackConfig.testNoDamageCommand, 1, 50)

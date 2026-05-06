@@ -4125,8 +4125,15 @@ export function OverlayPage() {
           hpY={config.hp.y}
           hpHeight={config.hp.height}
           gapAboveGaugePx={config.attack.comboTechniqueChallengeGapAboveGaugePx}
+          bandHeightPx={config.attack.comboTechniqueChallengeHeightPx > 0 ? config.attack.comboTechniqueChallengeHeightPx : undefined}
           style={{
             transform: `translate(-50%, -100%) translate(${config.attack.comboTechniqueChallengeOffsetXPx}px, ${config.attack.comboTechniqueChallengeOffsetYPx}px)`,
+            ...(config.attack.comboTechniqueChallengeWidthPx > 0
+              ? {
+                  width: `min(${config.attack.comboTechniqueChallengeWidthPx}px, calc(100vw - 16px))`,
+                  maxWidth: `min(${config.attack.comboTechniqueChallengeWidthPx}px, calc(100vw - 16px))`,
+                }
+              : {}),
           }}
         >
           <ComboTechniquePrompt

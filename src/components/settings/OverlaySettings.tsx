@@ -2750,6 +2750,108 @@ export const OverlaySettings = forwardRef<
                 </div>
                 <div className="settings-row">
                   <label>
+                    チャンス表示の幅（px・0でゲージ幅）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueChallengeWidthPx"] ??
+                        String(config.attack.comboTechniqueChallengeWidthPx)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueChallengeWidthPx": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeWidthPx: 0,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeWidthPx"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          const clamped = Math.min(4000, Math.max(0, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeWidthPx: clamped,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeWidthPx"];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    チャンス表示の高さ（px・0で自動）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueChallengeHeightPx"] ??
+                        String(config.attack.comboTechniqueChallengeHeightPx)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueChallengeHeightPx": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeHeightPx: 0,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeHeightPx"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          const clamped = Math.min(800, Math.max(0, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeHeightPx: clamped,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeHeightPx"];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
                     文字の寄せ:
                     <select
                       value={config.attack.comboTechniqueChallengeTextAlign}
