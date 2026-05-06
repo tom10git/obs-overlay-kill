@@ -22,6 +22,7 @@ import './TechniqueEffectBurst.css'
 import './TechniqueEffectBurst-finale-kinds.css'
 import './TechniqueEffectBurst-extra.css'
 import './TechniqueEffectBurst-kinds.css'
+import './TechniqueEffectBurst-kinds-more.css'
 import './TechniqueEffectBurst-variants.css'
 
 export interface TechniqueEffectBurstProps {
@@ -76,6 +77,12 @@ function detectSlashVariant(name: string): SlashVariant {
   if (s.includes('フィニッシュ')) return 'break'
   if (s.includes('ダブル') || s.includes('トリプル')) return 'rush'
   if (s.includes('エッジ')) return 'fang'
+  // MH / 属性系の「溜め・解放」は破断寄り、居合・気刃は速度寄り
+  if (s.includes('居合')) return 'rush'
+  if (s.includes('気刃')) return 'rush'
+  if (s.includes('溜め')) return 'break'
+  if (s.includes('解放') || s.includes('零距離')) return 'break'
+  if (s.includes('兜割')) return 'break'
   // 単漢字語尾（斬/断/裂/閃）は上の語尾より優先度を下げつつも差を出す
   if (s.endsWith('断')) return 'break'
   if (s.endsWith('裂')) return 'fang'
@@ -110,6 +117,7 @@ function detectSlashHead(name: string): SlashHead {
   if (s.includes('白刃')) return 'shiro'
   if (s.includes('ホワイト')) return 'shiro'
   if (s.includes('黒刃')) return 'kuro'
+  if (s.includes('ブラック')) return 'kuro'
   if (s.includes('ヴォイド')) return 'kuro'
   if (s.includes('月刃')) return 'tsuki'
   if (s.includes('ムーンライト')) return 'tsuki'
@@ -304,7 +312,149 @@ function KindLayers({
           <div className="tefx-layer tefx-nova-ring tefx-nova-ring--m" aria-hidden />
         </>
       )
+    case 'aurora':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-aurora-field" aria-hidden />
+          <div className="tefx-layer tefx-aurora-wave tefx-aurora-wave--a" aria-hidden />
+          <div className="tefx-layer tefx-aurora-wave tefx-aurora-wave--b" aria-hidden />
+          <div className="tefx-layer tefx-aurora-curtain tefx-aurora-curtain--1" aria-hidden />
+          <div className="tefx-layer tefx-aurora-curtain tefx-aurora-curtain--2" aria-hidden />
+          <div className="tefx-layer tefx-aurora-speck" aria-hidden />
+        </>
+      )
+    case 'blossom':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-blossom-haze" aria-hidden />
+          <div className="tefx-layer tefx-blossom-petal tefx-blossom-petal--1" aria-hidden />
+          <div className="tefx-layer tefx-blossom-petal tefx-blossom-petal--2" aria-hidden />
+          <div className="tefx-layer tefx-blossom-pollen" aria-hidden />
+          <div className="tefx-layer tefx-blossom-rim" aria-hidden />
+        </>
+      )
+    case 'circuit':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-circuit-back" aria-hidden />
+          <div className="tefx-layer tefx-circuit-grid" aria-hidden />
+          <div className="tefx-layer tefx-circuit-rain tefx-circuit-rain--s" aria-hidden />
+          <div className="tefx-layer tefx-circuit-rain tefx-circuit-rain--f" aria-hidden />
+          <div className="tefx-layer tefx-circuit-pulse" aria-hidden />
+        </>
+      )
+    case 'mire':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-mire-deep" aria-hidden />
+          <div className="tefx-layer tefx-mire-bubbles" aria-hidden />
+          <div className="tefx-layer tefx-mire-ooze" aria-hidden />
+          <div className="tefx-layer tefx-mire-fume" aria-hidden />
+          <div className="tefx-layer tefx-mire-ring" aria-hidden />
+        </>
+      )
+    case 'bloodtide':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-bloodtide-pool" aria-hidden />
+          <div className="tefx-layer tefx-bloodtide-ripple tefx-bloodtide-ripple--1" aria-hidden />
+          <div className="tefx-layer tefx-bloodtide-ripple tefx-bloodtide-ripple--2" aria-hidden />
+          <div className="tefx-layer tefx-bloodtide-drip" aria-hidden />
+          <div className="tefx-layer tefx-bloodtide-gloss" aria-hidden />
+        </>
+      )
+    case 'dune':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-dune-sky" aria-hidden />
+          <div className="tefx-layer tefx-dune-dune tefx-dune-dune--a" aria-hidden />
+          <div className="tefx-layer tefx-dune-dune tefx-dune-dune--b" aria-hidden />
+          <div className="tefx-layer tefx-dune-heat" aria-hidden />
+          <div className="tefx-layer tefx-dune-grit" aria-hidden />
+        </>
+      )
+    case 'sanctum':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-sanctum-vault" aria-hidden />
+          <div className="tefx-layer tefx-sanctum-column tefx-sanctum-column--l" aria-hidden />
+          <div className="tefx-layer tefx-sanctum-column tefx-sanctum-column--r" aria-hidden />
+          <div className="tefx-layer tefx-sanctum-gold" aria-hidden />
+          <div className="tefx-layer tefx-sanctum-ray" aria-hidden />
+        </>
+      )
+    case 'canopy':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-canopy-mist" aria-hidden />
+          <div className="tefx-layer tefx-canopy-leaf tefx-canopy-leaf--a" aria-hidden />
+          <div className="tefx-layer tefx-canopy-leaf tefx-canopy-leaf--b" aria-hidden />
+          <div className="tefx-layer tefx-canopy-vine" aria-hidden />
+          <div className="tefx-layer tefx-canopy-dapple" aria-hidden />
+        </>
+      )
+    case 'abyssal':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-abyssal-deep" aria-hidden />
+          <div className="tefx-layer tefx-abyssal-bloom" aria-hidden />
+          <div className="tefx-layer tefx-abyssal-kelp" aria-hidden />
+          <div className="tefx-layer tefx-abyssal-spark" aria-hidden />
+        </>
+      )
+    case 'cogwork':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-cogwork-smoke" aria-hidden />
+          <div className="tefx-layer tefx-cogwork-gear tefx-cogwork-gear--a" aria-hidden />
+          <div className="tefx-layer tefx-cogwork-gear tefx-cogwork-gear--b" aria-hidden />
+          <div className="tefx-layer tefx-cogwork-brass" aria-hidden />
+          <div className="tefx-layer tefx-cogwork-steam" aria-hidden />
+        </>
+      )
+    case 'constellation':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-constel-field" aria-hidden />
+          <div className="tefx-layer tefx-constel-line tefx-constel-line--1" aria-hidden />
+          <div className="tefx-layer tefx-constel-line tefx-constel-line--2" aria-hidden />
+          <div className="tefx-layer tefx-constel-star" aria-hidden />
+        </>
+      )
+    case 'rustbound':
+      return (
+        <>
+          {sig}
+          <div className="tefx-layer tefx-rust-oxide" aria-hidden />
+          <div className="tefx-layer tefx-rust-flake" aria-hidden />
+          <div className="tefx-layer tefx-rust-drip" aria-hidden />
+          <div className="tefx-layer tefx-rust-edge" aria-hidden />
+        </>
+      )
   }
+}
+
+/** 射撃タイプのみ: kind に加えた弾種の質感を軽く足す（色相・コントラだけ微調整） */
+function detectShootingVisualProfile(name: string): string {
+  const s = name.trim()
+  if (/ブラックアウト|ホワイトノイズ|スモーク|黒翼/.test(s)) return 'tefx-shoot-tone-stealth'
+  if (/エクスプロード|オーバードライブ|竜撃弾|竜熱|烈火/.test(s)) return 'tefx-shoot-tone-erupt'
+  if (/ヘイル/.test(s)) return 'tefx-shoot-tone-frost'
+  if (/フルオート|ラピッド|チェイン|スプレッド/.test(s)) return 'tefx-shoot-tone-rapid'
+  if (/ロックオン|スナイプ/.test(s)) return 'tefx-shoot-tone-precise'
+  if (/ハンター|スタンピード|マグナム|バスター/.test(s)) return 'tefx-shoot-tone-heavy'
+  return ''
 }
 
 function TypeImpactLayers({ type }: { type: TechniqueNameType }) {
@@ -363,6 +513,7 @@ export function TechniqueEffectBurst({
     slashStyleActive,
     techniqueName,
   ])
+  const shootingToneClass = techniqueType === 'shooting' ? detectShootingVisualProfile(techniqueName) : ''
   const isPhantom = kind === 'phantom'
   const bandLarge =
     fillGaugeBand && largeBandTypography ? ' tefx--fill-gauge-band-large-type' : ''
@@ -402,7 +553,7 @@ export function TechniqueEffectBurst({
           ? createPortal(<FinaleLayers kind={kind} style={burstVisual.finale} />, finalePortalTarget)
           : <FinaleLayers kind={kind} style={burstVisual.finale} />)}
       <div
-        className={`tefx tefx--${kind} tefx--type-${techniqueType}${slashStyleActive ? ' tefx--slash-motif' : ''}${slashStyleActive ? ` tefx--slash-variant-${slashVariant}` : ''}${slashStyleActive ? ` tefx--slash-head-${slashHead}` : ''}${fillGaugeBand ? ' tefx--fill-gauge-band' : ''}${bandLarge}`.trim()}
+        className={`tefx tefx--${kind} tefx--type-${techniqueType}${shootingToneClass ? ` ${shootingToneClass}` : ''}${slashStyleActive ? ' tefx--slash-motif' : ''}${slashStyleActive ? ` tefx--slash-variant-${slashVariant}` : ''}${slashStyleActive ? ` tefx--slash-head-${slashHead}` : ''}${fillGaugeBand ? ' tefx--fill-gauge-band' : ''}${bandLarge}`.trim()}
         style={{ ...burstVisual.root, ...bandFontStyle }}
         ref={tefxRef}
       >

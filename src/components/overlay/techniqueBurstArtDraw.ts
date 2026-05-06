@@ -6,6 +6,14 @@
  */
 
 import type { TechniqueEffectKind } from '../../constants/techniqueEffectKinds'
+import {
+  techniqueNameHitsAny,
+  TECHNIQUE_EFFECT_CYBER_NAME_PARTS,
+  TECHNIQUE_EFFECT_SANCTUM_MARKERS,
+  TECHNIQUE_EFFECT_THEME_MARKERS,
+  TECHNIQUE_NAME_ACCENT_BLOODTIDE_PARTS,
+  TECHNIQUE_NAME_ACCENT_DUNE_PARTS,
+} from '../../constants/techniqueEffectKinds'
 
 export function stableRand(seed: number, a: number, b = 0): number {
   let x = (Math.imul(seed ^ a, 0x9e3779b9) + b) | 0
@@ -539,6 +547,375 @@ function drawPhantomMistOverlay(
   }
 }
 
+function drawAuroraRibbonOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const bands = reducedMotion ? 3 : 7
+  for (let b = 0; b < bands; b++) {
+    const y0 = h * (0.12 + (b / Math.max(1, bands)) * 0.55)
+    const hue = 120 + ((seed + b * 37) % 80)
+    ctx.beginPath()
+    for (let x = 0; x <= w; x += 3) {
+      const wave =
+        Math.sin(tt * (reducedMotion ? 1.8 : 3.6) + x * 0.014 + b * 0.8) * h * 0.028 +
+        Math.cos(tt * 1.2 + x * 0.009 + b) * h * 0.012
+      const y = y0 + wave
+      if (x === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    }
+    const a = 0.07 + stableRand(seed, b, 260) * 0.06
+    ctx.strokeStyle = `hsla(${hue}, 88%, ${58 + (b % 4) * 6}%, ${a})`
+    ctx.lineWidth = 2.2 + (b % 3) * 0.6
+    ctx.shadowBlur = 14
+    ctx.shadowColor = `hsla(${hue}, 92%, 60%, ${a * 1.8})`
+    ctx.stroke()
+  }
+}
+
+function drawBlossomSparkOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const n = reducedMotion ? 36 : 80
+  for (let i = 0; i < n; i++) {
+    const rx = stableRand(seed, i, 270) * w
+    const ry = stableRand(seed, i, 271) * h
+    const drift = Math.sin(tt * (0.55 + stableRand(seed, i, 272) * 0.35) + i * 0.2) * 8
+    const cy = ry + drift - ((tt * (35 + (i % 12))) % (h * 0.55))
+    const a = (0.04 + stableRand(seed, i, 273) * 0.06) * (0.65 + Math.sin(tt * 3 + i) * 0.35)
+    const r = 0.65 + stableRand(seed, i, 274) * 1.35
+    const pink = `rgba(255,${180 + ((i * 37) % 45)},${210 + ((i * 51) % 35)},${a})`
+    ctx.fillStyle = pink
+    ctx.beginPath()
+    ctx.arc(rx, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+function drawCircuitSweepOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const cols = reducedMotion ? 10 : 20
+  for (let i = 0; i < cols; i++) {
+    const x = (i / cols) * w
+    const jitter = stableRand(seed, i, 280) * 12
+    const len = h * (0.35 + stableRand(seed, i, 281) * 0.55)
+    const phase = ((tt * (0.85 + stableRand(seed, i, 282) * 0.55) + i * 0.13) % 1)
+    const y0 = phase * -len * 0.4
+    ctx.fillStyle = `rgba(${40 + ((i * 53) % 60)},255,220,${0.05 + stableRand(seed, i, 283) * 0.06})`
+    ctx.fillRect(x + jitter - 1, y0, 2.2 + (i % 3) * 0.5, len)
+    if (stableRand(seed, i, 284) > 0.82) {
+      ctx.fillRect(x + jitter, y0 + len * stableRand(seed, i, 285), stableRand(seed, i, 286) * 40, 2)
+    }
+  }
+}
+
+function drawMireBlobOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const blobs = reducedMotion ? 5 : 9
+  for (let i = 0; i < blobs; i++) {
+    const mx = w * (0.12 + stableRand(seed, i, 290) * 0.76)
+    const my = h * (0.35 + stableRand(seed, i, 291) * 0.52)
+    const rx = Math.min(w, h) * (0.08 + stableRand(seed, i, 292) * 0.14)
+    const ry = rx * (0.72 + stableRand(seed, i, 293) * 0.38)
+    const rot = tt * (reducedMotion ? 0.2 : 0.45) + stableRand(seed, i, 294) * 6
+    const g = ctx.createRadialGradient(mx, my, 0, mx, my, rx * 1.2)
+    const a = 0.06 + Math.sin(tt * 2 + i * 0.55) * 0.035
+    g.addColorStop(0, `rgba(140,240,110,${a})`)
+    g.addColorStop(0.42, `rgba(80,170,65,${a * 0.55})`)
+    g.addColorStop(0.78, `rgba(140,95,205,${a * 0.35})`)
+    g.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = g
+    ctx.save()
+    ctx.translate(mx, my)
+    ctx.rotate(rot)
+    ctx.beginPath()
+    ctx.ellipse(0, 0, rx, ry, stableRand(seed, i, 295) * 0.35, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+}
+
+function drawBloodtideRippleOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const rings = reducedMotion ? 2 : 4
+  const cy = h * 0.82
+  for (let r = 0; r < rings; r++) {
+    const phase = (tt * (reducedMotion ? 0.9 : 1.6) + r * 0.45 + stableRand(seed, r, 400) * 2) % 1
+    const rad = Math.min(w, h) * (0.12 + phase * 0.42)
+    const a = (1 - phase) * 0.22
+    ctx.strokeStyle = `rgba(200,40,55,${a})`
+    ctx.lineWidth = 1.4 + r * 0.35
+    ctx.beginPath()
+    ctx.ellipse(w * 0.5, cy, rad * 1.15, rad * 0.38, 0, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+  const drops = reducedMotion ? 14 : 32
+  for (let i = 0; i < drops; i++) {
+    const x = stableRand(seed, i, 410) * w
+    const sp = 0.35 + stableRand(seed, i, 411) * 0.55
+    const y = ((tt * sp + stableRand(seed, i, 412) * 3) % 1) * h * 0.55
+    const len = 4 + (i % 5) * 2
+    ctx.strokeStyle = `rgba(140,20,35,${0.08 + stableRand(seed, i, 413) * 0.12})`
+    ctx.lineWidth = 1.1
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    ctx.lineTo(x + Math.sin(tt * 2 + i) * 2, y + len)
+    ctx.stroke()
+  }
+}
+
+function drawDuneSandOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const grains = reducedMotion ? 48 : 110
+  const wind = reducedMotion ? 0.4 : 1.1
+  for (let i = 0; i < grains; i++) {
+    const y = stableRand(seed, i, 420) * h
+    const x = ((stableRand(seed, i, 421) * w + tt * wind * (40 + (i % 20))) % (w * 1.2)) - w * 0.05
+    const s = 0.6 + stableRand(seed, i, 422) * 1.8
+    ctx.fillStyle = `rgba(230,${170 + (i % 40)},${110 + (i % 30)},${0.04 + stableRand(seed, i, 423) * 0.1})`
+    ctx.fillRect(x, y, s, s * 0.45)
+  }
+  const haze = ctx.createLinearGradient(0, 0, 0, h * 0.45)
+  haze.addColorStop(0, `rgba(255,220,160,${reducedMotion ? 0.06 : 0.1 + Math.sin(tt * 2.2) * 0.04})`)
+  haze.addColorStop(1, 'rgba(255,200,120,0)')
+  ctx.fillStyle = haze
+  ctx.fillRect(0, 0, w, h * 0.45)
+}
+
+function drawSanctumShrineOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const beams = reducedMotion ? 5 : 9
+  for (let b = 0; b < beams; b++) {
+    const x = w * (0.18 + (b / Math.max(1, beams - 1)) * 0.64)
+    const w0 = 2 + (b % 3)
+    const pulse = 0.55 + Math.sin(tt * (reducedMotion ? 1.5 : 2.8) + b * 0.7) * 0.35
+    const gr = ctx.createLinearGradient(x, h * 0.05, x, h * 0.95)
+    gr.addColorStop(0, `rgba(255,248,210,${0.22 * pulse})`)
+    gr.addColorStop(0.35, `rgba(255,220,150,${0.08 * pulse})`)
+    gr.addColorStop(1, 'rgba(255,200,120,0)')
+    ctx.fillStyle = gr
+    ctx.fillRect(x - w0 * 0.5, h * 0.02, w0, h * 0.96)
+  }
+  const motes = reducedMotion ? 20 : 44
+  for (let i = 0; i < motes; i++) {
+    const mx = stableRand(seed, i, 430) * w
+    const my = stableRand(seed, i, 431) * h * 0.55
+    const tw = 0.5 + Math.abs(Math.sin(tt * 2.4 + i * 0.3))
+    const a = (0.03 + stableRand(seed, i, 432) * 0.08) * tw
+    ctx.fillStyle = `rgba(255,235,180,${a})`
+    ctx.beginPath()
+    ctx.arc(mx, my, 0.6 + (i % 3) * 0.4, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+function drawCanopyVineOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const vines = reducedMotion ? 7 : 15
+  for (let i = 0; i < vines; i++) {
+    const x = stableRand(seed, i, 440) * w
+    const sway = Math.sin(tt * (reducedMotion ? 0.75 : 1.45) + i * 0.55) * w * 0.028
+    ctx.strokeStyle = `rgba(50,${140 + (i % 50)},${70 + (i % 40)},${0.07 + stableRand(seed, i, 441) * 0.08})`
+    ctx.lineWidth = 1.1 + (i % 3) * 0.35
+    ctx.beginPath()
+    ctx.moveTo(x, h * 0.08)
+    ctx.quadraticCurveTo(x + sway * 4, h * (0.35 + stableRand(seed, i, 442) * 0.25), x - sway * 2, h * 0.94)
+    ctx.stroke()
+  }
+  const flecks = reducedMotion ? 28 : 64
+  for (let i = 0; i < flecks; i++) {
+    const fx = stableRand(seed, i, 443) * w
+    const fy = stableRand(seed, i, 444) * h * 0.72
+    const a = 0.02 + stableRand(seed, i, 445) * 0.06
+    ctx.fillStyle = `rgba(120,255,160,${a})`
+    ctx.fillRect(fx, fy, 1.2 + (i % 2), 1 + (i % 2))
+  }
+}
+
+function drawAbyssalDepthOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const veils = reducedMotion ? 2 : 3
+  for (let v = 0; v < veils; v++) {
+    const g = ctx.createRadialGradient(
+      w * (0.35 + v * 0.22),
+      h * (0.55 + Math.sin(tt * 0.9 + v) * 0.06),
+      0,
+      w * 0.5,
+      h * 0.55,
+      Math.min(w, h) * (0.55 + v * 0.08)
+    )
+    const a = 0.12 - v * 0.03
+    g.addColorStop(0, `rgba(30,120,200,${a})`)
+    g.addColorStop(0.45, `rgba(8,40,90,${a * 0.85})`)
+    g.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = g
+    ctx.fillRect(0, 0, w, h)
+  }
+  const sparks = reducedMotion ? 18 : 42
+  for (let i = 0; i < sparks; i++) {
+    const sx = stableRand(seed, i, 450) * w
+    const sy = stableRand(seed, i, 451) * h * 0.65 + h * 0.2
+    const tw = 0.5 + Math.abs(Math.sin(tt * 2.1 + i * 0.4))
+    ctx.fillStyle = `rgba(120,255,240,${(0.04 + stableRand(seed, i, 452) * 0.09) * tw})`
+    ctx.beginPath()
+    ctx.arc(sx, sy, 0.5 + (i % 2) * 0.45, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+function drawCogworkGearOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const hubs: [number, number][] = [
+    [w * 0.22, h * 0.28],
+    [w * 0.78, h * 0.32],
+    [w * 0.5, h * 0.72],
+  ]
+  const nHub = reducedMotion ? 2 : 3
+  for (let hIdx = 0; hIdx < nHub; hIdx++) {
+    const [cx, cy] = hubs[hIdx]!
+    const rot = tt * (reducedMotion ? 0.35 : 0.85) * (hIdx % 2 === 0 ? 1 : -1)
+    const teeth = reducedMotion ? 6 : 10
+    ctx.strokeStyle = `rgba(220,170,90,${0.12 + hIdx * 0.04})`
+    ctx.lineWidth = 1.4
+    for (let tooth = 0; tooth < teeth; tooth++) {
+      const a0 = rot + (tooth / teeth) * Math.PI * 2
+      const a1 = rot + ((tooth + 0.45) / teeth) * Math.PI * 2
+      const r0 = Math.min(w, h) * (0.08 + (hIdx % 2) * 0.02)
+      const r1 = r0 * 1.55
+      ctx.beginPath()
+      ctx.arc(cx, cy, r0, a0, a1)
+      ctx.arc(cx, cy, r1, a1, a0, true)
+      ctx.closePath()
+      ctx.stroke()
+    }
+  }
+  const rivets = reducedMotion ? 16 : 38
+  for (let i = 0; i < rivets; i++) {
+    const rx = stableRand(seed, i, 460) * w
+    const ry = stableRand(seed, i, 461) * h
+    ctx.fillStyle = `rgba(180,140,70,${0.05 + stableRand(seed, i, 462) * 0.08})`
+    ctx.beginPath()
+    ctx.arc(rx, ry, 0.9, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+function drawConstellationOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const n = reducedMotion ? 10 : 18
+  const xs: number[] = []
+  const ys: number[] = []
+  for (let i = 0; i < n; i++) {
+    xs.push(stableRand(seed, i, 470) * w * 0.88 + w * 0.06)
+    ys.push(stableRand(seed, i, 471) * h * 0.78 + h * 0.08)
+  }
+  const tw = 0.55 + Math.sin(tt * (reducedMotion ? 1.2 : 2.2)) * 0.35
+  ctx.strokeStyle = `rgba(200,230,255,${0.06 * tw})`
+  ctx.lineWidth = 0.7
+  for (let i = 0; i < n; i++) {
+    const j = (i + 3) % n
+    ctx.beginPath()
+    ctx.moveTo(xs[i]!, ys[i]!)
+    ctx.lineTo(xs[j]!, ys[j]!)
+    ctx.stroke()
+  }
+  for (let i = 0; i < n; i++) {
+    const a = (0.12 + stableRand(seed, i, 472) * 0.18) * tw
+    ctx.fillStyle = `rgba(255,252,240,${a})`
+    ctx.beginPath()
+    ctx.arc(xs[i]!, ys[i]!, 0.9 + (i % 4) * 0.35, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+function drawRustFlakeOverlay(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  tt: number,
+  seed: number,
+  reducedMotion: boolean
+): void {
+  const flakes = reducedMotion ? 40 : 96
+  for (let i = 0; i < flakes; i++) {
+    const x = ((stableRand(seed, i, 480) * w + tt * (reducedMotion ? 8 : 22) * (1 + (i % 5) * 0.08)) % (w + 40)) - 20
+    const y = stableRand(seed, i, 481) * h
+    const r = 180 + (i % 50)
+    const g = 90 + (i % 40)
+    const b = 40 + (i % 30)
+    ctx.fillStyle = `rgba(${r},${g},${b},${0.03 + stableRand(seed, i, 482) * 0.09})`
+    ctx.fillRect(x, y, 2 + (i % 3), 1.2 + (i % 2))
+  }
+  const patina = ctx.createLinearGradient(0, 0, w, h)
+  patina.addColorStop(0, `rgba(40,140,130,${reducedMotion ? 0.04 : 0.07 + Math.sin(tt * 1.8) * 0.03})`)
+  patina.addColorStop(1, 'rgba(120,60,30,0)')
+  ctx.fillStyle = patina
+  ctx.fillRect(0, 0, w, h)
+}
+
 function drawTremorDustOverlay(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -728,9 +1105,61 @@ function drawTechniqueNameFingerprintOverlay(
 }
 
 function detectTechniqueNameMotif(name: string): 'slash' | 'magic' | 'shooting' | 'none' {
-  const slashTokens = ['刃', '斬', '断', '裂', '牙', 'ラッシュ', 'ブレイク', 'クロス']
-  const magicTokens = ['術', '詠', '陣', '符', '唱', 'スペル', 'ミスト', 'オーラ', 'ルーン', 'アストラ', 'カワイソウニ']
-  const shootingTokens = ['弾', '砲', '射', '撃', 'ショット', 'バースト', 'スナイプ', 'バレット', 'キャノン']
+  const slashTokens = [
+    '刃',
+    '斬',
+    '断',
+    '裂',
+    '牙',
+    'ラッシュ',
+    'ブレイク',
+    'クロス',
+    'スラッシュ',
+    'ストライク',
+    'スプリット',
+    'エッジ',
+    'フィニッシュ',
+  ]
+  const magicTokens = [
+    '術',
+    '詠',
+    '陣',
+    '符',
+    '唱',
+    'スペル',
+    'ミスト',
+    'オーラ',
+    'ルーン',
+    'アストラ',
+    'カワイソウニ',
+    'キャスト',
+    'チャント',
+    'チャーム',
+    'ブレッシング',
+    'ゲート',
+    'ブースト',
+    'カース',
+  ]
+  const shootingTokens = [
+    '弾',
+    '砲',
+    '射',
+    '撃',
+    'ショット',
+    'バースト',
+    'スナイプ',
+    'バレット',
+    'キャノン',
+    '矢',
+    '徹甲',
+    '竜撃弾',
+    'ラピッド',
+    'フルオート',
+    'スプレッド',
+    'ロックオン',
+    'チェイン',
+    'エクスプロード',
+  ]
 
   // 雷鳴* は射撃語尾でも見た目をスラッシュへ寄せる
   if (name.startsWith('雷鳴')) return 'slash'
@@ -769,19 +1198,49 @@ function detectNameAccentKinds(name: string): TechniqueEffectKind[] {
 
   // 語尾・語彙ごとの「追加アクセント」を重ね、同タイプ内の差を強める
   if (name.includes('ラッシュ')) pushUnique('tempest')
+  if (name.includes('ダブル') || name.includes('トリプル')) pushUnique('tempest')
   if (name.includes('ブレイク')) pushUnique('tremor')
+  if (name.includes('ストライク')) pushUnique('tremor')
   if (name.includes('クロス')) pushUnique('radiance')
   if (name.includes('牙')) pushUnique('phantom')
+  if (name.includes('スプリット')) pushUnique('phantom')
+  if (name.includes('エッジ')) pushUnique('radiance')
+  if (name.includes('フィニッシュ')) pushUnique('nova')
 
   if (name.includes('詠') || name.includes('唱')) pushUnique('nova')
+  if (name.includes('チャント')) pushUnique('radiance')
+  if (name.includes('キャスト')) pushUnique('plasma')
+  if (name.includes('チャーム') || name.includes('ブレッシング')) pushUnique('radiance')
+  if (name.includes('カース') || name.includes('ゲート')) pushUnique('void')
+  if (name.includes('ブースト')) pushUnique('plasma')
   if (name.includes('陣') || name.includes('符')) pushUnique('plasma')
   if (name.includes('ミスト')) pushUnique('glacier')
   if (name.includes('オーラ')) pushUnique('radiance')
 
   if (name.includes('砲') || name.includes('キャノン')) pushUnique('tremor')
-  if (name.includes('スナイプ')) pushUnique('phantom')
+  if (name.includes('スナイプ') || name.includes('ロックオン')) pushUnique('phantom')
   if (name.includes('バースト')) pushUnique('inferno')
   if (name.includes('ショット')) pushUnique('plasma')
+  if (name.includes('エクスプロード') || name.includes('オーバードライブ')) pushUnique('inferno')
+  if (name.includes('フルオート') || name.includes('ラピッド')) pushUnique('plasma')
+  if (name.includes('チェイン')) pushUnique('tempest')
+  if (name.includes('スプレッド')) pushUnique('meteor')
+  if (name.includes('スタンピード')) pushUnique('tremor')
+
+  if (name.includes('オーロラ') || name.includes('極光')) pushUnique('aurora')
+  if (name.includes('花') || name.includes('芽') || (name.includes('華') && !name.includes('氷')))
+    pushUnique('blossom')
+  if (techniqueNameHitsAny(name, TECHNIQUE_EFFECT_CYBER_NAME_PARTS.slash)) pushUnique('circuit')
+  if (name.includes('毒') || name.includes('瘴') || name.includes('菌')) pushUnique('mire')
+
+  if (techniqueNameHitsAny(name, TECHNIQUE_NAME_ACCENT_BLOODTIDE_PARTS)) pushUnique('bloodtide')
+  if (techniqueNameHitsAny(name, TECHNIQUE_NAME_ACCENT_DUNE_PARTS)) pushUnique('dune')
+  if (techniqueNameHitsAny(name, TECHNIQUE_EFFECT_SANCTUM_MARKERS.magic)) pushUnique('sanctum')
+  if (techniqueNameHitsAny(name, TECHNIQUE_EFFECT_THEME_MARKERS.canopy)) pushUnique('canopy')
+  if (techniqueNameHitsAny(name, TECHNIQUE_EFFECT_THEME_MARKERS.abyssal)) pushUnique('abyssal')
+  if (techniqueNameHitsAny(name, TECHNIQUE_EFFECT_THEME_MARKERS.cogwork)) pushUnique('cogwork')
+  if (techniqueNameHitsAny(name, TECHNIQUE_EFFECT_THEME_MARKERS.constellation)) pushUnique('constellation')
+  if (techniqueNameHitsAny(name, TECHNIQUE_EFFECT_THEME_MARKERS.rustbound)) pushUnique('rustbound')
 
   return accents
 }
@@ -1957,35 +2416,79 @@ export function drawTechniqueBurstArt(
     }
   }
 
-  if (effectKind === 'meteor') {
-    drawMeteorTrailOverlay(ctx, w, h, tt, s, reducedMotion)
-  }
-  if (effectKind === 'void') {
-    drawVoidVeinOverlay(ctx, w, h, tt, s, reducedMotion)
-  }
-  if (effectKind === 'glacier') {
-    drawGlacierFrostOverlay(ctx, w, h, tt, s, reducedMotion)
-  }
-  if (effectKind === 'radiance') {
-    drawRadianceRayOverlay(ctx, w, h, tt, s, reducedMotion)
-  }
-  if (effectKind === 'nova') {
-    drawNovaBurstOverlay(ctx, w, h, tt, s, reducedMotion)
-  }
-  if (effectKind === 'phantom') {
-    drawPhantomMistOverlay(ctx, w, h, tt, s, reducedMotion)
-  }
-  if (effectKind === 'tremor') {
-    drawTremorDustOverlay(ctx, w, h, tt, s, reducedMotion)
-  }
-  if (effectKind === 'plasma') {
-    drawPlasmaFilamentOverlay(ctx, w, h, tt, s, reducedMotion)
-  }
-  if (effectKind === 'tempest') {
-    drawTempestLightningOverlay(ctx, w, h, tt, s, reducedMotion)
-  }
-  if (effectKind === 'inferno') {
-    drawInfernoFireOverlay(ctx, w, h, tt, s, reducedMotion)
+  if (effectKind != null) {
+    switch (effectKind) {
+      case 'meteor':
+        drawMeteorTrailOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'void':
+        drawVoidVeinOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'glacier':
+        drawGlacierFrostOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'radiance':
+        drawRadianceRayOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'nova':
+        drawNovaBurstOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'phantom':
+        drawPhantomMistOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'tremor':
+        drawTremorDustOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'plasma':
+        drawPlasmaFilamentOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'tempest':
+        drawTempestLightningOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'inferno':
+        drawInfernoFireOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'aurora':
+        drawAuroraRibbonOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'blossom':
+        drawBlossomSparkOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'circuit':
+        drawCircuitSweepOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'mire':
+        drawMireBlobOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'bloodtide':
+        drawBloodtideRippleOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'dune':
+        drawDuneSandOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'sanctum':
+        drawSanctumShrineOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'canopy':
+        drawCanopyVineOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'abyssal':
+        drawAbyssalDepthOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'cogwork':
+        drawCogworkGearOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'constellation':
+        drawConstellationOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      case 'rustbound':
+        drawRustFlakeOverlay(ctx, w, h, tt, s, reducedMotion)
+        break
+      default: {
+        const _exhaustive: never = effectKind
+        void _exhaustive
+      }
+    }
   }
 
   if (name.includes('桜')) {
@@ -2031,16 +2534,78 @@ export function drawTechniqueBurstArt(
     for (let i = 0; i < accentKinds.length; i++) {
       const accentSeed = s ^ (0x9e37 + i * 0x51c3)
       const accentKind = accentKinds[i]!
-      if (accentKind === 'meteor') drawMeteorTrailOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
-      if (accentKind === 'void') drawVoidVeinOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
-      if (accentKind === 'glacier') drawGlacierFrostOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
-      if (accentKind === 'radiance') drawRadianceRayOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
-      if (accentKind === 'nova') drawNovaBurstOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
-      if (accentKind === 'phantom') drawPhantomMistOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
-      if (accentKind === 'tremor') drawTremorDustOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
-      if (accentKind === 'plasma') drawPlasmaFilamentOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
-      if (accentKind === 'tempest') drawTempestLightningOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
-      if (accentKind === 'inferno') drawInfernoFireOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+      switch (accentKind) {
+        case 'meteor':
+          drawMeteorTrailOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'void':
+          drawVoidVeinOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'glacier':
+          drawGlacierFrostOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'radiance':
+          drawRadianceRayOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'nova':
+          drawNovaBurstOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'phantom':
+          drawPhantomMistOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'tremor':
+          drawTremorDustOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'plasma':
+          drawPlasmaFilamentOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'tempest':
+          drawTempestLightningOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'inferno':
+          drawInfernoFireOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'aurora':
+          drawAuroraRibbonOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'blossom':
+          drawBlossomSparkOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'circuit':
+          drawCircuitSweepOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'mire':
+          drawMireBlobOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'bloodtide':
+          drawBloodtideRippleOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'dune':
+          drawDuneSandOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'sanctum':
+          drawSanctumShrineOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'canopy':
+          drawCanopyVineOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'abyssal':
+          drawAbyssalDepthOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'cogwork':
+          drawCogworkGearOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'constellation':
+          drawConstellationOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        case 'rustbound':
+          drawRustFlakeOverlay(ctx, w, h, tt, accentSeed, reducedMotion)
+          break
+        default: {
+          const _exhaustive: never = accentKind
+          void _exhaustive
+        }
+      }
     }
   }
 

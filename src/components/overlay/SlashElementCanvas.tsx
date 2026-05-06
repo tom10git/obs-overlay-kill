@@ -85,6 +85,27 @@ type Ember = { x: number; y0: number; r: number; sp: number; ph: number }
 type Shard = { x: number; y: number; w: number; h: number; rot: number; sp: number; ph: number }
 type Wisp = { x: number; y: number; rx: number; ry: number; rot: number; ph: number; sp: number }
 
+/** 斬撃 Canvas「軽い中心光」— kind ごとの rgba（inten は呼び出し元の強度係数） */
+const SLASH_SOFT_GLOW_CENTER: Partial<Record<TechniqueEffectKind, (inten: number) => string>> = {
+  radiance: (inten) => `rgba(255,230,160,${0.08 * inten})`,
+  nova: (inten) => `rgba(255,200,100,${0.08 * inten})`,
+  plasma: (inten) => `rgba(255,180,255,${0.08 * inten})`,
+  tremor: (inten) => `rgba(255,220,160,${0.05 * inten})`,
+  meteor: (inten) => `rgba(255,220,180,${0.06 * inten})`,
+  aurora: (inten) => `rgba(140,255,230,${0.085 * inten})`,
+  blossom: (inten) => `rgba(255,195,215,${0.082 * inten})`,
+  circuit: (inten) => `rgba(160,255,230,${0.078 * inten})`,
+  mire: (inten) => `rgba(180,255,150,${0.068 * inten})`,
+  bloodtide: (inten) => `rgba(255,120,110,${0.08 * inten})`,
+  dune: (inten) => `rgba(255,200,130,${0.075 * inten})`,
+  sanctum: (inten) => `rgba(255,235,170,${0.078 * inten})`,
+  canopy: (inten) => `rgba(140,255,170,${0.076 * inten})`,
+  abyssal: (inten) => `rgba(100,200,255,${0.074 * inten})`,
+  cogwork: (inten) => `rgba(255,200,120,${0.073 * inten})`,
+  constellation: (inten) => `rgba(200,220,255,${0.072 * inten})`,
+  rustbound: (inten) => `rgba(255,160,100,${0.07 * inten})`,
+}
+
 export interface SlashElementCanvasProps {
   kind: TechniqueEffectKind
   seed: number
@@ -345,7 +366,25 @@ export function SlashElementCanvas({
       }
 
       // 他 kind は “軽い光” に留める（必要なら追加実装）
-      if (kind === 'radiance' || kind === 'nova' || kind === 'plasma' || kind === 'tremor' || kind === 'meteor') {
+      if (
+        kind === 'radiance' ||
+        kind === 'nova' ||
+        kind === 'plasma' ||
+        kind === 'tremor' ||
+        kind === 'meteor' ||
+        kind === 'aurora' ||
+        kind === 'blossom' ||
+        kind === 'circuit' ||
+        kind === 'mire' ||
+        kind === 'bloodtide' ||
+        kind === 'dune' ||
+        kind === 'sanctum' ||
+        kind === 'canopy' ||
+        kind === 'abyssal' ||
+        kind === 'cogwork' ||
+        kind === 'constellation' ||
+        kind === 'rustbound'
+      ) {
         const inten = mq.matches ? 0.45 : 0.18 + Math.abs(Math.sin(t * 2.6)) * 0.45
         const rr = Math.min(w, h) * 0.48
         if (kind === 'radiance' && slashHead === 'tsuki') {
@@ -382,16 +421,7 @@ export function SlashElementCanvas({
           }
         } else {
           const g = ctx.createRadialGradient(w * 0.5, h * 0.55, 0, w * 0.5, h * 0.55, rr)
-          const col =
-            kind === 'radiance'
-              ? `rgba(255,230,160,${0.08 * inten})`
-              : kind === 'nova'
-                ? `rgba(255,200,100,${0.08 * inten})`
-                : kind === 'plasma'
-                  ? `rgba(255,180,255,${0.08 * inten})`
-                  : kind === 'tremor'
-                    ? `rgba(255,220,160,${0.05 * inten})`
-                    : `rgba(255,220,180,${0.06 * inten})`
+          const col = SLASH_SOFT_GLOW_CENTER[kind]?.(inten) ?? `rgba(255,220,180,${0.06 * inten})`
           g.addColorStop(0, col)
           g.addColorStop(0.55, 'rgba(0,0,0,0)')
           g.addColorStop(1, 'rgba(0,0,0,0)')

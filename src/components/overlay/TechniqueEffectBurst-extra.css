@@ -2821,3 +2821,53 @@
   100% { opacity: 0; transform: scale(1.22); }
 }
 
+/* ---------- 射撃: 技名由来の弾種トーン（色相・彩度だけ軽くずらす） ---------- */
+
+.tefx.tefx-shoot-tone-stealth .tefx-type-shooting-sparks {
+  filter: saturate(0.78) brightness(0.95) hue-rotate(-18deg);
+}
+
+.tefx.tefx-shoot-tone-stealth .tefx-type-shooting-impact {
+  filter: saturate(0.82) brightness(0.98) hue-rotate(-10deg);
+}
+
+.tefx.tefx-shoot-tone-erupt .tefx-type-shooting-sparks {
+  filter: saturate(1.22) brightness(1.06) hue-rotate(-8deg);
+}
+
+.tefx.tefx-shoot-tone-erupt .tefx-type-shooting-impact {
+  filter: saturate(1.28) brightness(1.08) hue-rotate(-6deg);
+}
+
+.tefx.tefx-shoot-tone-frost .tefx-type-shooting-sparks {
+  filter: saturate(0.95) brightness(1.04) hue-rotate(28deg);
+}
+
+.tefx.tefx-shoot-tone-frost .tefx-type-shooting-tracer--2 {
+  filter: hue-rotate(22deg) saturate(1.05);
+}
+
+.tefx.tefx-shoot-tone-rapid .tefx-type-shooting-tracer--1 {
+  filter: saturate(1.08) hue-rotate(14deg);
+}
+
+.tefx.tefx-shoot-tone-rapid .tefx-type-shooting-tracer--3 {
+  filter: saturate(1.06) hue-rotate(-6deg);
+}
+
+.tefx.tefx-shoot-tone-precise .tefx-type-shooting-flash {
+  filter: saturate(0.92) brightness(1.06) hue-rotate(280deg);
+}
+
+.tefx.tefx-shoot-tone-precise .tefx-type-shooting-sparks {
+  filter: saturate(0.85) hue-rotate(260deg);
+}
+
+.tefx.tefx-shoot-tone-heavy .tefx-type-shooting-bang {
+  filter: saturate(1.06) brightness(0.94) hue-rotate(16deg);
+}
+
+.tefx.tefx-shoot-tone-heavy .tefx-type-shooting-impact {
+  filter: saturate(1.12) brightness(0.96) hue-rotate(18deg);
+}
+

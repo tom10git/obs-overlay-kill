@@ -145,7 +145,19 @@
 .tefx--glacier .tefx-art-canvas,
 .tefx--void .tefx-art-canvas,
 .tefx--tremor .tefx-art-canvas,
-.tefx--tempest .tefx-art-canvas {
+.tefx--tempest .tefx-art-canvas,
+.tefx--aurora .tefx-art-canvas,
+.tefx--blossom .tefx-art-canvas,
+.tefx--circuit .tefx-art-canvas,
+.tefx--mire .tefx-art-canvas,
+.tefx--bloodtide .tefx-art-canvas,
+.tefx--dune .tefx-art-canvas,
+.tefx--sanctum .tefx-art-canvas,
+.tefx--canopy .tefx-art-canvas,
+.tefx--abyssal .tefx-art-canvas,
+.tefx--cogwork .tefx-art-canvas,
+.tefx--constellation .tefx-art-canvas,
+.tefx--rustbound .tefx-art-canvas {
   opacity: 0.9;
 }
 
@@ -158,7 +170,19 @@
 .tefx.tefx--fill-gauge-band.tefx--glacier .tefx-art-canvas,
 .tefx.tefx--fill-gauge-band.tefx--void .tefx-art-canvas,
 .tefx.tefx--fill-gauge-band.tefx--tremor .tefx-art-canvas,
-.tefx.tefx--fill-gauge-band.tefx--tempest .tefx-art-canvas {
+.tefx.tefx--fill-gauge-band.tefx--tempest .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--aurora .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--blossom .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--circuit .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--mire .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--bloodtide .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--dune .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--sanctum .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--canopy .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--abyssal .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--cogwork .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--constellation .tefx-art-canvas,
+.tefx.tefx--fill-gauge-band.tefx--rustbound .tefx-art-canvas {
   opacity: 0.72;
 }
 
