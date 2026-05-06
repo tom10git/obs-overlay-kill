@@ -26,7 +26,8 @@ export interface ComboTechniquePromptProps {
 
 function fitComboFontPx(charsEl: HTMLElement, availableWidthPx: number): number {
   const available = Math.max(48, availableWidthPx)
-  let lo = 5
+  /* 日本語（濁点・漢字）が潰れないよう下限を少し上げる */
+  let lo = 9
   let hi = 52
   const apply = (px: number) => {
     charsEl.style.fontSize = `${px}px`
@@ -37,7 +38,7 @@ function fitComboFontPx(charsEl: HTMLElement, availableWidthPx: number): number 
   if (charsEl.scrollWidth > available) {
     // lo でも収まらない場合は、比率で確実に収める（小数px可）
     const ratio = available / Math.max(1, charsEl.scrollWidth)
-    return Math.max(4, lo * ratio)
+    return Math.max(9, lo * ratio)
   }
   for (let i = 0; i < 28; i++) {
     const mid = (lo + hi) / 2
@@ -86,7 +87,7 @@ export function ComboTechniquePrompt({
       const innerPad = 14
       const w = root.clientWidth
       const px = fitComboFontPx(chars, w - innerPad)
-      setCharsFontPx(Math.max(4, Math.round(px * challengeScale * longTextScale)))
+      setCharsFontPx(Math.max(12, Math.round(px * challengeScale * longTextScale)))
     }
 
     run()
