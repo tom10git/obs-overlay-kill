@@ -2930,6 +2930,62 @@ export const OverlaySettings = forwardRef<
                 </div>
                 <div className="settings-row">
                   <label>
+                    モンハン実在技名の出やすさ（0〜100％・0＝従来どおり）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueMhVerbatimNameRollPercent"] ??
+                        String(config.attack.comboTechniqueMhVerbatimNameRollPercent)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueMhVerbatimNameRollPercent": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || Number.isNaN(parseFloat(value))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueMhVerbatimNameRollPercent: 0,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueMhVerbatimNameRollPercent"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseFloat(value);
+                          if (!Number.isNaN(num)) {
+                            const clamped = Math.min(100, Math.max(0, Math.round(num)));
+                            setConfig({
+                              ...config,
+                              attack: {
+                                ...config.attack,
+                                comboTechniqueMhVerbatimNameRollPercent: clamped,
+                              },
+                            });
+                            setInputValues((prev) => {
+                              const next = { ...prev };
+                              delete next["attack.comboTechniqueMhVerbatimNameRollPercent"];
+                              return next;
+                            });
+                          }
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <p className="settings-hint">
+                  プール先頭に固定されている歴代「モンスターハンター」の実在技名（大剣・太刀などの斬撃枠＋弓・ヘビィの射撃枠）を、そのまま当てにいく確率です。合わせ技チャンスの技名抽選と、追加攻撃ルーレットの止まり先の両方に使われます。当たらなかった抽選は従来どおり全プールから一様です（魔法の生成名はこの％では増えません）。
+                </p>
+                <div className="settings-row">
+                  <label>
                     入力接頭辞（最大40文字・空欄は既定「{COMBO_TECHNIQUE_PREFIX}」）:
                     <input
                       type="text"

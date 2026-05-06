@@ -158,6 +158,11 @@ export interface AttackConfig {
   comboTechniqueDurationSec: number
   /** チャット等で入力する目標文字列の先頭接頭辞（技名の前に付く） */
   comboTechniqueInputPrefix: string
+  /**
+   * 歴代モンハンの実在技名（技名プールの固定枠・斬撃・射撃のみ）を、その枠からそのまま引く確率（0〜100）。
+   * 0で従来どおり全プールから一様。100で常にその枠のみ。魔法カテゴリの生成名はこの設定では増えない。
+   */
+  comboTechniqueMhVerbatimNameRollPercent: number
   /** true のとき、合わせ技チャレンジ中は「誰でも」入力で進行できる（既定: true） */
   comboTechniqueAllowAnyUserInput: boolean
   /**

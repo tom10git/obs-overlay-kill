@@ -270,6 +270,12 @@ const MH_SHOOTING_SPECIAL_NAMES = [
   '竜熱機関竜弾',
 ] as const
 
+/** 歴代MHで実在する技名（斬撃・射撃の固定枠のみ。魔法カテゴリに同種の専用枠は無い）。 */
+export const MONSTER_HUNTER_VERBATIM_TECHNIQUE_NAMES = [
+  ...MH_SLASH_SPECIAL_NAMES,
+  ...MH_SHOOTING_SPECIAL_NAMES,
+] as const
+
 const generatedShootingNames = buildTechniqueNames(
   [
     '流星',

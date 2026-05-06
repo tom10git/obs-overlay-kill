@@ -1575,7 +1575,10 @@ export function OverlayPage() {
         ? Math.max(0, Math.min(1, (config.attack.testPanelSimulation.rouletteSuccessPercent ?? 50) / 100))
         : ROULETTE_BONUS_SUCCESS_PROBABILITY
       const rbSuccess = Math.random() < successProbability
-      const { landedName, landIndex } = pickRouletteStripSkill(COMBO_TECHNIQUE_NAMES)
+      const { landedName, landIndex } = pickRouletteStripSkill(
+        COMBO_TECHNIQUE_NAMES,
+        config.attack.comboTechniqueMhVerbatimNameRollPercent
+      )
       rouletteBonusLockRef.current = true
       setRouletteBonus({
         id: allocEffectKey(),
@@ -2092,7 +2095,9 @@ export function OverlayPage() {
             const comboMs = Math.min(300_000, Math.max(3_000, config.attack.comboTechniqueDurationSec * 1000))
             const comboPrefix = config.attack.comboTechniqueInputPrefix.normalize('NFKC')
             const endsAt = Date.now() + comboMs
-            const targetFull = `${comboPrefix}${pickRandomComboTechniqueName()}`.normalize('NFKC')
+            const targetFull = `${comboPrefix}${pickRandomComboTechniqueName(
+              config.attack.comboTechniqueMhVerbatimNameRollPercent
+            )}`.normalize('NFKC')
             const next: ComboChallengeState = {
               targetFull,
               // 「合わせ技：」などの接頭辞は入力不要にする（開始時点で一致済み扱い）
@@ -2551,7 +2556,9 @@ export function OverlayPage() {
         const comboMs = Math.min(300_000, Math.max(3_000, config.attack.comboTechniqueDurationSec * 1000))
         const comboPrefix = config.attack.comboTechniqueInputPrefix.normalize('NFKC')
         const endsAt = Date.now() + comboMs
-        const targetFull = `${comboPrefix}${pickRandomComboTechniqueName()}`.normalize('NFKC')
+        const targetFull = `${comboPrefix}${pickRandomComboTechniqueName(
+          config.attack.comboTechniqueMhVerbatimNameRollPercent
+        )}`.normalize('NFKC')
         const next: ComboChallengeState = {
           targetFull,
           // 「合わせ技：」などの接頭辞は入力不要にする（開始時点で一致済み扱い）

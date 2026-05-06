@@ -183,6 +183,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     comboTechniqueEnabled: true,
     comboTechniqueDurationSec: 30,
     comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+    comboTechniqueMhVerbatimNameRollPercent: 0,
     comboTechniqueAllowAnyUserInput: true,
     comboTechniqueResultFontScalePercent: 100,
     comboTechniqueChallengeFontScalePercent: 100,
@@ -328,6 +329,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueEnabled: true,
       comboTechniqueDurationSec: 30,
       comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+      comboTechniqueMhVerbatimNameRollPercent: 0,
       comboTechniqueAllowAnyUserInput: true,
       comboTechniqueResultFontScalePercent: 100,
       comboTechniqueChallengeFontScalePercent: 100,
@@ -460,6 +462,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueEnabled: true,
       comboTechniqueDurationSec: 30,
       comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
+      comboTechniqueMhVerbatimNameRollPercent: 0,
       comboTechniqueAllowAnyUserInput: true,
       comboTechniqueResultFontScalePercent: 100,
       comboTechniqueChallengeFontScalePercent: 100,
@@ -991,6 +994,16 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       const max = 40
       return s.length > max ? s.slice(0, max) : s
     })(),
+    comboTechniqueMhVerbatimNameRollPercent: isInRange(
+      Number(attackConfig.comboTechniqueMhVerbatimNameRollPercent),
+      0,
+      100
+    )
+      ? Math.round(
+        Number(attackConfig.comboTechniqueMhVerbatimNameRollPercent) ||
+            DEFAULT_CONFIG.attack.comboTechniqueMhVerbatimNameRollPercent
+      )
+      : DEFAULT_CONFIG.attack.comboTechniqueMhVerbatimNameRollPercent,
     comboTechniqueAllowAnyUserInput:
       typeof attackConfig.comboTechniqueAllowAnyUserInput === 'boolean'
         ? attackConfig.comboTechniqueAllowAnyUserInput
@@ -1572,6 +1585,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       const max = 40
       return s.length > max ? s.slice(0, max) : s
     })(),
+    comboTechniqueMhVerbatimNameRollPercent: isInRange(Number(sa.comboTechniqueMhVerbatimNameRollPercent), 0, 100)
+      ? Math.round(
+        Number(sa.comboTechniqueMhVerbatimNameRollPercent) ||
+            DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueMhVerbatimNameRollPercent
+      )
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueMhVerbatimNameRollPercent,
     comboTechniqueAllowAnyUserInput:
       typeof sa.comboTechniqueAllowAnyUserInput === 'boolean'
         ? sa.comboTechniqueAllowAnyUserInput
@@ -1728,6 +1747,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       const max = 40
       return s.length > max ? s.slice(0, max) : s
     })(),
+    comboTechniqueMhVerbatimNameRollPercent: isInRange(Number(vva.comboTechniqueMhVerbatimNameRollPercent), 0, 100)
+      ? Math.round(
+        Number(vva.comboTechniqueMhVerbatimNameRollPercent) ||
+            DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueMhVerbatimNameRollPercent
+      )
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueMhVerbatimNameRollPercent,
     comboTechniqueAllowAnyUserInput:
       typeof vva.comboTechniqueAllowAnyUserInput === 'boolean'
         ? vva.comboTechniqueAllowAnyUserInput

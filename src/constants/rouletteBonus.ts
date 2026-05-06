@@ -1,6 +1,9 @@
 /** 通常攻撃後のルーレット追加攻撃（合わせ技とは別ロジック・技名リストのみ共有） */
 
+import { MONSTER_HUNTER_VERBATIM_TECHNIQUE_NAMES } from './comboTechniqueNames'
 import { HP_GAUGE_TOP_BAND_GAP_PX } from './hpGaugeOverlay'
+
+const MH_VERBATIM_NAME_SET = new Set<string>(MONSTER_HUNTER_VERBATIM_TECHNIQUE_NAMES)
 
 /** 通常攻撃ヒット後にルーレット演出を出す確率 */
 export const ROULETTE_BONUS_TRIGGER_PROBABILITY = 0.4
@@ -38,13 +41,26 @@ export const ROULETTE_BONUS_GAP_ABOVE_GAUGE_PX = HP_GAUGE_TOP_BAND_GAP_PX
 /**
  * ルーレット成功時の「止まるマス」と表示・追加攻撃の技名を一致させるため、
  * インデックスから技名を取る（indexOf に頼らない）。
+ * @param mhVerbatimRollPercent 合わせ技と同設定想定。0〜100。`names` 内で歴代MH実在技名に該当するマスのみから止まり先を選ぶ抽選を、この確率（%）で挟む。
  */
 export function pickRouletteStripSkill(
-  names: readonly string[]
+  names: readonly string[],
+  mhVerbatimRollPercent = 0
 ): { landedName: string; landIndex: number } {
   const n = names.length
   if (n < 1) {
     return { landedName: '', landIndex: 0 }
+  }
+  const p = Math.max(0, Math.min(100, mhVerbatimRollPercent))
+  if (p > 0) {
+    const mhIdx: number[] = []
+    for (let i = 0; i < n; i += 1) {
+      if (MH_VERBATIM_NAME_SET.has(names[i]!)) mhIdx.push(i)
+    }
+    if (mhIdx.length > 0 && Math.random() * 100 < p) {
+      const landIndex = mhIdx[Math.floor(Math.random() * mhIdx.length)]!
+      return { landedName: names[landIndex] ?? names[0]!, landIndex }
+    }
   }
   const landIndex = Math.floor(Math.random() * n)
   return { landedName: names[landIndex] ?? names[0]!, landIndex }

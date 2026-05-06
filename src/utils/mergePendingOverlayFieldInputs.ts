@@ -477,6 +477,14 @@ export function mergePendingFieldInputs(base: OverlayConfig, pending: Record<str
       draft.attack.comboTechniqueDurationSec = clamped
     }
   }
+  if (p['attack.comboTechniqueMhVerbatimNameRollPercent'] !== undefined) {
+    const v = p['attack.comboTechniqueMhVerbatimNameRollPercent'].trim()
+    const num =
+      v === '' || Number.isNaN(parseFloat(v))
+        ? draft.attack.comboTechniqueMhVerbatimNameRollPercent
+        : parseFloat(v)
+    if (!Number.isNaN(num)) draft.attack.comboTechniqueMhVerbatimNameRollPercent = clampPct(num)
+  }
   if (p['attack.comboTechniqueResultFontScalePercent'] !== undefined) {
     const v = p['attack.comboTechniqueResultFontScalePercent'].trim()
     if (v === '' || Number.isNaN(parseInt(v, 10))) draft.attack.comboTechniqueResultFontScalePercent = 100
