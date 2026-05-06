@@ -337,6 +337,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueChallengeOffsetXPx: 0,
       comboTechniqueChallengeOffsetYPx: 0,
       comboTechniqueChallengeTextAlign: 'center',
+      comboTechniqueChallengeWidthPx: 0,
+      comboTechniqueChallengeHeightPx: 0,
       testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
@@ -467,6 +469,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueChallengeOffsetXPx: 0,
       comboTechniqueChallengeOffsetYPx: 0,
       comboTechniqueChallengeTextAlign: 'center',
+      comboTechniqueChallengeWidthPx: 0,
+      comboTechniqueChallengeHeightPx: 0,
       testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
@@ -1590,6 +1594,36 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
             DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeLongTextScalePercent
       )
       : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeLongTextScalePercent,
+    comboTechniqueChallengeGapAboveGaugePx: isInRange(Number(sa.comboTechniqueChallengeGapAboveGaugePx), 0, 300)
+      ? Math.round(
+        Number(sa.comboTechniqueChallengeGapAboveGaugePx) ||
+            DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeGapAboveGaugePx
+      )
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeGapAboveGaugePx,
+    comboTechniqueChallengeOffsetXPx: isInRange(Number(sa.comboTechniqueChallengeOffsetXPx), -1000, 1000)
+      ? Math.round(Number(sa.comboTechniqueChallengeOffsetXPx) || 0)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeOffsetXPx,
+    comboTechniqueChallengeOffsetYPx: isInRange(Number(sa.comboTechniqueChallengeOffsetYPx), -1000, 1000)
+      ? Math.round(Number(sa.comboTechniqueChallengeOffsetYPx) || 0)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeOffsetYPx,
+    comboTechniqueChallengeTextAlign:
+      sa.comboTechniqueChallengeTextAlign === 'left' ||
+      sa.comboTechniqueChallengeTextAlign === 'right' ||
+      sa.comboTechniqueChallengeTextAlign === 'center'
+        ? (sa.comboTechniqueChallengeTextAlign as 'left' | 'center' | 'right')
+        : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeTextAlign,
+    comboTechniqueChallengeWidthPx: isInRange(Number(sa.comboTechniqueChallengeWidthPx), 0, 4000)
+      ? Math.round(
+        Number(sa.comboTechniqueChallengeWidthPx) ||
+            DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeWidthPx
+      )
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeWidthPx,
+    comboTechniqueChallengeHeightPx: isInRange(Number(sa.comboTechniqueChallengeHeightPx), 0, 800)
+      ? Math.round(
+        Number(sa.comboTechniqueChallengeHeightPx) ||
+            DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeHeightPx
+      )
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeHeightPx,
     testPanelSimulation: sanitizeTestPanelSimulation(sa.testPanelSimulation, undefined),
     survivalHp1Enabled: typeof sa.survivalHp1Enabled === 'boolean' ? sa.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(sa.survivalHp1Probability), 0, 100) ? Number(sa.survivalHp1Probability) || 30 : 30,
@@ -1716,6 +1750,36 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
             DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeLongTextScalePercent
       )
       : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeLongTextScalePercent,
+    comboTechniqueChallengeGapAboveGaugePx: isInRange(Number(vva.comboTechniqueChallengeGapAboveGaugePx), 0, 300)
+      ? Math.round(
+        Number(vva.comboTechniqueChallengeGapAboveGaugePx) ||
+            DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeGapAboveGaugePx
+      )
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeGapAboveGaugePx,
+    comboTechniqueChallengeOffsetXPx: isInRange(Number(vva.comboTechniqueChallengeOffsetXPx), -1000, 1000)
+      ? Math.round(Number(vva.comboTechniqueChallengeOffsetXPx) || 0)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeOffsetXPx,
+    comboTechniqueChallengeOffsetYPx: isInRange(Number(vva.comboTechniqueChallengeOffsetYPx), -1000, 1000)
+      ? Math.round(Number(vva.comboTechniqueChallengeOffsetYPx) || 0)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeOffsetYPx,
+    comboTechniqueChallengeTextAlign:
+      vva.comboTechniqueChallengeTextAlign === 'left' ||
+      vva.comboTechniqueChallengeTextAlign === 'right' ||
+      vva.comboTechniqueChallengeTextAlign === 'center'
+        ? (vva.comboTechniqueChallengeTextAlign as 'left' | 'center' | 'right')
+        : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeTextAlign,
+    comboTechniqueChallengeWidthPx: isInRange(Number(vva.comboTechniqueChallengeWidthPx), 0, 4000)
+      ? Math.round(
+        Number(vva.comboTechniqueChallengeWidthPx) ||
+            DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeWidthPx
+      )
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeWidthPx,
+    comboTechniqueChallengeHeightPx: isInRange(Number(vva.comboTechniqueChallengeHeightPx), 0, 800)
+      ? Math.round(
+        Number(vva.comboTechniqueChallengeHeightPx) ||
+            DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeHeightPx
+      )
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeHeightPx,
     testPanelSimulation: sanitizeTestPanelSimulation(vva.testPanelSimulation, undefined),
     survivalHp1Enabled: typeof vva.survivalHp1Enabled === 'boolean' ? vva.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(vva.survivalHp1Probability), 0, 100) ? Number(vva.survivalHp1Probability) || 30 : 30,
