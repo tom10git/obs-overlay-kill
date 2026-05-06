@@ -69,7 +69,50 @@ function buildTechniqueNames(
   return out.slice(0, targetCount)
 }
 
-export const SLASH_TECHNIQUE_NAMES = buildTechniqueNames(
+function mergeTechniqueNames(
+  fixedFirst: readonly string[],
+  generated: readonly string[],
+  targetCount: number
+): readonly string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const n of fixedFirst) {
+    if (seen.has(n)) continue
+    out.push(n)
+    seen.add(n)
+    if (out.length >= targetCount) return out.slice(0, targetCount)
+  }
+  for (const n of generated) {
+    if (seen.has(n)) continue
+    out.push(n)
+    seen.add(n)
+    if (out.length >= targetCount) return out.slice(0, targetCount)
+  }
+  return out.slice(0, targetCount)
+}
+
+// 歴代モンハンで実在した “漢字多め” の技名を、確実にプールへ混ぜる（固定枠）。
+const MH_SLASH_SPECIAL_NAMES = [
+  '真・溜め斬り',
+  '強溜め斬り',
+  '兜割り',
+  '居合抜刀気刃斬り',
+  '桜花鉄蟲気刃斬り',
+  '飛翔竜剣',
+  '超高出力属性解放斬り',
+  '高出力属性解放斬り',
+  '零距離属性解放突き',
+  '竜杭砲',
+  '竜撃砲',
+  '流転突き',
+  '金剛連斧',
+  '鉄蟲糸技',
+  '降竜',
+  '飛円斬り',
+  '剛刃研磨',
+] as const
+
+const generatedSlashNames = buildTechniqueNames(
   [
     '紅刃',
     '蒼刃',
@@ -83,6 +126,14 @@ export const SLASH_TECHNIQUE_NAMES = buildTechniqueNames(
     '風刃',
     'ブレイド',
     'シャドウ',
+    // モンスターハンター系（大技っぽさ）
+    '真・溜め',
+    '兜',
+    '零距離',
+    '属性解放',
+    '超高出力',
+    '気刃',
+    '龍撃',
     // 追加 head（漢字密度を下げて、見た目の圧を軽くする）
     'クリムゾン',
     'アズール',
@@ -108,6 +159,11 @@ export const SLASH_TECHNIQUE_NAMES = buildTechniqueNames(
     'ラッシュ',
     'ブレイク',
     'クロス',
+    // モンスターハンター系（語尾）
+    '斬り',
+    '割り',
+    '解放突き',
+    '属性解放斬り',
     // 追加 tail（漢字寄りになりすぎないよう、音感/英語風を混ぜる）
     'スラッシュ',
     'ストライク',
@@ -119,6 +175,8 @@ export const SLASH_TECHNIQUE_NAMES = buildTechniqueNames(
   ],
   334
 )
+
+export const SLASH_TECHNIQUE_NAMES = mergeTechniqueNames(MH_SLASH_SPECIAL_NAMES, generatedSlashNames, 334)
 
 const generatedMagicNames = buildTechniqueNames(
   [
@@ -178,7 +236,19 @@ const generatedMagicNames = buildTechniqueNames(
 // 専用デバフ連携に使う名称は維持する。
 export const MAGIC_TECHNIQUE_NAMES = ['カワイソウニ', ...generatedMagicNames.slice(1, 333)] as const
 
-export const SHOOTING_TECHNIQUE_NAMES = buildTechniqueNames(
+const MH_SHOOTING_SPECIAL_NAMES = [
+  '竜の一矢',
+  '竜の千々矢',
+  '剛射',
+  '剛連射',
+  '曲射',
+  '徹甲榴弾',
+  '斬裂弾',
+  '竜撃弾',
+  '竜熱機関竜弾',
+] as const
+
+const generatedShootingNames = buildTechniqueNames(
   [
     '流星',
     '閃光',
@@ -192,6 +262,11 @@ export const SHOOTING_TECHNIQUE_NAMES = buildTechniqueNames(
     '銀河',
     'バレット',
     'キャノン',
+    // モンスターハンター系（遠距離の大技っぽさ）
+    '竜の一',
+    '竜熱',
+    '竜撃',
+    '龍炎',
     // 追加 head（ミリタリー/サイバー寄りを増やす）
     'ストライカー',
     'レイザー',
@@ -221,6 +296,10 @@ export const SHOOTING_TECHNIQUE_NAMES = buildTechniqueNames(
     'ショット',
     'バースト',
     'スナイプ',
+    // モンスターハンター系（語尾）
+    '矢',
+    '徹甲',
+    '竜撃弾',
     // 追加 tail（カタカナ寄りで弾丸/爆発感を維持）
     'ラピッド',
     'フルオート',
@@ -232,6 +311,8 @@ export const SHOOTING_TECHNIQUE_NAMES = buildTechniqueNames(
   ],
   333
 )
+
+export const SHOOTING_TECHNIQUE_NAMES = mergeTechniqueNames(MH_SHOOTING_SPECIAL_NAMES, generatedShootingNames, 333)
 
 /** 全1000件・タイプ順で連結（ルーレット／合わせ技で同一プール） */
 export const COMBO_TECHNIQUE_NAMES = [

@@ -1,26 +1,16 @@
 import { TwitchUserInfo } from './TwitchUserInfo'
-import { TwitchChannelPoints } from './TwitchChannelPoints'
-import { useTwitchUser } from '../hooks/useTwitchUser'
+import { TwitchStreamStatus } from './TwitchStreamStatus'
+import './HomeUserResults.css'
 
 interface UserDetailsProps {
   login: string
 }
 
 export function UserDetails({ login }: UserDetailsProps) {
-  const { user, loading } = useTwitchUser(login)
-
-  if (loading || !user) {
-    return (
-      <div className="results-section">
-        <TwitchUserInfo login={login} />
-      </div>
-    )
-  }
-
   return (
-    <div className="results-section">
+    <div className="results-section results-section--compact">
       <TwitchUserInfo login={login} />
-      <TwitchChannelPoints broadcasterId={user.id} />
+      <TwitchStreamStatus userLogin={login} />
     </div>
   )
 }

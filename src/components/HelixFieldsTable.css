@@ -1,0 +1,184 @@
+.helix-fields-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #333333;
+}
+
+.helix-fields-title {
+  font-size: 1rem;
+  margin: 0 0 0.5rem 0;
+  color: #adadb8;
+  font-weight: 600;
+}
+
+.helix-fields-hint {
+  font-size: 0.8rem;
+  color: #888888;
+  margin: 0 0 1rem 0;
+  line-height: 1.4;
+}
+
+.helix-fields-empty-msg {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #888888;
+}
+
+.helix-fields-list {
+  margin: 0;
+}
+
+.helix-field-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 14rem) 1fr;
+  gap: 0.5rem 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.helix-field-row:last-child {
+  border-bottom: none;
+}
+
+.helix-field-row dt {
+  color: #a970ff;
+  font-size: 0.82rem;
+  font-family: ui-monospace, monospace;
+  margin: 0;
+  word-break: break-all;
+}
+
+.helix-field-row dd {
+  margin: 0;
+  word-break: break-word;
+  font-size: 0.88rem;
+  color: #eeeeee;
+}
+
+.helix-json {
+  font-size: 0.75rem;
+  overflow-x: auto;
+  background-color: #0d0d0d;
+  padding: 0.5rem;
+  border-radius: 4px;
+  margin: 0;
+  max-width: 100%;
+}
+
+.helix-thumb {
+  display: block;
+  max-width: 240px;
+  margin-top: 0.4rem;
+  border-radius: 4px;
+  border: 1px solid #333333;
+}
+
+.helix-iso {
+  color: #888888;
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.helix-empty {
+  color: #666666;
+}
+
+.helix-url-block a {
+  color: #bf94ff;
+}
+
+.helix-url-block a:hover {
+  text-decoration: underline;
+}
+
+.helix-str {
+  white-space: pre-wrap;
+}
+
+/* 折りたたみ（ホーム） */
+.helix-details {
+  margin-top: 0.5rem;
+  border: 1px solid #2f2f2f;
+  border-radius: 6px;
+  background-color: #121212;
+  overflow: hidden;
+}
+
+.helix-details-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #c4c4cf;
+  background-color: #181818;
+  user-select: none;
+}
+
+.helix-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.helix-details-summary::marker {
+  display: none;
+}
+
+.helix-details-summary-title {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.helix-details-count {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #888888;
+  font-family: ui-monospace, monospace;
+}
+
+.helix-details[open] > .helix-details-summary {
+  border-bottom: 1px solid #2f2f2f;
+}
+
+.helix-details-body {
+  padding: 0.35rem 0.5rem 0.55rem;
+}
+
+.helix-fields-hint--in-details {
+  margin: 0 0 0.4rem 0;
+  font-size: 0.72rem;
+}
+
+.helix-fields-list--compact .helix-field-row {
+  padding: 0.28rem 0;
+  gap: 0.35rem 0.65rem;
+  grid-template-columns: minmax(5.5rem, 10rem) 1fr;
+}
+
+.helix-fields-list--compact .helix-field-row dt {
+  font-size: 0.72rem;
+}
+
+.helix-fields-list--compact .helix-field-row dd {
+  font-size: 0.78rem;
+}
+
+.helix-json--compact {
+  font-size: 0.68rem;
+  padding: 0.35rem;
+}
+
+.helix-thumb--compact {
+  max-width: 120px;
+  margin-top: 0.25rem;
+}
+
+.helix-details--compact .helix-details-summary {
+  padding: 0.38rem 0.55rem;
+  font-size: 0.76rem;
+}

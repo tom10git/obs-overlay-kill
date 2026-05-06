@@ -125,7 +125,6 @@ const DEFAULT_CONFIG: OverlayConfig = {
     messageWhenZeroHp: '配信者を {attacker} が倒しました！',
   },
   attack: {
-    rewardId: '',
     customText: '',
     enabled: true,
     damageType: 'fixed',
@@ -194,7 +193,6 @@ const DEFAULT_CONFIG: OverlayConfig = {
     survivalHp1Message: '食いしばり!',
   },
   heal: {
-    rewardId: '',
     customText: '',
     enabled: true,
     effectEnabled: true,
@@ -264,7 +262,6 @@ const DEFAULT_CONFIG: OverlayConfig = {
   pvp: {
     enabled: false,
     streamerAttack: {
-      rewardId: '',
       customText: '',
       enabled: true,
       damageType: 'fixed',
@@ -389,7 +386,6 @@ const DEFAULT_CONFIG: OverlayConfig = {
     finishingMoveSoundUrl: '',
     finishingMoveSoundVolume: 0.7,
     viewerVsViewerAttack: {
-      rewardId: '',
       customText: '',
       enabled: true,
       damageType: 'fixed',
@@ -820,7 +816,6 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   const legacyTestForPanelSim = (c.test as Record<string, unknown> | undefined) || {}
   const attackDamageType: 'fixed' | 'random' = attackConfig.damageType === 'random' ? 'random' : 'fixed'
   const attack = {
-    rewardId: typeof attackConfig.rewardId === 'string' ? attackConfig.rewardId : '',
     customText: typeof attackConfig.customText === 'string' ? attackConfig.customText : '',
     enabled: typeof attackConfig.enabled === 'boolean' ? attackConfig.enabled : true,
     damageType: attackDamageType,
@@ -997,7 +992,6 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   // 回復設定の検証
   const healConfig = (c.heal as Record<string, unknown> | undefined) || {}
   const heal = {
-    rewardId: typeof healConfig.rewardId === 'string' ? healConfig.rewardId : '',
     customText: typeof healConfig.customText === 'string' ? healConfig.customText : '',
     enabled: typeof healConfig.enabled === 'boolean' ? healConfig.enabled : true,
     effectEnabled: typeof healConfig.effectEnabled === 'boolean' ? healConfig.effectEnabled : true,
@@ -1408,7 +1402,6 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   const sa = (pvpConfig.streamerAttack as Record<string, unknown> | undefined) || {}
   const streamerDamageType: 'fixed' | 'random' = sa.damageType === 'random' ? 'random' : 'fixed'
   const streamerAttack = {
-    rewardId: typeof sa.rewardId === 'string' ? sa.rewardId : '',
     customText: typeof sa.customText === 'string' ? sa.customText : '',
     enabled: typeof sa.enabled === 'boolean' ? sa.enabled : true,
     damageType: streamerDamageType,
@@ -1523,7 +1516,6 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
   const vva = (pvpConfig.viewerVsViewerAttack as Record<string, unknown> | undefined) || {}
   const viewerDamageType: 'fixed' | 'random' = vva.damageType === 'random' ? 'random' : 'fixed'
   const viewerVsViewerAttack = {
-    rewardId: typeof vva.rewardId === 'string' ? vva.rewardId : '',
     customText: typeof vva.customText === 'string' ? vva.customText : '',
     enabled: typeof vva.enabled === 'boolean' ? vva.enabled : true,
     damageType: viewerDamageType,

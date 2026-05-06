@@ -162,8 +162,6 @@ export const OverlaySettings = forwardRef<
   const [autoReplySubTab, setAutoReplySubTab] = useState<"streamer" | "viewer">(
     "streamer",
   );
-  const [showAttackRewardId, setShowAttackRewardId] = useState(false);
-  const [showHealRewardId, setShowHealRewardId] = useState(false);
   const [obsListLoading, setObsListLoading] = useState(false);
   const [obsListError, setObsListError] = useState<string | null>(null);
   const [obsListData, setObsListData] =
@@ -1047,71 +1045,14 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.attack ? "▼" : "▶"}
               </span>
-              攻撃・ダメージ・リワード
+              攻撃・ダメージ
             </h3>
             {expandedSections.attack && (
               <div className="settings-section-content">
                 <p className="settings-section-intro">
-                  チャンネルポイント<strong>攻撃リワード</strong>のID・ダメージ・ミス／クリティカル・出血・DOT、および<strong>オーバーレイからの攻撃</strong>用のオーバーキル／合わせ技チャンス／追加ルーレット抽選です（視聴者リワードの合わせ技入力ルールもここに含みます）。ゲージの位置やルーレットの文字サイズは<strong>「配信者HP・ゲージのレイアウト」</strong>です。
+                  チャットのカスタムテキスト・PvPの視聴者攻撃コマンドなどで配信者HPにダメージを与える設定です（ミス／クリティカル・出血・DOT、オーバーレイからの攻撃用のオーバーキル／合わせ技／ルーレットもここ）。ゲージの位置やルーレットの文字サイズは<strong>「配信者HP・ゲージのレイアウト」</strong>です。
                 </p>
                 <div className="settings-row">
-                  <label>
-                    リワードID:
-                    <div className="password-input-wrapper">
-                      <input
-                        type={showAttackRewardId ? "text" : "password"}
-                        value={config.attack.rewardId}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            attack: {
-                              ...config.attack,
-                              rewardId: e.target.value,
-                            },
-                          })
-                        }
-                        placeholder="チャンネルポイントリワードID"
-                      />
-                      <button
-                        type="button"
-                        className="password-toggle"
-                        onClick={() =>
-                          setShowAttackRewardId(!showAttackRewardId)
-                        }
-                        title={showAttackRewardId ? "非表示" : "表示"}
-                      >
-                        {showAttackRewardId ? (
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                          </svg>
-                        ) : (
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                            <line x1="1" y1="1" x2="23" y2="23"></line>
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                  </label>
                   <label>
                     <input
                       type="checkbox"
@@ -1158,10 +1099,10 @@ export const OverlaySettings = forwardRef<
                       Tokenでも使用できるように、チャットメッセージで判定するテキストを設定できます
                     </li>
                     <li>
-                      リワードIDとカスタムテキストのどちらかが一致すれば攻撃として判定されます
+                      カスタムテキストがチャットに含まれると攻撃として判定されます（下記の有効チェックがONのとき）
                     </li>
                     <li>
-                      カスタムテキストが空欄の場合は、リワードIDのみで判定します
+                      カスタムテキストが空欄のときは、チャット経由のこの攻撃トリガーは使われません（PvPの !attack などは別経路です）
                     </li>
                   </ul>
                 </div>
@@ -2441,7 +2382,7 @@ export const OverlaySettings = forwardRef<
                   )}
                 <h4 className="settings-subsection-title">合わせ技（入力ルール・視聴者リワードと共通）</h4>
                 <p className="settings-hint">
-                  ヒット後の入力チャレンジの<strong>制限時間</strong>と、目標文字列の<strong>先頭接頭辞</strong>です。チャンネルポイントの攻撃でも同じルールが使われます。チャレンジのON/OFFはオーバーレイ右下のコントロールからも切り替えられます。
+                  ヒット後の入力チャレンジの<strong>制限時間</strong>と、目標文字列の<strong>先頭接頭辞</strong>です。チャット等からの攻撃でも同じルールが使われます。チャレンジのON/OFFはオーバーレイ右下のコントロールからも切り替えられます。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -2659,7 +2600,7 @@ export const OverlaySettings = forwardRef<
                 </div>
                 <h4 className="settings-subsection-title">オーバーキル（配信者HP0・オーバーレイ経路）</h4>
                 <p className="settings-hint">
-                  配信者HPが0のとき、<strong>チャンネルポイントを経由しないオーバーレイからの攻撃</strong>を受けた場合の演出です。視聴者リワードの攻撃には影響しません。
+                  配信者HPが0のとき、<strong>オーバーレイからの攻撃</strong>を受けた場合の演出です。チャットやPvPコマンド経由の攻撃には影響しません。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -3017,66 +2958,14 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.heal ? "▼" : "▶"}
               </span>
-              回復（チャンネルポイント）
+              回復
             </h3>
             {expandedSections.heal && (
               <div className="settings-section-content">
                 <p className="settings-section-intro">
-                  回復用<strong>チャンネルポイントリワード</strong>と回復量・ランダム幅、回復時の演出・フィルターです。攻撃とは別のリワードIDになります。
+                  チャットのカスタムテキストで配信者HPを回復するための回復量・ランダム幅、演出・フィルターです。
                 </p>
                 <div className="settings-row">
-                  <label>
-                    リワードID:
-                    <div className="password-input-wrapper">
-                      <input
-                        type={showHealRewardId ? "text" : "password"}
-                        value={config.heal.rewardId}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            heal: { ...config.heal, rewardId: e.target.value },
-                          })
-                        }
-                        placeholder="チャンネルポイントリワードID"
-                      />
-                      <button
-                        type="button"
-                        className="password-toggle"
-                        onClick={() => setShowHealRewardId(!showHealRewardId)}
-                        title={showHealRewardId ? "非表示" : "表示"}
-                      >
-                        {showHealRewardId ? (
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                            <circle cx="12" cy="12" r="3"></circle>
-                          </svg>
-                        ) : (
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                            <line x1="1" y1="1" x2="23" y2="23"></line>
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                  </label>
                   <label>
                     <input
                       type="checkbox"
@@ -3117,11 +3006,9 @@ export const OverlaySettings = forwardRef<
                       Tokenでも使用できるように、チャットメッセージで判定するテキストを設定できます
                     </li>
                     <li>
-                      リワードIDとカスタムテキストのどちらかが一致すれば回復として判定されます
+                      カスタムテキストがチャットに含まれると回復として判定されます（有効がONのとき）
                     </li>
-                    <li>
-                      カスタムテキストが空欄の場合は、リワードIDのみで判定します
-                    </li>
+                    <li>カスタムテキストが空欄のときは、チャット経由のこの回復トリガーは使われません</li>
                   </ul>
                 </div>
                 <div className="settings-row">
@@ -5310,7 +5197,7 @@ export const OverlaySettings = forwardRef<
                     </p>
                     <ul>
                       <li>
-                        テストモードでは、実際のTwitchチャンネルポイントAPIを使用せずに動作を確認できます
+                        テストモードでは、チャットやAPIを使わずオーバーレイ上で動作を確認できます
                       </li>
                       <li>
                         アフィリエイト未参加の配信者でも、このモードでテストできます

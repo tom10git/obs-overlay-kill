@@ -10,7 +10,7 @@ function TwitchOAuthSection() {
   return (
     <div className="twitch-oauth-section" style={{ marginBottom: '20px' }}>
       <p style={{ margin: '0 0 10px', fontSize: '14px', color: '#ccc' }}>
-        チャンネルポイント・PvPチャット送信には Twitch の OAuth トークンが必要です。
+        PvPチャット送信などには Twitch の OAuth トークンが必要です。
       </p>
       <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#888' }}>
         <code>.env</code> にトークンジェネレーター用の認証情報（<code>VITE_TWITCH_TOKEN_APP_*</code> または <code>VITE_TWITCH_CLIENT_ID</code> / <code>VITE_TWITCH_CLIENT_SECRET</code>）を設定し、

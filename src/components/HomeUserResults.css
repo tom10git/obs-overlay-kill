@@ -1,0 +1,130 @@
+/* ホーム「Twitchユーザー検索」結果エリア — コンパクト表示 */
+
+.results-section.results-section--compact {
+  margin-top: 1.25rem;
+}
+
+.results-section--compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.results-section--compact .twitch-user-info,
+.results-section--compact .twitch-stream-status {
+  margin: 0;
+}
+
+.results-section--compact .twitch-user-info {
+  padding: 0.75rem 1rem;
+}
+
+.results-section--compact .twitch-stream-status {
+  padding: 0.75rem 1rem;
+}
+
+.results-section--compact .user-header {
+  gap: 0.65rem;
+  margin-bottom: 0.45rem;
+  align-items: flex-start;
+}
+
+.results-section--compact .profile-image {
+  width: 48px;
+  height: 48px;
+}
+
+.results-section--compact .user-details h2 {
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.results-section--compact .user-login {
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+}
+
+.results-section--compact .user-description {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  margin-top: 0.25rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.results-section--compact .user-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 0.85rem;
+  margin-top: 0.5rem;
+  padding-top: 0.55rem;
+}
+
+.results-section--compact .stat {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.results-section--compact .stat-label {
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.results-section--compact .stat-value {
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.results-section--compact .status-indicator {
+  margin-bottom: 0.45rem;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+}
+
+.results-section--compact .twitch-stream-status.offline p:first-of-type {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.88rem;
+}
+
+.results-section--compact .stream-offline-api-note {
+  margin: 0.35rem 0 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.results-section--compact .twitch-stream-status.online .stream-info h3 {
+  font-size: 1rem;
+  margin-bottom: 0.45rem;
+}
+
+.results-section--compact .stream-details {
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+}
+
+.results-section--compact .detail-label {
+  min-width: 4.5rem;
+  font-size: 0.78rem;
+}
+
+.results-section--compact .detail-value {
+  font-size: 0.85rem;
+}
+
+.results-section--compact .stream-thumbnail {
+  margin-top: 0.45rem;
+}
+
+.results-section--compact .stream-thumbnail img {
+  max-width: 200px;
+}
+
+@media (min-width: 520px) {
+  .results-section--compact .user-stats {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

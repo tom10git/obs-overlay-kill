@@ -23,14 +23,3 @@ export const twitchEmotesQueryKey = (broadcasterId: string) => ['twitchEmotes', 
 
 export const twitchChatBadgesQueryKey = (broadcasterId: string) =>
   ['twitchChatBadges', broadcasterId] as const
-
-export const twitchChannelPointRewardsQueryKey = (broadcasterId: string, onlyManageable: boolean) =>
-  ['twitchChannelPointRewards', broadcasterId, onlyManageable] as const
-
-export const twitchChannelPointRedemptionsQueryKey = (
-  broadcasterId: string,
-  rewardId: string,
-  status: 'UNFULFILLED' | 'FULFILLED' | 'CANCELED' | undefined,
-  limit: number,
-  sort: 'OLDEST' | 'NEWEST'
-) => ['twitchChannelPointRedemptions', broadcasterId, rewardId, status ?? 'all', limit, sort] as const

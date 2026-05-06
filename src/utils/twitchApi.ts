@@ -15,8 +15,6 @@ import type {
   TwitchFollowerResponse,
   TwitchChatBadge,
   TwitchApiPaginatedResponse,
-  TwitchChannelPointReward,
-  TwitchChannelPointRedemption,
 } from '../types/twitch'
 
 class TwitchApiClient {
@@ -121,7 +119,7 @@ class TwitchApiClient {
 
   /**
    * APIリクエスト用のヘッダーを取得（トークンジェネレーター用アプリの Client Credentials）
-   * チャンネルポイント・OAuth・EventSub・チャット送信で使用
+   * OAuth ユーザートークン・チャット送信等で使用
    */
   private async getHeaders(): Promise<Record<string, string>> {
     const token = await this.getAppAccessToken()
@@ -564,9 +562,7 @@ class TwitchApiClient {
   }
 
   /**
-   * OAuth認証（ユーザートークン）用ヘッダー取得
-   * チャンネルポイント情報の取得には必ずトークン用アプリ（VITE_TWITCH_TOKEN_APP_CLIENT_ID）を使用すること。
-   * コンソール用アプリは使用しない。
+   * OAuth認証（ユーザートークン）用ヘッダー取得（チャット送信など）
    */
   private async getOAuthHeaders(): Promise<Record<string, string>> {
     try {
@@ -598,20 +594,11 @@ class TwitchApiClient {
               '修正方法: VITE_TWITCH_CLIENT_ID と同じTwitchアプリを使用して、新しいユーザートークン/リフレッシュトークンを生成してください。'
             )
           }
-          const hasRequiredScope = validation.scopes?.includes('channel:read:redemptions')
-          if (!hasRequiredScope) {
-            logger.warn(
-              '⚠️ 警告: OAuthトークンに必要なスコープがありません: channel:read:redemptions\n' +
-              `現在のスコープ: ${validation.scopes?.join(', ') || 'なし'}\n` +
-              '必要なスコープを含む新しいトークンを取得してください。'
-            )
-          } else {
-            logger.debug('✅ Twitch API: OAuthトークンの検証成功', {
-              ユーザーID: validation.userId,
-              スコープ: validation.scopes,
-              クライアントID: validation.clientId,
-            })
-          }
+          logger.debug('✅ Twitch API: OAuthトークンの検証成功', {
+            ユーザーID: validation.userId,
+            スコープ: validation.scopes,
+            クライアントID: validation.clientId,
+          })
         }
       }
 
@@ -620,14 +607,10 @@ class TwitchApiClient {
         Authorization: `Bearer ${userToken}`,
       }
     } catch {
-      // ユーザートークンが取得できない場合は、App Access Tokenを試す
-      // （ただし、チャンネルポイント関連のAPIでは動作しない可能性が高い）
       logger.error(
         '❌ Twitch API: ユーザーアクセストークンの取得に失敗しました\n' +
-        'チャンネルポイントの引き換え履歴を取得するには、OAuth認証（ユーザートークン）が必要です。\n' +
-        'App Access Tokenでは使用できません。\n' +
-        'VITE_TWITCH_ACCESS_TOKEN または VITE_TWITCH_REFRESH_TOKEN に適切な値を設定してください。\n' +
-        'ユーザートークンの取得方法: https://dev.twitch.tv/docs/authentication/getting-tokens-oauth#oauth-authorization-code-flow'
+        'チャット送信などには VITE_TWITCH_ACCESS_TOKEN またはリフレッシュ可能なトークンが必要です。\n' +
+        'https://dev.twitch.tv/docs/authentication/getting-tokens-oauth#oauth-authorization-code-flow'
       )
       return await this.getHeaders()
     }
@@ -941,311 +924,6 @@ class TwitchApiClient {
     }
   }
 
-  /**
-   * チャンネルポイントリワード一覧を取得
-   * OAuth認証（ユーザートークン）必須。Client-ID は VITE_TWITCH_TOKEN_APP_CLIENT_ID（トークン用アプリ）を使用。コンソール用アプリは使用しない。
-   */
-  async getChannelPointRewards(
-    broadcasterId: string,
-    onlyManageableRewards: boolean = false
-  ): Promise<TwitchChannelPointReward[]> {
-    let retryCount = 0
-    const maxRetries = 1
-
-    while (retryCount <= maxRetries) {
-      try {
-        const headers = await this.getOAuthHeaders()
-        const response = await this.client.get<TwitchApiResponse<TwitchChannelPointReward>>(
-          '/channel_points/custom_rewards',
-          {
-            headers,
-            params: {
-              broadcaster_id: broadcasterId,
-              only_manageable_rewards: onlyManageableRewards,
-            },
-          }
-        )
-
-        return response.data.data
-      } catch (error) {
-        if (axios.isAxiosError(error)) {
-          const status = error.response?.status
-          const errorData = error.response?.data
-          const userToken = getTwitchAccessToken()
-          const refreshToken = getTwitchRefreshToken()
-
-          if (status === 401 && retryCount < maxRetries) {
-            // 401エラーの場合、トークンを再検証してリフレッシュを試みる
-            logger.warn(
-              `⚠️ Received 401 error, attempting to refresh token (attempt ${retryCount + 1}/${maxRetries + 1})...`
-            )
-
-            // キャッシュをクリアして再取得を試みる
-            this.userAccessToken = null
-            this.userTokenExpiresAt = 0
-
-            // リフレッシュトークンが設定されている場合は、再リフレッシュを試みる
-            if (refreshToken) {
-              try {
-                await this.refreshUserAccessToken()
-                retryCount++
-                continue // リトライ
-              } catch (refreshError) {
-                logger.error('❌ Twitch API: トークンのリフレッシュに失敗しました', refreshError)
-              }
-            }
-
-            retryCount++
-            continue
-          }
-
-          if (status === 401) {
-            logger.error(
-              '❌ Twitch API: チャンネルポイントリワード情報の取得に失敗しました - 認証失敗 (401)\n' +
-              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-              'チャンネルポイントリワードを取得するには、OAuth認証（ユーザートークン）が必要です。\n' +
-              'App Access Tokenでは使用できません。\n\n' +
-              '現在の設定状態:\n' +
-              `  - VITE_TWITCH_ACCESS_TOKEN: ${userToken ? '設定済み (' + userToken.substring(0, 10) + '...)' : '未設定'}\n` +
-              `  - VITE_TWITCH_REFRESH_TOKEN: ${refreshToken ? '設定済み' : '未設定'}\n` +
-              `  - Client ID: ${getTwitchClientId() ? '設定済み' : '未設定'}\n\n` +
-              '対処方法:\n' +
-              '1. VITE_TWITCH_ACCESS_TOKEN に有効なユーザートークンを設定してください\n' +
-              '2. VITE_TWITCH_REFRESH_TOKEN が設定されている場合は、有効なリフレッシュトークンであることを確認してください\n' +
-              '3. トークンに channel:read:redemptions スコープが含まれていることを確認してください\n' +
-              '4. トークンが期限切れの場合は、新しいトークンを取得してください\n\n' +
-              'ユーザートークンの取得方法:\n' +
-              'https://dev.twitch.tv/docs/authentication/getting-tokens-oauth#oauth-authorization-code-flow\n' +
-              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-            )
-          } else {
-            logger.error(
-              `❌ Twitch API: チャンネルポイントリワード情報の取得に失敗しました - HTTP ${status}\n`,
-              errorData || error.message
-            )
-          }
-        } else {
-          logger.error('❌ Twitch API: チャンネルポイントリワード情報の取得に失敗しました', error)
-        }
-        throw error
-      }
-    }
-
-    // すべてのリトライが失敗した場合（到達不可能なコード）
-    throw new Error('Failed to get channel point rewards after all retries')
-  }
-
-  /**
-   * チャンネルポイントリワードの引き換え履歴を取得
-   * OAuth認証（ユーザートークン）必須。Client-ID は VITE_TWITCH_TOKEN_APP_CLIENT_ID（トークン用アプリ）を使用。コンソール用アプリは使用しない。
-   *
-   * 公式API仕様: https://dev.twitch.tv/docs/api/reference#get-custom-reward-redemption
-   *
-   * @param broadcasterId - ブロードキャスターのID（OAuthトークンのユーザーIDと一致する必要がある）
-   * @param rewardId - カスタムリワードのID
-   * @param status - リデンプションのステータス（idパラメータが指定されていない場合は必須）
-   * @param limit - 1ページあたりの最大アイテム数（1-50、デフォルト20）
-   * @param cursor - ページネーション用カーソル
-   * @param sort - ソート順（OLDEST, NEWEST） - デフォルトはNEWEST（最新の引き換えを先に取得）
-   * @param redemptionIds - 特定のリデンプションIDでフィルタ（最大50個） - この場合、statusは不要
-   */
-  async getChannelPointRedemptions(
-    broadcasterId: string,
-    rewardId: string,
-    status?: 'UNFULFILLED' | 'FULFILLED' | 'CANCELED',
-    limit: number = 20,
-    cursor?: string,
-    sort: 'OLDEST' | 'NEWEST' = 'NEWEST',
-    redemptionIds?: string[]
-  ): Promise<TwitchApiPaginatedResponse<TwitchChannelPointRedemption>> {
-    let retryCount = 0
-    const maxRetries = 1
-
-    while (retryCount <= maxRetries) {
-      try {
-        const headers = await this.getOAuthHeaders()
-        const params: Record<string, string | number | boolean | string[]> = {
-          broadcaster_id: broadcasterId,
-          reward_id: rewardId,
-          first: limit,
-        }
-
-        // 公式API仕様に基づくパラメータ設定
-        // idパラメータが指定されている場合はstatusは不要、指定されていない場合はstatusが必須
-        if (redemptionIds && redemptionIds.length > 0) {
-          // 特定のリデンプションIDでフィルタする場合
-          if (redemptionIds.length > 50) {
-            throw new Error('Maximum 50 redemption IDs allowed')
-          }
-          // 複数のidパラメータを設定（axiosが自動的に配列を処理）
-          params.id = redemptionIds
-        } else {
-          // idパラメータが指定されていない場合はstatusが必須
-          if (!status) {
-            throw new Error(
-              'status parameter is required when id parameter is not specified. ' +
-              'Please specify status: UNFULFILLED, FULFILLED, or CANCELED'
-            )
-          }
-          params.status = status
-        }
-
-        // ソート順を設定（デフォルトはNEWESTで最新の引き換えを先に取得）
-        params.sort = sort
-
-        if (cursor) {
-          params.after = cursor
-        }
-
-        if (import.meta.env.DEV) {
-          logger.debug('📊 Twitch API: チャンネルポイント引き換え履歴を取得中', {
-            配信者ID: broadcasterId,
-            リワードID: rewardId,
-            ステータス: status || '未指定（IDフィルター使用）',
-            取得件数: limit,
-            ソート: sort,
-            指定ID数: redemptionIds?.length || 0,
-            カーソル: cursor || 'なし',
-          })
-        }
-
-        const response = await this.client.get<TwitchApiPaginatedResponse<TwitchChannelPointRedemption>>(
-          '/channel_points/custom_rewards/redemptions',
-          {
-            headers,
-            params,
-          }
-        )
-
-        if (import.meta.env.DEV) {
-          logger.debug('✅ Twitch API: チャンネルポイント引き換え履歴を取得完了', {
-            取得件数: response.data.data.length,
-            追加データあり: !!response.data.pagination?.cursor,
-            ソート: sort,
-            ステータス: status || 'IDフィルター',
-          })
-        }
-
-        return response.data
-      } catch (error) {
-        if (axios.isAxiosError(error)) {
-          const status = error.response?.status
-          const errorData = error.response?.data
-          const userToken = getTwitchAccessToken()
-          const refreshToken = getTwitchRefreshToken()
-
-          if (status === 401 && retryCount < maxRetries) {
-            // 401エラーの場合、トークンを再検証してリフレッシュを試みる
-            logger.warn(
-              `⚠️ Received 401 error, attempting to refresh token (attempt ${retryCount + 1}/${maxRetries + 1})...`
-            )
-
-            // キャッシュをクリアして再取得を試みる
-            this.userAccessToken = null
-            this.userTokenExpiresAt = 0
-
-            // リフレッシュトークンが設定されている場合は、再リフレッシュを試みる
-            if (refreshToken) {
-              try {
-                await this.refreshUserAccessToken()
-                retryCount++
-                continue // リトライ
-              } catch (refreshError) {
-                logger.error('❌ Twitch API: トークンのリフレッシュに失敗しました', refreshError)
-              }
-            }
-
-            retryCount++
-            continue
-          }
-
-          if (status === 401) {
-            logger.error(
-              '❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました - 認証失敗 (401)\n' +
-              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-              'チャンネルポイントの引き換え履歴を取得するには、OAuth認証（ユーザートークン）が必要です。\n' +
-              'App Access Tokenでは使用できません。\n\n' +
-              '現在の設定状態:\n' +
-              `  - VITE_TWITCH_ACCESS_TOKEN: ${userToken ? '設定済み (' + userToken.substring(0, 10) + '...)' : '未設定'}\n` +
-              `  - VITE_TWITCH_REFRESH_TOKEN: ${refreshToken ? '設定済み' : '未設定'}\n` +
-              `  - Client ID: ${getTwitchClientId() ? '設定済み' : '未設定'}\n\n` +
-              '対処方法:\n' +
-              '1. VITE_TWITCH_ACCESS_TOKEN に有効なユーザートークンを設定してください\n' +
-              '2. VITE_TWITCH_REFRESH_TOKEN が設定されている場合は、有効なリフレッシュトークンであることを確認してください\n' +
-              '3. トークンに "oauth:" プレフィックスが含まれている場合は削除してください\n' +
-              '4. トークンが有効で、channel:read:redemptions スコープが含まれていることを確認してください\n' +
-              '5. トークンが期限切れの場合は、新しいトークンを取得してください\n\n' +
-              'ユーザートークンの取得方法:\n' +
-              'https://dev.twitch.tv/docs/authentication/getting-tokens-oauth#oauth-authorization-code-flow\n' +
-              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-            )
-
-            // トークンに "oauth:" プレフィックスが含まれている場合の警告
-            if (userToken && /^oauth:/i.test(userToken)) {
-              logger.warn(
-                '⚠️ 警告: VITE_TWITCH_ACCESS_TOKEN に "oauth:" プレフィックスが含まれています。\n' +
-                'Twitch APIでは "oauth:" プレフィックスは不要です。.env ファイルから削除してください。\n' +
-                '例: oauth:xxxxx → xxxxx'
-              )
-            }
-          } else if (status === 400) {
-            // 公式API仕様に基づく400エラーの詳細メッセージ
-            const errorMessage = errorData?.message || 'Bad Request'
-            logger.error(
-              '❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました - 不正なリクエスト (400)\n' +
-              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-              `エラー: ${errorMessage}\n\n` +
-              '考えられる原因:\n' +
-              '1. broadcaster_id パラメータが必須です\n' +
-              '2. reward_id パラメータが必須です\n' +
-              '3. status パラメータが必須です（idパラメータが指定されていない場合）\n' +
-              '4. status パラメータの値が無効です（UNFULFILLED, FULFILLED, CANCELED のいずれかである必要があります）\n' +
-              '5. sort パラメータの値が無効です（OLDEST, NEWEST のいずれかである必要があります）\n' +
-              '6. first パラメータの値が範囲外です（1-50の範囲である必要があります）\n' +
-              '7. id パラメータが50個を超えています（最大50個まで）\n\n' +
-              '公式API仕様: https://dev.twitch.tv/docs/api/reference#get-custom-reward-redemption\n' +
-              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-            )
-          } else if (status === 403) {
-            logger.error(
-              '❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました - アクセス拒否 (403)\n' +
-              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-              'このリワードへのアクセス権限がありません。\n\n' +
-              '考えられる原因:\n' +
-              '1. リワードIDが正しいか確認してください\n' +
-              '2. OAuth認証のスコープに channel:read:redemptions が含まれているか確認してください\n' +
-              '3. このリワードを作成したアプリ（Client ID）と一致しているか確認してください\n' +
-              '4. ブロードキャスターがパートナーまたはアフィリエイトである必要があります\n\n' +
-              '公式API仕様: https://dev.twitch.tv/docs/api/reference#get-custom-reward-redemption\n' +
-              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-            )
-          } else if (status === 404) {
-            logger.error(
-              '❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました - 見つかりません (404)\n' +
-              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-              '指定されたリデンプションが見つかりませんでした。\n\n' +
-              '考えられる原因:\n' +
-              '1. idパラメータで指定されたリデンプションIDが存在しない\n' +
-              '2. リデンプションが削除された、または期限切れになった\n\n' +
-              '公式API仕様: https://dev.twitch.tv/docs/api/reference#get-custom-reward-redemption\n' +
-              '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-            )
-          } else {
-            logger.error(
-              `❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました - HTTP ${status}\n`,
-              errorData || error.message
-            )
-          }
-        } else {
-          logger.error('❌ Twitch API: チャンネルポイント引き換え履歴の取得に失敗しました', error)
-        }
-        throw error
-      }
-    }
-
-    // すべてのリトライが失敗した場合（到達不可能なコード）
-    throw new Error('Failed to get channel point redemptions after all retries')
-  }
 
   /**
    * チャットにメッセージを送信（配信者アカウントで送信）

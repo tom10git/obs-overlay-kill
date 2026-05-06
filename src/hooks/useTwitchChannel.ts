@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { twitchApi } from '../utils/twitchApi'
-import type { TwitchChannelInformation } from '../types/twitch'
+import type { TwitchChannel } from '../types/twitch'
 import { twitchChannelQueryKey } from '../lib/queryKeys'
 
 interface UseTwitchChannelResult {
-  channel: TwitchChannelInformation | null
+  channel: TwitchChannel | null
   loading: boolean
   error: Error | null
   refetch: () => Promise<void>
@@ -16,7 +16,7 @@ interface UseTwitchChannelResult {
 export function useTwitchChannel(userId: string): UseTwitchChannelResult {
   const q = useQuery({
     queryKey: twitchChannelQueryKey(userId),
-    queryFn: () => twitchApi.getChannelByUserId(userId),
+    queryFn: () => twitchApi.getChannel(userId),
     enabled: !!userId,
   })
 

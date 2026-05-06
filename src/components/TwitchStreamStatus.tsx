@@ -27,6 +27,9 @@ export function TwitchStreamStatus({ userLogin }: TwitchStreamStatusProps) {
       <div className="twitch-stream-status offline">
         <div className="status-indicator offline">オフライン</div>
         <p>現在配信していません</p>
+        <p className="stream-offline-api-note">
+          オフのときは GET /helix/streams の data は空です。
+        </p>
       </div>
     )
   }

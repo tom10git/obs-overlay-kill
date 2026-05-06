@@ -58,8 +58,8 @@ export interface AttackBleedVariant {
 }
 
 /**
- * チャンネルポイントを経由しないオーバーレイ上の攻撃シミュレーション向けの設定。
- * 視聴者リワードによる攻撃の確率や挙動には影響しない。
+ * オーバーレイ上の攻撃シミュレーション（テストパネル）向けの設定。
+ * チャットやPvPコマンド経由の攻撃の確率や挙動には影響しない。
  */
 export interface TestPanelAttackSimulationConfig {
   /** 配信者HPが0のとき、オーバーレイからの攻撃を受けた場合にオーバーキル演出を出す */
@@ -77,7 +77,6 @@ export interface TestPanelAttackSimulationConfig {
 }
 
 export interface AttackConfig {
-  rewardId: string
   customText: string // チャットメッセージで判定するカスタムテキスト（App Access Token用）
   enabled: boolean
   /** ダメージタイプ: 固定 or ランダム（回復量の healType と同様） */
@@ -183,7 +182,6 @@ export interface AttackConfig {
 }
 
 export interface HealConfig {
-  rewardId: string
   customText: string // チャットメッセージで判定するカスタムテキスト（App Access Token用）
   enabled: boolean
   effectEnabled: boolean // 回復エフェクト（パーティクル）の表示/非表示
@@ -198,7 +196,7 @@ export interface HealConfig {
   soundVolume: number // 回復効果音の音量（0-1）
   filterEffectEnabled: boolean // 回復時のフィルターエフェクトの有効/無効
   healWhenZeroEnabled: boolean // HPが0のときも通常回復を許可する
-  /** 回復コマンド（チャンネルポイント）使用時にチャットへ自動返信する */
+  /** 回復カスタムテキスト一致時にチャットへ自動返信する */
   autoReplyEnabled: boolean
   /** 回復時自動返信メッセージ。{hp} {max} で置換（攻撃時と同様） */
   autoReplyMessageTemplate: string
@@ -563,6 +561,7 @@ export interface OverlayConfig {
   background: OverlayBackgroundConfig
 }
 
+/** チャット・テストパネル等から攻撃／回復ハンドラへ渡すイベント形（内部ルーティング用の rewardId を含む） */
 export interface ChannelPointEvent {
   id: string
   rewardId: string

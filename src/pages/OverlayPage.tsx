@@ -7,8 +7,6 @@ import { useEffect, useCallback, useRef, useState, useMemo } from 'react'
 import { useHPGauge } from '../hooks/useHPGauge'
 import { useSicknessDebuff } from '../hooks/useSicknessDebuff'
 import { useViewerHP } from '../hooks/useViewerHP'
-import { useChannelPointEvents } from '../hooks/useChannelPointEvents'
-import { useEventSubRedemptions } from '../hooks/useEventSubRedemptions'
 import { useTestEvents } from '../hooks/useTestEvents'
 import { useTwitchChat } from '../hooks/useTwitchChat'
 import { useAutoReply } from '../hooks/useAutoReply'
@@ -1917,13 +1915,13 @@ export function OverlayPage() {
       event: ChannelPointEvent | { rewardId: string; userId?: string; userName?: string; noDamage?: boolean }
     ) => {
       if (!config) return
+      if (!config.attack.enabled) return
 
-      const isRewardIdMatch = event.rewardId === config.attack.rewardId && config.attack.rewardId.length > 0
       const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.attack.customText && config.attack.customText.length > 0
       const isViewerAttackCommandMatch = event.rewardId === 'viewer-attack-command'
       const isTestNoDamageMatch = event.rewardId === 'test-no-damage-command'
 
-      if (!isRewardIdMatch && !isCustomTextMatch && !isViewerAttackCommandMatch && !isTestNoDamageMatch) return
+      if (!isCustomTextMatch && !isViewerAttackCommandMatch && !isTestNoDamageMatch) return
 
       if (config.pvp?.enabled && event.userId) {
         lastAttackerRef.current = {
@@ -1941,7 +1939,7 @@ export function OverlayPage() {
         return
       }
 
-      if (isRewardIdMatch || isCustomTextMatch || isViewerAttackCommandMatch || isTestNoDamageMatch) {
+      if (isCustomTextMatch || isViewerAttackCommandMatch || isTestNoDamageMatch) {
         // ミス判定（HP0は上で除外済み。ここでも ref を見て二重にガード）
         let shouldDamage = true
         if (hpCurrentSyncRef.current > 0 && config.attack.missEnabled) {
@@ -2331,21 +2329,20 @@ export function OverlayPage() {
     ]
   )
 
-  // 回復イベントハンドラ（チャンネルポイント・カスタムテキスト用。event に userId/userName があれば {username} に使用）
+  // 回復イベントハンドラ（チャットのカスタムテキスト用。event に userId/userName があれば {username} に使用）
   const handleHealEvent = useCallback(
     (event: { rewardId: string; userId?: string; userName?: string }) => {
       if (!config) return
+      if (!config.heal.enabled) return
 
       // HPが0の場合は回復をブロック
       if (currentHP <= 0) {
         return
       }
 
-      // 条件チェック（リワードIDが一致するか、カスタムテキストで判定された場合）
-      const isRewardIdMatch = event.rewardId === config.heal.rewardId && config.heal.rewardId.length > 0
       const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.heal.customText && config.heal.customText.length > 0
 
-      if (isRewardIdMatch || isCustomTextMatch) {
+      if (isCustomTextMatch) {
         let healAmount = 0
         if (config.heal.healType === 'fixed') {
           healAmount = config.heal.healAmount
@@ -2418,114 +2415,7 @@ export function OverlayPage() {
     }
   }, [config?.attack.comboTechniqueEnabled])
 
-  // EventSubを使用するかどうか（推奨: リアルタイムで効率的）
-  // フォールバックとしてポーリング方式も使用可能
-  const useEventSub = !isTestMode && !!user?.id
-
-  // EventSubを使用してすべての引き換えイベントを監視
-  const { isConnected: eventSubConnected, error: eventSubError } = useEventSubRedemptions({
-    broadcasterId: user?.id || '',
-    enabled: useEventSub,
-    onEvent: (event) => {
-      // PvP時: 視聴者がHP0のときは攻撃/回復をブロックして自動返信
-      if (config?.pvp?.enabled && event.userId && username) {
-        const state = getViewerHPCurrent(event.userId) ?? getViewerHP(event.userId)
-        const current = state?.current ?? viewerMaxHP
-        if (current <= 0) {
-          const isHeal = config?.heal.enabled && event.rewardId === config.heal.rewardId && config.heal.rewardId.length > 0
-          sendPvpBlockedMessage(isHeal ? 'heal' : 'attack', '[PvP] HP0ブロックメッセージ送信失敗')
-          return
-        }
-      }
-      if (config?.attack.enabled && event.rewardId === config.attack.rewardId && config.attack.rewardId.length > 0) {
-        handleAttackEvent(event)
-      } else if (config?.heal.enabled && event.rewardId === config.heal.rewardId && config.heal.rewardId.length > 0) {
-        handleHealEvent(event)
-      }
-    },
-  })
-
-  // フォールバック: EventSubが使用できない場合や接続に失敗した場合はポーリング方式を使用
-  const usePolling = !isTestMode && (!useEventSub || !eventSubConnected)
-
-  // 攻撃イベントを監視（ポーリング方式 - フォールバック）
-  const attackEventsEnabled =
-    usePolling &&
-    (config?.attack.enabled ?? false) &&
-    !!user?.id &&
-    !!config?.attack.rewardId
-
-  const { error: attackError } = useChannelPointEvents({
-    broadcasterId: user?.id || '',
-    rewardId: config?.attack.rewardId || '',
-    enabled: attackEventsEnabled,
-    pollingInterval: 5000,
-    onEvent: (event) => {
-      if (config?.pvp?.enabled && event.userId && username) {
-        const state = getViewerHPCurrent(event.userId) ?? getViewerHP(event.userId)
-        const current = state?.current ?? viewerMaxHP
-        if (current <= 0) {
-          sendPvpBlockedMessage('attack', '[PvP] HP0ブロックメッセージ送信失敗')
-          return
-        }
-      }
-      handleAttackEvent(event)
-    },
-  })
-
-  // 回復イベントを監視（ポーリング方式 - フォールバック）
-  const healEventsEnabled =
-    usePolling &&
-    (config?.heal.enabled ?? false) &&
-    !!user?.id &&
-    !!config?.heal.rewardId
-
-  const { error: healError } = useChannelPointEvents({
-    broadcasterId: user?.id || '',
-    rewardId: config?.heal.rewardId || '',
-    enabled: healEventsEnabled,
-    pollingInterval: 5000,
-    onEvent: (event) => {
-      if (config?.pvp?.enabled && event.userId && username) {
-        const state = getViewerHPCurrent(event.userId) ?? getViewerHP(event.userId)
-        const current = state?.current ?? viewerMaxHP
-        if (current <= 0) {
-          sendPvpBlockedMessage('heal', '[PvP] HP0ブロックメッセージ送信失敗')
-          return
-        }
-      }
-      handleHealEvent(event)
-    },
-  })
-
-  // エラー表示
-  useEffect(() => {
-    if (eventSubError) {
-      logger.error(
-        '❌ EventSub接続エラー\n' +
-        'EventSub WebSocketへの接続に失敗しました。\n' +
-        'ポーリング方式にフォールバックしますが、イベント検出に遅延が発生する可能性があります。\n' +
-        'エラー詳細:', eventSubError
-      )
-    }
-    if (attackError) {
-      logger.error(
-        '❌ 攻撃イベント取得エラー（ポーリング方式）\n' +
-        'チャンネルポイントの攻撃イベントを取得できませんでした。\n' +
-        'エラー詳細:', attackError
-      )
-    }
-    if (healError) {
-      logger.error(
-        '❌ 回復イベント取得エラー（ポーリング方式）\n' +
-        'チャンネルポイントの回復イベントを取得できませんでした。\n' +
-        'エラー詳細:', healError
-      )
-    }
-  }, [eventSubError, attackError, healError])
-
-  // テストモード用の専用ハンドラ（チャンネルポイントイベントとは別処理）
-  // useTestEventsからChannelPointEventを受け取るが、テストモードでは無視して直接処理
+  // テストモード用の専用ハンドラ
   const handleTestAttack = useCallback(() => {
     if (!config || !isTestMode) return
     logger.info('[Test] attack trigger', {
@@ -3100,8 +2990,6 @@ export function OverlayPage() {
   // テストモード用のイベントシミュレーション（専用ハンドラを使用）
   const { triggerAttack, triggerHeal, triggerReset } = useTestEvents({
     enabled: isTestMode,
-    attackRewardId: config?.attack.rewardId || '',
-    healRewardId: config?.heal.rewardId || '',
     onAttackEvent: handleTestAttack,
     onHealEvent: handleTestHeal,
     onReset: handleTestReset,

@@ -1,7 +1,20 @@
 import { useTwitchUser } from '../hooks/useTwitchUser'
 import { useTwitchVideos } from '../hooks/useTwitchVideos'
 import { useTwitchClips } from '../hooks/useTwitchClips'
+import { useTwitchChannel } from '../hooks/useTwitchChannel'
+import { HelixFieldsTable } from './HelixFieldsTable'
+import { formatBroadcasterLanguage } from '../utils/twitchBroadcasterLanguage'
 import './TwitchUserInfo.css'
+
+/** サマリーと重複する・不要なキーは Helix 一覧から除外 */
+const HELIX_USER_OMIT_KEYS = [
+  'broadcaster_type',
+  'description',
+  'id',
+  'login',
+  'type',
+  'view_count',
+] as const
 
 interface TwitchUserInfoProps {
   login: string
@@ -12,6 +25,7 @@ export function TwitchUserInfo({ login }: TwitchUserInfoProps) {
   const { videos, loading: videosLoading } = useTwitchVideos(user?.id || '', 1)
   // クリップ数は最大100件まで取得（総数はAPIで直接取得できないため）
   const { clips, loading: clipsLoading } = useTwitchClips(user?.id || '', 100)
+  const { channel, loading: channelLoading } = useTwitchChannel(user?.id || '')
 
   if (loading) {
     return <div className="twitch-user-info loading">読み込み中...</div>
@@ -85,7 +99,24 @@ export function TwitchUserInfo({ login }: TwitchUserInfoProps) {
             )}
           </span>
         </div>
+        <div className="stat">
+          <span className="stat-label">主要言語:</span>
+          <span
+            className="stat-value"
+            title="GET /helix/channels の broadcaster_language（国コードは含まれません）"
+          >
+            {channelLoading ? '読み込み中...' : formatBroadcasterLanguage(channel?.broadcaster_language)}
+          </span>
+        </div>
       </div>
+
+      <HelixFieldsTable
+        title="GET /helix/users"
+        data={user as unknown as Record<string, unknown>}
+        omitKeys={[...HELIX_USER_OMIT_KEYS]}
+        collapsible
+        compact
+      />
     </div>
   )
 }
