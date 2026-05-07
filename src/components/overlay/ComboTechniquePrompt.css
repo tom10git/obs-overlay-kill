@@ -68,6 +68,15 @@
     0 0 10px rgba(120, 190, 255, 0.35);
 }
 
+/* 旧スタイル（clip文字/透明塗り/ストローク）が後勝ちで混入するケースに備え、詳細度で確実にリセットする */
+.combo-technique-prompt .combo-technique-prompt__chars .combo-technique-prompt__char {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+  -webkit-text-stroke: 0 transparent;
+}
+
 .combo-technique-prompt__char--matched {
   color: #fff6d8;
   text-shadow:
