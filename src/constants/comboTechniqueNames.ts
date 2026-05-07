@@ -1,7 +1,14 @@
 /**
- * 合わせ技・ルーレット共通の技名プール（1000件固定）。
- * 構成: 斬撃 334 / 魔法 333（カワイソウニ含む）/ 射撃 333
+ * 合わせ技・ルーレット共通の技名プール。
+ * ※追加要望に対応して 1000件以上に拡張できるように調整
+ * 構成: 斬撃 / 魔法（カワイソウニ含む）/ 射撃
  */
+
+import {
+  CUSTOM_MAGIC_TECHNIQUE_NAMES,
+  CUSTOM_SHOOTING_TECHNIQUE_NAMES,
+  CUSTOM_SLASH_TECHNIQUE_NAMES,
+} from './customTechniqueNames'
 
 function buildTechniqueNames(
   heads: readonly string[],
@@ -44,7 +51,7 @@ function buildTechniqueNames(
   // Fisher–Yates shuffle
   for (let i = allNames.length - 1; i > 0; i -= 1) {
     const j = Math.floor(rand() * (i + 1))
-    ;[allNames[i]!, allNames[j]!] = [allNames[j]!, allNames[i]!]
+      ;[allNames[i]!, allNames[j]!] = [allNames[j]!, allNames[i]!]
   }
 
   // 体感で「漢字だらけ」に見えやすいので、漢字あり/なしをある程度均す。
@@ -91,6 +98,10 @@ function mergeTechniqueNames(
   return out.slice(0, targetCount)
 }
 
+const SLASH_TECHNIQUE_NAME_COUNT = 500
+const MAGIC_TECHNIQUE_NAME_COUNT = 500
+const SHOOTING_TECHNIQUE_NAME_COUNT = 500
+
 // 歴代モンハンで実在した “漢字多め” の技名を、確実にプールへ混ぜる（固定枠）。
 const MH_SLASH_SPECIAL_NAMES = [
   '真・溜め斬り',
@@ -109,7 +120,6 @@ const MH_SLASH_SPECIAL_NAMES = [
   '鉄蟲糸技',
   '降竜',
   '飛円斬り',
-  '剛刃研磨',
 ] as const
 
 const generatedSlashNames = buildTechniqueNames(
@@ -185,10 +195,14 @@ const generatedSlashNames = buildTechniqueNames(
     'ダブル',
     'トリプル',
   ],
-  334
+  SLASH_TECHNIQUE_NAME_COUNT
 )
 
-export const SLASH_TECHNIQUE_NAMES = mergeTechniqueNames(MH_SLASH_SPECIAL_NAMES, generatedSlashNames, 334)
+export const SLASH_TECHNIQUE_NAMES: readonly string[] = mergeTechniqueNames(
+  [...CUSTOM_SLASH_TECHNIQUE_NAMES, ...MH_SLASH_SPECIAL_NAMES],
+  generatedSlashNames,
+  SLASH_TECHNIQUE_NAME_COUNT
+)
 
 const generatedMagicNames = buildTechniqueNames(
   [
@@ -252,11 +266,15 @@ const generatedMagicNames = buildTechniqueNames(
     'ゲート',
     'ブースト',
   ],
-  333
+  MAGIC_TECHNIQUE_NAME_COUNT
 )
 
 // 専用デバフ連携に使う名称は維持する。
-export const MAGIC_TECHNIQUE_NAMES = ['カワイソウニ', ...generatedMagicNames.slice(1, 333)] as const
+export const MAGIC_TECHNIQUE_NAMES: readonly string[] = [
+  ...CUSTOM_MAGIC_TECHNIQUE_NAMES,
+  'カワイソウニ',
+  ...generatedMagicNames.slice(1, MAGIC_TECHNIQUE_NAME_COUNT),
+]
 
 const MH_SHOOTING_SPECIAL_NAMES = [
   '竜の一矢',
@@ -349,14 +367,18 @@ const generatedShootingNames = buildTechniqueNames(
     'チェイン',
     'スタンピード',
   ],
-  333
+  SHOOTING_TECHNIQUE_NAME_COUNT
 )
 
-export const SHOOTING_TECHNIQUE_NAMES = mergeTechniqueNames(MH_SHOOTING_SPECIAL_NAMES, generatedShootingNames, 333)
+export const SHOOTING_TECHNIQUE_NAMES: readonly string[] = mergeTechniqueNames(
+  [...CUSTOM_SHOOTING_TECHNIQUE_NAMES, ...MH_SHOOTING_SPECIAL_NAMES],
+  generatedShootingNames,
+  SHOOTING_TECHNIQUE_NAME_COUNT
+)
 
-/** 全1000件・タイプ順で連結（ルーレット／合わせ技で同一プール） */
-export const COMBO_TECHNIQUE_NAMES = [
+/** 技名プール・タイプ順で連結（ルーレット／合わせ技で同一プール） */
+export const COMBO_TECHNIQUE_NAMES: readonly string[] = [
   ...SLASH_TECHNIQUE_NAMES,
   ...MAGIC_TECHNIQUE_NAMES,
   ...SHOOTING_TECHNIQUE_NAMES,
-] as const
+]
