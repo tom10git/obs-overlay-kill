@@ -4210,6 +4210,14 @@ export function OverlayPage() {
             longTextThresholdChars={config.attack.comboTechniqueChallengeLongTextThresholdChars}
             longTextScalePercent={config.attack.comboTechniqueChallengeLongTextScalePercent}
             textAlign={config.attack.comboTechniqueChallengeTextAlign}
+            textOffsetXPx={config.attack.comboTechniqueChallengeTextOffsetXPx}
+            textOffsetYPx={config.attack.comboTechniqueChallengeTextOffsetYPx}
+            timerTextColor={config.attack.comboTechniqueChallengeTimerTextColor}
+            charsTextColor={config.attack.comboTechniqueChallengeCharsTextColor}
+            matchedTextColor={config.attack.comboTechniqueChallengeMatchedTextColor}
+            timerGlowShadowColor={config.attack.comboTechniqueChallengeTimerGlowShadowColor}
+            charsGlowShadowColor={config.attack.comboTechniqueChallengeCharsGlowShadowColor}
+            matchedGlowShadowColor={config.attack.comboTechniqueChallengeMatchedGlowShadowColor}
           />
         </HpGaugeTopBand>
       )}

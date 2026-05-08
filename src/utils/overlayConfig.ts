@@ -193,6 +193,14 @@ const DEFAULT_CONFIG: OverlayConfig = {
     comboTechniqueChallengeOffsetXPx: 0,
     comboTechniqueChallengeOffsetYPx: 0,
     comboTechniqueChallengeTextAlign: 'center',
+    comboTechniqueChallengeTextOffsetXPx: 0,
+    comboTechniqueChallengeTextOffsetYPx: 0,
+    comboTechniqueChallengeTimerTextColor: '#f8fcff',
+    comboTechniqueChallengeCharsTextColor: '#e8f4ff',
+    comboTechniqueChallengeMatchedTextColor: '#fff6d8',
+    comboTechniqueChallengeTimerGlowShadowColor: '#78c8ff',
+    comboTechniqueChallengeCharsGlowShadowColor: '#78beff',
+    comboTechniqueChallengeMatchedGlowShadowColor: '#ffd28c',
     comboTechniqueChallengeWidthPx: 0,
     comboTechniqueChallengeHeightPx: 0,
     testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
@@ -339,6 +347,14 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueChallengeOffsetXPx: 0,
       comboTechniqueChallengeOffsetYPx: 0,
       comboTechniqueChallengeTextAlign: 'center',
+      comboTechniqueChallengeTextOffsetXPx: 0,
+      comboTechniqueChallengeTextOffsetYPx: 0,
+      comboTechniqueChallengeTimerTextColor: '#f8fcff',
+      comboTechniqueChallengeCharsTextColor: '#e8f4ff',
+      comboTechniqueChallengeMatchedTextColor: '#fff6d8',
+      comboTechniqueChallengeTimerGlowShadowColor: '#78c8ff',
+      comboTechniqueChallengeCharsGlowShadowColor: '#78beff',
+      comboTechniqueChallengeMatchedGlowShadowColor: '#ffd28c',
       comboTechniqueChallengeWidthPx: 0,
       comboTechniqueChallengeHeightPx: 0,
       testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
@@ -472,6 +488,14 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueChallengeOffsetXPx: 0,
       comboTechniqueChallengeOffsetYPx: 0,
       comboTechniqueChallengeTextAlign: 'center',
+      comboTechniqueChallengeTextOffsetXPx: 0,
+      comboTechniqueChallengeTextOffsetYPx: 0,
+      comboTechniqueChallengeTimerTextColor: '#f8fcff',
+      comboTechniqueChallengeCharsTextColor: '#e8f4ff',
+      comboTechniqueChallengeMatchedTextColor: '#fff6d8',
+      comboTechniqueChallengeTimerGlowShadowColor: '#78c8ff',
+      comboTechniqueChallengeCharsGlowShadowColor: '#78beff',
+      comboTechniqueChallengeMatchedGlowShadowColor: '#ffd28c',
       comboTechniqueChallengeWidthPx: 0,
       comboTechniqueChallengeHeightPx: 0,
       testPanelSimulation: { ...DEFAULT_TEST_PANEL_SIMULATION },
@@ -1050,12 +1074,44 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     comboTechniqueChallengeOffsetYPx: isInRange(Number(attackConfig.comboTechniqueChallengeOffsetYPx), -1000, 1000)
       ? Math.round(Number(attackConfig.comboTechniqueChallengeOffsetYPx) || 0)
       : DEFAULT_CONFIG.attack.comboTechniqueChallengeOffsetYPx,
+    comboTechniqueChallengeTextOffsetXPx: isInRange(
+      Number(attackConfig.comboTechniqueChallengeTextOffsetXPx),
+      -500,
+      500
+    )
+      ? Math.round(Number(attackConfig.comboTechniqueChallengeTextOffsetXPx) || 0)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeTextOffsetXPx,
+    comboTechniqueChallengeTextOffsetYPx: isInRange(
+      Number(attackConfig.comboTechniqueChallengeTextOffsetYPx),
+      -500,
+      500
+    )
+      ? Math.round(Number(attackConfig.comboTechniqueChallengeTextOffsetYPx) || 0)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeTextOffsetYPx,
     comboTechniqueChallengeTextAlign:
       attackConfig.comboTechniqueChallengeTextAlign === 'left' ||
       attackConfig.comboTechniqueChallengeTextAlign === 'right' ||
       attackConfig.comboTechniqueChallengeTextAlign === 'center'
         ? (attackConfig.comboTechniqueChallengeTextAlign as 'left' | 'center' | 'right')
         : DEFAULT_CONFIG.attack.comboTechniqueChallengeTextAlign,
+    comboTechniqueChallengeTimerTextColor: isValidColor(attackConfig.comboTechniqueChallengeTimerTextColor)
+      ? (attackConfig.comboTechniqueChallengeTimerTextColor as string)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeTimerTextColor,
+    comboTechniqueChallengeCharsTextColor: isValidColor(attackConfig.comboTechniqueChallengeCharsTextColor)
+      ? (attackConfig.comboTechniqueChallengeCharsTextColor as string)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeCharsTextColor,
+    comboTechniqueChallengeMatchedTextColor: isValidColor(attackConfig.comboTechniqueChallengeMatchedTextColor)
+      ? (attackConfig.comboTechniqueChallengeMatchedTextColor as string)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeMatchedTextColor,
+    comboTechniqueChallengeTimerGlowShadowColor: isValidColor(attackConfig.comboTechniqueChallengeTimerGlowShadowColor)
+      ? (attackConfig.comboTechniqueChallengeTimerGlowShadowColor as string)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeTimerGlowShadowColor,
+    comboTechniqueChallengeCharsGlowShadowColor: isValidColor(attackConfig.comboTechniqueChallengeCharsGlowShadowColor)
+      ? (attackConfig.comboTechniqueChallengeCharsGlowShadowColor as string)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeCharsGlowShadowColor,
+    comboTechniqueChallengeMatchedGlowShadowColor: isValidColor(attackConfig.comboTechniqueChallengeMatchedGlowShadowColor)
+      ? (attackConfig.comboTechniqueChallengeMatchedGlowShadowColor as string)
+      : DEFAULT_CONFIG.attack.comboTechniqueChallengeMatchedGlowShadowColor,
     comboTechniqueChallengeWidthPx: isInRange(Number(attackConfig.comboTechniqueChallengeWidthPx), 0, 4000)
       ? Math.round(
         Number(attackConfig.comboTechniqueChallengeWidthPx) ||
@@ -1625,12 +1681,36 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     comboTechniqueChallengeOffsetYPx: isInRange(Number(sa.comboTechniqueChallengeOffsetYPx), -1000, 1000)
       ? Math.round(Number(sa.comboTechniqueChallengeOffsetYPx) || 0)
       : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeOffsetYPx,
+    comboTechniqueChallengeTextOffsetXPx: isInRange(Number(sa.comboTechniqueChallengeTextOffsetXPx), -500, 500)
+      ? Math.round(Number(sa.comboTechniqueChallengeTextOffsetXPx) || 0)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeTextOffsetXPx,
+    comboTechniqueChallengeTextOffsetYPx: isInRange(Number(sa.comboTechniqueChallengeTextOffsetYPx), -500, 500)
+      ? Math.round(Number(sa.comboTechniqueChallengeTextOffsetYPx) || 0)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeTextOffsetYPx,
     comboTechniqueChallengeTextAlign:
       sa.comboTechniqueChallengeTextAlign === 'left' ||
       sa.comboTechniqueChallengeTextAlign === 'right' ||
       sa.comboTechniqueChallengeTextAlign === 'center'
         ? (sa.comboTechniqueChallengeTextAlign as 'left' | 'center' | 'right')
         : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeTextAlign,
+    comboTechniqueChallengeTimerTextColor: isValidColor(sa.comboTechniqueChallengeTimerTextColor)
+      ? (sa.comboTechniqueChallengeTimerTextColor as string)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeTimerTextColor,
+    comboTechniqueChallengeCharsTextColor: isValidColor(sa.comboTechniqueChallengeCharsTextColor)
+      ? (sa.comboTechniqueChallengeCharsTextColor as string)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeCharsTextColor,
+    comboTechniqueChallengeMatchedTextColor: isValidColor(sa.comboTechniqueChallengeMatchedTextColor)
+      ? (sa.comboTechniqueChallengeMatchedTextColor as string)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeMatchedTextColor,
+    comboTechniqueChallengeTimerGlowShadowColor: isValidColor(sa.comboTechniqueChallengeTimerGlowShadowColor)
+      ? (sa.comboTechniqueChallengeTimerGlowShadowColor as string)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeTimerGlowShadowColor,
+    comboTechniqueChallengeCharsGlowShadowColor: isValidColor(sa.comboTechniqueChallengeCharsGlowShadowColor)
+      ? (sa.comboTechniqueChallengeCharsGlowShadowColor as string)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeCharsGlowShadowColor,
+    comboTechniqueChallengeMatchedGlowShadowColor: isValidColor(sa.comboTechniqueChallengeMatchedGlowShadowColor)
+      ? (sa.comboTechniqueChallengeMatchedGlowShadowColor as string)
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueChallengeMatchedGlowShadowColor,
     comboTechniqueChallengeWidthPx: isInRange(Number(sa.comboTechniqueChallengeWidthPx), 0, 4000)
       ? Math.round(
         Number(sa.comboTechniqueChallengeWidthPx) ||
@@ -1787,12 +1867,36 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     comboTechniqueChallengeOffsetYPx: isInRange(Number(vva.comboTechniqueChallengeOffsetYPx), -1000, 1000)
       ? Math.round(Number(vva.comboTechniqueChallengeOffsetYPx) || 0)
       : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeOffsetYPx,
+    comboTechniqueChallengeTextOffsetXPx: isInRange(Number(vva.comboTechniqueChallengeTextOffsetXPx), -500, 500)
+      ? Math.round(Number(vva.comboTechniqueChallengeTextOffsetXPx) || 0)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeTextOffsetXPx,
+    comboTechniqueChallengeTextOffsetYPx: isInRange(Number(vva.comboTechniqueChallengeTextOffsetYPx), -500, 500)
+      ? Math.round(Number(vva.comboTechniqueChallengeTextOffsetYPx) || 0)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeTextOffsetYPx,
     comboTechniqueChallengeTextAlign:
       vva.comboTechniqueChallengeTextAlign === 'left' ||
       vva.comboTechniqueChallengeTextAlign === 'right' ||
       vva.comboTechniqueChallengeTextAlign === 'center'
         ? (vva.comboTechniqueChallengeTextAlign as 'left' | 'center' | 'right')
         : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeTextAlign,
+    comboTechniqueChallengeTimerTextColor: isValidColor(vva.comboTechniqueChallengeTimerTextColor)
+      ? (vva.comboTechniqueChallengeTimerTextColor as string)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeTimerTextColor,
+    comboTechniqueChallengeCharsTextColor: isValidColor(vva.comboTechniqueChallengeCharsTextColor)
+      ? (vva.comboTechniqueChallengeCharsTextColor as string)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeCharsTextColor,
+    comboTechniqueChallengeMatchedTextColor: isValidColor(vva.comboTechniqueChallengeMatchedTextColor)
+      ? (vva.comboTechniqueChallengeMatchedTextColor as string)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeMatchedTextColor,
+    comboTechniqueChallengeTimerGlowShadowColor: isValidColor(vva.comboTechniqueChallengeTimerGlowShadowColor)
+      ? (vva.comboTechniqueChallengeTimerGlowShadowColor as string)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeTimerGlowShadowColor,
+    comboTechniqueChallengeCharsGlowShadowColor: isValidColor(vva.comboTechniqueChallengeCharsGlowShadowColor)
+      ? (vva.comboTechniqueChallengeCharsGlowShadowColor as string)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeCharsGlowShadowColor,
+    comboTechniqueChallengeMatchedGlowShadowColor: isValidColor(vva.comboTechniqueChallengeMatchedGlowShadowColor)
+      ? (vva.comboTechniqueChallengeMatchedGlowShadowColor as string)
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueChallengeMatchedGlowShadowColor,
     comboTechniqueChallengeWidthPx: isInRange(Number(vva.comboTechniqueChallengeWidthPx), 0, 4000)
       ? Math.round(
         Number(vva.comboTechniqueChallengeWidthPx) ||

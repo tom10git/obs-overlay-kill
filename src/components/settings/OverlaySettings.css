@@ -276,6 +276,14 @@
   margin-bottom: 1rem;
 }
 
+/* 2カラム相当のブロック（中に settings-row を入れる前提） */
+.settings-grid-2col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+
 /* 2項目以上の行は複数カラムで並べる */
 .settings-row:has(label:nth-of-type(2)) {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

@@ -22,6 +22,17 @@ export interface ComboTechniquePromptProps {
   longTextScalePercent?: number
   /** 文字寄せ（レイアウト調整用） */
   textAlign?: 'left' | 'center' | 'right'
+  /** テキスト全体の平行移動（px。band位置は別。テキストだけ微調整したい場合に使う） */
+  textOffsetXPx?: number
+  textOffsetYPx?: number
+  /** 色（#RGB / #RRGGBB） */
+  timerTextColor?: string
+  charsTextColor?: string
+  matchedTextColor?: string
+  /** グロー影色（#RGB / #RRGGBB）。黒い縁取り影は可読性のため固定 */
+  timerGlowShadowColor?: string
+  charsGlowShadowColor?: string
+  matchedGlowShadowColor?: string
 }
 
 function fitComboFontPx(charsEl: HTMLElement, availableWidthPx: number): number {
@@ -58,6 +69,14 @@ export function ComboTechniquePrompt({
   longTextThresholdChars = 18,
   longTextScalePercent = 85,
   textAlign = 'center',
+  textOffsetXPx = 0,
+  textOffsetYPx = 0,
+  timerTextColor,
+  charsTextColor,
+  matchedTextColor,
+  timerGlowShadowColor,
+  charsGlowShadowColor,
+  matchedGlowShadowColor,
 }: ComboTechniquePromptProps) {
   const [remainingSec, setRemainingSec] = useState(() =>
     Math.max(0, Math.ceil((endsAt - Date.now()) / 1000))
@@ -111,6 +130,24 @@ export function ComboTechniquePrompt({
       className="combo-technique-prompt"
       style={{
         ['--combo-challenge-font-scale' as string]: String(challengeScale),
+        ...(timerTextColor ? { ['--combo-challenge-timer-color' as string]: timerTextColor } : {}),
+        ...(charsTextColor ? { ['--combo-challenge-chars-color' as string]: charsTextColor } : {}),
+        ...(matchedTextColor
+          ? { ['--combo-challenge-matched-color' as string]: matchedTextColor }
+          : {}),
+        ...(timerGlowShadowColor
+          ? { ['--combo-challenge-timer-glow' as string]: timerGlowShadowColor }
+          : {}),
+        ...(charsGlowShadowColor
+          ? { ['--combo-challenge-chars-glow' as string]: charsGlowShadowColor }
+          : {}),
+        ...(matchedGlowShadowColor
+          ? { ['--combo-challenge-matched-glow' as string]: matchedGlowShadowColor }
+          : {}),
+        transform:
+          (Number(textOffsetXPx) || 0) !== 0 || (Number(textOffsetYPx) || 0) !== 0
+            ? `translate(${Math.round(Number(textOffsetXPx) || 0)}px, ${Math.round(Number(textOffsetYPx) || 0)}px)`
+            : undefined,
         textAlign,
       }}
       aria-live="polite"

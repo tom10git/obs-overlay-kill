@@ -193,7 +193,25 @@ export interface AttackConfig {
   comboTechniqueChallengeGapAboveGaugePx: number
   comboTechniqueChallengeOffsetXPx: number
   comboTechniqueChallengeOffsetYPx: number
+  /**
+   * 合わせ技チャンス表示の「テキストだけ」微調整（px）。
+   * band（枠）の位置は comboTechniqueChallengeOffsetX/Y、本文だけ動かしたい場合はここを使用。
+   */
+  comboTechniqueChallengeTextOffsetXPx: number
+  comboTechniqueChallengeTextOffsetYPx: number
   comboTechniqueChallengeTextAlign: 'left' | 'center' | 'right'
+  /** 合わせ技チャンス表示の残り秒テキスト色（#RGB / #RRGGBB） */
+  comboTechniqueChallengeTimerTextColor: string
+  /** 合わせ技チャンス表示の入力目標テキスト色（#RGB / #RRGGBB） */
+  comboTechniqueChallengeCharsTextColor: string
+  /** 合わせ技チャンス表示の「入力済み」テキスト色（#RGB / #RRGGBB） */
+  comboTechniqueChallengeMatchedTextColor: string
+  /** 合わせ技チャンス表示の「残り秒」のグロー影色（#RGB / #RRGGBB） */
+  comboTechniqueChallengeTimerGlowShadowColor: string
+  /** 合わせ技チャンス表示の「入力目標」のグロー影色（#RGB / #RRGGBB） */
+  comboTechniqueChallengeCharsGlowShadowColor: string
+  /** 合わせ技チャンス表示の「入力済み」のグロー影色（#RGB / #RRGGBB） */
+  comboTechniqueChallengeMatchedGlowShadowColor: string
   /**
    * 合わせ技チャンス表示の幅（px）。
    * 0 のときはゲージ幅に追従（従来挙動）。

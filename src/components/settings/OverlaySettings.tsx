@@ -2750,6 +2750,294 @@ export const OverlaySettings = forwardRef<
                 </div>
                 <div className="settings-row">
                   <label>
+                    チャンス表示テキストの微調整X（px・-500〜500）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueChallengeTextOffsetXPx"] ??
+                        String(config.attack.comboTechniqueChallengeTextOffsetXPx ?? 0)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueChallengeTextOffsetXPx": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeTextOffsetXPx: 0,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeTextOffsetXPx"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          const clamped = Math.min(500, Math.max(-500, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeTextOffsetXPx: clamped,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeTextOffsetXPx"];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    チャンス表示テキストの微調整Y（px・-500〜500）:
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        inputValues["attack.comboTechniqueChallengeTextOffsetYPx"] ??
+                        String(config.attack.comboTechniqueChallengeTextOffsetYPx ?? 0)
+                      }
+                      onChange={(e) => {
+                        setInputValues((prev) => ({
+                          ...prev,
+                          "attack.comboTechniqueChallengeTextOffsetYPx": e.target.value,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const value = e.target.value.trim();
+                        if (value === "" || isNaN(parseInt(value, 10))) {
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeTextOffsetYPx: 0,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeTextOffsetYPx"];
+                            return next;
+                          });
+                        } else {
+                          const num = parseInt(value, 10);
+                          const clamped = Math.min(500, Math.max(-500, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              comboTechniqueChallengeTextOffsetYPx: clamped,
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.comboTechniqueChallengeTextOffsetYPx"];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row settings-row--color">
+                  <label>
+                    チャンス表示「残り秒」の色:
+                    <input
+                      type="color"
+                      value={config.attack.comboTechniqueChallengeTimerTextColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeTimerTextColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.attack.comboTechniqueChallengeTimerTextColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeTimerTextColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="settings-row settings-row--color">
+                  <label>
+                    チャンス表示「入力目標」の色:
+                    <input
+                      type="color"
+                      value={config.attack.comboTechniqueChallengeCharsTextColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeCharsTextColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.attack.comboTechniqueChallengeCharsTextColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeCharsTextColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="settings-row settings-row--color">
+                  <label>
+                    チャンス表示「入力済み」の色:
+                    <input
+                      type="color"
+                      value={config.attack.comboTechniqueChallengeMatchedTextColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeMatchedTextColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.attack.comboTechniqueChallengeMatchedTextColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeMatchedTextColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="settings-row settings-row--color">
+                  <label>
+                    チャンス表示「残り秒」の影（グロー）色:
+                    <input
+                      type="color"
+                      value={config.attack.comboTechniqueChallengeTimerGlowShadowColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeTimerGlowShadowColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.attack.comboTechniqueChallengeTimerGlowShadowColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeTimerGlowShadowColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="settings-row settings-row--color">
+                  <label>
+                    チャンス表示「入力目標」の影（グロー）色:
+                    <input
+                      type="color"
+                      value={config.attack.comboTechniqueChallengeCharsGlowShadowColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeCharsGlowShadowColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.attack.comboTechniqueChallengeCharsGlowShadowColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeCharsGlowShadowColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="settings-row settings-row--color">
+                  <label>
+                    チャンス表示「入力済み」の影（グロー）色:
+                    <input
+                      type="color"
+                      value={config.attack.comboTechniqueChallengeMatchedGlowShadowColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeMatchedGlowShadowColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                    <input
+                      type="text"
+                      value={config.attack.comboTechniqueChallengeMatchedGlowShadowColor}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueChallengeMatchedGlowShadowColor: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
                     チャンス表示の幅（px・0でゲージ幅）:
                     <input
                       type="text"
@@ -4155,6 +4443,229 @@ export const OverlaySettings = forwardRef<
                     </label>
                   </div>
                 )}
+                <h4 className="settings-subsection-title">色味フィルター（ダメージ／回復）</h4>
+                <p className="settings-hint">
+                  ダメージ時・回復時に画面へ掛けるフィルター（sepia / hue / saturate / brightness / contrast）です。
+                  「攻撃/回復のフィルターON」が有効なときだけ反映されます。
+                </p>
+                <div className="settings-grid-2col">
+                  <div>
+                    <p className="settings-hint"><strong>ダメージ時</strong></p>
+                    <div className="settings-row">
+                      <label>
+                        Sepia（0〜1）: {config.damageEffectFilter.sepia}
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={config.damageEffectFilter.sepia}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              damageEffectFilter: {
+                                ...config.damageEffectFilter,
+                                sepia: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        Hue rotate（-360〜360）: {config.damageEffectFilter.hueRotate}°
+                        <input
+                          type="range"
+                          min={-360}
+                          max={360}
+                          step={1}
+                          value={config.damageEffectFilter.hueRotate}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              damageEffectFilter: {
+                                ...config.damageEffectFilter,
+                                hueRotate: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        Saturate（0〜2）: {config.damageEffectFilter.saturate}
+                        <input
+                          type="range"
+                          min={0}
+                          max={2}
+                          step={0.01}
+                          value={config.damageEffectFilter.saturate}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              damageEffectFilter: {
+                                ...config.damageEffectFilter,
+                                saturate: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        Brightness（0〜2）: {config.damageEffectFilter.brightness}
+                        <input
+                          type="range"
+                          min={0}
+                          max={2}
+                          step={0.01}
+                          value={config.damageEffectFilter.brightness}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              damageEffectFilter: {
+                                ...config.damageEffectFilter,
+                                brightness: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        Contrast（0〜2）: {config.damageEffectFilter.contrast}
+                        <input
+                          type="range"
+                          min={0}
+                          max={2}
+                          step={0.01}
+                          value={config.damageEffectFilter.contrast}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              damageEffectFilter: {
+                                ...config.damageEffectFilter,
+                                contrast: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="settings-hint"><strong>回復時</strong></p>
+                    <div className="settings-row">
+                      <label>
+                        Sepia（0〜1）: {config.healEffectFilter.sepia}
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={config.healEffectFilter.sepia}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              healEffectFilter: {
+                                ...config.healEffectFilter,
+                                sepia: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        Hue rotate（-360〜360）: {config.healEffectFilter.hueRotate}°
+                        <input
+                          type="range"
+                          min={-360}
+                          max={360}
+                          step={1}
+                          value={config.healEffectFilter.hueRotate}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              healEffectFilter: {
+                                ...config.healEffectFilter,
+                                hueRotate: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        Saturate（0〜2）: {config.healEffectFilter.saturate}
+                        <input
+                          type="range"
+                          min={0}
+                          max={2}
+                          step={0.01}
+                          value={config.healEffectFilter.saturate}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              healEffectFilter: {
+                                ...config.healEffectFilter,
+                                saturate: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        Brightness（0〜2）: {config.healEffectFilter.brightness}
+                        <input
+                          type="range"
+                          min={0}
+                          max={2}
+                          step={0.01}
+                          value={config.healEffectFilter.brightness}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              healEffectFilter: {
+                                ...config.healEffectFilter,
+                                brightness: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        Contrast（0〜2）: {config.healEffectFilter.contrast}
+                        <input
+                          type="range"
+                          min={0}
+                          max={2}
+                          step={0.01}
+                          value={config.healEffectFilter.contrast}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              healEffectFilter: {
+                                ...config.healEffectFilter,
+                                contrast: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
                 <h4 className="settings-subsection-title">ゲージ上の数字とラベル</h4>
                 <div className="settings-row">
                   <label>
