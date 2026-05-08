@@ -142,7 +142,7 @@ export function useSicknessDebuff({
         const dt = Math.min(64, Math.max(0, now - regenLastNowRef.current))
         regenLastNowRef.current = now
         regenCarryRef.current += sicknessDebuffTiming.regenHpPerSecond * (dt / 1000)
-        let add = Math.floor(regenCarryRef.current)
+        const add = Math.floor(regenCarryRef.current)
         regenCarryRef.current -= add
         if (add < 1) {
           regenRafRef.current = requestAnimationFrame(tick)

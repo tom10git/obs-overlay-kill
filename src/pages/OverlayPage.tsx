@@ -344,11 +344,24 @@ export function OverlayPage() {
     | { id: number; mode: 'webm'; videoUrl: string }
     | { id: number; mode: 'glassCanvas'; playbackKey: number }
   /**
-   * 攻撃エフェクトを同時に重ねると、WebM デコード負荷や合成負荷で「再生中にフリーズ→再開」が起きやすい。
-   * 連続発火はキューに積んで、1つずつ順番に再生する（途中停止もフリーズも避ける）。
+   * 攻撃エフェクトは「待たされる」方が体感が悪いので、少数だけ同時再生を許可する。
+   * ただし重くなりすぎないよう、同時数を上限で制限し、溢れたら古いものから捨てる。
    */
   const [attackEffectBursts, setAttackEffectBursts] = useState<AttackEffectBurstState[]>([])
-  const activeAttackEffectBurst = attackEffectBursts.length > 0 ? attackEffectBursts[0] : null
+  const MAX_WEBM_BURSTS = 2
+  const MAX_GLASS_CANVAS_BURSTS = 1
+  const visibleAttackEffectBursts = useMemo(() => {
+    const webm: AttackEffectBurstState[] = []
+    const glass: AttackEffectBurstState[] = []
+    for (const b of attackEffectBursts) {
+      if (b.mode === 'webm') webm.push(b)
+      else glass.push(b)
+    }
+    // Prefer newest (avoid "delay" feel). Render order: older first so newest is on top via DOM order.
+    const webmTrimmed = webm.slice(-MAX_WEBM_BURSTS)
+    const glassTrimmed = glass.slice(-MAX_GLASS_CANVAS_BURSTS)
+    return webmTrimmed.concat(glassTrimmed)
+  }, [attackEffectBursts])
   const [techniqueEffectBurst, setTechniqueEffectBurst] = useState<{
     id: number
     name: string
@@ -357,7 +370,25 @@ export function OverlayPage() {
     finale?: boolean
   } | null>(null)
   /** 技名に「斬」を含むときの全画面斬撃フラッシュ（SlashArcCanvas） */
-  const [slashArcFxKey, setSlashArcFxKey] = useState<number | null>(null)
+  const [slashArcFxQueue, setSlashArcFxQueue] = useState<Array<{ id: number; variant: 'default' | 'tsuki' }>>([])
+  const lastSlashArcEnqueueMsRef = useRef<number>(0)
+  const slashArcTimersRef = useRef<Map<number, number>>(new Map())
+  const enqueueSlashArc = useCallback((id: number, variant: 'default' | 'tsuki') => {
+    const now = performance.now()
+    const last = lastSlashArcEnqueueMsRef.current
+    // Throttle: if effects fire too frequently, drop them (prevents continuous heavy playback).
+    if (now - last < 90) return
+    lastSlashArcEnqueueMsRef.current = now
+    setSlashArcFxQueue((prev) => prev.concat({ id, variant }).slice(-2))
+    // Auto-remove by time so it can overlap without waiting.
+    const prevTid = slashArcTimersRef.current.get(id)
+    if (prevTid != null) window.clearTimeout(prevTid)
+    const tid = window.setTimeout(() => {
+      setSlashArcFxQueue((prev) => prev.filter((x) => x.id !== id))
+      slashArcTimersRef.current.delete(id)
+    }, 900)
+    slashArcTimersRef.current.set(id, tid)
+  }, [])
   /**
    * `Date.now()` は同一msに複数発火すると衝突し、key再利用で動画/Canvasが途中停止っぽく見えることがある。
    * エフェクト類の key には単調増加IDを使う。
@@ -1472,7 +1503,7 @@ export function OverlayPage() {
         if (!a.attackEffectEnabled) return
         const vis = a.attackEffectVisual ?? 'webm'
         if (vis === 'slashArc') {
-          setSlashArcFxKey(id)
+          enqueueSlashArc(id, 'default')
           return
         }
         if (vis === 'glassCanvas') {
@@ -1487,7 +1518,7 @@ export function OverlayPage() {
         if (!a.comboTechniqueEffectEnabled) return
         const vis = a.comboTechniqueEffectVisual ?? 'webm'
         if (vis === 'slashArc') {
-          setSlashArcFxKey(id)
+          enqueueSlashArc(id, 'default')
           return
         }
         if (vis === 'glassCanvas') {
@@ -1502,7 +1533,7 @@ export function OverlayPage() {
       if (!a.rouletteEffectEnabled) return
       const visR = a.rouletteEffectVisual ?? 'webm'
       if (visR === 'slashArc') {
-        setSlashArcFxKey(id)
+        enqueueSlashArc(id, 'default')
         return
       }
       if (visR === 'glassCanvas') {
@@ -1529,11 +1560,14 @@ export function OverlayPage() {
           ? { largeBandTypography: true, rouletteBandFontScalePercent: scale }
           : {}),
       })
-      if (!opts?.skipSlashArcCanvas && trimmed.includes('斬')) {
-        setSlashArcFxKey(allocEffectKey())
+      // Slash Arc: not only "斬" but also "刃/断/裂" should qualify (e.g. 月刃).
+      const isSlashName = /斬|刃|断|裂/u.test(trimmed)
+      if (!opts?.skipSlashArcCanvas && isSlashName) {
+        const variant: 'default' | 'tsuki' = /月刃/u.test(trimmed) ? 'tsuki' : 'default'
+        enqueueSlashArc(allocEffectKey(), variant)
       }
     },
-    [allocEffectKey, config?.hp.rouletteBandTechniqueFontScalePercent]
+    [allocEffectKey, config?.hp.rouletteBandTechniqueFontScalePercent, enqueueSlashArc]
   )
 
   useEffect(() => {
@@ -1543,10 +1577,11 @@ export function OverlayPage() {
   }, [techniqueEffectBurst])
 
   useEffect(() => {
-    if (slashArcFxKey == null) return
-    const t = window.setTimeout(() => setSlashArcFxKey(null), 1200)
-    return () => window.clearTimeout(t)
-  }, [slashArcFxKey])
+    return () => {
+      for (const tid of slashArcTimersRef.current.values()) window.clearTimeout(tid)
+      slashArcTimersRef.current.clear()
+    }
+  }, [])
 
   /** 親の再レンダーで参照が変わらないようにする（ルーレットの transition 購読が毎回張り直されない） */
   const applyRouletteBonusDamageRef = useRef(applyRouletteBonusDamage)
@@ -4081,31 +4116,32 @@ export function OverlayPage() {
           />
         </div>
       )}
-      {activeAttackEffectBurst?.mode === 'webm' && (
-        <AttackEffectBurst
-          key={activeAttackEffectBurst.id}
-          videoUrl={activeAttackEffectBurst.videoUrl}
-          onDone={() => setAttackEffectBursts((prev) => prev.slice(1))}
-        />
+      {visibleAttackEffectBursts.map((b) =>
+        b.mode === 'webm' ? (
+          <AttackEffectBurst
+            key={b.id}
+            videoUrl={b.videoUrl}
+            onDone={() => setAttackEffectBursts((prev) => prev.filter((x) => x.id !== b.id))}
+          />
+        ) : (
+          <NormalAttackGlassCanvas
+            key={b.id}
+            canvasWidthPx={typeof window !== 'undefined' ? window.innerWidth : 1920}
+            canvasHeightPx={typeof window !== 'undefined' ? window.innerHeight : 1080}
+            playbackKey={b.playbackKey}
+            onClipEnd={() => setAttackEffectBursts((prev) => prev.filter((x) => x.id !== b.id))}
+          />
+        )
       )}
-      {activeAttackEffectBurst?.mode === 'glassCanvas' && (
-        <NormalAttackGlassCanvas
-          key={activeAttackEffectBurst.id}
-          canvasWidthPx={typeof window !== 'undefined' ? window.innerWidth : 1920}
-          canvasHeightPx={typeof window !== 'undefined' ? window.innerHeight : 1080}
-          playbackKey={activeAttackEffectBurst.playbackKey}
-          onClipEnd={() => setAttackEffectBursts((prev) => prev.slice(1))}
-        />
-      )}
-      {slashArcFxKey != null && (
+      {slashArcFxQueue.map((fx) => (
         <SlashArcCanvas
-          key={slashArcFxKey}
-          playbackKey={slashArcFxKey}
+          key={fx.id}
+          playbackKey={fx.id}
+          variant={fx.variant}
           canvasWidthPx={typeof window !== 'undefined' ? window.innerWidth : 1920}
           canvasHeightPx={typeof window !== 'undefined' ? window.innerHeight : 1080}
-          onClipEnd={() => setSlashArcFxKey(null)}
         />
-      )}
+      ))}
       {techniqueEffectBurst && (
         <HpGaugeTopBand
           gaugeWidthPx={config.hp.width}

@@ -9,6 +9,11 @@ import {
   CUSTOM_SHOOTING_TECHNIQUE_NAMES,
   CUSTOM_SLASH_TECHNIQUE_NAMES,
 } from './customTechniqueNames'
+import {
+  DIFFICULT_KANJI_MAGIC_TECHNIQUE_NAMES,
+  DIFFICULT_KANJI_SHOOTING_TECHNIQUE_NAMES,
+  DIFFICULT_KANJI_SLASH_TECHNIQUE_NAMES,
+} from './difficultKanjiTechniqueNames'
 
 function buildTechniqueNames(
   heads: readonly string[],
@@ -215,7 +220,7 @@ const generatedSlashNames = buildTechniqueNames(
 )
 
 export const SLASH_TECHNIQUE_NAMES: readonly string[] = mergeTechniqueNames(
-  [...CUSTOM_SLASH_TECHNIQUE_NAMES, ...MH_SLASH_SPECIAL_NAMES],
+  [...CUSTOM_SLASH_TECHNIQUE_NAMES, ...DIFFICULT_KANJI_SLASH_TECHNIQUE_NAMES, ...MH_SLASH_SPECIAL_NAMES],
   generatedSlashNames,
   SLASH_TECHNIQUE_NAME_COUNT
 )
@@ -312,6 +317,7 @@ const generatedMagicNames = buildTechniqueNames(
 // 専用デバフ連携に使う名称は維持する。
 export const MAGIC_TECHNIQUE_NAMES: readonly string[] = [
   ...CUSTOM_MAGIC_TECHNIQUE_NAMES,
+  ...DIFFICULT_KANJI_MAGIC_TECHNIQUE_NAMES,
   'カワイソウニ',
   ...generatedMagicNames.slice(1, MAGIC_TECHNIQUE_NAME_COUNT),
 ]
@@ -419,7 +425,7 @@ const generatedShootingNames = buildTechniqueNames(
 )
 
 export const SHOOTING_TECHNIQUE_NAMES: readonly string[] = mergeTechniqueNames(
-  [...CUSTOM_SHOOTING_TECHNIQUE_NAMES, ...MH_SHOOTING_SPECIAL_NAMES],
+  [...CUSTOM_SHOOTING_TECHNIQUE_NAMES, ...DIFFICULT_KANJI_SHOOTING_TECHNIQUE_NAMES, ...MH_SHOOTING_SPECIAL_NAMES],
   generatedShootingNames,
   SHOOTING_TECHNIQUE_NAME_COUNT
 )

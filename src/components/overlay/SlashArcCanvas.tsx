@@ -6,11 +6,20 @@ import { useEffect, useRef, type CSSProperties } from 'react'
 import { cappedCanvasBitmapSize } from '../../utils/canvasInternalSize'
 import './SlashArcCanvas.css'
 
-/** 60→30 で RAF 回数半減（見た目はほぼ同じ尺に近いようフレーム数も調整） */
-const FPS = 30
-const TOTAL_FRAMES = 24
-const FRAME_MS = 1000 / FPS
-const SPARK_COUNT = 10
+/** Heavy situations: keep this effect short & cheap */
+const TOTAL_MS = 560
+const SLASH_MS = 190
+const GAP_MS = 85
+const SPARK_COUNT = 2
+
+function clamp01(x: number) {
+  return Math.max(0, Math.min(1, x))
+}
+
+function easeOutCubic(x: number) {
+  const t = 1 - clamp01(x)
+  return 1 - t * t * t
+}
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0
@@ -26,6 +35,7 @@ export type SlashArcCanvasProps = {
   canvasWidthPx: number
   canvasHeightPx: number
   playbackKey: number
+  variant?: 'default' | 'tsuki'
   onClipEnd?: () => void
 }
 
@@ -33,6 +43,7 @@ export function SlashArcCanvas({
   canvasWidthPx,
   canvasHeightPx,
   playbackKey,
+  variant = 'default',
   onClipEnd,
 }: SlashArcCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -46,7 +57,8 @@ export function SlashArcCanvas({
     if (!canvas) return
 
     const { w, h } = cappedCanvasBitmapSize(canvasWidthPx, canvasHeightPx, {
-      maxLongEdge: 1280,
+      // Keep it lighter than full-screen; this effect is often layered on top of WebM/other canvas.
+      maxLongEdge: 640,
       minEdge: 64,
     })
     canvas.width = w
@@ -69,10 +81,10 @@ export function SlashArcCanvas({
       sparkDist.push(0.22 + rng() * 0.48)
     }
 
-    // スラッシュを「中心で回るだけ」ではなく、画面を横切るように移動させるための正規化量
-    const moveSpan = diag * 0.46
+    // 左右に「斬りつける」イメージへ寄せ、画面の横方向に大きくスイングさせる
+    const moveSpan = diag * 0.62
 
-    const clipMs = TOTAL_FRAMES * FRAME_MS
+    const clipMs = TOTAL_MS
     let completed = false
     let safetyId: ReturnType<typeof window.setTimeout> | undefined
 
@@ -97,47 +109,177 @@ export function SlashArcCanvas({
 
     const drawSlashBand = (
       ctx2: CanvasRenderingContext2D,
-      f: number,
-      phase: number,
+      dir: 1 | -1,
+      u01: number,
       thick: number,
       coreA: number,
       edgeA: number
     ): { sweep: number; ang: number; move: number; len: number; halfT: number } => {
-      const sweep = Math.min(1, Math.max(0, (f - 6 - phase * 2) / 18))
-      const ang = -0.52 + sweep * 0.28
+      // Each slash should "whoosh" past in a short window.
+      const t01 = clamp01(u01)
+      const sweep = easeOutCubic(t01)
+      // Tilt: ~25–30deg (0.44–0.52rad). Small wiggle for life.
+      const baseAng = dir === 1 ? -0.48 : 0.48
+      const ang = baseAng + (sweep - 0.5) * 0.08
       const len = diag * 1.35
-      const halfT = thick * (0.55 + sweep * 0.45)
-      const move = (sweep - 0.5) * moveSpan
+      // Fast pass: thinner at the start, thicker mid, then thin out.
+      const thickPulse = 0.65 + Math.sin(t01 * Math.PI) * 0.55
+      const halfT = thick * 0.5 * thickPulse
+      // Start further off-screen so it feels like a pass-through.
+      const move = (-0.68 + 1.36 * sweep) * moveSpan * 0.5 * dir
 
-      const alphaMul = 0.35 + sweep * 0.65
+      const alphaMul = (0.25 + sweep * 0.75) * (1 - Math.pow(t01, 1.7) * 0.35)
 
       const renderAt = (sweepX: number, angX: number, halfTX: number, moveX: number, aMul: number) => {
-        const g = ctx2.createLinearGradient(-len, 0, len, 0)
-        g.addColorStop(0, `rgba(200, 235, 255, 0)`)
-        g.addColorStop(0.42, `rgba(255, 255, 255, ${edgeA * 0.35 * aMul})`)
-        g.addColorStop(0.5, `rgba(255, 255, 255, ${coreA * aMul})`)
-        g.addColorStop(0.58, `rgba(200, 240, 255, ${edgeA * 0.4 * aMul})`)
-        g.addColorStop(1, `rgba(120, 200, 255, 0)`)
+        // Render only a short blade segment that moves across the screen.
+        const segHalf = diag * 0.28
+        // For tsuki, keep the crescent shape itself stable and move the whole thing.
+        // (If we also slide the arc center far across a huge radius, it looks almost straight.)
+        const headX = variant === 'tsuki' ? 0 : (-0.62 + 1.24 * sweepX) * (len * 0.55)
+        // Cheaper than gradients: draw 3 layered rects (core + edges).
+        const coreAlpha = coreA * aMul
+        const edgeAlpha = edgeA * 0.22 * aMul
 
         ctx2.save()
-        ctx2.translate(cx, cy)
+        // Move first in world space (left-right), then rotate the band.
+        ctx2.translate(cx + moveX, cy)
         ctx2.rotate(angX)
-        ctx2.translate(0, moveX)
-        ctx2.fillStyle = g
-        ctx2.shadowColor = `rgba(180, 230, 255, ${coreA * 0.85 * aMul})`
-        ctx2.shadowBlur = (16 + sweepX * 14) * (0.6 + aMul * 0.5)
-        ctx2.fillRect(-len * 0.5, -halfTX, len, halfTX * 2)
-        ctx2.shadowBlur = 0
+        ctx2.globalCompositeOperation = 'lighter'
+
+        if (variant === 'tsuki') {
+          // Crescent-like curved slash (Moon blade).
+          // Use a true arc so it doesn't read as a long rectangle.
+          const span = segHalf * 1.35
+          // Smaller radius => visibly curved (avoid "long rectangle" impression)
+          const r = span * 0.48
+          const cxp = headX
+          const cyp = 0
+          // Open angle wider to show a clear crescent sweep
+          const a0 = -2.75
+          const a1 = -0.35
+
+          ctx2.save()
+          // Orient the crescent so it reads like a "moon blade" slash.
+          ctx2.translate(cxp, cyp)
+          ctx2.rotate(dir === 1 ? 0.42 : -0.42)
+          // Slight squash makes it feel more like a crescent than a circle.
+          ctx2.scale(1, 0.64)
+          ctx2.translate(-cxp, -cyp)
+
+          ctx2.lineCap = 'round'
+          ctx2.lineJoin = 'round'
+          // Crescent silhouette + tapered ends:
+          // draw segmented arcs where lineWidth tapers near both ends (sin curve).
+          const carveDx = segHalf * 0.28 * (dir === 1 ? 1 : -1)
+          const carveDy = segHalf * -0.12
+          const rIn = r * 0.94
+          const segN = 7
+
+          const taper = (tt: number) => {
+            // 0..1 -> 0..1 with sharp ends
+            const s = Math.sin(Math.PI * clamp01(tt))
+            // Higher exponent => thinner, sharper tips.
+            return Math.max(0, Math.pow(s, 2.6))
+          }
+
+          const drawSegmentedArc = (
+            which: 'outer' | 'inner',
+            cx0: number,
+            cy0: number,
+            rad: number,
+            aa0: number,
+            aa1: number,
+            baseW: number,
+            col: string,
+            comp: GlobalCompositeOperation
+          ) => {
+            ctx2.save()
+            ctx2.globalCompositeOperation = comp
+            ctx2.strokeStyle = col
+            ctx2.lineCap = 'round'
+            ctx2.lineJoin = 'round'
+            for (let i = 0; i < segN; i++) {
+              const t0 = i / segN
+              const t1 = (i + 1) / segN
+              const tm = (t0 + t1) * 0.5
+              const wMul = taper(tm)
+              if (wMul <= 0.001) continue
+              // Inner carve should be slightly fatter so ends get sharper.
+              const w = baseW * (which === 'inner' ? (0.86 + wMul * 0.78) : (0.52 + wMul * 1.05))
+              ctx2.lineWidth = w
+              ctx2.beginPath()
+              ctx2.arc(cx0, cy0, rad, aa0 + (aa1 - aa0) * t0, aa0 + (aa1 - aa0) * t1, false)
+              ctx2.stroke()
+            }
+            ctx2.restore()
+          }
+
+          // Outer glow strokes (2 layers)
+          drawSegmentedArc(
+            'outer',
+            cxp,
+            cyp,
+            r,
+            a0,
+            a1,
+            halfTX * 2.9,
+            `rgba(140,235,255,${edgeAlpha * 0.55})`,
+            'lighter'
+          )
+          drawSegmentedArc(
+            'outer',
+            cxp,
+            cyp,
+            r,
+            a0,
+            a1,
+            halfTX * 2.2,
+            `rgba(220,250,255,${edgeAlpha * 0.62})`,
+            'lighter'
+          )
+
+          // Carve inner arc (destination-out) to form crescent body
+          drawSegmentedArc('inner', cxp + carveDx, cyp + carveDy, rIn, a0 + 0.02, a1 - 0.02, halfTX * 2.3, 'rgba(0,0,0,1)', 'destination-out')
+
+          // Bright core edge
+          drawSegmentedArc(
+            'outer',
+            cxp,
+            cyp,
+            r,
+            a0 + 0.01,
+            a1 - 0.01,
+            halfTX * 1.2,
+            `rgba(255,255,255,${coreAlpha})`,
+            'lighter'
+          )
+
+          ctx2.restore()
+        } else {
+          // soft edge
+          ctx2.fillStyle = `rgba(200,240,255,${edgeAlpha * 0.55})`
+          ctx2.fillRect(headX - segHalf, -halfTX * 1.35, segHalf * 2, halfTX * 2.7)
+          // bright core
+          ctx2.fillStyle = `rgba(255,255,255,${coreAlpha})`
+          ctx2.fillRect(headX - segHalf, -halfTX * 0.45, segHalf * 2, halfTX * 0.9)
+          // thin highlight
+          ctx2.fillStyle = `rgba(255,255,255,${coreAlpha * 0.65})`
+          ctx2.fillRect(headX - segHalf, -1.2, segHalf * 2, 2.4)
+        }
+
         ctx2.restore()
       }
 
-      // ほんの少し「残像」を描いて、移動しているように見せる
-      if (sweep > 0.08) {
-        const sweepBack = Math.max(0, sweep - 0.22)
-        const angBack = -0.52 + sweepBack * 0.28
-        const halfTBack = thick * (0.55 + sweepBack * 0.45)
-        const moveBack = (sweepBack - 0.5) * moveSpan
-        renderAt(sweepBack, angBack, halfTBack, moveBack, 0.22 + sweepBack * 0.28)
+      // afterimages: sell fast movement (cheap, just 2 extra draws)
+      if (t01 > 0.06) {
+        const back1 = clamp01(t01 - 0.12)
+        const s1 = easeOutCubic(back1)
+        renderAt(s1, baseAng + (s1 - 0.5) * 0.08, thick * 0.5 * (0.62 + Math.sin(back1 * Math.PI) * 0.45), (-0.68 + 1.36 * s1) * moveSpan * 0.5 * dir, 0.22)
+      }
+      if (t01 > 0.1) {
+        const back2 = clamp01(t01 - 0.22)
+        const s2 = easeOutCubic(back2)
+        renderAt(s2, baseAng + (s2 - 0.5) * 0.08, thick * 0.5 * (0.6 + Math.sin(back2 * Math.PI) * 0.4), (-0.68 + 1.36 * s2) * moveSpan * 0.5 * dir, 0.12)
       }
 
       renderAt(sweep, ang, halfT, move, alphaMul)
@@ -148,66 +290,58 @@ export function SlashArcCanvas({
 
     const tick = (now: number) => {
       const elapsed = now - startRef.current
-      const f = Math.min(TOTAL_FRAMES - 1, Math.floor(elapsed / FRAME_MS))
+      const t = Math.max(0, elapsed)
 
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, w, h)
       ctx.globalCompositeOperation = 'source-over'
 
-      if (f >= 4 && f < 22) {
-        const fl = (f >= 10 && f <= 14 ? 0.14 : 0.06) * (1 - (f - 4) / 18)
-        ctx.fillStyle = `rgba(255, 252, 245, ${fl})`
-        ctx.fillRect(0, 0, w, h)
-      }
-
       let mainBand: { sweep: number; ang: number; move: number; len: number; halfT: number } | null = null
-
-      if (f >= 6 && f < 28) {
-        mainBand = drawSlashBand(ctx, f, 0, 52, 0.95, 0.55)
-      }
-      if (f >= 10 && f < 34) {
-        drawSlashBand(ctx, f, 1, 28, 0.5, 0.35)
+      // Two slashes with an explicit gap so it doesn't look "always on".
+      const s1 = 70
+      const s2 = s1 + SLASH_MS + GAP_MS
+      if (t >= s1 && t < s1 + SLASH_MS) {
+        mainBand = drawSlashBand(ctx, 1, (t - s1) / SLASH_MS, 56, 0.95, 0.55)
+      } else if (t >= s2 && t < s2 + SLASH_MS) {
+        mainBand = drawSlashBand(ctx, -1, (t - s2) / SLASH_MS, 56, 0.95, 0.55)
       }
 
       // 命中（中心を横切る瞬間）に合わせたフラッシュ
-      if (mainBand && f >= 10 && f < 23) {
-        const centerHit =
-          Math.max(0, 1 - Math.abs(mainBand.move) / (moveSpan * 0.25)) * Math.max(0, 1 - (f - 10) / 12)
-        const rr = diag * 0.11 * (0.75 + mainBand.sweep * 0.6)
-        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rr)
-        g.addColorStop(0, `rgba(255,255,255,${0.48 * centerHit})`)
-        g.addColorStop(0.22, `rgba(230,245,255,${0.22 * centerHit})`)
-        g.addColorStop(0.55, `rgba(120,200,255,${0.08 * centerHit})`)
-        g.addColorStop(1, 'rgba(0,0,0,0)')
-        ctx.fillStyle = g
-        ctx.beginPath()
-        ctx.arc(cx, cy, rr, 0, Math.PI * 2)
-        ctx.fill()
+      if (mainBand) {
+        // Cheap flash: just a faint white wash near the center crossing.
+        const centerHit = Math.max(0, 1 - Math.abs(mainBand.move) / (moveSpan * 0.18))
+        const a = 0.08 * centerHit * (0.35 + mainBand.sweep * 0.65)
+        if (a > 0.002) {
+          ctx.fillStyle = `rgba(255,255,255,${a})`
+          ctx.fillRect(0, 0, w, h)
+        }
       }
 
       // 先端に寄せた火花で「斬ってる」感を作る
-      if (mainBand && f >= 9 && f < 26) {
+      if (mainBand) {
         const { ang, move, len } = mainBand
         const endXLocal = len * 0.45
-        const xEnd = cx + Math.cos(ang) * endXLocal - move * Math.sin(ang)
-        const yEnd = cy + Math.sin(ang) * endXLocal + move * Math.cos(ang)
+        // band is rendered at (cx + move, cy)
+        const xEnd = (cx + move) + Math.cos(ang) * endXLocal
+        const yEnd = cy + Math.sin(ang) * endXLocal
         const axisCos = Math.cos(ang)
         const axisSin = Math.sin(ang)
 
+        // Very few sparks, time-based (no stepping).
         for (let i = 0; i < sparkAngles.length; i++) {
-          const t = f - 9 - (i % 4) * 0.35
-          if (t < 0 || t > 14) continue
-          const u = t / 14
-          const dist = sparkDist[i] * diag * (0.22 + u * 0.62)
+          const u = clamp01(mainBand.sweep)
+          if (u < 0.22 || u > 0.92) continue
+          const dist = sparkDist[i]! * diag * (0.18 + u * 0.58)
           const xLocal = Math.cos(sparkAngles[i]!) * dist
-          const yLocal = Math.sin(sparkAngles[i]!) * dist * 0.55
+          const yLocal = Math.sin(sparkAngles[i]!) * dist * 0.5
           const x = xEnd + xLocal * axisCos - yLocal * axisSin
           const y = yEnd + xLocal * axisSin + yLocal * axisCos
-          const a = (1 - u) * 0.55 * (0.45 + mainBand.sweep * 0.55)
-          const r = 2 + (1 - u) * 7
+          const a = (1 - u) * 0.18
+          if (a < 0.006) continue
+          const r = 1.5 + (1 - u) * 4.5
           ctx.beginPath()
           ctx.arc(x, y, r, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(255, 255, 255, ${a})`
+          ctx.fillStyle = `rgba(255,255,255,${a})`
           ctx.fill()
         }
       }
@@ -227,10 +361,10 @@ export function SlashArcCanvas({
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
-  }, [canvasWidthPx, canvasHeightPx, playbackKey])
+  }, [canvasWidthPx, canvasHeightPx, playbackKey, variant])
 
   const { w, h } = cappedCanvasBitmapSize(canvasWidthPx, canvasHeightPx, {
-    maxLongEdge: 1280,
+    maxLongEdge: 640,
     minEdge: 64,
   })
 

@@ -17,7 +17,10 @@ type SceneItemRef = {
   sceneItemId: number
 }
 
-type Transform = Record<string, unknown>
+type JsonValue = string | number | boolean | null | JsonObject | JsonValue[]
+type JsonObject = { [k: string]: JsonValue }
+
+type Transform = JsonObject
 
 type ConnectedClient = {
   ws: OBSWebSocket
@@ -137,7 +140,10 @@ async function resolveSceneItemId(c: ConnectedClient, sceneName: string, sourceN
   async function findInGroup(groupName: string): Promise<number | null> {
     try {
       // obs-websocket-js の型定義が追従していない場合があるため、必要パラメータはキャストで渡す
-      const resp = await c.ws.call('GetGroupSceneItemList', { sceneName, groupName } as any)
+      const resp = await c.ws.call(
+        'GetGroupSceneItemList',
+        { sceneName, groupName } as unknown as JsonObject
+      )
       const items = (resp as { sceneItems?: unknown }).sceneItems
       if (!Array.isArray(items)) return null
       for (const it of items as SceneItem[]) {
@@ -186,7 +192,7 @@ async function getOriginalTransform(c: ConnectedClient, sceneName: string, scene
   if (cached) return cached
   const resp = await c.ws.call('GetSceneItemTransform', { sceneName, sceneItemId })
   const t = (resp as { sceneItemTransform?: unknown }).sceneItemTransform
-  const transform = (t && typeof t === 'object') ? (t as Record<string, unknown>) : {}
+  const transform = (t && typeof t === 'object') ? (t as JsonObject) : {}
   c.originalTransformCache.set(k, transform)
   return transform
 }
@@ -195,8 +201,7 @@ async function setTransform(c: ConnectedClient, sceneName: string, sceneItemId: 
   await c.ws.call('SetSceneItemTransform', {
     sceneName,
     sceneItemId,
-    // obs-websocket-js の型は JsonObject（JsonValue）だが、ここでは数値フィールドのみ上書きするためキャストする
-    sceneItemTransform: next as any,
+    sceneItemTransform: next,
   })
 }
 

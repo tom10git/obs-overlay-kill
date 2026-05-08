@@ -18,6 +18,7 @@ import {
 import { TechniqueBurstArtCanvas } from './TechniqueBurstArtCanvas'
 import { TechniqueBurstArtSvg } from './TechniqueBurstArtSvg'
 import { SlashElementCanvas } from './SlashElementCanvas'
+import { TechniqueEffectBurstCanvasLayer } from './TechniqueEffectBurstCanvasLayer'
 import './TechniqueEffectBurst.css'
 import './TechniqueEffectBurst-finale-kinds.css'
 import './TechniqueEffectBurst-extra.css'
@@ -603,6 +604,11 @@ export function TechniqueEffectBurst({
         {slashStyleActive && <div className="tefx-layer tefx-slash-shards" aria-hidden />}
         {slashStyleActive && <div className="tefx-layer tefx-slash-burst" aria-hidden />}
         {slashStyleActive && <div className="tefx-layer tefx-slash-glitter" aria-hidden />}
+        <TechniqueEffectBurstCanvasLayer
+          techniqueName={techniqueName}
+          kind={kind}
+          suppressAmbient={suppressContinuousCanvasAnimation}
+        />
         {/* 斬撃モチーフは放射線状の筋（radiance等）が邪魔になりやすいので、Canvas の kind 上乗せは抑止 */}
         <TechniqueBurstArtCanvas
           art={burstArt}
