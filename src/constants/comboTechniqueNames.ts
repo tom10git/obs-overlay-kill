@@ -24,6 +24,8 @@ function buildTechniqueNames(
         // 区切りなしで「月詠」 + 「詠」みたいな語のダブりが起きるのを回避する
         // （sep='' のときだけ判定）
         if (sep === '' && h.endsWith(t)) continue
+        // 境界の1文字かぶり（「月詠」+「詠」以外にも「竜撃」+「撃」等）を回避
+        if (sep === '' && h.slice(-1) === t.slice(0, 1)) continue
         allNames.push(`${h}${sep}${t}`)
       }
     }
@@ -37,7 +39,6 @@ function buildTechniqueNames(
     seed = Math.imul(seed, 16777619)
   }
   const rand = (() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let a = seed >>> 0
     return () => {
       a |= 0
@@ -136,14 +137,6 @@ const generatedSlashNames = buildTechniqueNames(
     '風刃',
     'ブレイド',
     'シャドウ',
-    // モンスターハンター系（大技っぽさ）
-    '真・溜め',
-    '兜',
-    '零距離',
-    '属性解放',
-    '超高出力',
-    '気刃',
-    '龍撃',
     // 追加 head（漢字密度を下げて、見た目の圧を軽くする）
     'クリムゾン',
     'アズール',
@@ -161,6 +154,24 @@ const generatedSlashNames = buildTechniqueNames(
     'ヴォイド',
     'オーロラ',
     'サイバー',
+    // 追加 head（語感が強く、単体でも技名として成立しやすい）
+    'エクリプス',
+    'レヴナント',
+    'セラフ',
+    'ヴァルキリー',
+    'レギオン',
+    'グリム',
+    'ディメンション',
+    'スカーレット',
+    'コバルト',
+    'オニキス',
+    'アイボリー',
+    'ブリザード',
+    'サンダー',
+    'アビス',
+    'グラビティ',
+    'オーバードライブ',
+    'レゾナンス',
     '毒刃',
     '血潮',
     '砂漠',
@@ -181,11 +192,6 @@ const generatedSlashNames = buildTechniqueNames(
     'ラッシュ',
     'ブレイク',
     'クロス',
-    // モンスターハンター系（語尾）
-    '斬り',
-    '割り',
-    '解放突き',
-    '属性解放斬り',
     // 追加 tail（漢字寄りになりすぎないよう、音感/英語風を混ぜる）
     'スラッシュ',
     'ストライク',
@@ -194,6 +200,16 @@ const generatedSlashNames = buildTechniqueNames(
     'スプリット',
     'ダブル',
     'トリプル',
+    // 追加 tail（決め技っぽい語尾）
+    'バースト',
+    'ドライブ',
+    'テンペスト',
+    'ノヴァ',
+    'インパクト',
+    'クラッシュ',
+    'ブラスト',
+    'レクイエム',
+    'オーバーキル',
   ],
   SLASH_TECHNIQUE_NAME_COUNT
 )
@@ -247,6 +263,20 @@ const generatedMagicNames = buildTechniqueNames(
     '歯車',
     '天球',
     '鉄錆',
+    // 追加 head（組み合わせても雰囲気が崩れにくい）
+    'エニグマ',
+    'アンブラ',
+    'シルフィード',
+    'イグニス',
+    'フルグル',
+    'グレイシャル',
+    'アストラル',
+    'ゼニス',
+    'ニル',
+    'オブシディアン',
+    'セレナーデ',
+    'パラドックス',
+    'レクイエム',
   ],
   [
     '術',
@@ -265,6 +295,16 @@ const generatedMagicNames = buildTechniqueNames(
     'カース',
     'ゲート',
     'ブースト',
+    // 追加 tail（魔法っぽさ強め・単体でダサくなりにくい）
+    'バリア',
+    'シールド',
+    'インヴォーク',
+    'マギア',
+    'アーク',
+    'リチュアル',
+    'レゾナンス',
+    'エコー',
+    'トランス',
   ],
   MAGIC_TECHNIQUE_NAME_COUNT
 )
@@ -308,11 +348,6 @@ const generatedShootingNames = buildTechniqueNames(
     '銀河',
     'バレット',
     'キャノン',
-    // モンスターハンター系（遠距離の大技っぽさ）
-    '竜の一',
-    '竜熱',
-    '竜撃',
-    '龍炎',
     // 追加 head（ミリタリー/サイバー寄りを増やす）
     'ストライカー',
     'レイザー',
@@ -344,6 +379,16 @@ const generatedShootingNames = buildTechniqueNames(
     '蒸気',
     '星列',
     '錆',
+    // 追加 head（固有名っぽさを増やす）
+    'ヘッドショット',
+    'デッドアイ',
+    'サイレンサー',
+    'ナイトフォール',
+    'スペクトル',
+    'フェイズ',
+    'トレーサー',
+    'クリティカル',
+    'ブレイカー',
   ],
   [
     '弾',
@@ -354,10 +399,6 @@ const generatedShootingNames = buildTechniqueNames(
     'ショット',
     'バースト',
     'スナイプ',
-    // モンスターハンター系（語尾）
-    '矢',
-    '徹甲',
-    '竜撃弾',
     // 追加 tail（カタカナ寄りで弾丸/爆発感を維持）
     'ラピッド',
     'フルオート',
@@ -366,6 +407,13 @@ const generatedShootingNames = buildTechniqueNames(
     'ロックオン',
     'チェイン',
     'スタンピード',
+    // 追加 tail（語尾が強く、変な日本語になりにくい）
+    'ストーム',
+    'レイン',
+    'ドライブ',
+    'ブリーチ',
+    'ブレイク',
+    'フィナーレ',
   ],
   SHOOTING_TECHNIQUE_NAME_COUNT
 )
