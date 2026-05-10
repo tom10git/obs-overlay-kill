@@ -184,6 +184,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
     comboTechniqueDurationSec: 30,
     comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
     comboTechniqueMhVerbatimNameRollPercent: 0,
+    comboTechniqueCustomNameRollPercent: 0,
     comboTechniqueAllowAnyUserInput: true,
     comboTechniqueResultFontScalePercent: 100,
     comboTechniqueChallengeFontScalePercent: 100,
@@ -338,6 +339,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueDurationSec: 30,
       comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
       comboTechniqueMhVerbatimNameRollPercent: 0,
+      comboTechniqueCustomNameRollPercent: 0,
       comboTechniqueAllowAnyUserInput: true,
       comboTechniqueResultFontScalePercent: 100,
       comboTechniqueChallengeFontScalePercent: 100,
@@ -479,6 +481,7 @@ const DEFAULT_CONFIG: OverlayConfig = {
       comboTechniqueDurationSec: 30,
       comboTechniqueInputPrefix: COMBO_TECHNIQUE_PREFIX,
       comboTechniqueMhVerbatimNameRollPercent: 0,
+      comboTechniqueCustomNameRollPercent: 0,
       comboTechniqueAllowAnyUserInput: true,
       comboTechniqueResultFontScalePercent: 100,
       comboTechniqueChallengeFontScalePercent: 100,
@@ -1028,6 +1031,16 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
             DEFAULT_CONFIG.attack.comboTechniqueMhVerbatimNameRollPercent
       )
       : DEFAULT_CONFIG.attack.comboTechniqueMhVerbatimNameRollPercent,
+    comboTechniqueCustomNameRollPercent: isInRange(
+      Number(attackConfig.comboTechniqueCustomNameRollPercent),
+      0,
+      100
+    )
+      ? Math.round(
+        Number(attackConfig.comboTechniqueCustomNameRollPercent) ||
+            DEFAULT_CONFIG.attack.comboTechniqueCustomNameRollPercent
+      )
+      : DEFAULT_CONFIG.attack.comboTechniqueCustomNameRollPercent,
     comboTechniqueAllowAnyUserInput:
       typeof attackConfig.comboTechniqueAllowAnyUserInput === 'boolean'
         ? attackConfig.comboTechniqueAllowAnyUserInput
@@ -1647,6 +1660,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
             DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueMhVerbatimNameRollPercent
       )
       : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueMhVerbatimNameRollPercent,
+    comboTechniqueCustomNameRollPercent: isInRange(Number(sa.comboTechniqueCustomNameRollPercent), 0, 100)
+      ? Math.round(
+        Number(sa.comboTechniqueCustomNameRollPercent) ||
+            DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueCustomNameRollPercent
+      )
+      : DEFAULT_CONFIG.pvp.streamerAttack.comboTechniqueCustomNameRollPercent,
     comboTechniqueAllowAnyUserInput:
       typeof sa.comboTechniqueAllowAnyUserInput === 'boolean'
         ? sa.comboTechniqueAllowAnyUserInput
@@ -1833,6 +1852,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
             DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueMhVerbatimNameRollPercent
       )
       : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueMhVerbatimNameRollPercent,
+    comboTechniqueCustomNameRollPercent: isInRange(Number(vva.comboTechniqueCustomNameRollPercent), 0, 100)
+      ? Math.round(
+        Number(vva.comboTechniqueCustomNameRollPercent) ||
+            DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueCustomNameRollPercent
+      )
+      : DEFAULT_CONFIG.pvp.viewerVsViewerAttack.comboTechniqueCustomNameRollPercent,
     comboTechniqueAllowAnyUserInput:
       typeof vva.comboTechniqueAllowAnyUserInput === 'boolean'
         ? vva.comboTechniqueAllowAnyUserInput

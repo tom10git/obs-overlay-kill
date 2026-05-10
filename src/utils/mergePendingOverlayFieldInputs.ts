@@ -485,6 +485,14 @@ export function mergePendingFieldInputs(base: OverlayConfig, pending: Record<str
         : parseFloat(v)
     if (!Number.isNaN(num)) draft.attack.comboTechniqueMhVerbatimNameRollPercent = clampPct(num)
   }
+  if (p['attack.comboTechniqueCustomNameRollPercent'] !== undefined) {
+    const v = p['attack.comboTechniqueCustomNameRollPercent'].trim()
+    const num =
+      v === '' || Number.isNaN(parseFloat(v))
+        ? draft.attack.comboTechniqueCustomNameRollPercent
+        : parseFloat(v)
+    if (!Number.isNaN(num)) draft.attack.comboTechniqueCustomNameRollPercent = clampPct(num)
+  }
   if (p['attack.comboTechniqueResultFontScalePercent'] !== undefined) {
     const v = p['attack.comboTechniqueResultFontScalePercent'].trim()
     if (v === '' || Number.isNaN(parseInt(v, 10))) draft.attack.comboTechniqueResultFontScalePercent = 100

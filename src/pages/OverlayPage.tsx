@@ -1612,7 +1612,8 @@ export function OverlayPage() {
       const rbSuccess = Math.random() < successProbability
       const { landedName, landIndex } = pickRouletteStripSkill(
         COMBO_TECHNIQUE_NAMES,
-        config.attack.comboTechniqueMhVerbatimNameRollPercent
+        config.attack.comboTechniqueMhVerbatimNameRollPercent,
+        config.attack.comboTechniqueCustomNameRollPercent
       )
       rouletteBonusLockRef.current = true
       setRouletteBonus({
@@ -2131,7 +2132,8 @@ export function OverlayPage() {
             const comboPrefix = config.attack.comboTechniqueInputPrefix.normalize('NFKC')
             const endsAt = Date.now() + comboMs
             const targetFull = `${comboPrefix}${pickRandomComboTechniqueName(
-              config.attack.comboTechniqueMhVerbatimNameRollPercent
+              config.attack.comboTechniqueMhVerbatimNameRollPercent,
+              config.attack.comboTechniqueCustomNameRollPercent
             )}`.normalize('NFKC')
             const next: ComboChallengeState = {
               targetFull,
@@ -2592,7 +2594,8 @@ export function OverlayPage() {
         const comboPrefix = config.attack.comboTechniqueInputPrefix.normalize('NFKC')
         const endsAt = Date.now() + comboMs
         const targetFull = `${comboPrefix}${pickRandomComboTechniqueName(
-          config.attack.comboTechniqueMhVerbatimNameRollPercent
+          config.attack.comboTechniqueMhVerbatimNameRollPercent,
+          config.attack.comboTechniqueCustomNameRollPercent
         )}`.normalize('NFKC')
         const next: ComboChallengeState = {
           targetFull,

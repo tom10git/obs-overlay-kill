@@ -340,6 +340,13 @@ export const MONSTER_HUNTER_VERBATIM_TECHNIQUE_NAMES = [
   ...MH_SHOOTING_SPECIAL_NAMES,
 ] as const
 
+/** `customTechniqueNames.ts` のオリジナル技名（合わせ技／ルーレットの優先抽選用） */
+export const CUSTOM_ORIGINAL_TECHNIQUE_NAME_SET = new Set<string>([
+  ...CUSTOM_SLASH_TECHNIQUE_NAMES,
+  ...CUSTOM_MAGIC_TECHNIQUE_NAMES,
+  ...CUSTOM_SHOOTING_TECHNIQUE_NAMES,
+])
+
 const generatedShootingNames = buildTechniqueNames(
   [
     '流星',

@@ -163,6 +163,11 @@ export interface AttackConfig {
    * 0で従来どおり全プールから一様。100で常にその枠のみ。魔法カテゴリの生成名はこの設定では増えない。
    */
   comboTechniqueMhVerbatimNameRollPercent: number
+  /**
+   * `customTechniqueNames.ts` のオリジナル技名だけを、その枠から引く確率（0〜100）。
+   * MH実在技名の優先抽選のあとに評価。登録が無いときは無視され、従来どおり全プールから一様。
+   */
+  comboTechniqueCustomNameRollPercent: number
   /** true のとき、合わせ技チャレンジ中は「誰でも」入力で進行できる（既定: true） */
   comboTechniqueAllowAnyUserInput: boolean
   /**

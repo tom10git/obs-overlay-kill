@@ -147,14 +147,15 @@ export const OverlaySettings = forwardRef<
     test: false,
   });
   const [activeTab, setActiveTab] = useState<
-    "streamer" | "user" | "autoReply" | "sounds"
+    "streamer" | "user" | "autoReply" | "probabilities" | "sounds"
   >(() => {
     const env = import.meta.env.VITE_OVERLAY_SETTINGS_TAB as string | undefined;
     if (
       env === "user" ||
       env === "autoReply" ||
       env === "streamer" ||
-      env === "sounds"
+      env === "sounds" ||
+      env === "probabilities"
     )
       return env;
     return "streamer";
@@ -277,7 +278,8 @@ export const OverlaySettings = forwardRef<
       t === "user" ||
       t === "streamer" ||
       t === "autoReply" ||
-      t === "sounds"
+      t === "sounds" ||
+      t === "probabilities"
     ) {
       setActiveTab(t);
     }
@@ -485,6 +487,14 @@ export const OverlaySettings = forwardRef<
           title={embedded ? "自動返信設定" : undefined}
         >
           {embedded ? "自動返信" : "自動返信設定"}
+        </button>
+        <button
+          type="button"
+          className={`settings-tab ${activeTab === "probabilities" ? "settings-tab-active" : ""}`}
+          onClick={() => setActiveTab("probabilities")}
+          title={embedded ? "確率・抽選" : undefined}
+        >
+          {embedded ? "確率" : "確率・抽選"}
         </button>
         <button
           type="button"
@@ -3216,62 +3226,19 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
-                <div className="settings-row">
-                  <label>
-                    モンハン実在技名の出やすさ（0〜100％・0＝従来どおり）:
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={
-                        inputValues["attack.comboTechniqueMhVerbatimNameRollPercent"] ??
-                        String(config.attack.comboTechniqueMhVerbatimNameRollPercent)
-                      }
-                      onChange={(e) => {
-                        setInputValues((prev) => ({
-                          ...prev,
-                          "attack.comboTechniqueMhVerbatimNameRollPercent": e.target.value,
-                        }));
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim();
-                        if (value === "" || Number.isNaN(parseFloat(value))) {
-                          setConfig({
-                            ...config,
-                            attack: {
-                              ...config.attack,
-                              comboTechniqueMhVerbatimNameRollPercent: 0,
-                            },
-                          });
-                          setInputValues((prev) => {
-                            const next = { ...prev };
-                            delete next["attack.comboTechniqueMhVerbatimNameRollPercent"];
-                            return next;
-                          });
-                        } else {
-                          const num = parseFloat(value);
-                          if (!Number.isNaN(num)) {
-                            const clamped = Math.min(100, Math.max(0, Math.round(num)));
-                            setConfig({
-                              ...config,
-                              attack: {
-                                ...config.attack,
-                                comboTechniqueMhVerbatimNameRollPercent: clamped,
-                              },
-                            });
-                            setInputValues((prev) => {
-                              const next = { ...prev };
-                              delete next["attack.comboTechniqueMhVerbatimNameRollPercent"];
-                              return next;
-                            });
-                          }
-                        }
-                      }}
-                    />
-                  </label>
+                <div className="settings-probability-cta">
+                  <p className="settings-probability-cta__text">
+                    技名の優先出現率・テスト用の合わせ技／ルーレット確率は、上部の<strong>「確率・抽選」</strong>
+                    タブにまとめています。
+                  </p>
+                  <button
+                    type="button"
+                    className="settings-action-secondary settings-probability-cta__button"
+                    onClick={() => setActiveTab("probabilities")}
+                  >
+                    {embedded ? "確率・抽選を開く" : "確率・抽選の設定を開く"}
+                  </button>
                 </div>
-                <p className="settings-hint">
-                  プール先頭に固定されている歴代「モンスターハンター」の実在技名（大剣・太刀などの斬撃枠＋弓・ヘビィの射撃枠）を、そのまま当てにいく確率です。合わせ技チャンスの技名抽選と、追加攻撃ルーレットの止まり先の両方に使われます。当たらなかった抽選は従来どおり全プールから一様です（魔法の生成名はこの％では増えません）。
-                </p>
                 <div className="settings-row">
                   <label>
                     入力接頭辞（最大40文字・空欄は既定「{COMBO_TECHNIQUE_PREFIX}」）:
@@ -3346,233 +3313,6 @@ export const OverlaySettings = forwardRef<
                     HP0のとき、オーバーレイからの攻撃でオーバーキル演出を行う
                   </label>
                 </div>
-                <h4 className="settings-subsection-title">合わせ技チャンス（オーバーレイからの攻撃のみ）</h4>
-                <p className="settings-hint">
-                  <strong>オーバーレイからの攻撃</strong>が命中したあとに、上記の合わせ技入力チャレンジを抽選するかと確率です。リワード攻撃ヒット時の抽選とは別です。
-                </p>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.attack.testPanelSimulation.comboChanceEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          attack: {
-                            ...config.attack,
-                            testPanelSimulation: {
-                              ...config.attack.testPanelSimulation,
-                              comboChanceEnabled: e.target.checked,
-                            },
-                          },
-                        })
-                      }
-                    />
-                    オーバーレイからの攻撃命中時に合わせ技チャンスを抽選する
-                  </label>
-                  {config.attack.testPanelSimulation.comboChanceEnabled && (
-                    <label>
-                      発生確率 (%):
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={
-                          inputValues["attack.testPanelSimulation.comboTriggerPercent"] ??
-                          String(config.attack.testPanelSimulation.comboTriggerPercent)
-                        }
-                        onChange={(e) => {
-                          setInputValues((prev) => ({
-                            ...prev,
-                            "attack.testPanelSimulation.comboTriggerPercent": e.target.value,
-                          }));
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value.trim();
-                          if (value === "" || isNaN(parseFloat(value))) {
-                            setConfig({
-                              ...config,
-                              attack: {
-                                ...config.attack,
-                                testPanelSimulation: {
-                                  ...config.attack.testPanelSimulation,
-                                  comboTriggerPercent: 0,
-                                },
-                              },
-                            });
-                            setInputValues((prev) => {
-                              const next = { ...prev };
-                              delete next["attack.testPanelSimulation.comboTriggerPercent"];
-                              return next;
-                            });
-                          } else {
-                            const num = parseFloat(value);
-                            if (!isNaN(num)) {
-                              const clamped = Math.min(100, Math.max(0, num));
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  testPanelSimulation: {
-                                    ...config.attack.testPanelSimulation,
-                                    comboTriggerPercent: clamped,
-                                  },
-                                },
-                              });
-                              setInputValues((prev) => {
-                                const next = { ...prev };
-                                delete next["attack.testPanelSimulation.comboTriggerPercent"];
-                                return next;
-                              });
-                            }
-                          }
-                        }}
-                      />
-                    </label>
-                  )}
-                </div>
-                <h4 className="settings-subsection-title">追加攻撃ルーレット（オーバーレイからの攻撃のみ）</h4>
-                <p className="settings-hint">
-                  <strong>オーバーレイからの攻撃</strong>が命中したあとの追加ルーレット抽選です。リワード攻撃ヒット時のルーレットとは別の確率です。パネルや技名の見た目は<strong>「配信者HP・ゲージのレイアウト」</strong>です。
-                </p>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.attack.testPanelSimulation.rouletteBonusEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          attack: {
-                            ...config.attack,
-                            testPanelSimulation: {
-                              ...config.attack.testPanelSimulation,
-                              rouletteBonusEnabled: e.target.checked,
-                            },
-                          },
-                        })
-                      }
-                    />
-                    オーバーレイからの攻撃命中時に追加ルーレットを抽選する
-                  </label>
-                </div>
-                {config.attack.testPanelSimulation.rouletteBonusEnabled && (
-                  <div className="settings-row">
-                    <label>
-                      ルーレット表示確率 (%):
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={
-                          inputValues["attack.testPanelSimulation.rouletteTriggerPercent"] ??
-                          String(config.attack.testPanelSimulation.rouletteTriggerPercent)
-                        }
-                        onChange={(e) => {
-                          setInputValues((prev) => ({
-                            ...prev,
-                            "attack.testPanelSimulation.rouletteTriggerPercent": e.target.value,
-                          }));
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value.trim();
-                          if (value === "" || isNaN(parseFloat(value))) {
-                            setConfig({
-                              ...config,
-                              attack: {
-                                ...config.attack,
-                                testPanelSimulation: {
-                                  ...config.attack.testPanelSimulation,
-                                  rouletteTriggerPercent: 0,
-                                },
-                              },
-                            });
-                            setInputValues((prev) => {
-                              const next = { ...prev };
-                              delete next["attack.testPanelSimulation.rouletteTriggerPercent"];
-                              return next;
-                            });
-                          } else {
-                            const num = parseFloat(value);
-                            if (!isNaN(num)) {
-                              const clamped = Math.min(100, Math.max(0, num));
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  testPanelSimulation: {
-                                    ...config.attack.testPanelSimulation,
-                                    rouletteTriggerPercent: clamped,
-                                  },
-                                },
-                              });
-                              setInputValues((prev) => {
-                                const next = { ...prev };
-                                delete next["attack.testPanelSimulation.rouletteTriggerPercent"];
-                                return next;
-                              });
-                            }
-                          }
-                        }}
-                      />
-                    </label>
-                    <label>
-                      成功確率 (%):
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={
-                          inputValues["attack.testPanelSimulation.rouletteSuccessPercent"] ??
-                          String(config.attack.testPanelSimulation.rouletteSuccessPercent)
-                        }
-                        onChange={(e) => {
-                          setInputValues((prev) => ({
-                            ...prev,
-                            "attack.testPanelSimulation.rouletteSuccessPercent": e.target.value,
-                          }));
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value.trim();
-                          if (value === "" || isNaN(parseFloat(value))) {
-                            setConfig({
-                              ...config,
-                              attack: {
-                                ...config.attack,
-                                testPanelSimulation: {
-                                  ...config.attack.testPanelSimulation,
-                                  rouletteSuccessPercent: 0,
-                                },
-                              },
-                            });
-                            setInputValues((prev) => {
-                              const next = { ...prev };
-                              delete next["attack.testPanelSimulation.rouletteSuccessPercent"];
-                              return next;
-                            });
-                          } else {
-                            const num = parseFloat(value);
-                            if (!isNaN(num)) {
-                              const clamped = Math.min(100, Math.max(0, num));
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  testPanelSimulation: {
-                                    ...config.attack.testPanelSimulation,
-                                    rouletteSuccessPercent: clamped,
-                                  },
-                                },
-                              });
-                              setInputValues((prev) => {
-                                const next = { ...prev };
-                                delete next["attack.testPanelSimulation.rouletteSuccessPercent"];
-                                return next;
-                              });
-                            }
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
-                )}
                 <div className="settings-row">
                   <label>
                     <input
@@ -8383,6 +8123,406 @@ export const OverlaySettings = forwardRef<
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === "probabilities" && (
+        <div className="settings-tab-panel">
+          <div className="settings-section">
+            <h3>確率・抽選</h3>
+            <p className="settings-section-intro">
+              合わせ技・追加攻撃ルーレットの<strong>技名の出方</strong>（モンハン実在／オリジナル）と、
+              <strong>オーバーレイからのテスト攻撃</strong>用の合わせ技・ルーレット発生確率をまとめて設定します。チャット経由の本番確率はコード側の既定値のままです。
+            </p>
+            <div className="settings-probability-summary" role="note">
+              <div className="settings-probability-summary__title">確率まとめ（配分の目安）</div>
+              <p className="settings-probability-summary__note">
+                下の各％をいじったときの<strong>単純合計</strong>です。独立した抽選どうしなので100を超えても動作上は問題ありません。
+              </p>
+              <ul className="settings-probability-summary__list">
+                <li>
+                  技名の優先抽選（チャット攻撃・合わせ技・ルーレット共通）: モンハン実在{' '}
+                  {config.attack.comboTechniqueMhVerbatimNameRollPercent}%、オリジナル{' '}
+                  {config.attack.comboTechniqueCustomNameRollPercent}% → 小計{' '}
+                  <strong>
+                    {config.attack.comboTechniqueMhVerbatimNameRollPercent +
+                      config.attack.comboTechniqueCustomNameRollPercent}
+                    %
+                  </strong>
+                </li>
+                <li>
+                  テスト用オーバーレイ攻撃のみ: 合わせ技発生{' '}
+                  {config.attack.testPanelSimulation.comboTriggerPercent}%、ルーレット表示{' '}
+                  {config.attack.testPanelSimulation.rouletteTriggerPercent}%、ルーレット成功{' '}
+                  {config.attack.testPanelSimulation.rouletteSuccessPercent}% → 小計{' '}
+                  <strong>
+                    {config.attack.testPanelSimulation.comboTriggerPercent +
+                      config.attack.testPanelSimulation.rouletteTriggerPercent +
+                      config.attack.testPanelSimulation.rouletteSuccessPercent}
+                    %
+                  </strong>
+                </li>
+              </ul>
+              <div className="settings-probability-summary__total">
+                上記すべての単純合計:{' '}
+                <strong>
+                  {config.attack.comboTechniqueMhVerbatimNameRollPercent +
+                    config.attack.comboTechniqueCustomNameRollPercent +
+                    config.attack.testPanelSimulation.comboTriggerPercent +
+                    config.attack.testPanelSimulation.rouletteTriggerPercent +
+                    config.attack.testPanelSimulation.rouletteSuccessPercent}
+                  %
+                </strong>
+              </div>
+            </div>
+            <h4 className="settings-subsection-title">技名の優先抽選（本番のチャット攻撃にも反映）</h4>
+            <div className="settings-row">
+              <label>
+                モンハン実在技名の出やすさ（0〜100％・0＝従来どおり）:
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={
+                    inputValues["attack.comboTechniqueMhVerbatimNameRollPercent"] ??
+                    String(config.attack.comboTechniqueMhVerbatimNameRollPercent)
+                  }
+                  onChange={(e) => {
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "attack.comboTechniqueMhVerbatimNameRollPercent": e.target.value,
+                    }));
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value === "" || Number.isNaN(parseFloat(value))) {
+                      setConfig({
+                        ...config,
+                        attack: {
+                          ...config.attack,
+                          comboTechniqueMhVerbatimNameRollPercent: 0,
+                        },
+                      });
+                      setInputValues((prev) => {
+                        const next = { ...prev };
+                        delete next["attack.comboTechniqueMhVerbatimNameRollPercent"];
+                        return next;
+                      });
+                    } else {
+                      const num = parseFloat(value);
+                      if (!Number.isNaN(num)) {
+                        const clamped = Math.min(100, Math.max(0, Math.round(num)));
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueMhVerbatimNameRollPercent: clamped,
+                          },
+                        });
+                        setInputValues((prev) => {
+                          const next = { ...prev };
+                          delete next["attack.comboTechniqueMhVerbatimNameRollPercent"];
+                          return next;
+                        });
+                      }
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                オリジナル技名の出やすさ（0〜100％・0＝従来どおり）:
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={
+                    inputValues["attack.comboTechniqueCustomNameRollPercent"] ??
+                    String(config.attack.comboTechniqueCustomNameRollPercent)
+                  }
+                  onChange={(e) => {
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "attack.comboTechniqueCustomNameRollPercent": e.target.value,
+                    }));
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value === "" || Number.isNaN(parseFloat(value))) {
+                      setConfig({
+                        ...config,
+                        attack: {
+                          ...config.attack,
+                          comboTechniqueCustomNameRollPercent: 0,
+                        },
+                      });
+                      setInputValues((prev) => {
+                        const next = { ...prev };
+                        delete next["attack.comboTechniqueCustomNameRollPercent"];
+                        return next;
+                      });
+                    } else {
+                      const num = parseFloat(value);
+                      if (!Number.isNaN(num)) {
+                        const clamped = Math.min(100, Math.max(0, Math.round(num)));
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            comboTechniqueCustomNameRollPercent: clamped,
+                          },
+                        });
+                        setInputValues((prev) => {
+                          const next = { ...prev };
+                          delete next["attack.comboTechniqueCustomNameRollPercent"];
+                          return next;
+                        });
+                      }
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <p className="settings-hint">
+              モンハン実在枠は先に抽選され、外れたあとにオリジナル枠（<code>src/constants/customTechniqueNames.ts</code>
+              のみ）をこの％で狙います。どちらも外れた場合は従来どおり全プールから一様です。合わせ技チャンスの技名と追加攻撃ルーレットの止まり先の両方に使われます。魔法の生成名はモンハン実在％では増えませんが、オリジナルに魔法枠の名前を書けばここで狙えます。
+            </p>
+            <h4 className="settings-subsection-title">合わせ技チャンス（オーバーレイからの攻撃のみ）</h4>
+            <p className="settings-hint">
+              <strong>オーバーレイからの攻撃</strong>が命中したあとに、上記の合わせ技入力チャレンジを抽選するかと確率です。リワード攻撃ヒット時の抽選とは別です。
+            </p>
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.attack.testPanelSimulation.comboChanceEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      attack: {
+                        ...config.attack,
+                        testPanelSimulation: {
+                          ...config.attack.testPanelSimulation,
+                          comboChanceEnabled: e.target.checked,
+                        },
+                      },
+                    })
+                  }
+                />
+                オーバーレイからの攻撃命中時に合わせ技チャンスを抽選する
+              </label>
+              {config.attack.testPanelSimulation.comboChanceEnabled && (
+                <label>
+                  発生確率 (%):
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={
+                      inputValues["attack.testPanelSimulation.comboTriggerPercent"] ??
+                      String(config.attack.testPanelSimulation.comboTriggerPercent)
+                    }
+                    onChange={(e) => {
+                      setInputValues((prev) => ({
+                        ...prev,
+                        "attack.testPanelSimulation.comboTriggerPercent": e.target.value,
+                      }));
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim();
+                      if (value === "" || isNaN(parseFloat(value))) {
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            testPanelSimulation: {
+                              ...config.attack.testPanelSimulation,
+                              comboTriggerPercent: 0,
+                            },
+                          },
+                        });
+                        setInputValues((prev) => {
+                          const next = { ...prev };
+                          delete next["attack.testPanelSimulation.comboTriggerPercent"];
+                          return next;
+                        });
+                      } else {
+                        const num = parseFloat(value);
+                        if (!isNaN(num)) {
+                          const clamped = Math.min(100, Math.max(0, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              testPanelSimulation: {
+                                ...config.attack.testPanelSimulation,
+                                comboTriggerPercent: clamped,
+                              },
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.testPanelSimulation.comboTriggerPercent"];
+                            return next;
+                          });
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+            <h4 className="settings-subsection-title">追加攻撃ルーレット（オーバーレイからの攻撃のみ）</h4>
+            <p className="settings-hint">
+              <strong>オーバーレイからの攻撃</strong>が命中したあとの追加ルーレット抽選です。リワード攻撃ヒット時のルーレットとは別の確率です。パネルや技名の見た目は<strong>「配信者HP・ゲージのレイアウト」</strong>です。
+            </p>
+            <div className="settings-row">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={config.attack.testPanelSimulation.rouletteBonusEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      attack: {
+                        ...config.attack,
+                        testPanelSimulation: {
+                          ...config.attack.testPanelSimulation,
+                          rouletteBonusEnabled: e.target.checked,
+                        },
+                      },
+                    })
+                  }
+                />
+                オーバーレイからの攻撃命中時に追加ルーレットを抽選する
+              </label>
+            </div>
+            {config.attack.testPanelSimulation.rouletteBonusEnabled && (
+              <div className="settings-row">
+                <label>
+                  ルーレット表示確率 (%):
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={
+                      inputValues["attack.testPanelSimulation.rouletteTriggerPercent"] ??
+                      String(config.attack.testPanelSimulation.rouletteTriggerPercent)
+                    }
+                    onChange={(e) => {
+                      setInputValues((prev) => ({
+                        ...prev,
+                        "attack.testPanelSimulation.rouletteTriggerPercent": e.target.value,
+                      }));
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim();
+                      if (value === "" || isNaN(parseFloat(value))) {
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            testPanelSimulation: {
+                              ...config.attack.testPanelSimulation,
+                              rouletteTriggerPercent: 0,
+                            },
+                          },
+                        });
+                        setInputValues((prev) => {
+                          const next = { ...prev };
+                          delete next["attack.testPanelSimulation.rouletteTriggerPercent"];
+                          return next;
+                        });
+                      } else {
+                        const num = parseFloat(value);
+                        if (!isNaN(num)) {
+                          const clamped = Math.min(100, Math.max(0, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              testPanelSimulation: {
+                                ...config.attack.testPanelSimulation,
+                                rouletteTriggerPercent: clamped,
+                              },
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.testPanelSimulation.rouletteTriggerPercent"];
+                            return next;
+                          });
+                        }
+                      }
+                    }}
+                  />
+                </label>
+                <label>
+                  成功確率 (%):
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={
+                      inputValues["attack.testPanelSimulation.rouletteSuccessPercent"] ??
+                      String(config.attack.testPanelSimulation.rouletteSuccessPercent)
+                    }
+                    onChange={(e) => {
+                      setInputValues((prev) => ({
+                        ...prev,
+                        "attack.testPanelSimulation.rouletteSuccessPercent": e.target.value,
+                      }));
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim();
+                      if (value === "" || isNaN(parseFloat(value))) {
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            testPanelSimulation: {
+                              ...config.attack.testPanelSimulation,
+                              rouletteSuccessPercent: 0,
+                            },
+                          },
+                        });
+                        setInputValues((prev) => {
+                          const next = { ...prev };
+                          delete next["attack.testPanelSimulation.rouletteSuccessPercent"];
+                          return next;
+                        });
+                      } else {
+                        const num = parseFloat(value);
+                        if (!isNaN(num)) {
+                          const clamped = Math.min(100, Math.max(0, num));
+                          setConfig({
+                            ...config,
+                            attack: {
+                              ...config.attack,
+                              testPanelSimulation: {
+                                ...config.attack.testPanelSimulation,
+                                rouletteSuccessPercent: clamped,
+                              },
+                            },
+                          });
+                          setInputValues((prev) => {
+                            const next = { ...prev };
+                            delete next["attack.testPanelSimulation.rouletteSuccessPercent"];
+                            return next;
+                          });
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            )}
+            <div className="settings-probability-cta settings-probability-cta--footer">
+              <button
+                type="button"
+                className="settings-action-secondary settings-probability-cta__button"
+                onClick={() => setActiveTab("streamer")}
+              >
+                {embedded ? "配信者タブへ" : "配信者側の設定に戻る"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
