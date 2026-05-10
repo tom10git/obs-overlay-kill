@@ -15,6 +15,13 @@ import {
   DIFFICULT_KANJI_SLASH_TECHNIQUE_NAMES,
 } from './difficultKanjiTechniqueNames'
 
+/** 難読漢字の技名（優先抽選用の集合） */
+export const DIFFICULT_KANJI_TECHNIQUE_NAME_SET = new Set<string>([
+  ...DIFFICULT_KANJI_SLASH_TECHNIQUE_NAMES,
+  ...DIFFICULT_KANJI_MAGIC_TECHNIQUE_NAMES,
+  ...DIFFICULT_KANJI_SHOOTING_TECHNIQUE_NAMES,
+])
+
 function buildTechniqueNames(
   heads: readonly string[],
   tails: readonly string[],

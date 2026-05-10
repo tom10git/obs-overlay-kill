@@ -844,7 +844,7 @@ export const OverlaySettings = forwardRef<
                 </p>
                 <h4 className="settings-subsection-title">追加攻撃ルーレット（見た目・ゲージ周り）</h4>
                 <p className="settings-hint" style={{ marginTop: 0 }}>
-                  ルーレットの<strong>抽選（表示確率・成功確率）</strong>は、下の<strong>「攻撃・ダメージ・リワード」</strong>内「追加攻撃ルーレット（オーバーレイからの攻撃のみ）」です。
+                  ルーレットの<strong>抽選（表示確率・成功確率）</strong>は<strong>「確率・抽選」</strong>タブの「追加攻撃ルーレット（オーバーレイからの攻撃のみ）」です。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -1060,7 +1060,7 @@ export const OverlaySettings = forwardRef<
             {expandedSections.attack && (
               <div className="settings-section-content">
                 <p className="settings-section-intro">
-                  チャットのカスタムテキスト・PvPの視聴者攻撃コマンドなどで配信者HPにダメージを与える設定です（ミス／クリティカル・出血・DOT、オーバーレイからの攻撃用のオーバーキル／合わせ技／ルーレットもここ）。ゲージの位置やルーレットの文字サイズは<strong>「配信者HP・ゲージのレイアウト」</strong>です。
+                  チャットのカスタムテキスト・PvPの視聴者攻撃コマンドなどで配信者HPにダメージを与える設定です（ミス／クリティカル・出血・DOTのON/OFFと数値、オーバーレイからの攻撃用のオーバーキル／合わせ技もここ。各種<strong>確率の数値</strong>は<strong>「確率・抽選」</strong>タブ）。ゲージの位置やルーレットの文字サイズは<strong>「配信者HP・ゲージのレイアウト」</strong>です。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -1321,54 +1321,6 @@ export const OverlaySettings = forwardRef<
                     />
                     ミス判定を有効にする
                   </label>
-                  {config.attack.missEnabled && (
-                    <label>
-                      ミス確率 (%):
-                      <input
-                        type="text"
-                        value={
-                          inputValues["attack.missProbability"] ??
-                          String(config.attack.missProbability)
-                        }
-                        onChange={(e) => {
-                          setInputValues((prev) => ({
-                            ...prev,
-                            "attack.missProbability": e.target.value,
-                          }));
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value.trim();
-                          if (value === "" || isNaN(parseFloat(value))) {
-                            setConfig({
-                              ...config,
-                              attack: { ...config.attack, missProbability: 0 },
-                            });
-                            setInputValues((prev) => {
-                              const next = { ...prev };
-                              delete next["attack.missProbability"];
-                              return next;
-                            });
-                          } else {
-                            const num = parseFloat(value);
-                            if (!isNaN(num)) {
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  missProbability: num,
-                                },
-                              });
-                              setInputValues((prev) => {
-                                const next = { ...prev };
-                                delete next["attack.missProbability"];
-                                return next;
-                              });
-                            }
-                          }
-                        }}
-                      />
-                    </label>
-                  )}
                 </div>
                 {config.attack.missEnabled && (
                   <div className="settings-color-grid">
@@ -1416,6 +1368,9 @@ export const OverlaySettings = forwardRef<
                     </div>
                   </div>
                 )}
+                <p className="settings-hint" style={{ marginTop: 0, marginBottom: "0.35rem" }}>
+                  ミス・クリティカル・出血・食いしばり（HP1残り）の<strong>確率（％）</strong>は<strong>確率・抽選</strong>タブです。
+                </p>
                 <div className="settings-row">
                   <label>
                     <input
@@ -1435,55 +1390,6 @@ export const OverlaySettings = forwardRef<
                   </label>
                   {config.attack.criticalEnabled && (
                     <>
-                      <label>
-                        クリティカル確率 (%):
-                        <input
-                          type="text"
-                          value={
-                            inputValues["attack.criticalProbability"] ??
-                            String(config.attack.criticalProbability)
-                          }
-                          onChange={(e) => {
-                            setInputValues((prev) => ({
-                              ...prev,
-                              "attack.criticalProbability": e.target.value,
-                            }));
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value.trim();
-                            if (value === "" || isNaN(parseFloat(value))) {
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  criticalProbability: 0,
-                                },
-                              });
-                              setInputValues((prev) => {
-                                const next = { ...prev };
-                                delete next["attack.criticalProbability"];
-                                return next;
-                              });
-                            } else {
-                              const num = parseFloat(value);
-                              if (!isNaN(num)) {
-                                setConfig({
-                                  ...config,
-                                  attack: {
-                                    ...config.attack,
-                                    criticalProbability: num,
-                                  },
-                                });
-                                setInputValues((prev) => {
-                                  const next = { ...prev };
-                                  delete next["attack.criticalProbability"];
-                                  return next;
-                                });
-                              }
-                            }
-                          }}
-                        />
-                      </label>
                       <label>
                         クリティカル倍率:
                         <input
@@ -1555,58 +1461,6 @@ export const OverlaySettings = forwardRef<
                   </label>
                   {config.attack.bleedEnabled && (
                     <>
-                      <label>
-                        出血確率 (%):
-                        <input
-                          type="text"
-                          value={
-                            inputValues["attack.bleedProbability"] ??
-                            String(config.attack.bleedProbability)
-                          }
-                          onChange={(e) => {
-                            setInputValues((prev) => ({
-                              ...prev,
-                              "attack.bleedProbability": e.target.value,
-                            }));
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value.trim();
-                            if (value === "" || isNaN(parseFloat(value))) {
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  bleedProbability: 0,
-                                },
-                              });
-                              setInputValues((prev) => {
-                                const next = { ...prev };
-                                delete next["attack.bleedProbability"];
-                                return next;
-                              });
-                            } else {
-                              const num = parseFloat(value);
-                              if (!isNaN(num)) {
-                                setConfig({
-                                  ...config,
-                                  attack: {
-                                    ...config.attack,
-                                    bleedProbability: Math.min(
-                                      100,
-                                      Math.max(0, num),
-                                    ),
-                                  },
-                                });
-                                setInputValues((prev) => {
-                                  const next = { ...prev };
-                                  delete next["attack.bleedProbability"];
-                                  return next;
-                                });
-                              }
-                            }
-                          }}
-                        />
-                      </label>
                       <label>
                         出血ダメージ:
                         <input
@@ -3228,7 +3082,7 @@ export const OverlaySettings = forwardRef<
                 </div>
                 <div className="settings-probability-cta">
                   <p className="settings-probability-cta__text">
-                    技名の優先出現率・テスト用の合わせ技／ルーレット確率は、上部の<strong>「確率・抽選」</strong>
+                    ミス・クリティカル・出血・食いしばり・技名・テスト用ルーレット・PvPの％は、上部の<strong>「確率・抽選」</strong>
                     タブにまとめています。
                   </p>
                   <button
@@ -3333,61 +3187,6 @@ export const OverlaySettings = forwardRef<
                 </div>
                 {config.attack.survivalHp1Enabled && (
                   <>
-                    <div className="settings-row">
-                      <label>
-                        HPが1残る確率（0-100）:
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={
-                            inputValues["attack.survivalHp1Probability"] ??
-                            String(config.attack.survivalHp1Probability)
-                          }
-                          onChange={(e) => {
-                            setInputValues((prev) => ({
-                              ...prev,
-                              "attack.survivalHp1Probability": e.target.value,
-                            }));
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value.trim();
-                            if (value === "" || isNaN(parseInt(value))) {
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  survivalHp1Probability: 30,
-                                },
-                              });
-                              setInputValues((prev) => {
-                                const next = { ...prev };
-                                delete next["attack.survivalHp1Probability"];
-                                return next;
-                              });
-                            } else {
-                              const num = parseInt(value);
-                              if (!isNaN(num)) {
-                                setConfig({
-                                  ...config,
-                                  attack: {
-                                    ...config.attack,
-                                    survivalHp1Probability: Math.min(
-                                      100,
-                                      Math.max(0, num),
-                                    ),
-                                  },
-                                });
-                                setInputValues((prev) => {
-                                  const next = { ...prev };
-                                  delete next["attack.survivalHp1Probability"];
-                                  return next;
-                                });
-                              }
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
                     <div className="settings-row">
                       <label>
                         表示メッセージ:
@@ -6083,6 +5882,9 @@ export const OverlaySettings = forwardRef<
                     >
                       視聴者攻撃時に配信者が回復（反転回復）
                     </div>
+                    <p className="settings-hint" style={{ marginTop: 0, marginBottom: "0.35rem" }}>
+                      反転回復の<strong>発生確率（％）</strong>は<strong>確率・抽選</strong>タブで設定します。
+                    </p>
                     <div className="settings-row">
                       <label>
                         <input
@@ -6106,48 +5908,6 @@ export const OverlaySettings = forwardRef<
                     {(config.pvp.streamerHealOnAttackEnabled ?? false) && (
                       <>
                         <div className="settings-row">
-                          <label>
-                            発生確率 (%):
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={
-                                inputValues[
-                                  "pvp.streamerHealOnAttackProbability"
-                                ] ??
-                                String(
-                                  config.pvp.streamerHealOnAttackProbability ??
-                                    10,
-                                )
-                              }
-                              onChange={(e) =>
-                                setInputValues((prev) => ({
-                                  ...prev,
-                                  "pvp.streamerHealOnAttackProbability":
-                                    e.target.value,
-                                }))
-                              }
-                              onBlur={(e) => {
-                                const num = Number(e.target.value.trim());
-                                if (!isNaN(num) && num >= 0 && num <= 100) {
-                                  setConfig({
-                                    ...config,
-                                    pvp: {
-                                      ...config.pvp,
-                                      streamerHealOnAttackProbability: num,
-                                    },
-                                  });
-                                  setInputValues((prev) => {
-                                    const next = { ...prev };
-                                    delete next[
-                                      "pvp.streamerHealOnAttackProbability"
-                                    ];
-                                    return next;
-                                  });
-                                }
-                              }}
-                            />
-                          </label>
                           <label>
                             回復量タイプ:
                             <select
@@ -7132,6 +6892,9 @@ export const OverlaySettings = forwardRef<
                     >
                       配信者（カウンター）攻撃設定
                     </div>
+                    <p className="settings-hint" style={{ marginTop: 0, marginBottom: "0.35rem" }}>
+                      ミス・クリティカル・食いしばりの<strong>確率（％）</strong>は<strong>確率・抽選</strong>タブで設定します。
+                    </p>
                     <div className="settings-row">
                       <label>
                         ダメージタイプ:
@@ -7362,46 +7125,6 @@ export const OverlaySettings = forwardRef<
                         />
                         ミスあり
                       </label>
-                      <label>
-                        ミス確率（0-100）:
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={
-                            inputValues["pvp.streamerAttack.missProbability"] ??
-                            String(config.pvp.streamerAttack.missProbability)
-                          }
-                          onChange={(e) =>
-                            setInputValues((prev) => ({
-                              ...prev,
-                              "pvp.streamerAttack.missProbability":
-                                e.target.value,
-                            }))
-                          }
-                          onBlur={(e) => {
-                            const num = Number(e.target.value.trim());
-                            setConfig({
-                              ...config,
-                              pvp: {
-                                ...config.pvp,
-                                streamerAttack: {
-                                  ...config.pvp.streamerAttack,
-                                  missProbability:
-                                    !isNaN(num) && num >= 0 && num <= 100
-                                      ? num
-                                      : config.pvp.streamerAttack
-                                          .missProbability,
-                                },
-                              },
-                            });
-                            setInputValues((prev) => {
-                              const next = { ...prev };
-                              delete next["pvp.streamerAttack.missProbability"];
-                              return next;
-                            });
-                          }}
-                        />
-                      </label>
                     </div>
                     <div className="settings-row">
                       <label>
@@ -7422,52 +7145,6 @@ export const OverlaySettings = forwardRef<
                           }
                         />
                         クリティカルあり
-                      </label>
-                      <label>
-                        クリティカル確率（0-100）:
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={
-                            inputValues[
-                              "pvp.streamerAttack.criticalProbability"
-                            ] ??
-                            String(
-                              config.pvp.streamerAttack.criticalProbability,
-                            )
-                          }
-                          onChange={(e) =>
-                            setInputValues((prev) => ({
-                              ...prev,
-                              "pvp.streamerAttack.criticalProbability":
-                                e.target.value,
-                            }))
-                          }
-                          onBlur={(e) => {
-                            const num = Number(e.target.value.trim());
-                            setConfig({
-                              ...config,
-                              pvp: {
-                                ...config.pvp,
-                                streamerAttack: {
-                                  ...config.pvp.streamerAttack,
-                                  criticalProbability:
-                                    !isNaN(num) && num >= 0 && num <= 100
-                                      ? num
-                                      : config.pvp.streamerAttack
-                                          .criticalProbability,
-                                },
-                              },
-                            });
-                            setInputValues((prev) => {
-                              const next = { ...prev };
-                              delete next[
-                                "pvp.streamerAttack.criticalProbability"
-                              ];
-                              return next;
-                            });
-                          }}
-                        />
                       </label>
                       <label>
                         倍率:
@@ -7535,52 +7212,6 @@ export const OverlaySettings = forwardRef<
                         食いしばり（HP1残り）
                       </label>
                       <label>
-                        確率（0-100）:
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={
-                            inputValues[
-                              "pvp.streamerAttack.survivalHp1Probability"
-                            ] ??
-                            String(
-                              config.pvp.streamerAttack.survivalHp1Probability,
-                            )
-                          }
-                          onChange={(e) =>
-                            setInputValues((prev) => ({
-                              ...prev,
-                              "pvp.streamerAttack.survivalHp1Probability":
-                                e.target.value,
-                            }))
-                          }
-                          onBlur={(e) => {
-                            const num = Number(e.target.value.trim());
-                            setConfig({
-                              ...config,
-                              pvp: {
-                                ...config.pvp,
-                                streamerAttack: {
-                                  ...config.pvp.streamerAttack,
-                                  survivalHp1Probability:
-                                    !isNaN(num) && num >= 0 && num <= 100
-                                      ? num
-                                      : config.pvp.streamerAttack
-                                          .survivalHp1Probability,
-                                },
-                              },
-                            });
-                            setInputValues((prev) => {
-                              const next = { ...prev };
-                              delete next[
-                                "pvp.streamerAttack.survivalHp1Probability"
-                              ];
-                              return next;
-                            });
-                          }}
-                        />
-                      </label>
-                      <label>
                         メッセージ:
                         <input
                           type="text"
@@ -7609,6 +7240,9 @@ export const OverlaySettings = forwardRef<
                 >
                   必殺技設定
                 </div>
+                <p className="settings-hint" style={{ marginTop: 0, marginBottom: "0.35rem" }}>
+                  必殺技の<strong>発動確率（％）</strong>は<strong>確率・抽選</strong>タブで設定します。
+                </p>
                 <div className="settings-row">
                   <label>
                     <input
@@ -7630,76 +7264,6 @@ export const OverlaySettings = forwardRef<
                 {config.pvp.viewerFinishingMoveEnabled && (
                   <>
                     <div className="settings-row">
-                      <label>
-                        必殺技発動確率 (%):
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={
-                            inputValues["pvp.viewerFinishingMoveProbability"] ??
-                            String(
-                              config.pvp.viewerFinishingMoveProbability ?? 0.01,
-                            )
-                          }
-                          onChange={(e) => {
-                            setInputValues((prev) => ({
-                              ...prev,
-                              "pvp.viewerFinishingMoveProbability":
-                                e.target.value,
-                            }));
-                          }}
-                          onBlur={(e) => {
-                            const value = e.target.value.trim();
-                            const num = value === "" ? 0.01 : parseFloat(value);
-                            if (!isNaN(num) && num >= 0 && num <= 100) {
-                              const rounded = Math.round(num * 100) / 100;
-                              setConfig((prev) =>
-                                prev
-                                  ? {
-                                      ...prev,
-                                      pvp: {
-                                        ...prev.pvp,
-                                        viewerFinishingMoveProbability: rounded,
-                                      },
-                                    }
-                                  : prev,
-                              );
-                              setInputValues((prev) => {
-                                const next = { ...prev };
-                                delete next[
-                                  "pvp.viewerFinishingMoveProbability"
-                                ];
-                                return next;
-                              });
-                            } else {
-                              setConfig((prev) =>
-                                prev
-                                  ? {
-                                      ...prev,
-                                      pvp: {
-                                        ...prev.pvp,
-                                        viewerFinishingMoveProbability:
-                                          prev.pvp
-                                            .viewerFinishingMoveProbability ??
-                                          0.01,
-                                      },
-                                    }
-                                  : prev,
-                              );
-                              setInputValues((prev) => {
-                                const next = { ...prev };
-                                delete next[
-                                  "pvp.viewerFinishingMoveProbability"
-                                ];
-                                return next;
-                              });
-                            }
-                          }}
-                        />
-                      </label>
                       <label>
                         必殺技ダメージ倍率:
                         <input
@@ -8131,13 +7695,14 @@ export const OverlaySettings = forwardRef<
           <div className="settings-section">
             <h3>確率・抽選</h3>
             <p className="settings-section-intro">
-              合わせ技・追加攻撃ルーレットの<strong>技名の出方</strong>（モンハン実在／オリジナル）と、
-              <strong>オーバーレイからのテスト攻撃</strong>用の合わせ技・ルーレット発生確率をまとめて設定します。チャット経由の本番確率はコード側の既定値のままです。
+              技名・テスト用ルーレットに加え、<strong>リワード／チャット攻撃</strong>のミス・クリティカル・出血・食いしばり、
+              <strong>視聴者タブ</strong>のPvP（反転回復・視聴者が配信者を攻撃する際のミス／クリ／食いしばり・必殺技発動）の数値をここに集約しています。
+              各機能のON/OFF・ダメージ量・コマンド文字列は<strong>配信者側／ユーザー側</strong>の各セクションで設定してください。
             </p>
             <div className="settings-probability-summary" role="note">
               <div className="settings-probability-summary__title">確率まとめ（配分の目安）</div>
               <p className="settings-probability-summary__note">
-                下の各％をいじったときの<strong>単純合計</strong>です。独立した抽選どうしなので100を超えても動作上は問題ありません。
+                カテゴリごとの<strong>単純小計</strong>と、下に列挙したすべての％の<strong>参考合計</strong>です。用途の異なる抽選が混在するため、合計が100を大きく超えても問題ありません。
               </p>
               <ul className="settings-probability-summary__list">
                 <li>
@@ -8162,15 +7727,51 @@ export const OverlaySettings = forwardRef<
                     %
                   </strong>
                 </li>
+                <li>
+                  リワード／チャット攻撃: ミス {config.attack.missProbability}%、クリ{' '}
+                  {config.attack.criticalProbability}%、出血 {config.attack.bleedProbability}%、食いしばり{' '}
+                  {config.attack.survivalHp1Probability}% → 小計{' '}
+                  <strong>
+                    {config.attack.missProbability +
+                      config.attack.criticalProbability +
+                      config.attack.bleedProbability +
+                      config.attack.survivalHp1Probability}
+                    %
+                  </strong>
+                </li>
+                <li>
+                  PvP（ユーザー側で有効化）: 反転回復 {config.pvp.streamerHealOnAttackProbability ?? 0}%、配信者被攻撃ミス{' '}
+                  {config.pvp.streamerAttack.missProbability}%、同クリ{' '}
+                  {config.pvp.streamerAttack.criticalProbability}%、同食いしばり{' '}
+                  {config.pvp.streamerAttack.survivalHp1Probability}%、必殺技{' '}
+                  {config.pvp.viewerFinishingMoveProbability ?? 0}% → 小計{' '}
+                  <strong>
+                    {(config.pvp.streamerHealOnAttackProbability ?? 0) +
+                      config.pvp.streamerAttack.missProbability +
+                      config.pvp.streamerAttack.criticalProbability +
+                      config.pvp.streamerAttack.survivalHp1Probability +
+                      (config.pvp.viewerFinishingMoveProbability ?? 0)}
+                    %
+                  </strong>
+                </li>
               </ul>
               <div className="settings-probability-summary__total">
-                上記すべての単純合計:{' '}
+                参考合計（上記4行の単純加算）:{' '}
                 <strong>
                   {config.attack.comboTechniqueMhVerbatimNameRollPercent +
                     config.attack.comboTechniqueCustomNameRollPercent +
                     config.attack.testPanelSimulation.comboTriggerPercent +
                     config.attack.testPanelSimulation.rouletteTriggerPercent +
-                    config.attack.testPanelSimulation.rouletteSuccessPercent}
+                    config.attack.testPanelSimulation.rouletteSuccessPercent +
+                    config.attack.missProbability +
+                    config.attack.criticalProbability +
+                    config.attack.bleedProbability +
+                    config.attack.survivalHp1Probability +
+                    (config.pvp.streamerHealOnAttackProbability ?? 0) +
+                    config.pvp.streamerAttack.missProbability +
+                    config.pvp.streamerAttack.criticalProbability +
+                    config.pvp.streamerAttack.survivalHp1Probability +
+                    (config.pvp.viewerFinishingMoveProbability ?? 0)}
                   %
                 </strong>
               </div>
@@ -8513,6 +8114,425 @@ export const OverlaySettings = forwardRef<
                 </label>
               </div>
             )}
+            <h4 className="settings-subsection-title">リワード／チャット攻撃の確率</h4>
+            <p className="settings-hint" style={{ marginTop: 0 }}>
+              ミス・クリティカル・出血・食いしばりの<strong>有効／無効</strong>は「配信者側」の<strong>攻撃・ダメージ・リワード</strong>で切り替えます。
+            </p>
+            <div className="settings-row">
+              <label>
+                ミス確率 (%):
+                <input
+                  type="text"
+                  value={
+                    inputValues["attack.missProbability"] ?? String(config.attack.missProbability)
+                  }
+                  onChange={(e) => {
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "attack.missProbability": e.target.value,
+                    }));
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value === "" || isNaN(parseFloat(value))) {
+                      setConfig({
+                        ...config,
+                        attack: { ...config.attack, missProbability: 0 },
+                      });
+                      setInputValues((prev) => {
+                        const next = { ...prev };
+                        delete next["attack.missProbability"];
+                        return next;
+                      });
+                    } else {
+                      const num = parseFloat(value);
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            missProbability: num,
+                          },
+                        });
+                        setInputValues((prev) => {
+                          const next = { ...prev };
+                          delete next["attack.missProbability"];
+                          return next;
+                        });
+                      }
+                    }
+                  }}
+                />
+              </label>
+              <label>
+                クリティカル確率 (%):
+                <input
+                  type="text"
+                  value={
+                    inputValues["attack.criticalProbability"] ??
+                    String(config.attack.criticalProbability)
+                  }
+                  onChange={(e) => {
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "attack.criticalProbability": e.target.value,
+                    }));
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value === "" || isNaN(parseFloat(value))) {
+                      setConfig({
+                        ...config,
+                        attack: {
+                          ...config.attack,
+                          criticalProbability: 0,
+                        },
+                      });
+                      setInputValues((prev) => {
+                        const next = { ...prev };
+                        delete next["attack.criticalProbability"];
+                        return next;
+                      });
+                    } else {
+                      const num = parseFloat(value);
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            criticalProbability: num,
+                          },
+                        });
+                        setInputValues((prev) => {
+                          const next = { ...prev };
+                          delete next["attack.criticalProbability"];
+                          return next;
+                        });
+                      }
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                出血確率 (%):
+                <input
+                  type="text"
+                  value={
+                    inputValues["attack.bleedProbability"] ?? String(config.attack.bleedProbability)
+                  }
+                  onChange={(e) => {
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "attack.bleedProbability": e.target.value,
+                    }));
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value === "" || isNaN(parseFloat(value))) {
+                      setConfig({
+                        ...config,
+                        attack: {
+                          ...config.attack,
+                          bleedProbability: 0,
+                        },
+                      });
+                      setInputValues((prev) => {
+                        const next = { ...prev };
+                        delete next["attack.bleedProbability"];
+                        return next;
+                      });
+                    } else {
+                      const num = parseFloat(value);
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            bleedProbability: Math.min(100, Math.max(0, num)),
+                          },
+                        });
+                        setInputValues((prev) => {
+                          const next = { ...prev };
+                          delete next["attack.bleedProbability"];
+                          return next;
+                        });
+                      }
+                    }
+                  }}
+                />
+              </label>
+              <label>
+                食いしばり（HP1残り）確率（0-100）:
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={
+                    inputValues["attack.survivalHp1Probability"] ??
+                    String(config.attack.survivalHp1Probability)
+                  }
+                  onChange={(e) => {
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "attack.survivalHp1Probability": e.target.value,
+                    }));
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value === "" || isNaN(parseInt(value, 10))) {
+                      setConfig({
+                        ...config,
+                        attack: {
+                          ...config.attack,
+                          survivalHp1Probability: 30,
+                        },
+                      });
+                      setInputValues((prev) => {
+                        const next = { ...prev };
+                        delete next["attack.survivalHp1Probability"];
+                        return next;
+                      });
+                    } else {
+                      const num = parseInt(value, 10);
+                      if (!isNaN(num)) {
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            survivalHp1Probability: Math.min(100, Math.max(0, num)),
+                          },
+                        });
+                        setInputValues((prev) => {
+                          const next = { ...prev };
+                          delete next["attack.survivalHp1Probability"];
+                          return next;
+                        });
+                      }
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <h4 className="settings-subsection-title">PvP の確率（ユーザー側）</h4>
+            <p className="settings-hint" style={{ marginTop: 0 }}>
+              反転回復・視聴者が配信者を攻撃・必殺技の<strong>ON/OFF</strong>やコマンドは<strong>ユーザー側</strong>タブの該当見出しで設定します。
+            </p>
+            <div className="settings-row">
+              <label>
+                反転回復の発生確率 (%):
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={
+                    inputValues["pvp.streamerHealOnAttackProbability"] ??
+                    String(config.pvp.streamerHealOnAttackProbability ?? 10)
+                  }
+                  onChange={(e) =>
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "pvp.streamerHealOnAttackProbability": e.target.value,
+                    }))
+                  }
+                  onBlur={(e) => {
+                    const num = Number(e.target.value.trim());
+                    if (!isNaN(num) && num >= 0 && num <= 100) {
+                      setConfig({
+                        ...config,
+                        pvp: {
+                          ...config.pvp,
+                          streamerHealOnAttackProbability: num,
+                        },
+                      });
+                      setInputValues((prev) => {
+                        const next = { ...prev };
+                        delete next["pvp.streamerHealOnAttackProbability"];
+                        return next;
+                      });
+                    }
+                  }}
+                />
+              </label>
+              <label>
+                配信者被攻撃ミス確率（0-100）:
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={
+                    inputValues["pvp.streamerAttack.missProbability"] ??
+                    String(config.pvp.streamerAttack.missProbability)
+                  }
+                  onChange={(e) =>
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "pvp.streamerAttack.missProbability": e.target.value,
+                    }))
+                  }
+                  onBlur={(e) => {
+                    const num = Number(e.target.value.trim());
+                    setConfig({
+                      ...config,
+                      pvp: {
+                        ...config.pvp,
+                        streamerAttack: {
+                          ...config.pvp.streamerAttack,
+                          missProbability:
+                            !isNaN(num) && num >= 0 && num <= 100
+                              ? num
+                              : config.pvp.streamerAttack.missProbability,
+                        },
+                      },
+                    });
+                    setInputValues((prev) => {
+                      const next = { ...prev };
+                      delete next["pvp.streamerAttack.missProbability"];
+                      return next;
+                    });
+                  }}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                配信者被攻撃クリティカル確率（0-100）:
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={
+                    inputValues["pvp.streamerAttack.criticalProbability"] ??
+                    String(config.pvp.streamerAttack.criticalProbability)
+                  }
+                  onChange={(e) =>
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "pvp.streamerAttack.criticalProbability": e.target.value,
+                    }))
+                  }
+                  onBlur={(e) => {
+                    const num = Number(e.target.value.trim());
+                    setConfig({
+                      ...config,
+                      pvp: {
+                        ...config.pvp,
+                        streamerAttack: {
+                          ...config.pvp.streamerAttack,
+                          criticalProbability:
+                            !isNaN(num) && num >= 0 && num <= 100
+                              ? num
+                              : config.pvp.streamerAttack.criticalProbability,
+                        },
+                      },
+                    });
+                    setInputValues((prev) => {
+                      const next = { ...prev };
+                      delete next["pvp.streamerAttack.criticalProbability"];
+                      return next;
+                    });
+                  }}
+                />
+              </label>
+              <label>
+                配信者被攻撃・食いしばり確率（0-100）:
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={
+                    inputValues["pvp.streamerAttack.survivalHp1Probability"] ??
+                    String(config.pvp.streamerAttack.survivalHp1Probability)
+                  }
+                  onChange={(e) =>
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "pvp.streamerAttack.survivalHp1Probability": e.target.value,
+                    }))
+                  }
+                  onBlur={(e) => {
+                    const num = Number(e.target.value.trim());
+                    setConfig({
+                      ...config,
+                      pvp: {
+                        ...config.pvp,
+                        streamerAttack: {
+                          ...config.pvp.streamerAttack,
+                          survivalHp1Probability:
+                            !isNaN(num) && num >= 0 && num <= 100
+                              ? num
+                              : config.pvp.streamerAttack.survivalHp1Probability,
+                        },
+                      },
+                    });
+                    setInputValues((prev) => {
+                      const next = { ...prev };
+                      delete next["pvp.streamerAttack.survivalHp1Probability"];
+                      return next;
+                    });
+                  }}
+                />
+              </label>
+            </div>
+            <div className="settings-row">
+              <label>
+                必殺技発動確率 (%):
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={
+                    inputValues["pvp.viewerFinishingMoveProbability"] ??
+                    String(config.pvp.viewerFinishingMoveProbability ?? 0.01)
+                  }
+                  onChange={(e) => {
+                    setInputValues((prev) => ({
+                      ...prev,
+                      "pvp.viewerFinishingMoveProbability": e.target.value,
+                    }));
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    const num = value === "" ? 0.01 : parseFloat(value);
+                    if (!isNaN(num) && num >= 0 && num <= 100) {
+                      const rounded = Math.round(num * 100) / 100;
+                      setConfig((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              pvp: {
+                                ...prev.pvp,
+                                viewerFinishingMoveProbability: rounded,
+                              },
+                            }
+                          : prev,
+                      );
+                      setInputValues((prev) => {
+                        const next = { ...prev };
+                        delete next["pvp.viewerFinishingMoveProbability"];
+                        return next;
+                      });
+                    } else {
+                      setConfig((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              pvp: {
+                                ...prev.pvp,
+                                viewerFinishingMoveProbability:
+                                  prev.pvp.viewerFinishingMoveProbability ?? 0.01,
+                              },
+                            }
+                          : prev,
+                      );
+                      setInputValues((prev) => {
+                        const next = { ...prev };
+                        delete next["pvp.viewerFinishingMoveProbability"];
+                        return next;
+                      });
+                    }
+                  }}
+                />
+              </label>
+            </div>
             <div className="settings-probability-cta settings-probability-cta--footer">
               <button
                 type="button"
@@ -8520,6 +8540,13 @@ export const OverlaySettings = forwardRef<
                 onClick={() => setActiveTab("streamer")}
               >
                 {embedded ? "配信者タブへ" : "配信者側の設定に戻る"}
+              </button>
+              <button
+                type="button"
+                className="settings-action-secondary settings-probability-cta__button"
+                onClick={() => setActiveTab("user")}
+              >
+                {embedded ? "視聴者タブへ" : "ユーザー側の設定に戻る"}
               </button>
             </div>
           </div>

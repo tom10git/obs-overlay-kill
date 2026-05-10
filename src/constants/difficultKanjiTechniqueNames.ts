@@ -5,7 +5,7 @@
  * - 斬撃/魔法/射撃のカテゴリへ分配（合計100）
  */
 
-/** 斬撃扱い（34） */
+/** 斬撃扱い（サガ風を含む） */
 export const DIFFICULT_KANJI_SLASH_TECHNIQUE_NAMES: readonly string[] = [
   '魑魅魍魎断',
   '饕餮滅刃',
@@ -41,9 +41,27 @@ export const DIFFICULT_KANJI_SLASH_TECHNIQUE_NAMES: readonly string[] = [
   '泡沫刃幻',
   '不壊剛刃',
   '刃紋叢雲断',
+  // SaGa series flavor
+  '残影斬',
+  '彗刃剣',
+  '無月散華',
+  '乱雪月輪',
+  '活殺獣神撃',
+  '月蝕穿断',
+  '彗影連斬',
+  '断罪白虹撃',
+  '紫電裂帛斬',
+  '冥府招来断',
+  '刹那乱舞刃',
+  '黒耀輪廻斬',
+  '宵闇双牙断',
+  '獅子奮迅剛斬',
+  '麒麟穿界刃',
+  '鸞翔飛刃',
+  '羅刹輪舞斬',
 ]
 
-/** 魔法扱い（33） */
+/** 魔法扱い（サガ風を含む） */
 export const DIFFICULT_KANJI_MAGIC_TECHNIQUE_NAMES: readonly string[] = [
   '万象顕現陣',
   '虚空封緘陣',
@@ -78,9 +96,27 @@ export const DIFFICULT_KANJI_MAGIC_TECHNIQUE_NAMES: readonly string[] = [
   '禁断秘儀陣',
   '幻惑迷妄陣',
   '終焉審判陣',
+  // SaGa series flavor
+  '太陽嵐',
+  '月影結界',
+  '生命清水',
+  '妖精輝',
+  '幻夢穿刃',
+  '黎明光陣',
+  '幽闇影縛陣',
+  '星辰崩落陣',
+  '深淵呼魂陣',
+  '因果織返陣',
+  '時空綻裂陣',
+  '魂魄回帰陣',
+  '禁断輪転陣',
+  '万象鎮護陣',
+  '白虎風嵐陣',
+  '朱雀炎舞陣',
+  '玄武氷葬陣',
 ]
 
-/** 射撃扱い（33） */
+/** 射撃扱い（サガ風を含む） */
 export const DIFFICULT_KANJI_SHOOTING_TECHNIQUE_NAMES: readonly string[] = [
   '貫徹狙撃',
   '破城轟砲',
@@ -115,5 +151,23 @@ export const DIFFICULT_KANJI_SHOOTING_TECHNIQUE_NAMES: readonly string[] = [
   '凍牙貫通弾',
   '毒霧拡散弾',
   '裂帛破城砲',
+  // SaGa series flavor
+  '狙撃穿ち',
+  '影縫弾',
+  '乱矢散華',
+  '瞬速連撃',
+  '千手轟砲',
+  '貫通狙心弾',
+  '霰矢乱射',
+  '閃光貫穿弾',
+  '煙幕幻影弾',
+  '追尾穿破弾',
+  '連装轟砲撃',
+  '破砕榴雷弾',
+  '凍牙連鎖弾',
+  '灼熱爆砕弾',
+  '腐蝕毒霧弾',
+  '麻痺拘束弾幕',
+  '断罪制裁砲',
 ]
 

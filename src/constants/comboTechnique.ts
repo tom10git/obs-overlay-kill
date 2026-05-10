@@ -6,6 +6,7 @@
 import {
   COMBO_TECHNIQUE_NAMES,
   CUSTOM_ORIGINAL_TECHNIQUE_NAME_SET,
+  DIFFICULT_KANJI_TECHNIQUE_NAME_SET,
   MONSTER_HUNTER_VERBATIM_TECHNIQUE_NAMES,
 } from './comboTechniqueNames'
 
@@ -14,6 +15,9 @@ export { COMBO_TECHNIQUE_NAMES }
 export const COMBO_TECHNIQUE_PREFIX = '合わせ技：'
 
 export const COMBO_TECHNIQUE_TRIGGER_PROBABILITY = 0.3
+
+// 難読漢字の技名を優先抽選する固定確率（設定には出さない）
+const DIFFICULT_KANJI_TECHNIQUE_ROLL_PERCENT = 33
 
 /**
  * 合わせ技チャレンジの技名を抽選する。
@@ -33,6 +37,13 @@ export function pickRandomComboTechniqueName(
   if (customP > 0 && CUSTOM_ORIGINAL_TECHNIQUE_NAME_SET.size > 0 && Math.random() * 100 < customP) {
     const customArr = Array.from(CUSTOM_ORIGINAL_TECHNIQUE_NAME_SET)
     return customArr[Math.floor(Math.random() * customArr.length)]!
+  }
+  if (
+    DIFFICULT_KANJI_TECHNIQUE_NAME_SET.size > 0 &&
+    Math.random() * 100 < DIFFICULT_KANJI_TECHNIQUE_ROLL_PERCENT
+  ) {
+    const arr = Array.from(DIFFICULT_KANJI_TECHNIQUE_NAME_SET)
+    return arr[Math.floor(Math.random() * arr.length)]!
   }
   const pool = COMBO_TECHNIQUE_NAMES
   const i = Math.floor(Math.random() * pool.length)

@@ -2,11 +2,15 @@
 
 import {
   CUSTOM_ORIGINAL_TECHNIQUE_NAME_SET,
+  DIFFICULT_KANJI_TECHNIQUE_NAME_SET,
   MONSTER_HUNTER_VERBATIM_TECHNIQUE_NAMES,
 } from './comboTechniqueNames'
 import { HP_GAUGE_TOP_BAND_GAP_PX } from './hpGaugeOverlay'
 
 const MH_VERBATIM_NAME_SET = new Set<string>(MONSTER_HUNTER_VERBATIM_TECHNIQUE_NAMES)
+
+// 難読漢字の技名を優先抽選する固定確率（設定には出さない）
+const DIFFICULT_KANJI_TECHNIQUE_ROLL_PERCENT = 33
 
 /** 通常攻撃ヒット後にルーレット演出を出す確率 */
 export const ROULETTE_BONUS_TRIGGER_PROBABILITY = 0.4
@@ -75,6 +79,16 @@ export function pickRouletteStripSkill(
     }
     if (customIdx.length > 0 && Math.random() * 100 < customP) {
       const landIndex = customIdx[Math.floor(Math.random() * customIdx.length)]!
+      return { landedName: names[landIndex] ?? names[0]!, landIndex }
+    }
+  }
+  if (DIFFICULT_KANJI_TECHNIQUE_NAME_SET.size > 0) {
+    const hardIdx: number[] = []
+    for (let i = 0; i < n; i += 1) {
+      if (DIFFICULT_KANJI_TECHNIQUE_NAME_SET.has(names[i]!)) hardIdx.push(i)
+    }
+    if (hardIdx.length > 0 && Math.random() * 100 < DIFFICULT_KANJI_TECHNIQUE_ROLL_PERCENT) {
+      const landIndex = hardIdx[Math.floor(Math.random() * hardIdx.length)]!
       return { landedName: names[landIndex] ?? names[0]!, landIndex }
     }
   }

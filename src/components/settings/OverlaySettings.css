@@ -669,6 +669,8 @@
   margin-top: 1.25rem;
   margin-bottom: 0;
   justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
 }
 
 /* HPゲージ色・ダメージ色設定 */
