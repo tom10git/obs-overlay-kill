@@ -5,7 +5,10 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { TechniqueEffectKind } from '../../constants/techniqueEffectKinds'
 import { getTechniqueBurstArtParams } from '../../constants/techniqueEffectKinds'
-import { MONSTER_HUNTER_VERBATIM_TECHNIQUE_NAMES } from '../../constants/comboTechniqueNames'
+import {
+  DIFFICULT_KANJI_TECHNIQUE_NAME_SET,
+  MONSTER_HUNTER_VERBATIM_TECHNIQUE_NAMES,
+} from '../../constants/comboTechniqueNames'
 
 export interface TechniqueEffectBurstCanvasLayerProps {
   techniqueName: string
@@ -82,6 +85,9 @@ type Blood = { t0: number; life: number; x: number; y: number; vx: number; vy: n
 type IceShard = { t0: number; life: number; x: number; y: number; vx: number; vy: number; w: number; h: number; rot: number }
 type MhSpark = { t0: number; life: number; x: number; y: number; vx: number; vy: number; r: number }
 type MhClaw = { t0: number; t1: number; x0: number; y0: number; x1: number; y1: number; w: number }
+type Talisman = { t0: number; life: number; x: number; y: number; vy: number; rot: number; w: number; h: number }
+type RuneChar = { t0: number; life: number; x: number; y: number; vy: number; glyph: string; size: number; rot: number }
+type InkDrop = { t0: number; life: number; x: number; y: number; vx: number; vy: number; r: number }
 
 export function TechniqueEffectBurstCanvasLayer({
   techniqueName,
@@ -104,6 +110,8 @@ export function TechniqueEffectBurstCanvasLayer({
     const seed = art.seed | 0
     const rng = mulberry32(seed ^ 0xa53c9e1b)
     const isMhVerbatim = MH_VERBATIM_SET.has(techniqueName.trim())
+    const isDifficultKanji = DIFFICULT_KANJI_TECHNIQUE_NAME_SET.has(techniqueName.trim())
+    const difficultVariant = Math.abs(seed ^ 0x2f6a1c) % 10
     const profile = detectProfile(kind, techniqueName)
     const isRush = /ラッシュ|RUSH/i.test(techniqueName)
     const durS = Math.max(0.6, durationMs / 1000)
@@ -227,7 +235,76 @@ export function TechniqueEffectBurstCanvasLayer({
       }
     }
 
-    return { seed, profile, isMhVerbatim, slashCuts, bullets, embers, blood, ice, mhSparks, mhClaws, isRush }
+    const talismans: Talisman[] = []
+    if (isDifficultKanji && difficultVariant === 1) {
+      const n = 10 + Math.floor(rng() * 10)
+      for (let i = 0; i < n; i++) {
+        talismans.push({
+          t0: (0.05 + rng() * 0.35) * durS,
+          life: (0.42 + rng() * 0.55) * durS,
+          x: (rng() - 0.5) * 0.9,
+          y: -0.12 - rng() * 0.25,
+          vy: 0.65 + rng() * 1.15,
+          rot: (rng() - 0.5) * 0.8,
+          w: 0.04 + rng() * 0.05,
+          h: 0.12 + rng() * 0.16,
+        })
+      }
+    }
+
+    const runes: RuneChar[] = []
+    if (isDifficultKanji && difficultVariant === 5) {
+      const glyphSource = (techniqueName.trim().slice(0, 6) || '禁断奥義').split('')
+      const pickGlyph = () => glyphSource[Math.floor(rng() * glyphSource.length)] ?? '奥'
+      const n = 22 + Math.floor(rng() * 20)
+      for (let i = 0; i < n; i++) {
+        runes.push({
+          t0: (0.04 + rng() * 0.36) * durS,
+          life: (0.55 + rng() * 0.6) * durS,
+          x: (rng() - 0.5) * 1.15,
+          y: -0.25 - rng() * 0.35,
+          vy: 0.75 + rng() * 1.35,
+          glyph: pickGlyph(),
+          size: 14 + rng() * 34,
+          rot: (rng() - 0.5) * 1.1,
+        })
+      }
+    }
+
+    const ink: InkDrop[] = []
+    if (isDifficultKanji && difficultVariant === 6) {
+      const n = 80 + Math.floor(rng() * 70)
+      for (let i = 0; i < n; i++) {
+        ink.push({
+          t0: (0.08 + rng() * 0.26) * durS,
+          life: (0.22 + rng() * 0.35) * durS,
+          x: (rng() - 0.5) * 0.55,
+          y: (rng() - 0.5) * 0.28,
+          vx: (rng() - 0.5) * 1.25,
+          vy: -(0.25 + rng() * 1.05),
+          r: 0.8 + rng() * 3.8,
+        })
+      }
+    }
+
+    return {
+      seed,
+      profile,
+      isMhVerbatim,
+      isDifficultKanji,
+      difficultVariant,
+      talismans,
+      runes,
+      ink,
+      slashCuts,
+      bullets,
+      embers,
+      blood,
+      ice,
+      mhSparks,
+      mhClaws,
+      isRush,
+    }
   }, [durationMs, kind, techniqueName])
 
   useEffect(() => {
@@ -399,6 +476,321 @@ export function TechniqueEffectBurstCanvasLayer({
 
         // still allow blood at hit timing (if hit-based profile would have it)
         // (blood drawing below stays active)
+        ctx.restore()
+      }
+
+      // Difficult Kanji: distinct “arcane / literary” variants (fixed pool, name-seeded).
+      if (!pre.isMhVerbatim && pre.isDifficultKanji) {
+        ctx.save()
+        const appear = smoothstep(0.02, 0.11, prog)
+        const fade = 1 - smoothstep(0.72, 0.98, prog)
+        const life = appear * fade
+        const dkHue = (hue + 320) % 360 // lean slightly magenta/indigo for contrast
+        const spin = t * (0.6 + (pre.seed & 7) * 0.05)
+        const big = Math.max(w, h) * 0.36
+
+        // A: ink seal + bold glyph
+        if (pre.difficultVariant === 0) {
+          ctx.globalCompositeOperation = 'lighter'
+          ctx.translate(cx, cy)
+          ctx.rotate(-0.22 + Math.sin(spin * 0.7) * 0.08)
+          ctx.shadowBlur = 24
+          ctx.shadowColor = `hsla(${dkHue}, 90%, 70%, ${0.35 * life})`
+          ctx.strokeStyle = `hsla(${dkHue}, 95%, 64%, ${0.35 * life})`
+          ctx.lineWidth = 3
+          ctx.beginPath()
+          ctx.arc(0, 0, big * 0.55, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.shadowBlur = 0
+          ctx.strokeStyle = `rgba(255,255,255,${0.22 * life})`
+          ctx.lineWidth = 1.5
+          for (let i = 0; i < 28; i++) {
+            const ang = (i / 28) * Math.PI * 2 + spin * 0.35
+            const r0 = big * 0.42
+            const r1 = r0 + (i % 2 === 0 ? big * 0.08 : big * 0.04)
+            ctx.beginPath()
+            ctx.moveTo(Math.cos(ang) * r0, Math.sin(ang) * r0 * 0.82)
+            ctx.lineTo(Math.cos(ang) * r1, Math.sin(ang) * r1 * 0.82)
+            ctx.stroke()
+          }
+          ctx.globalCompositeOperation = 'screen'
+          ctx.fillStyle = `rgba(255,255,255,${0.06 * life})`
+          ctx.fillRect(-big * 0.9, -big * 0.65, big * 1.8, big * 1.3)
+
+          // glyph (use the first Kanji-ish block; fallback to first char)
+          const glyph = techniqueName.trim().slice(0, 2) || '奥'
+          ctx.globalCompositeOperation = 'lighter'
+          ctx.font = `900 ${Math.floor(big * 0.55)}px "Yu Gothic", "Meiryo", system-ui, sans-serif`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.shadowBlur = 30
+          ctx.shadowColor = `hsla(${(dkHue + 10) % 360}, 92%, 70%, ${0.25 * life})`
+          ctx.fillStyle = `rgba(255,255,255,${0.20 * life})`
+          ctx.fillText(glyph, 0, 0)
+          ctx.shadowBlur = 0
+          ctx.fillStyle = `hsla(${dkHue}, 92%, 62%, ${0.22 * life})`
+          ctx.fillText(glyph, 0, 0)
+        }
+
+        // B: talisman rain
+        if (pre.difficultVariant === 1) {
+          ctx.globalCompositeOperation = 'lighter'
+          for (let i = 0; i < pre.talismans.length; i++) {
+            const s = pre.talismans[i]!
+            const q = clamp01((t - s.t0) / Math.max(1e-6, s.life))
+            if (q <= 0 || q >= 1) continue
+            const a2 = (1 - q) * 0.32 * life
+            const x = cx + s.x * w
+            const y = cy + (s.y + s.vy * q) * h
+            const ww = s.w * w
+            const hh = s.h * h
+            ctx.save()
+            ctx.translate(x, y)
+            ctx.rotate(s.rot + Math.sin((t + i) * 1.7) * 0.08)
+            ctx.shadowBlur = 18
+            ctx.shadowColor = `hsla(${dkHue}, 95%, 70%, ${0.22 * a2})`
+            ctx.fillStyle = `rgba(255,255,255,${0.18 * a2})`
+            ctx.fillRect(-ww * 0.5, -hh * 0.5, ww, hh)
+            ctx.shadowBlur = 0
+            ctx.fillStyle = `hsla(${(dkHue + 10) % 360}, 92%, 60%, ${0.12 * a2})`
+            ctx.fillRect(-ww * 0.42, -hh * 0.44, ww * 0.84, hh * 0.88)
+            // simple "ink" lines
+            ctx.strokeStyle = `rgba(0,0,0,${0.22 * a2})`
+            ctx.lineWidth = 1
+            for (let k = 0; k < 4; k++) {
+              const yy = (-0.3 + k * 0.2) * hh
+              ctx.beginPath()
+              ctx.moveTo(-ww * 0.28, yy)
+              ctx.lineTo(ww * 0.28, yy + (k % 2 === 0 ? 1 : -1) * 2)
+              ctx.stroke()
+            }
+            ctx.restore()
+          }
+        }
+
+        // C: void rift
+        if (pre.difficultVariant === 2) {
+          ctx.globalCompositeOperation = 'screen'
+          const rr = big * (0.85 + 0.12 * Math.sin(spin))
+          const g = ctx.createRadialGradient(cx, cy, rr * 0.05, cx, cy, rr)
+          g.addColorStop(0, `rgba(0,0,0,${0.0})`)
+          g.addColorStop(0.15, `hsla(${(dkHue + 250) % 360}, 85%, 16%, ${0.35 * life})`)
+          g.addColorStop(0.45, `hsla(${dkHue}, 95%, 55%, ${0.12 * life})`)
+          g.addColorStop(1, 'rgba(0,0,0,0)')
+          ctx.fillStyle = g
+          ctx.beginPath()
+          ctx.arc(cx, cy, rr, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.globalCompositeOperation = 'lighter'
+          ctx.strokeStyle = `hsla(${dkHue}, 92%, 70%, ${0.18 * life})`
+          ctx.lineWidth = 2
+          for (let i = 0; i < 6; i++) {
+            const ang = spin * 0.55 + i * (Math.PI * 2) / 6
+            const r0 = rr * 0.18
+            const r1 = rr * (0.75 + 0.05 * Math.sin(t * 3 + i))
+            ctx.beginPath()
+            ctx.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0 * 0.86)
+            ctx.lineTo(cx + Math.cos(ang) * r1, cy + Math.sin(ang) * r1 * 0.86)
+            ctx.stroke()
+          }
+        }
+
+        // D: celestial sigil (polygon / star)
+        if (pre.difficultVariant === 3) {
+          ctx.globalCompositeOperation = 'lighter'
+          ctx.translate(cx, cy)
+          ctx.rotate(spin * 0.55)
+          const rOuter = big * 0.62
+          const rInner = big * 0.26
+          ctx.shadowBlur = 26
+          ctx.shadowColor = `hsla(${dkHue}, 95%, 70%, ${0.28 * life})`
+          ctx.strokeStyle = `rgba(255,255,255,${0.18 * life})`
+          ctx.lineWidth = 2.4
+          ctx.beginPath()
+          for (let i = 0; i <= 10; i++) {
+            const a3 = (i / 10) * Math.PI * 2
+            const rr = i % 2 === 0 ? rOuter : rInner
+            const x = Math.cos(a3) * rr
+            const y = Math.sin(a3) * rr * 0.82
+            if (i === 0) ctx.moveTo(x, y)
+            else ctx.lineTo(x, y)
+          }
+          ctx.stroke()
+          ctx.shadowBlur = 0
+          ctx.strokeStyle = `hsla(${dkHue}, 92%, 62%, ${0.22 * life})`
+          ctx.lineWidth = 4.8
+          ctx.beginPath()
+          ctx.arc(0, 0, big * 0.38, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+
+        // E: paper cut / diagonal calligraphy slash (reads very different from slashCuts)
+        if (pre.difficultVariant === 4) {
+          ctx.globalCompositeOperation = 'lighter'
+          ctx.save()
+          ctx.translate(cx, cy)
+          ctx.rotate(-0.9 + Math.sin(spin * 0.6) * 0.12)
+          const ww = big * 1.15
+          const hh = big * 0.18
+          const glow = (0.12 + 0.12 * hit) * life
+          ctx.shadowBlur = 36
+          ctx.shadowColor = `hsla(${dkHue}, 95%, 70%, ${0.35 * glow})`
+          ctx.fillStyle = `rgba(255,255,255,${0.08 * life})`
+          ctx.fillRect(-ww * 0.5, -hh * 0.5, ww, hh)
+          ctx.shadowBlur = 0
+          ctx.strokeStyle = `hsla(${dkHue}, 92%, 62%, ${0.32 * life})`
+          ctx.lineWidth = 7 + 10 * hit
+          ctx.lineCap = 'round'
+          ctx.beginPath()
+          ctx.moveTo(-ww * 0.45, 0)
+          ctx.lineTo(ww * 0.45, 0)
+          ctx.stroke()
+          ctx.restore()
+        }
+
+        // F: rune rain (glyphs falling)
+        if (pre.difficultVariant === 5) {
+          ctx.globalCompositeOperation = 'lighter'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          for (let i = 0; i < pre.runes.length; i++) {
+            const r0 = pre.runes[i]!
+            const q = clamp01((t - r0.t0) / Math.max(1e-6, r0.life))
+            if (q <= 0 || q >= 1) continue
+            const a2 = (1 - q) * 0.28 * life
+            const x = cx + r0.x * w
+            const y = cy + (r0.y + r0.vy * q) * h
+            ctx.save()
+            ctx.translate(x, y)
+            ctx.rotate(r0.rot + Math.sin((t + i) * 1.2) * 0.06)
+            ctx.shadowBlur = 22
+            ctx.shadowColor = `hsla(${dkHue}, 95%, 70%, ${0.28 * a2})`
+            ctx.font = `900 ${Math.floor(r0.size)}px "Yu Gothic", "Meiryo", system-ui, sans-serif`
+            ctx.fillStyle = `rgba(255,255,255,${0.18 * a2})`
+            ctx.fillText(r0.glyph, 0, 0)
+            ctx.shadowBlur = 0
+            ctx.fillStyle = `hsla(${(dkHue + 12) % 360}, 90%, 62%, ${0.14 * a2})`
+            ctx.fillText(r0.glyph, 0, 0)
+            ctx.restore()
+          }
+        }
+
+        // G: ink splatter burst (many drops, dark + luminous edge)
+        if (pre.difficultVariant === 6) {
+          ctx.globalCompositeOperation = 'source-over'
+          const u3 = Math.max(w, h)
+          for (let i = 0; i < pre.ink.length; i++) {
+            const s = pre.ink[i]!
+            const q = clamp01((t - s.t0) / Math.max(1e-6, s.life))
+            if (q <= 0 || q >= 1) continue
+            const x = cx + s.x * u3 + s.vx * u3 * q * 0.22
+            const y = cy + s.y * u3 + s.vy * u3 * q * 0.22 + q * q * u3 * 0.12
+            const aa = (1 - q) * 0.35 * life
+            const rr = s.r * (0.7 + (1 - q) * 0.9)
+            ctx.fillStyle = `rgba(0,0,0,${0.28 * aa})`
+            ctx.beginPath()
+            ctx.arc(x, y, rr * 3.2, 0, Math.PI * 2)
+            ctx.fill()
+
+            ctx.globalCompositeOperation = 'lighter'
+            const g = ctx.createRadialGradient(x, y, 0, x, y, rr * 14)
+            g.addColorStop(0, `rgba(255,255,255,${0.14 * aa})`)
+            g.addColorStop(0.25, `hsla(${dkHue}, 92%, 62%, ${0.12 * aa})`)
+            g.addColorStop(1, 'rgba(0,0,0,0)')
+            ctx.fillStyle = g
+            ctx.beginPath()
+            ctx.arc(x, y, rr * 10, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.globalCompositeOperation = 'source-over'
+          }
+        }
+
+        // H: chained seals (linked circles)
+        if (pre.difficultVariant === 7) {
+          ctx.globalCompositeOperation = 'lighter'
+          ctx.translate(cx, cy)
+          const rr = big * 0.52
+          const nodes = 14
+          ctx.lineWidth = 2.2
+          ctx.shadowBlur = 24
+          ctx.shadowColor = `hsla(${dkHue}, 95%, 70%, ${0.28 * life})`
+          for (let i = 0; i < nodes; i++) {
+            const a3 = spin * 0.45 + (i / nodes) * Math.PI * 2
+            const x = Math.cos(a3) * rr
+            const y = Math.sin(a3) * rr * 0.82
+            const rNode = big * (0.045 + 0.012 * Math.sin(t * 2.2 + i))
+            ctx.strokeStyle = `rgba(255,255,255,${0.16 * life})`
+            ctx.beginPath()
+            ctx.arc(x, y, rNode * 2.2, 0, Math.PI * 2)
+            ctx.stroke()
+            ctx.strokeStyle = `hsla(${dkHue}, 92%, 62%, ${0.20 * life})`
+            ctx.beginPath()
+            ctx.arc(x, y, rNode * 3.8, 0, Math.PI * 2)
+            ctx.stroke()
+          }
+          ctx.shadowBlur = 0
+        }
+
+        // I: kanji shard burst (like "paper fragments" / crystalline, distinct from ice)
+        if (pre.difficultVariant === 8) {
+          ctx.globalCompositeOperation = 'lighter'
+          const n = 24
+          for (let i = 0; i < n; i++) {
+            const a3 = spin * 0.9 + (i / n) * Math.PI * 2
+            const r0 = big * 0.12
+            const r1 = big * (0.75 + 0.05 * Math.sin(t * 4 + i))
+            const x0 = cx + Math.cos(a3) * r0
+            const y0 = cy + Math.sin(a3) * r0 * 0.82
+            const x1 = cx + Math.cos(a3) * r1
+            const y1 = cy + Math.sin(a3) * r1 * 0.82
+            const aa = (0.08 + 0.12 * hit) * life
+            ctx.strokeStyle = `rgba(255,255,255,${0.14 * aa})`
+            ctx.lineWidth = 1.8
+            ctx.beginPath()
+            ctx.moveTo(x0, y0)
+            ctx.lineTo(x1, y1)
+            ctx.stroke()
+            ctx.strokeStyle = `hsla(${(dkHue + 18) % 360}, 92%, 62%, ${0.22 * aa})`
+            ctx.lineWidth = 4.5
+            ctx.beginPath()
+            ctx.moveTo(x0, y0)
+            ctx.lineTo(x1, y1)
+            ctx.stroke()
+          }
+        }
+
+        // J: crossed omen beams
+        if (pre.difficultVariant === 9) {
+          ctx.globalCompositeOperation = 'lighter'
+          const beam = smoothstep(0.12, 0.22, prog) * (1 - smoothstep(0.55, 0.9, prog)) * life
+          if (beam > 0.001) {
+            ctx.save()
+            ctx.translate(cx, cy)
+            ctx.rotate(0.35 + Math.sin(spin) * 0.08)
+            const ww = big * 1.25
+            const hh = big * (0.06 + 0.08 * hit)
+            ctx.shadowBlur = 40
+            ctx.shadowColor = `hsla(${dkHue}, 95%, 70%, ${0.35 * beam})`
+            ctx.fillStyle = `hsla(${dkHue}, 92%, 62%, ${0.10 * beam})`
+            ctx.fillRect(-ww * 0.5, -hh * 0.5, ww, hh)
+            ctx.fillStyle = `rgba(255,255,255,${0.08 * beam})`
+            ctx.fillRect(-ww * 0.5, -hh * 0.28, ww, hh * 0.56)
+            ctx.restore()
+
+            ctx.save()
+            ctx.translate(cx, cy)
+            ctx.rotate(-0.35 + Math.sin(spin * 0.8) * 0.08)
+            ctx.shadowBlur = 40
+            ctx.shadowColor = `hsla(${(dkHue + 18) % 360}, 95%, 70%, ${0.35 * beam})`
+            ctx.fillStyle = `hsla(${(dkHue + 18) % 360}, 92%, 62%, ${0.10 * beam})`
+            ctx.fillRect(-ww * 0.5, -hh * 0.5, ww, hh)
+            ctx.fillStyle = `rgba(255,255,255,${0.08 * beam})`
+            ctx.fillRect(-ww * 0.5, -hh * 0.28, ww, hh * 0.56)
+            ctx.restore()
+          }
+        }
+
         ctx.restore()
       }
 
