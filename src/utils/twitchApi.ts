@@ -1,6 +1,10 @@
 import axios, { AxiosInstance } from 'axios'
 import { logger } from '../lib/logger'
 import { getTwitchClientId, getTwitchClientSecret, getTwitchConsoleClientId, getTwitchConsoleClientSecret, getTwitchAccessToken, getTwitchRefreshToken, setTwitchOAuthTokens } from '../config/auth'
+import {
+  TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT,
+  TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT,
+} from '../constants/twitchEnv'
 import type {
   TwitchUser,
   TwitchStream,
@@ -15,6 +19,8 @@ import type {
   TwitchFollowerResponse,
   TwitchChatBadge,
   TwitchApiPaginatedResponse,
+  TwitchChannelPointCustomRewardSummary,
+  TwitchChannelPointRedemption,
 } from '../types/twitch'
 
 class TwitchApiClient {
@@ -85,8 +91,8 @@ class TwitchApiClient {
             `エラー: ${errorMessage}\n` +
             `Client ID: ${clientId.substring(0, 10)}... (長さ: ${clientId.length})\n` +
             '.envファイルを確認してください:\n' +
-            '1. VITE_TWITCH_CLIENT_ID はTwitchアプリケーションのClient ID（30文字以上）である必要があります\n' +
-            '2. VITE_TWITCH_CLIENT_SECRET はTwitchアプリケーションのClient Secret（30文字以上）である必要があります\n' +
+            `1. ${TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT} は Twitch アプリの Client ID（30文字程度の英数字）である必要があります\n` +
+            `2. ${TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT} は同じアプリの Client Secret である必要があります\n` +
             '3. これらは以下から取得できます: https://dev.twitch.tv/console/apps\n' +
             '4. Twitchアプリケーションの正しい認証情報を使用していることを確認してください'
           )
@@ -589,9 +595,9 @@ class TwitchApiClient {
           if (validation.clientId && configuredClientId && validation.clientId !== configuredClientId) {
             logger.error(
               '❌ OAuthトークンのclient_idが一致しません。\n' +
-              `トークンは client_id=${validation.clientId} で発行されましたが、VITE_TWITCH_CLIENT_ID=${configuredClientId} です。\n` +
+              `トークンは client_id=${validation.clientId} で発行されましたが、.env のトークン用アプリ Client ID は ${configuredClientId} です。\n` +
               'Twitchでは、Client-IdヘッダーがOAuthトークン内のclient_idと一致する必要があります。\n' +
-              '修正方法: VITE_TWITCH_CLIENT_ID と同じTwitchアプリを使用して、新しいユーザートークン/リフレッシュトークンを生成してください。'
+              `修正方法: ${TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT} と同じ Twitch アプリでユーザートークン／リフレッシュトークンを再取得してください。`
             )
           }
           logger.debug('✅ Twitch API: OAuthトークンの検証成功', {
@@ -613,6 +619,31 @@ class TwitchApiClient {
         'https://dev.twitch.tv/docs/authentication/getting-tokens-oauth#oauth-authorization-code-flow'
       )
       return await this.getHeaders()
+    }
+  }
+
+  /**
+   * ユーザートークンで Helix を呼ぶときのヘッダー。
+   * Twitch は Client-Id を「そのトークンを発行したアプリ」の client_id と一致させる必要があり、
+   * 不一致だとチャンネルポイント等が 403 になる。validate 応答の client_id を優先する。
+   */
+  private async getOAuthHelixHeaders(): Promise<Record<string, string>> {
+    const userToken = await this.getUserAccessToken()
+    const v = await this.validateOAuthToken(userToken)
+    if (!v.valid) {
+      throw new Error('OAuth token validation failed')
+    }
+    const fromToken = (v.clientId || '').trim()
+    const configured = getTwitchClientId().trim()
+    const clientId = fromToken || configured
+    if (fromToken && configured && fromToken !== configured) {
+      logger.warn(
+        `[channel-points] Client-Id をトークンに紐づいたアプリ ID に合わせました。.env の ${TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT} の値と異なります（Helix の要件）。`
+      )
+    }
+    return {
+      'Client-ID': clientId,
+      Authorization: `Bearer ${userToken}`,
     }
   }
 
@@ -924,6 +955,137 @@ class TwitchApiClient {
     }
   }
 
+
+  /**
+   * チャンネルポイントのカスタムリワード一覧（全ページ・タイトル→ID 解決用）
+   * Helix は1リクエストあたり最大 50 件で、カーソルでページングする。
+   */
+  async getChannelPointCustomRewardSummaries(broadcasterId: string): Promise<TwitchChannelPointCustomRewardSummary[]> {
+    const headers = await this.getOAuthHelixHeaders()
+    const all: TwitchChannelPointCustomRewardSummary[] = []
+    let cursor: string | undefined
+    for (let page = 0; page < 40; page += 1) {
+      const params: Record<string, string | number> = {
+        broadcaster_id: broadcasterId,
+        first: 50,
+      }
+      if (cursor) params.after = cursor
+      const response = await this.client.get<TwitchApiPaginatedResponse<Record<string, unknown>>>(
+        '/channel_points/custom_rewards',
+        { headers, params }
+      )
+      const rows = response.data.data || []
+      for (const r of rows) {
+        const id = typeof r.id === 'string' ? r.id : ''
+        const title = typeof r.title === 'string' ? r.title : ''
+        if (id.length > 0 && title.length > 0) {
+          all.push({ id, title })
+        }
+      }
+      const next = response.data.pagination?.cursor
+      if (!next || rows.length === 0) break
+      cursor = next
+    }
+    return all
+  }
+
+  /**
+   * 現在のユーザー OAuth トークンの user_id とスコープ（チャンネルポイント用の自己診断）
+   */
+  async getOAuthUserIdAndScopes(): Promise<{ userId: string; scopes: string[] } | null> {
+    try {
+      const token = await this.getUserAccessToken()
+      const v = await this.validateOAuthToken(token)
+      if (!v.valid || !v.userId) return null
+      return { userId: v.userId, scopes: v.scopes ?? [] }
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * 指定リワードの未完了引き換え一覧（古い順にソートして返す）
+   */
+  async getChannelPointRedemptionsUnfulfilled(
+    broadcasterId: string,
+    rewardId: string,
+    first: number = 50
+  ): Promise<TwitchChannelPointRedemption[]> {
+    const headers = await this.getOAuthHelixHeaders()
+    const response = await this.client.get<TwitchApiResponse<TwitchChannelPointRedemption>>(
+      '/channel_points/custom_rewards/redemptions',
+      {
+        headers,
+        params: {
+          broadcaster_id: broadcasterId,
+          reward_id: rewardId,
+          status: 'UNFULFILLED',
+          first,
+        },
+      }
+    )
+    const data = response.data.data || []
+    return [...data].sort((a, b) => new Date(a.redeemed_at).getTime() - new Date(b.redeemed_at).getTime())
+  }
+
+  /**
+   * 引き換えを FULFILLED に更新（channel:manage:redemptions が必要）
+   */
+  async fulfillChannelPointRedemptions(
+    broadcasterId: string,
+    rewardId: string,
+    redemptionIds: string[]
+  ): Promise<void> {
+    if (redemptionIds.length === 0) return
+    const headers = await this.getOAuthHelixHeaders()
+    await this.client.patch(
+      '/channel_points/custom_rewards/redemptions',
+      {
+        broadcaster_id: broadcasterId,
+        reward_id: rewardId,
+        id: redemptionIds,
+        status: 'FULFILLED',
+      },
+      { headers }
+    )
+  }
+
+  /**
+   * EventSub: WebSocket セッションに channel point redemption add を紐づける。
+   * ダッシュボード作成リワードは Helix の引き換え一覧が 403 になることがあるが、本通知は届く。
+   */
+  async createEventSubChannelPointsRedemptionAddWebsocket(
+    sessionId: string,
+    condition: { broadcaster_user_id: string; reward_id?: string }
+  ): Promise<string> {
+    const headers = await this.getOAuthHelixHeaders()
+    const response = await this.client.post<{ data: Array<{ id: string }> }>(
+      '/eventsub/subscriptions',
+      {
+        type: 'channel.channel_points_custom_reward_redemption.add',
+        version: '1',
+        condition,
+        transport: {
+          method: 'websocket',
+          session_id: sessionId,
+        },
+      },
+      { headers }
+    )
+    const id = response.data?.data?.[0]?.id
+    if (!id) {
+      throw new Error('EventSub: subscription response missing id')
+    }
+    return id
+  }
+
+  async deleteEventSubSubscription(subscriptionId: string): Promise<void> {
+    const headers = await this.getOAuthHelixHeaders()
+    await this.client.delete('/eventsub/subscriptions', {
+      headers,
+      params: { id: subscriptionId },
+    })
+  }
 
   /**
    * チャットにメッセージを送信（配信者アカウントで送信）

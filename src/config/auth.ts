@@ -4,6 +4,10 @@
  */
 
 import { logger } from '../lib/logger'
+import {
+  TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT,
+  TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT,
+} from '../constants/twitchEnv'
 
 export interface TwitchAuthConfig {
   /** トークンジェネレーター用アプリの Client ID（TOKEN_APP 未設定時は CLIENT_ID を利用） */
@@ -57,10 +61,9 @@ class AuthConfigManager {
     const tokenAppSecret = twitchTokenAppClientSecret || twitchClientSecret
     if (!tokenAppId || !tokenAppSecret) {
       throw new Error(
-        'トークンジェネレーター用の認証情報を設定してください。\n' +
-        '次のいずれかを .env に設定:\n' +
-        '  VITE_TWITCH_TOKEN_APP_CLIENT_ID と VITE_TWITCH_TOKEN_APP_CLIENT_SECRET（公式トークンジェネレーターで使ったアプリ）\n' +
-        '  または VITE_TWITCH_CLIENT_ID と VITE_TWITCH_CLIENT_SECRET\n' +
+        'トークン用 Twitch アプリの Client ID / Secret を .env に設定してください。\n' +
+        `  推奨: ${TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT} と ${TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT}\n` +
+        '  代替: VITE_TWITCH_CLIENT_ID と VITE_TWITCH_CLIENT_SECRET（上記未設定時に使用）\n' +
         '取得先: https://dev.twitch.tv/console/apps / https://twitchtokengenerator.com/'
       )
     }

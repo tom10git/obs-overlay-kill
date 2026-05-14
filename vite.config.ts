@@ -1,11 +1,78 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { spawn } from 'node:child_process'
 import { writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import type { Plugin } from 'vite'
 
+/** テストパネル保存後の build.bat → package-release.bat を直列キューで実行 */
+function createPostSaveReleaseRunner() {
+  let tail: Promise<void> = Promise.resolve()
+
+  function runOnce(): Promise<void> {
+    return new Promise((resolve) => {
+      const cwd = process.cwd()
+      const env = { ...process.env, OBS_OVERLAY_KILL_NON_INTERACTIVE: '1' }
+
+      const finish = (code: number | null, label: string) => {
+        if (code === 0) {
+          console.log(`[config-save-api] ${label} 完了`)
+        } else {
+          console.error(`[config-save-api] ${label} 失敗 exit=${code}`)
+        }
+        resolve()
+      }
+
+      if (process.platform === 'win32') {
+        // cwd はプロジェクトルート。絶対パス＋二重引用符は spawn と cmd /c の相性で壊れやすいので相対パスで call する。
+        const cmdLine = 'call build.bat && call package-release.bat'
+        const child = spawn('cmd.exe', ['/d', '/c', cmdLine], { cwd, env, stdio: 'inherit' })
+        child.on('close', (code) => finish(code, 'build.bat → package-release.bat'))
+        child.on('error', (err) => {
+          console.error('[config-save-api] spawn エラー:', err)
+          resolve()
+        })
+        return
+      }
+
+      console.warn(
+        '[config-save-api] Windows 以外のため npm run build → npm run package:release を実行します',
+      )
+      const buildChild = spawn('npm', ['run', 'build'], { cwd, env, stdio: 'inherit', shell: true })
+      buildChild.on('error', (err) => {
+        console.error('[config-save-api] spawn エラー:', err)
+        resolve()
+      })
+      buildChild.on('close', (buildCode) => {
+        if (buildCode !== 0) {
+          finish(buildCode, 'npm run build')
+          return
+        }
+        const pkgChild = spawn('npm', ['run', 'package:release'], {
+          cwd,
+          env,
+          stdio: 'inherit',
+          shell: true,
+        })
+        pkgChild.on('error', (err) => {
+          console.error('[config-save-api] spawn エラー:', err)
+          resolve()
+        })
+        pkgChild.on('close', (pkgCode) => finish(pkgCode, 'npm run package:release'))
+      })
+    })
+  }
+
+  return function enqueue() {
+    console.log('[config-save-api] 保存後に build.bat → package-release.bat をキューしました')
+    tail = tail.then(() => runOnce(), () => runOnce())
+  }
+}
+
 // 開発環境用の設定ファイル保存APIプラグイン
 function configSavePlugin(): Plugin {
+  const enqueuePostSaveRelease = createPostSaveReleaseRunner()
+
   return {
     name: 'config-save-api',
     configureServer(server) {
@@ -35,6 +102,11 @@ function configSavePlugin(): Plugin {
 
               // JSONファイルとして保存（インデント付き）
               writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8')
+
+              const parsedUrl = new URL(req.url || '/api/config/save', 'http://vite.config.local')
+              if (parsedUrl.searchParams.get('postRelease') === '1') {
+                enqueuePostSaveRelease()
+              }
 
               res.setHeader('Content-Type', 'application/json')
               res.statusCode = 200

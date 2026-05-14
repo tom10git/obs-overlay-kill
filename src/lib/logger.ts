@@ -63,6 +63,12 @@ function push(level: LogLevel, args: unknown[]) {
   subscribers.forEach((fn) => fn())
 }
 
+function firstArgMessage(args: unknown[]): string {
+  if (args.length === 0) return ''
+  const first = args[0]
+  return typeof first === 'string' ? first : safeStringify(first)
+}
+
 function mirrorConsole(level: LogLevel, args: unknown[]) {
   if (level === 'error') {
     console.error(...args)
@@ -72,7 +78,9 @@ function mirrorConsole(level: LogLevel, args: unknown[]) {
     console.warn(...args)
     return
   }
-  if (shouldMirrorDebugToConsole()) {
+  const msg = firstArgMessage(args)
+  const alwaysMirrorChannelPointsInfo = level === 'info' && msg.includes('[channel-points]')
+  if (shouldMirrorDebugToConsole() || alwaysMirrorChannelPointsInfo) {
     if (level === 'debug') {
       console.debug(...args)
     } else {

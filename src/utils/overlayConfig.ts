@@ -209,6 +209,11 @@ const DEFAULT_CONFIG: OverlayConfig = {
     survivalHp1Enabled: false,
     survivalHp1Probability: 30,
     survivalHp1Message: '食いしばり!',
+    channelPointsAttackEnabled: true,
+    channelPointsRewardTitle: '配信者を攻撃',
+    channelPointsRewardId: '',
+    channelPointsPollIntervalSec: 4,
+    channelPointsAutoFulfill: true,
   },
   heal: {
     customText: '',
@@ -226,6 +231,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
     healWhenZeroEnabled: true,
     autoReplyEnabled: false,
     autoReplyMessageTemplate: '配信者の残りHP: {hp}/{max}',
+    channelPointsHealEnabled: true,
+    channelPointsHealRewardTitle: '配信者を回復',
+    channelPointsHealRewardId: '',
   },
   retry: {
     command: '!retry',
@@ -243,6 +251,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundEnabled: false,
     soundUrl: '',
     soundVolume: 0.7,
+    channelPointsReviveEnabled: true,
+    channelPointsReviveRewardTitle: '配信者を蘇生',
+    channelPointsReviveRewardId: '',
   },
   animation: {
     duration: 500,
@@ -710,11 +721,21 @@ export async function loadOverlayConfigFromFile(): Promise<OverlayConfig> {
   }
 }
 
+export type SaveOverlayConfigOptions = {
+  /**
+   * 開発サーバー時のみ: 保存 API に postRelease を付与し、成功後に build.bat → package-release.bat を実行する（テストパネル用）。
+   */
+  postSaveRelease?: boolean
+}
+
 /**
  * 設定ファイルをJSONファイルとして保存する
  * 開発環境ではAPI経由でファイルに保存、本番環境ではダウンロード
  */
-export async function saveOverlayConfig(config: OverlayConfig): Promise<boolean> {
+export async function saveOverlayConfig(
+  config: OverlayConfig,
+  options?: SaveOverlayConfigOptions,
+): Promise<boolean> {
   try {
     // 設定値を検証・サニタイズ
     const validated = validateAndSanitizeConfig(config)
@@ -722,7 +743,9 @@ export async function saveOverlayConfig(config: OverlayConfig): Promise<boolean>
     // 開発環境ではAPI経由でファイルに保存
     if (import.meta.env.DEV) {
       try {
-        const response = await fetch('/api/config/save', {
+        const saveUrl =
+          options?.postSaveRelease === true ? '/api/config/save?postRelease=1' : '/api/config/save'
+        const response = await fetch(saveUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1147,6 +1170,29 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       ? Number(attackConfig.survivalHp1Probability) || 30
       : 30,
     survivalHp1Message: typeof attackConfig.survivalHp1Message === 'string' ? attackConfig.survivalHp1Message : '食いしばり!',
+    channelPointsAttackEnabled:
+      typeof attackConfig.channelPointsAttackEnabled === 'boolean'
+        ? attackConfig.channelPointsAttackEnabled
+        : DEFAULT_CONFIG.attack.channelPointsAttackEnabled,
+    channelPointsRewardTitle:
+      typeof attackConfig.channelPointsRewardTitle === 'string'
+        ? (() => {
+            const t = attackConfig.channelPointsRewardTitle.trim().slice(0, 80)
+            return t || (DEFAULT_CONFIG.attack.channelPointsRewardTitle ?? '配信者を攻撃')
+          })()
+        : DEFAULT_CONFIG.attack.channelPointsRewardTitle ?? '配信者を攻撃',
+    channelPointsRewardId:
+      typeof attackConfig.channelPointsRewardId === 'string'
+        ? attackConfig.channelPointsRewardId.trim().slice(0, 80)
+        : '',
+    channelPointsPollIntervalSec: (() => {
+      const n = Math.floor(Number(attackConfig.channelPointsPollIntervalSec))
+      const fallback = DEFAULT_CONFIG.attack.channelPointsPollIntervalSec ?? 4
+      if (!Number.isFinite(n)) return fallback
+      return isInRange(n, 3, 60) ? n : fallback
+    })(),
+    channelPointsAutoFulfill:
+      typeof attackConfig.channelPointsAutoFulfill === 'boolean' ? attackConfig.channelPointsAutoFulfill : true,
   }
 
   // 回復設定の検証
@@ -1180,6 +1226,19 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     healWhenZeroEnabled: typeof healConfig.healWhenZeroEnabled === 'boolean' ? healConfig.healWhenZeroEnabled : true,
     autoReplyEnabled: typeof healConfig.autoReplyEnabled === 'boolean' ? healConfig.autoReplyEnabled : false,
     autoReplyMessageTemplate: typeof healConfig.autoReplyMessageTemplate === 'string' ? healConfig.autoReplyMessageTemplate : '配信者の残りHP: {hp}/{max}',
+    channelPointsHealEnabled:
+      typeof healConfig.channelPointsHealEnabled === 'boolean' ? healConfig.channelPointsHealEnabled : true,
+    channelPointsHealRewardTitle:
+      typeof healConfig.channelPointsHealRewardTitle === 'string'
+        ? (() => {
+            const t = healConfig.channelPointsHealRewardTitle.trim().slice(0, 80)
+            return t || '配信者を回復'
+          })()
+        : '配信者を回復',
+    channelPointsHealRewardId:
+      typeof healConfig.channelPointsHealRewardId === 'string'
+        ? healConfig.channelPointsHealRewardId.trim().slice(0, 80)
+        : '',
   }
 
   // リトライ設定の検証
@@ -1217,6 +1276,19 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundVolume: isInRange(Number(retryConfig.soundVolume), 0, 1)
       ? Number(retryConfig.soundVolume) || 0.7
       : 0.7,
+    channelPointsReviveEnabled:
+      typeof retryConfig.channelPointsReviveEnabled === 'boolean' ? retryConfig.channelPointsReviveEnabled : true,
+    channelPointsReviveRewardTitle:
+      typeof retryConfig.channelPointsReviveRewardTitle === 'string'
+        ? (() => {
+            const t = retryConfig.channelPointsReviveRewardTitle.trim().slice(0, 80)
+            return t || '配信者を蘇生'
+          })()
+        : '配信者を蘇生',
+    channelPointsReviveRewardId:
+      typeof retryConfig.channelPointsReviveRewardId === 'string'
+        ? retryConfig.channelPointsReviveRewardId.trim().slice(0, 80)
+        : '',
   }
 
   // アニメーション設定の検証

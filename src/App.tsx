@@ -16,7 +16,7 @@ function TwitchOAuthSection() {
         <code>.env</code> にトークンジェネレーター用の認証情報（<code>VITE_TWITCH_TOKEN_APP_*</code> または <code>VITE_TWITCH_CLIENT_ID</code> / <code>VITE_TWITCH_CLIENT_SECRET</code>）を設定し、
         トークンは Twitch 公式のトークンジェネレーター（
         <a href="https://twitchtokengenerator.com/" target="_blank" rel="noopener noreferrer" style={{ color: '#9146ff' }}>twitchtokengenerator.com</a> 等）で取得して
-        <code>VITE_TWITCH_ACCESS_TOKEN</code> に設定してください。
+        <code>VITE_TWITCH_ACCESS_TOKEN</code>（および推奨で <code>VITE_TWITCH_REFRESH_TOKEN</code>）に設定してください。
       </p>
     </div>
   )

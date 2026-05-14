@@ -32,7 +32,7 @@ SERVER_STATE = {"client_id": "", "client_secret": "", "done": False, "result": N
 
 
 def load_env():
-    """ .env から VITE_TWITCH_CLIENT_ID と VITE_TWITCH_CLIENT_SECRET を読み込む """
+    """ .env からトークン用アプリの Client ID / Secret を読み込む（TOKEN_APP_* 優先、なければ CLIENT_*）。"""
     if not ENV_PATH.exists():
         print(f"❌ .env が見つかりません: {ENV_PATH}")
         sys.exit(1)
@@ -48,10 +48,19 @@ def load_env():
                 if value.startswith('"') and value.endswith('"'):
                     value = value[1:-1]
                 config[key] = value
-    client_id = config.get("VITE_TWITCH_CLIENT_ID", "").strip()
-    client_secret = config.get("VITE_TWITCH_CLIENT_SECRET", "").strip()
+    client_id = (
+        config.get("VITE_TWITCH_TOKEN_APP_CLIENT_ID", "").strip()
+        or config.get("VITE_TWITCH_CLIENT_ID", "").strip()
+    )
+    client_secret = (
+        config.get("VITE_TWITCH_TOKEN_APP_CLIENT_SECRET", "").strip()
+        or config.get("VITE_TWITCH_CLIENT_SECRET", "").strip()
+    )
     if not client_id or not client_secret:
-        print("❌ .env に VITE_TWITCH_CLIENT_ID と VITE_TWITCH_CLIENT_SECRET を設定してください")
+        print(
+            "❌ .env に VITE_TWITCH_TOKEN_APP_CLIENT_ID / VITE_TWITCH_TOKEN_APP_CLIENT_SECRET "
+            "（または VITE_TWITCH_CLIENT_ID / VITE_TWITCH_CLIENT_SECRET）を設定してください"
+        )
         sys.exit(1)
     return client_id, client_secret
 

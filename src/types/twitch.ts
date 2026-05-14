@@ -171,6 +171,32 @@ export interface TwitchApiPaginatedResponse<T> {
   }
 }
 
+/** Helix: カスタムチャンネルポイントリワード（一覧取得で使用する最小フィールド） */
+export interface TwitchChannelPointCustomRewardSummary {
+  id: string
+  title: string
+}
+
+/** Helix: カスタムリワードの引き換え1件 */
+export interface TwitchChannelPointRedemption {
+  id: string
+  broadcaster_id: string
+  broadcaster_login: string
+  broadcaster_name: string
+  reward: {
+    id: string
+    title: string
+    prompt: string
+    cost: number
+  }
+  user_id: string
+  user_login?: string
+  user_name: string
+  user_input: string
+  redeemed_at: string
+  status?: string
+}
+
 export interface TwitchChatMessage {
   id: string
   user: {

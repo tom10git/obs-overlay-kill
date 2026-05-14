@@ -1118,6 +1118,249 @@ export const OverlaySettings = forwardRef<
                 </div>
                 <div className="settings-row">
                   <label>
+                    <input
+                      type="checkbox"
+                      checked={config.attack.channelPointsAttackEnabled !== false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          attack: {
+                            ...config.attack,
+                            channelPointsAttackEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    チャンネルポイントで攻撃
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.heal.channelPointsHealEnabled !== false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: {
+                            ...config.heal,
+                            channelPointsHealEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    チャンネルポイントで回復（量・ランダムは上の回復設定に準拠）
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.retry.channelPointsReviveEnabled !== false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          retry: {
+                            ...config.retry,
+                            channelPointsReviveEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    チャンネルポイントで蘇生（リトライコマンドと同じく最大 HP まで）
+                  </label>
+                </div>
+                {config.attack.channelPointsAttackEnabled !== false ||
+                config.heal.channelPointsHealEnabled !== false ||
+                config.retry.channelPointsReviveEnabled !== false ? (
+                  <>
+                    <p className="settings-hint">
+                      Twitch ダッシュボードで「配信者を攻撃」「配信者を回復」「配信者を蘇生」などのカスタムリワードを作成し、OAuth
+                      トークンに <code>channel:read:redemptions</code> を付与してください。引き換えを自動で完了する場合は{' '}
+                      <code>channel:manage:redemptions</code> も必要です。
+                      トークンは <strong>VITE_TWITCH_USERNAME のチャンネル所有者本人</strong>のユーザートークンである必要があります。
+                      リワードが多い場合はタイトルではなく <strong>リワード ID</strong> の指定が確実です。不具合時はブラウザの localStorage に{' '}
+                      <code>obs-overlay-debug=1</code> を設定すると <code>[channel-points]</code> ログが詳しくなります。
+                    </p>
+                    <>
+                      <p className="settings-hint" style={{ marginTop: '0.35rem', marginBottom: 0 }}>
+                        <strong>攻撃リワード</strong>（上の「チャンネルポイントで攻撃」が ON のときに使用）
+                      </p>
+                      <div className="settings-row">
+                        <label>
+                          リワード ID（任意・空なら下のタイトルで一致）:
+                          <input
+                            type="text"
+                            value={config.attack.channelPointsRewardId ?? ''}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                attack: {
+                                  ...config.attack,
+                                  channelPointsRewardId: e.target.value,
+                                },
+                              })
+                            }
+                            placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                            spellCheck={false}
+                          />
+                        </label>
+                      </div>
+                      <div className="settings-row">
+                        <label>
+                          リワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                          <input
+                            type="text"
+                            value={config.attack.channelPointsRewardTitle ?? '配信者を攻撃'}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                attack: {
+                                  ...config.attack,
+                                  channelPointsRewardTitle: e.target.value,
+                                },
+                              })
+                            }
+                            placeholder="配信者を攻撃"
+                          />
+                        </label>
+                      </div>
+                    </>
+                    <>
+                      <p className="settings-hint" style={{ marginTop: '0.35rem', marginBottom: 0 }}>
+                        <strong>回復リワード</strong>（上の「チャンネルポイントで回復」が ON のときに使用）
+                      </p>
+                      <div className="settings-row">
+                        <label>
+                          リワード ID（任意・空なら下のタイトルで一致）:
+                          <input
+                            type="text"
+                            value={config.heal.channelPointsHealRewardId ?? ''}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                heal: {
+                                  ...config.heal,
+                                  channelPointsHealRewardId: e.target.value,
+                                },
+                              })
+                            }
+                            placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                            spellCheck={false}
+                          />
+                        </label>
+                      </div>
+                      <div className="settings-row">
+                        <label>
+                          リワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                          <input
+                            type="text"
+                            value={config.heal.channelPointsHealRewardTitle ?? '配信者を回復'}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                heal: {
+                                  ...config.heal,
+                                  channelPointsHealRewardTitle: e.target.value,
+                                },
+                              })
+                            }
+                            placeholder="配信者を回復"
+                          />
+                        </label>
+                      </div>
+                    </>
+                    <>
+                      <p className="settings-hint" style={{ marginTop: '0.35rem', marginBottom: 0 }}>
+                        <strong>蘇生リワード</strong>（上の「チャンネルポイントで蘇生」が ON のときに使用）
+                      </p>
+                      <div className="settings-row">
+                        <label>
+                          リワード ID（任意・空なら下のタイトルで一致）:
+                          <input
+                            type="text"
+                            value={config.retry.channelPointsReviveRewardId ?? ''}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                retry: {
+                                  ...config.retry,
+                                  channelPointsReviveRewardId: e.target.value,
+                                },
+                              })
+                            }
+                            placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                            spellCheck={false}
+                          />
+                        </label>
+                      </div>
+                      <div className="settings-row">
+                        <label>
+                          リワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                          <input
+                            type="text"
+                            value={config.retry.channelPointsReviveRewardTitle ?? '配信者を蘇生'}
+                            onChange={(e) =>
+                              setConfig({
+                                ...config,
+                                retry: {
+                                  ...config.retry,
+                                  channelPointsReviveRewardTitle: e.target.value,
+                                },
+                              })
+                            }
+                            placeholder="配信者を蘇生"
+                          />
+                        </label>
+                      </div>
+                    </>
+                    <div className="settings-row">
+                      <label>
+                        ポーリング間隔（秒・3〜60・互換用・現状は未使用）:
+                        <input
+                          type="number"
+                          min={3}
+                          max={60}
+                          value={config.attack.channelPointsPollIntervalSec ?? 4}
+                          onChange={(e) => {
+                            const n = Math.floor(Number(e.target.value))
+                            const v = Number.isFinite(n) ? Math.min(60, Math.max(3, n)) : 4
+                            setConfig({
+                              ...config,
+                              attack: {
+                                ...config.attack,
+                                channelPointsPollIntervalSec: v,
+                              },
+                            })
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.attack.channelPointsAutoFulfill !== false}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              attack: {
+                                ...config.attack,
+                                channelPointsAutoFulfill: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                        処理後に引き換えを自動完了（FULFILLED）
+                      </label>
+                      <p className="settings-hint" style={{ marginTop: '0.25rem', marginBottom: 0 }}>
+                        クリエイターダッシュボードで作ったリワードは Twitch の仕様で API から完了できません。攻撃だけ使う場合はオフにしてください。
+                      </p>
+                    </div>
+                  </>
+                ) : null}
+                <div className="settings-row">
+                  <label>
                     ダメージタイプ:
                     <select
                       value={config.attack.damageType ?? "fixed"}
@@ -3273,6 +3516,67 @@ export const OverlaySettings = forwardRef<
                     <li>カスタムテキストが空欄のときは、チャット経由のこの回復トリガーは使われません</li>
                   </ul>
                 </div>
+                <h4 className="settings-subsection-title">チャンネルポイントで回復</h4>
+                <p className="settings-hint">
+                  EventSub の接続・自動完了は<strong>攻撃</strong>タブのチャンネルポイント欄と共通です。OAuth トークンやリワード作成手順はそちらを参照してください。
+                </p>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.heal.channelPointsHealEnabled !== false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: {
+                            ...config.heal,
+                            channelPointsHealEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    チャンネルポイントの引き換えで回復する
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    回復リワード ID（任意・空ならタイトルで一致）:
+                    <input
+                      type="text"
+                      value={config.heal.channelPointsHealRewardId ?? ''}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: {
+                            ...config.heal,
+                            channelPointsHealRewardId: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      spellCheck={false}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    回復リワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                    <input
+                      type="text"
+                      value={config.heal.channelPointsHealRewardTitle ?? '配信者を回復'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: {
+                            ...config.heal,
+                            channelPointsHealRewardTitle: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="配信者を回復"
+                    />
+                  </label>
+                </div>
                 <div className="settings-row">
                   <label>
                     回復タイプ:
@@ -3533,7 +3837,7 @@ export const OverlaySettings = forwardRef<
             {expandedSections.retry && (
               <div className="settings-section-content">
                 <p className="settings-section-intro">
-                  チャット<strong>コマンド</strong>で配信者HPを最大まで戻す挙動と、メッセージ・効果の設定です。攻撃／回復リワードとは別系統です。
+                  チャット<strong>コマンド</strong>で配信者HPを最大まで戻す挙動と、メッセージ・効果の設定です。チャンネルポイントの<strong>蘇生</strong>は下のリワード設定で、リトライコマンドと同じく最大 HP まで回復します。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -3596,6 +3900,67 @@ export const OverlaySettings = forwardRef<
                       }
                     />
                     コマンドを有効にする
+                  </label>
+                </div>
+                <h4 className="settings-subsection-title">チャンネルポイントで蘇生</h4>
+                <p className="settings-hint">
+                  EventSub の接続・自動完了は<strong>攻撃</strong>タブのチャンネルポイント欄と共通です。
+                </p>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.retry.channelPointsReviveEnabled !== false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          retry: {
+                            ...config.retry,
+                            channelPointsReviveEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    チャンネルポイントの引き換えで蘇生する（リトライと同じく最大 HP まで）
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    蘇生リワード ID（任意・空ならタイトルで一致）:
+                    <input
+                      type="text"
+                      value={config.retry.channelPointsReviveRewardId ?? ''}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          retry: {
+                            ...config.retry,
+                            channelPointsReviveRewardId: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      spellCheck={false}
+                    />
+                  </label>
+                </div>
+                <div className="settings-row">
+                  <label>
+                    蘇生リワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                    <input
+                      type="text"
+                      value={config.retry.channelPointsReviveRewardTitle ?? '配信者を蘇生'}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          retry: {
+                            ...config.retry,
+                            channelPointsReviveRewardTitle: e.target.value,
+                          },
+                        })
+                      }
+                      placeholder="配信者を蘇生"
+                    />
                   </label>
                 </div>
                 <div

@@ -6,6 +6,10 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { getTwitchClientId, getTwitchClientSecret, setTwitchOAuthTokens } from '../config/auth'
+import {
+  TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT,
+  TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT,
+} from '../constants/twitchEnv'
 import './OAuthCallbackPage.css'
 
 export function OAuthCallbackPage() {
@@ -34,7 +38,7 @@ export function OAuthCallbackPage() {
     const clientSecret = getTwitchClientSecret()
     if (!clientSecret) {
       setStatus('error')
-      setErrorMessage('.env に VITE_TWITCH_CLIENT_SECRET を設定してください。')
+      setErrorMessage(`.env に ${TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT} を設定してください。`)
       return
     }
 
@@ -96,8 +100,8 @@ export function OAuthCallbackPage() {
           <h1>❌ エラー</h1>
           <p>{errorMessage}</p>
           <p className="oauth-callback-hint">
-            .env に VITE_TWITCH_CLIENT_ID と VITE_TWITCH_CLIENT_SECRET を設定し、
-            Twitch 開発者コンソールでリダイレクト URL に
+            .env に {TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT} と {TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT}{' '}
+            を設定し、Twitch 開発者コンソールでリダイレクト URL に
             <code>{window.location.origin}/oauth/callback</code>
             を追加してください。
           </p>

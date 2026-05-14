@@ -234,6 +234,20 @@ export interface AttackConfig {
    * デバフ付与・合わせ技・ルーレットなどの発動確認に使う。
    */
   testNoDamageCommand?: string
+  /**
+   * Twitch チャンネルポイントのカスタムリワード引き換えで配信者への攻撃を行う（EventSub WebSocket）。
+   * 有効にするには OAuth ユーザートークンに `channel:read:redemptions` が必要。
+   * 引き換えを自動完了する場合は `channel:manage:redemptions` も必要。
+   */
+  channelPointsAttackEnabled?: boolean
+  /** 照合するリワードのタイトル（ダッシュボードの表示名）。`channelPointsRewardId` が空のときに一覧から解決 */
+  channelPointsRewardTitle?: string
+  /** カスタムリワード ID（Creator Dashboard のリワード URL 等で確認）。設定時はタイトル照合をスキップ */
+  channelPointsRewardId?: string
+  /** 旧 Helix ポーリング用。EventSub 移行後は未使用。3〜60 */
+  channelPointsPollIntervalSec?: number
+  /** 処理後に引き換えを FULFILLED にする（未設定時は true） */
+  channelPointsAutoFulfill?: boolean
   survivalHp1Enabled: boolean // 攻撃でHPが0になる場合に一定確率で1残す機能の有効/無効
   survivalHp1Probability: number // HPが1残る確率（0-100）
   survivalHp1Message: string // 食いしばり発動時に表示するカスタムメッセージ
@@ -258,6 +272,15 @@ export interface HealConfig {
   autoReplyEnabled: boolean
   /** 回復時自動返信メッセージ。{hp} {max} で置換（攻撃時と同様） */
   autoReplyMessageTemplate: string
+  /**
+   * Twitch チャンネルポイントのカスタムリワードで配信者を回復（EventSub・攻撃と同一接続で振り分け）。
+   * 未設定時は有効。無効にするには false。
+   */
+  channelPointsHealEnabled?: boolean
+  /** 照合するリワードのタイトル */
+  channelPointsHealRewardTitle?: string
+  /** カスタムリワード ID（任意） */
+  channelPointsHealRewardId?: string
 }
 
 export interface RetryConfig {
@@ -286,6 +309,13 @@ export interface RetryConfig {
   soundEnabled: boolean // 蘇生効果音の有効/無効
   soundUrl: string // 蘇生効果音のURL
   soundVolume: number // 蘇生効果音の音量（0-1）
+  /**
+   * Twitch チャンネルポイントのカスタムリワードでリトライ（蘇生）相当の全快を実行。
+   * 未設定時は有効。無効にするには false。
+   */
+  channelPointsReviveEnabled?: boolean
+  channelPointsReviveRewardTitle?: string
+  channelPointsReviveRewardId?: string
 }
 
 export interface AnimationConfig {

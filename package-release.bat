@@ -5,9 +5,9 @@ echo package:release（ビルド → release\dist にコピー）を実行しま
 call npm run package:release
 if errorlevel 1 (
   echo 失敗しました。
-  pause
+  if /i not "%OBS_OVERLAY_KILL_NON_INTERACTIVE%"=="1" pause
   exit /b 1
 )
 echo.
 echo 配布用は release フォルダを zip などにまとめてください。
-pause
+if /i not "%OBS_OVERLAY_KILL_NON_INTERACTIVE%"=="1" pause

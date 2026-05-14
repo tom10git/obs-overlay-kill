@@ -8,6 +8,7 @@ import { useHPGauge } from '../hooks/useHPGauge'
 import { useSicknessDebuff } from '../hooks/useSicknessDebuff'
 import { useViewerHP } from '../hooks/useViewerHP'
 import { useTestEvents } from '../hooks/useTestEvents'
+import { useChannelPointCustomRewardRedemptions, type ChannelPointRedemptionRoute } from '../hooks/useChannelPointCustomRewardRedemptions'
 import { useTwitchChat } from '../hooks/useTwitchChat'
 import { useAutoReply } from '../hooks/useAutoReply'
 import { useStrengthBuffState } from '../hooks/useStrengthBuffState'
@@ -52,6 +53,10 @@ import {
   scaleKonamiBuffedStat,
   streamerFinishingMoveDamageFraction,
 } from '../constants/konamiStreamerBuff'
+import {
+  CHANNEL_POINT_STREAMER_ATTACK_REWARD_ID,
+  CHANNEL_POINT_STREAMER_HEAL_REWARD_ID,
+} from '../constants/channelPointRewards'
 import { TECHNIQUE_EFFECT_BURST_MS } from '../constants/techniqueEffects'
 import { advanceComboTechniqueInput, normalizeComboTechniqueText } from '../utils/comboTechniqueInput'
 import { techniqueNameFromComboTarget } from '../utils/techniqueEffectName'
@@ -1402,6 +1407,28 @@ export function OverlayPage() {
     volume: config?.retry.soundVolume || 0.7,
   })
 
+  /** リトライコマンド（!retry）と同じ：最大 HP まで回復＋演出。`fromChannelPoints` 時は retry.enabled を要求しない */
+  const applyStreamerRevive = useCallback((options?: { fromChannelPoints?: boolean }) => {
+    if (!config) return
+    if (!options?.fromChannelPoints && !config.retry.enabled) return
+    const streamerHp = hpCurrentSyncRef.current
+    const healAmount = maxHP - streamerHp
+    if (healAmount > 0) {
+      increaseHP(healAmount)
+      registerKawaiiSouniHealProgressRef.current()
+    }
+    if (config.heal.effectEnabled) showHealEffect()
+    if (config.retry.soundEnabled) playRetrySound()
+  }, [
+    config?.retry.enabled,
+    config?.heal.effectEnabled,
+    config?.retry.soundEnabled,
+    maxHP,
+    increaseHP,
+    showHealEffect,
+    playRetrySound,
+  ])
+
   const { play: playStrengthBuffSound } = useSound({
     src: strengthBuffSoundUrl,
     enabled: config?.pvp?.strengthBuffSoundEnabled && !!strengthBuffSoundUrl,
@@ -1971,13 +1998,15 @@ export function OverlayPage() {
       event: ChannelPointEvent | { rewardId: string; userId?: string; userName?: string; noDamage?: boolean }
     ) => {
       if (!config) return
-      if (!config.attack.enabled) return
+      const isChannelPointStreamerAttackMatch =
+        event.rewardId === CHANNEL_POINT_STREAMER_ATTACK_REWARD_ID && config.attack.channelPointsAttackEnabled !== false
+      if (!config.attack.enabled && !isChannelPointStreamerAttackMatch) return
 
       const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.attack.customText && config.attack.customText.length > 0
       const isViewerAttackCommandMatch = event.rewardId === 'viewer-attack-command'
       const isTestNoDamageMatch = event.rewardId === 'test-no-damage-command'
 
-      if (!isCustomTextMatch && !isViewerAttackCommandMatch && !isTestNoDamageMatch) return
+      if (!isCustomTextMatch && !isViewerAttackCommandMatch && !isTestNoDamageMatch && !isChannelPointStreamerAttackMatch) return
 
       if (config.pvp?.enabled && event.userId) {
         lastAttackerRef.current = {
@@ -1995,7 +2024,7 @@ export function OverlayPage() {
         return
       }
 
-      if (isCustomTextMatch || isViewerAttackCommandMatch || isTestNoDamageMatch) {
+      if (isCustomTextMatch || isViewerAttackCommandMatch || isTestNoDamageMatch || isChannelPointStreamerAttackMatch) {
         // ミス判定（HP0は上で除外済み。ここでも ref を見て二重にガード）
         let shouldDamage = true
         if (hpCurrentSyncRef.current > 0 && config.attack.missEnabled) {
@@ -2389,69 +2418,76 @@ export function OverlayPage() {
     ]
   )
 
-  // 回復イベントハンドラ（チャットのカスタムテキスト用。event に userId/userName があれば {username} に使用）
+  // 回復イベントハンドラ（チャットのカスタムテキスト・チャンネルポイント「配信者を回復」）
   const handleHealEvent = useCallback(
     (event: { rewardId: string; userId?: string; userName?: string }) => {
       if (!config) return
-      if (!config.heal.enabled) return
 
-      // HPが0の場合は回復をブロック
-      if (currentHP <= 0) {
-        return
-      }
+      const isChannelPointHealMatch =
+        event.rewardId === CHANNEL_POINT_STREAMER_HEAL_REWARD_ID &&
+        config.heal.channelPointsHealEnabled !== false
+      if (!config.heal.enabled && !isChannelPointHealMatch) return
 
       const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.heal.customText && config.heal.customText.length > 0
 
-      if (isCustomTextMatch) {
-        let healAmount = 0
-        if (config.heal.healType === 'fixed') {
-          healAmount = config.heal.healAmount
-        } else {
-          // ランダム回復（刻み対応）
-          const min = config.heal.healMin
-          const max = config.heal.healMax
-          const step = config.heal.healRandomStep ?? 1
-          healAmount = getRandomHealAmount(min, max, step)
-        }
+      if (!isCustomTextMatch && !isChannelPointHealMatch) return
 
-        registerHealStreak(currentHP, maxHP)
-        const newHP = Math.min(maxHP, currentHP + healAmount)
-        increaseHP(healAmount)
-        registerKawaiiSouniHealProgressRef.current()
-        // 回復数値を表示
-        healIdRef.current += 1
-        const healId = healIdRef.current
-        setHealNumbers((prev: Array<{ id: number; amount: number }>) => [...prev, { id: healId, amount: healAmount }])
-        // 1.5秒後に削除（アニメーション終了後）
-        setTimeout(() => {
-          setHealNumbers((prev: Array<{ id: number; amount: number }>) => prev.filter((h) => h.id !== healId))
-        }, 1500)
+      const hpNow = hpCurrentSyncRef.current
+      if (hpNow <= 0) {
+        return
+      }
 
-        // 回復エフェクトを表示（設定で有効な場合のみ）
-        if (config.heal.effectEnabled) {
-          showHealEffect()
-        }
-        // OBS WebSocket: 回復演出（ソースレイヤー操作）
-        if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.healGlowEnabled) {
-          const eff = config.obsWebSocket.effects
-          void tryObsEffect('heal: glow', () =>
-            obsGlowSource(config.obsWebSocket, eff.healGlowScale, eff.healGlowDurationMs)
-          )
-        }
-        // 回復効果音を再生
-        if (config.heal.soundEnabled) {
-          playHealSound()
-        }
-        // 回復時自動返信（攻撃コマンドと同様）。{username} は引き換え者が配信者なら「配信者」、それ以外は userName
-        if (config.heal.autoReplyEnabled && config.heal.autoReplyMessageTemplate?.trim()) {
-          const tpl = config.heal.autoReplyMessageTemplate.trim()
-          const nameForUsername = event.userId && user?.id && event.userId === user.id ? '配信者' : (event.userName ?? event.userId ?? '視聴者')
-          const reply = fillTemplate(tpl, { username: nameForUsername, hp: newHP, max: maxHP })
-          sendAutoReply(reply, '[回復] 自動返信の送信失敗')
-        }
+      let healAmount = 0
+      if (config.heal.healType === 'fixed') {
+        healAmount = config.heal.healAmount
+      } else {
+        const min = config.heal.healMin
+        const max = config.heal.healMax
+        const step = config.heal.healRandomStep ?? 1
+        healAmount = getRandomHealAmount(min, max, step)
+      }
+
+      registerHealStreak(hpNow, maxHP)
+      const newHP = Math.min(maxHP, hpNow + healAmount)
+      increaseHP(healAmount)
+      registerKawaiiSouniHealProgressRef.current()
+      healIdRef.current += 1
+      const healId = healIdRef.current
+      setHealNumbers((prev: Array<{ id: number; amount: number }>) => [...prev, { id: healId, amount: healAmount }])
+      setTimeout(() => {
+        setHealNumbers((prev: Array<{ id: number; amount: number }>) => prev.filter((h) => h.id !== healId))
+      }, 1500)
+
+      if (config.heal.effectEnabled) {
+        showHealEffect()
+      }
+      if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.healGlowEnabled) {
+        const eff = config.obsWebSocket.effects
+        void tryObsEffect('heal: glow', () =>
+          obsGlowSource(config.obsWebSocket, eff.healGlowScale, eff.healGlowDurationMs)
+        )
+      }
+      if (config.heal.soundEnabled) {
+        playHealSound()
+      }
+      if (config.heal.autoReplyEnabled && config.heal.autoReplyMessageTemplate?.trim()) {
+        const tpl = config.heal.autoReplyMessageTemplate.trim()
+        const nameForUsername = event.userId && user?.id && event.userId === user.id ? '配信者' : (event.userName ?? event.userId ?? '視聴者')
+        const reply = fillTemplate(tpl, { username: nameForUsername, hp: newHP, max: maxHP })
+        sendAutoReply(reply, '[回復] 自動返信の送信失敗')
       }
     },
-    [config, currentHP, maxHP, increaseHP, registerHealStreak, showHealEffect, playHealSound, sendAutoReply, tryObsEffect, user?.id]
+    [
+      config,
+      maxHP,
+      increaseHP,
+      registerHealStreak,
+      showHealEffect,
+      playHealSound,
+      sendAutoReply,
+      tryObsEffect,
+      user?.id,
+    ]
   )
 
   // テストモードかどうか
@@ -3077,16 +3113,6 @@ export function OverlayPage() {
   const chatConnectOptions = username && chatToken ? { token: chatToken, username } : undefined
   const { messages: chatMessages, isConnected: chatConnected } = useTwitchChat(chatChannel, 100, chatConnectOptions)
   const processedChatMessagesRef = useRef<Set<string>>(new Set())
-
-  useEffect(() => {
-    logger.info('[chat] state', {
-      channel: chatChannel,
-      connected: chatConnected,
-      identity: !!chatConnectOptions,
-      hasToken: !!chatToken,
-      username: username || null,
-    })
-  }, [chatChannel, chatConnected, chatConnectOptions, chatToken, username])
 
   useEffect(() => {
     // カスタムテキストのチャット監視（テストモードでも有効）
@@ -3824,17 +3850,7 @@ export function OverlayPage() {
         if (isRetryMatch) {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
-          // リトライコマンドを実行（回復コマンドと同じロジックで最大HPまで回復）
-          // 現在のHPと最大HPの差分を計算して回復
-          const healAmount = maxHP - currentHP
-
-          if (healAmount > 0) {
-            increaseHP(healAmount)
-            registerKawaiiSouniHealProgressRef.current()
-          }
-          // HP最大でも「コマンドは有効」にしたいので、効果音/演出は常に実行（設定ON時）
-          if (config.heal.effectEnabled) showHealEffect()
-          if (config.retry.soundEnabled) playRetrySound()
+          applyStreamerRevive()
         }
       }
 
@@ -3844,7 +3860,147 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, chatChannel, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice, activateKonamiStreamerBuff])
+  }, [chatMessages, config, isTestMode, chatChannel, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice, activateKonamiStreamerBuff, applyStreamerRevive])
+
+  const channelPointAttackDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
+  const channelPointHealDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
+  const channelPointReviveDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
+
+  useEffect(() => {
+    channelPointAttackDispatchRef.current = (redeemerUserId: string, redeemerUserName: string) => {
+      if (!config) return
+      if (config.attack.channelPointsAttackEnabled === false) return
+
+      if (config.pvp?.enabled && user?.id && redeemerUserId !== user.id) {
+        ensureViewerHP(redeemerUserId)
+        const state = getViewerHPCurrent(redeemerUserId) ?? getViewerHP(redeemerUserId)
+        const current = state?.current ?? viewerMaxHP
+        if (current <= 0) {
+          sendPvpBlockedMessage('attack', '[PvP] チャンネルポイント攻撃ブロックの送信失敗')
+          return
+        }
+      }
+
+      handleAttackEvent({
+        rewardId: CHANNEL_POINT_STREAMER_ATTACK_REWARD_ID,
+        userId: redeemerUserId,
+        userName: redeemerUserName,
+      })
+    }
+  }, [
+    config,
+    user?.id,
+    handleAttackEvent,
+    ensureViewerHP,
+    getViewerHPCurrent,
+    getViewerHP,
+    viewerMaxHP,
+    sendPvpBlockedMessage,
+  ])
+
+  useEffect(() => {
+    channelPointHealDispatchRef.current = (redeemerUserId: string, redeemerUserName: string) => {
+      if (!config) return
+      if (config.heal.channelPointsHealEnabled === false) return
+
+      if (config.pvp?.enabled && user?.id && redeemerUserId !== user.id) {
+        ensureViewerHP(redeemerUserId)
+        const state = getViewerHPCurrent(redeemerUserId) ?? getViewerHP(redeemerUserId)
+        const current = state?.current ?? viewerMaxHP
+        if (current <= 0) {
+          sendPvpBlockedMessage('heal', '[PvP] チャンネルポイント回復ブロックの送信失敗')
+          return
+        }
+      }
+
+      handleHealEvent({
+        rewardId: CHANNEL_POINT_STREAMER_HEAL_REWARD_ID,
+        userId: redeemerUserId,
+        userName: redeemerUserName,
+      })
+    }
+  }, [
+    config,
+    user?.id,
+    handleHealEvent,
+    ensureViewerHP,
+    getViewerHPCurrent,
+    getViewerHP,
+    viewerMaxHP,
+    sendPvpBlockedMessage,
+  ])
+
+  useEffect(() => {
+    channelPointReviveDispatchRef.current = (redeemerUserId: string, _redeemerUserName: string) => {
+      if (!config) return
+      if (config.retry.channelPointsReviveEnabled === false) return
+
+      if (config.pvp?.enabled && user?.id && redeemerUserId !== user.id) {
+        ensureViewerHP(redeemerUserId)
+        const state = getViewerHPCurrent(redeemerUserId) ?? getViewerHP(redeemerUserId)
+        const current = state?.current ?? viewerMaxHP
+        if (current <= 0) {
+          sendPvpBlockedMessage('heal', '[PvP] チャンネルポイント蘇生ブロックの送信失敗')
+          return
+        }
+      }
+
+      applyStreamerRevive({ fromChannelPoints: true })
+    }
+  }, [
+    config,
+    user?.id,
+    ensureViewerHP,
+    getViewerHPCurrent,
+    getViewerHP,
+    viewerMaxHP,
+    sendPvpBlockedMessage,
+    applyStreamerRevive,
+  ])
+
+  const channelPointRedemptionEnabled = Boolean(
+    config &&
+      !configLoading &&
+      !userLoading &&
+      user?.id &&
+      (config.attack.channelPointsAttackEnabled !== false ||
+        config.heal.channelPointsHealEnabled !== false ||
+        config.retry.channelPointsReviveEnabled !== false)
+  )
+
+  const channelPointRoutes: ChannelPointRedemptionRoute[] = []
+  if (config && config.attack.channelPointsAttackEnabled !== false) {
+    channelPointRoutes.push({
+      tag: 'attack',
+      rewardTitle: config.attack.channelPointsRewardTitle?.trim() || '配信者を攻撃',
+      rewardIdOverride: config.attack.channelPointsRewardId?.trim() ?? '',
+      onRedemption: ({ userId, userName }) => channelPointAttackDispatchRef.current(userId, userName),
+    })
+  }
+  if (config && config.heal.channelPointsHealEnabled !== false) {
+    channelPointRoutes.push({
+      tag: 'heal',
+      rewardTitle: config.heal.channelPointsHealRewardTitle?.trim() || '配信者を回復',
+      rewardIdOverride: config.heal.channelPointsHealRewardId?.trim() ?? '',
+      onRedemption: ({ userId, userName }) => channelPointHealDispatchRef.current(userId, userName),
+    })
+  }
+  if (config && config.retry.channelPointsReviveEnabled !== false) {
+    channelPointRoutes.push({
+      tag: 'revive',
+      rewardTitle: config.retry.channelPointsReviveRewardTitle?.trim() || '配信者を蘇生',
+      rewardIdOverride: config.retry.channelPointsReviveRewardId?.trim() ?? '',
+      onRedemption: ({ userId, userName }) => channelPointReviveDispatchRef.current(userId, userName),
+    })
+  }
+
+  useChannelPointCustomRewardRedemptions({
+    enabled: channelPointRedemptionEnabled && channelPointRoutes.length > 0,
+    broadcasterId: user?.id,
+    routes: channelPointRoutes,
+    pollIntervalSec: config?.attack.channelPointsPollIntervalSec ?? 4,
+    autoFulfill: config?.attack.channelPointsAutoFulfill !== false,
+  })
 
   // body要素にoverflow:hiddenを適用
   useEffect(() => {
@@ -4422,7 +4578,7 @@ export function OverlayPage() {
                                 strengthBuffSoundVolume: merged.pvp?.strengthBuffSoundVolume,
                                 pvp: merged.pvp,
                               })
-                              const success = await saveOverlayConfig(merged)
+                              const success = await saveOverlayConfig(merged, { postSaveRelease: true })
                               if (success) {
                                 setShowSaveDialog(true)
                                 setTimeout(() => {

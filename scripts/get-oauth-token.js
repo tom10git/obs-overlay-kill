@@ -30,10 +30,11 @@ function loadEnvConfig() {
       }
     }
 
-    return {
-      clientId: config.VITE_TWITCH_CLIENT_ID,
-      clientSecret: config.VITE_TWITCH_CLIENT_SECRET,
-    }
+    const clientId =
+      config.VITE_TWITCH_TOKEN_APP_CLIENT_ID?.trim() || config.VITE_TWITCH_CLIENT_ID?.trim()
+    const clientSecret =
+      config.VITE_TWITCH_TOKEN_APP_CLIENT_SECRET?.trim() || config.VITE_TWITCH_CLIENT_SECRET?.trim()
+    return { clientId, clientSecret }
   } catch (error) {
     console.error('❌ .envファイルの読み込みに失敗しました:', error.message)
     process.exit(1)
@@ -321,7 +322,10 @@ async function main() {
   const { clientId, clientSecret } = loadEnvConfig()
 
   if (!clientId || !clientSecret) {
-    console.error('❌ .envファイルにVITE_TWITCH_CLIENT_IDまたはVITE_TWITCH_CLIENT_SECRETが設定されていません')
+    console.error(
+      '❌ .env に VITE_TWITCH_TOKEN_APP_CLIENT_ID / VITE_TWITCH_TOKEN_APP_CLIENT_SECRET ' +
+        '（または VITE_TWITCH_CLIENT_ID / VITE_TWITCH_CLIENT_SECRET）を設定してください'
+    )
     process.exit(1)
   }
 
