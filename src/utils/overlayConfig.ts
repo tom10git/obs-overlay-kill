@@ -380,6 +380,12 @@ const DEFAULT_CONFIG: OverlayConfig = {
     autoReplyMessageTemplate: '{username} の残りHP: {hp}/{max}',
     hpCheckCommand: '!hp',
     viewerFullHealCommand: '!fullheal',
+    channelPointsViewerReviveEnabled: true,
+    channelPointsViewerReviveRewardTitle: '自分を蘇生',
+    channelPointsViewerReviveRewardId: '',
+    channelPointsViewerHealEnabled: true,
+    channelPointsViewerHealRewardTitle: '自分を回復',
+    channelPointsViewerHealRewardId: '',
     viewerHealCommand: '!heal',
     viewerHealType: 'fixed',
     viewerHealAmount: 20,
@@ -2037,6 +2043,36 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     viewerFullHealCommand: typeof pvpConfig.viewerFullHealCommand === 'string' && isValidLength(pvpConfig.viewerFullHealCommand, 1, 50)
       ? (pvpConfig.viewerFullHealCommand as string).replace(/[<>"']/g, '')
       : '!fullheal',
+    channelPointsViewerReviveEnabled:
+      typeof pvpConfig.channelPointsViewerReviveEnabled === 'boolean'
+        ? pvpConfig.channelPointsViewerReviveEnabled
+        : DEFAULT_CONFIG.pvp.channelPointsViewerReviveEnabled,
+    channelPointsViewerReviveRewardTitle:
+      typeof pvpConfig.channelPointsViewerReviveRewardTitle === 'string'
+        ? (() => {
+            const t = pvpConfig.channelPointsViewerReviveRewardTitle.trim().slice(0, 80)
+            return t || (DEFAULT_CONFIG.pvp.channelPointsViewerReviveRewardTitle ?? '自分を蘇生')
+          })()
+        : DEFAULT_CONFIG.pvp.channelPointsViewerReviveRewardTitle ?? '自分を蘇生',
+    channelPointsViewerReviveRewardId:
+      typeof pvpConfig.channelPointsViewerReviveRewardId === 'string'
+        ? pvpConfig.channelPointsViewerReviveRewardId.trim().slice(0, 80)
+        : '',
+    channelPointsViewerHealEnabled:
+      typeof pvpConfig.channelPointsViewerHealEnabled === 'boolean'
+        ? pvpConfig.channelPointsViewerHealEnabled
+        : DEFAULT_CONFIG.pvp.channelPointsViewerHealEnabled,
+    channelPointsViewerHealRewardTitle:
+      typeof pvpConfig.channelPointsViewerHealRewardTitle === 'string'
+        ? (() => {
+            const t = pvpConfig.channelPointsViewerHealRewardTitle.trim().slice(0, 80)
+            return t || (DEFAULT_CONFIG.pvp.channelPointsViewerHealRewardTitle ?? '自分を回復')
+          })()
+        : DEFAULT_CONFIG.pvp.channelPointsViewerHealRewardTitle ?? '自分を回復',
+    channelPointsViewerHealRewardId:
+      typeof pvpConfig.channelPointsViewerHealRewardId === 'string'
+        ? pvpConfig.channelPointsViewerHealRewardId.trim().slice(0, 80)
+        : '',
     viewerHealCommand: typeof pvpConfig.viewerHealCommand === 'string' && isValidLength(pvpConfig.viewerHealCommand, 1, 50)
       ? (pvpConfig.viewerHealCommand as string).replace(/[<>"']/g, '')
       : '!heal',

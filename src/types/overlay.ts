@@ -23,7 +23,7 @@ export interface HPConfig {
    */
   rouletteOffsetX: number
   rouletteOffsetY: number
-  /** 配信者HPが0になったときにチャットへ送る自動返信メッセージ。{attacker} で「HPを0にした攻撃者名（配信者/視聴者）」に置換（空なら送信しない） */
+  /** 配信者HPが0になったときにチャットへ送る自動返信メッセージ。{attacker} で「HPを0にした攻撃者名」に置換（視聴者・配信者本人のいずれも可。空なら送信しない） */
   messageWhenZeroHp: string
 }
 
@@ -447,6 +447,22 @@ export interface PvPConfig {
   hpCheckCommand: string
   /** 視聴者が自分のHPを全回復するカスタムコマンド（実行した視聴者のHPを最大まで回復） */
   viewerFullHealCommand: string
+  /**
+   * Twitch チャンネルポイントで、引き換えた視聴者本人の HP を最大まで回復（HP0の蘇生相当）。
+   * PvP 有効時のみ。配信者アカウントの引き換えは対象外。
+   */
+  channelPointsViewerReviveEnabled?: boolean
+  /** 照合するリワードのタイトル。`channelPointsViewerReviveRewardId` が空のときに使用 */
+  channelPointsViewerReviveRewardTitle?: string
+  channelPointsViewerReviveRewardId?: string
+  /**
+   * Twitch チャンネルポイントで、引き換えた視聴者本人の HP を回復（視聴者側 !heal と同量）。
+   * PvP 有効時のみ。配信者アカウントの引き換えは対象外。
+   */
+  channelPointsViewerHealEnabled?: boolean
+  /** 照合するリワードのタイトル。`channelPointsViewerHealRewardId` が空のときに使用 */
+  channelPointsViewerHealRewardTitle?: string
+  channelPointsViewerHealRewardId?: string
   /** 視聴者側の通常回復コマンド（実行した視聴者のHPを設定量だけ回復） */
   viewerHealCommand: string
   /** 視聴者側の回復量タイプ（固定 or ランダム） */

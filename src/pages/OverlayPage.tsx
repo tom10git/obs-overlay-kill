@@ -1050,7 +1050,7 @@ export function OverlayPage() {
     maxHP: viewerMaxHP,
   } = useViewerHP(config)
   const lastAttackerRef = useRef<{ userId: string; userName: string } | null>(null)
-  /** 配信者HPを0にした攻撃者（視聴者）。HP0自動返信で「倒した」表示に使用 */
+  /** 配信者HPを0にした攻撃者（視聴者・配信者本人）。HP0自動返信の {attacker} に使用 */
   const lastStreamerAttackerRef = useRef<{ userId: string; userName: string } | null>(null)
   /** HP0時の追撃でゲージグリッチを再生するたびに増加 */
   const [overkillGlitchBurst, setOverkillGlitchBurst] = useState(0)
@@ -1925,13 +1925,13 @@ export function OverlayPage() {
         overkillDialogueTimerRef.current = null
       }, STREAMER_OVERKILL_DIALOGUE_MS)
 
-      if (event.userId && user?.id && event.userId !== user.id) {
-        lastStreamerAttackerRef.current = {
-          userId: event.userId,
-          userName: event.userName ?? event.userId,
-        }
-      } else if (!event.userId || event.userId === user?.id) {
-        lastStreamerAttackerRef.current = null
+      if (event.userId) {
+        const broadcasterId = user?.id
+        const isBroadcaster = broadcasterId && event.userId === broadcasterId
+        const resolvedName =
+          event.userName ??
+          (isBroadcaster ? (user?.display_name || user?.login || event.userId) : event.userId)
+        lastStreamerAttackerRef.current = { userId: event.userId, userName: resolvedName }
       }
 
       // 視聴者攻撃（メッセージコマンド / カスタムテキスト含む）は、配信者IDが未取得でも attacker を扱えるようにする
@@ -1980,7 +1980,7 @@ export function OverlayPage() {
         showCritical(config.animation.duration)
       }
     },
-    [config, user?.id, tryObsEffect, playAttackSound, showCritical]
+    [config, user?.id, user?.display_name, user?.login, tryObsEffect, playAttackSound, showCritical]
   )
 
   useEffect(() => {
@@ -2590,6 +2590,9 @@ export function OverlayPage() {
       // ダメージ適用後のHPを計算（反転回復を判定するため）
       const hpAfterDamage = Math.max(0, testStreamerHp - finalDamage)
       reduceHPTracked(finalDamage)
+      if (hpAfterDamage <= 0) {
+        lastStreamerAttackerRef.current = { userId: 'test-user', userName: 'TestUser' }
+      }
       // OBS WebSocket: ダメージ演出（本番の handleAttackEvent と同じ条件）
       if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim()) {
         const eff = config.obsWebSocket.effects
@@ -3865,6 +3868,8 @@ export function OverlayPage() {
   const channelPointAttackDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
   const channelPointHealDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
   const channelPointReviveDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
+  const channelPointViewerReviveDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
+  const channelPointViewerHealDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
 
   useEffect(() => {
     channelPointAttackDispatchRef.current = (redeemerUserId: string, redeemerUserName: string) => {
@@ -3958,6 +3963,90 @@ export function OverlayPage() {
     applyStreamerRevive,
   ])
 
+  useEffect(() => {
+    channelPointViewerReviveDispatchRef.current = (redeemerUserId: string, redeemerUserName: string) => {
+      if (!config?.pvp?.enabled) return
+      if (config.pvp.channelPointsViewerReviveEnabled === false) return
+      if (user?.id && redeemerUserId === user.id) return
+
+      ensureViewerHP(redeemerUserId)
+      const state = getViewerHPCurrent(redeemerUserId) ?? getViewerHP(redeemerUserId)
+      const current = state?.current ?? viewerMaxHP
+      if (current > 0) return
+
+      setViewerHP(redeemerUserId, viewerMaxHP)
+      if (config.retry.soundEnabled) playRetrySound()
+
+      const displayName = redeemerUserName || redeemerUserId
+      const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
+      const reply = fillTemplate(tpl, { username: displayName, hp: viewerMaxHP, max: viewerMaxHP })
+      if (config.pvp.autoReplyFullHeal) {
+        sendAutoReply(reply, '[PvP] チャンネルポイント視聴者蘇生返信の送信失敗')
+      }
+    }
+  }, [
+    config,
+    user?.id,
+    ensureViewerHP,
+    getViewerHPCurrent,
+    getViewerHP,
+    viewerMaxHP,
+    setViewerHP,
+    playRetrySound,
+    sendAutoReply,
+  ])
+
+  useEffect(() => {
+    channelPointViewerHealDispatchRef.current = (redeemerUserId: string, redeemerUserName: string) => {
+      if (!config?.pvp?.enabled) return
+      if (config.pvp.channelPointsViewerHealEnabled === false) return
+      if (user?.id && redeemerUserId === user.id) return
+
+      ensureViewerHP(redeemerUserId)
+      const state = getViewerHPCurrent(redeemerUserId) ?? getViewerHP(redeemerUserId)
+      const current = state?.current ?? viewerMaxHP
+      if (current <= 0 && !config.pvp.viewerHealWhenZeroEnabled) {
+        sendPvpBlockedMessage('heal', '[PvP] チャンネルポイント視聴者回復ブロックの送信失敗')
+        return
+      }
+
+      let healAmount: number
+      if ((config.pvp.viewerHealType ?? 'fixed') === 'random') {
+        const min = config.pvp.viewerHealMin ?? 10
+        const max = config.pvp.viewerHealMax ?? 30
+        const step = config.pvp.viewerHealRandomStep ?? 1
+        healAmount = getRandomHealAmount(min, max, step)
+      } else {
+        healAmount = config.pvp.viewerHealAmount ?? 20
+      }
+      const newHP = Math.min(viewerMaxHP, current + healAmount)
+      setViewerHP(redeemerUserId, newHP)
+
+      const displayName = redeemerUserName || redeemerUserId
+      const useHealReply = config.heal.autoReplyEnabled && config.heal.autoReplyMessageTemplate?.trim()
+      const usePvpReply = !useHealReply && config.pvp.autoReplyHeal
+      if (useHealReply) {
+        const tpl = config.heal.autoReplyMessageTemplate!.trim()
+        const reply = fillTemplate(tpl, { username: displayName, hp: newHP, max: viewerMaxHP })
+        sendAutoReply(reply, '[回復] チャンネルポイント視聴者回復自動返信の送信失敗')
+      } else if (usePvpReply) {
+        const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
+        const reply = fillTemplate(tpl, { username: displayName, hp: newHP, max: viewerMaxHP })
+        sendAutoReply(reply, '[PvP] チャンネルポイント視聴者回復返信の送信失敗')
+      }
+    }
+  }, [
+    config,
+    user?.id,
+    ensureViewerHP,
+    getViewerHPCurrent,
+    getViewerHP,
+    viewerMaxHP,
+    setViewerHP,
+    sendPvpBlockedMessage,
+    sendAutoReply,
+  ])
+
   const channelPointRedemptionEnabled = Boolean(
     config &&
       !configLoading &&
@@ -3965,7 +4054,10 @@ export function OverlayPage() {
       user?.id &&
       (config.attack.channelPointsAttackEnabled !== false ||
         config.heal.channelPointsHealEnabled !== false ||
-        config.retry.channelPointsReviveEnabled !== false)
+        config.retry.channelPointsReviveEnabled !== false ||
+        (config.pvp?.enabled &&
+          (config.pvp.channelPointsViewerReviveEnabled !== false ||
+            config.pvp.channelPointsViewerHealEnabled !== false)))
   )
 
   const channelPointRoutes: ChannelPointRedemptionRoute[] = []
@@ -3991,6 +4083,22 @@ export function OverlayPage() {
       rewardTitle: config.retry.channelPointsReviveRewardTitle?.trim() || '配信者を蘇生',
       rewardIdOverride: config.retry.channelPointsReviveRewardId?.trim() ?? '',
       onRedemption: ({ userId, userName }) => channelPointReviveDispatchRef.current(userId, userName),
+    })
+  }
+  if (config?.pvp?.enabled && config.pvp.channelPointsViewerHealEnabled !== false) {
+    channelPointRoutes.push({
+      tag: 'viewer-heal',
+      rewardTitle: config.pvp.channelPointsViewerHealRewardTitle?.trim() || '自分を回復',
+      rewardIdOverride: config.pvp.channelPointsViewerHealRewardId?.trim() ?? '',
+      onRedemption: ({ userId, userName }) => channelPointViewerHealDispatchRef.current(userId, userName),
+    })
+  }
+  if (config?.pvp?.enabled && config.pvp.channelPointsViewerReviveEnabled !== false) {
+    channelPointRoutes.push({
+      tag: 'viewer-revive',
+      rewardTitle: config.pvp.channelPointsViewerReviveRewardTitle?.trim() || '自分を蘇生',
+      rewardIdOverride: config.pvp.channelPointsViewerReviveRewardId?.trim() ?? '',
+      onRedemption: ({ userId, userName }) => channelPointViewerReviveDispatchRef.current(userId, userName),
     })
   }
 

@@ -1172,10 +1172,13 @@ export const OverlaySettings = forwardRef<
                 </div>
                 {config.attack.channelPointsAttackEnabled !== false ||
                 config.heal.channelPointsHealEnabled !== false ||
-                config.retry.channelPointsReviveEnabled !== false ? (
+                config.retry.channelPointsReviveEnabled !== false ||
+                (config.pvp?.enabled &&
+                  (config.pvp.channelPointsViewerReviveEnabled !== false ||
+                    config.pvp.channelPointsViewerHealEnabled !== false)) ? (
                   <>
                     <p className="settings-hint">
-                      Twitch ダッシュボードで「配信者を攻撃」「配信者を回復」「配信者を蘇生」などのカスタムリワードを作成し、OAuth
+                      Twitch ダッシュボードで「配信者を攻撃」「配信者を回復」「配信者を蘇生」「自分を回復」「自分を蘇生」（視聴者側・PvP ON 時）などのカスタムリワードを作成し、OAuth
                       トークンに <code>channel:read:redemptions</code> を付与してください。引き換えを自動で完了する場合は{' '}
                       <code>channel:manage:redemptions</code> も必要です。
                       トークンは <strong>VITE_TWITCH_USERNAME のチャンネル所有者本人</strong>のユーザートークンである必要があります。
@@ -1314,6 +1317,125 @@ export const OverlaySettings = forwardRef<
                         </label>
                       </div>
                     </>
+                    {config.pvp?.enabled &&
+                    config.pvp.channelPointsViewerHealEnabled !== false ? (
+                      <>
+                        <p
+                          className="settings-hint"
+                          style={{ marginTop: "0.35rem", marginBottom: 0 }}
+                        >
+                          <strong>視聴者回復リワード</strong>
+                          （ユーザー側タブの「チャンネルポイントで回復（視聴者本人）」が ON
+                          のときに使用。引き換えた視聴者本人の HP を上の回復量設定どおり回復）
+                        </p>
+                        <div className="settings-row">
+                          <label>
+                            リワード ID（任意・空なら下のタイトルで一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp.channelPointsViewerHealRewardId ?? ""
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsViewerHealRewardId:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                              spellCheck={false}
+                            />
+                          </label>
+                        </div>
+                        <div className="settings-row">
+                          <label>
+                            リワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp.channelPointsViewerHealRewardTitle ??
+                                "自分を回復"
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsViewerHealRewardTitle:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="自分を回復"
+                            />
+                          </label>
+                        </div>
+                      </>
+                    ) : null}
+                    {config.pvp?.enabled &&
+                    config.pvp.channelPointsViewerReviveEnabled !== false ? (
+                      <>
+                        <p
+                          className="settings-hint"
+                          style={{ marginTop: "0.35rem", marginBottom: 0 }}
+                        >
+                          <strong>視聴者蘇生リワード</strong>
+                          （ユーザー側タブの「チャンネルポイントで蘇生（視聴者本人）」が ON
+                          のときに使用。引き換えた視聴者本人の HP を最大まで回復）
+                        </p>
+                        <div className="settings-row">
+                          <label>
+                            リワード ID（任意・空なら下のタイトルで一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp.channelPointsViewerReviveRewardId ??
+                                ""
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsViewerReviveRewardId:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                              spellCheck={false}
+                            />
+                          </label>
+                        </div>
+                        <div className="settings-row">
+                          <label>
+                            リワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp.channelPointsViewerReviveRewardTitle ??
+                                "自分を蘇生"
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsViewerReviveRewardTitle:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="自分を蘇生"
+                            />
+                          </label>
+                        </div>
+                      </>
+                    ) : null}
                     <div className="settings-row">
                       <label>
                         ポーリング間隔（秒・3〜60・互換用・現状は未使用）:
@@ -7049,6 +7171,90 @@ export const OverlaySettings = forwardRef<
                         />
                       </label>
                     </div>
+                    <h4
+                      className="settings-subsection-title"
+                      style={{ marginTop: "1rem" }}
+                    >
+                      チャンネルポイントで蘇生（視聴者本人）
+                    </h4>
+                    <p className="settings-hint" style={{ marginTop: 0 }}>
+                      EventSub の接続・自動完了は<strong>攻撃</strong>タブのチャンネルポイント欄と共通です。PvP
+                      が ON のときのみ有効です。
+                    </p>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={
+                            config.pvp.channelPointsViewerReviveEnabled !==
+                            false
+                          }
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                channelPointsViewerReviveEnabled:
+                                  e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                        チャンネルポイントの引き換えで、引き換えた視聴者本人の HP
+                        を最大まで回復する（HP が 0 のときのみ）
+                      </label>
+                    </div>
+                    {config.pvp.channelPointsViewerReviveEnabled !== false ? (
+                      <>
+                        <div className="settings-row">
+                          <label>
+                            蘇生リワード ID（任意・空ならタイトルで一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp.channelPointsViewerReviveRewardId ??
+                                ""
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsViewerReviveRewardId:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                              spellCheck={false}
+                            />
+                          </label>
+                        </div>
+                        <div className="settings-row">
+                          <label>
+                            蘇生リワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp.channelPointsViewerReviveRewardTitle ??
+                                "自分を蘇生"
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsViewerReviveRewardTitle:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="自分を蘇生"
+                            />
+                          </label>
+                        </div>
+                      </>
+                    ) : null}
                     <div
                       className="settings-row"
                       style={{ marginTop: "0.5rem", fontWeight: "bold" }}
@@ -7251,6 +7457,87 @@ export const OverlaySettings = forwardRef<
                         HP0のときも通常回復を許可
                       </label>
                     </div>
+                    <h4
+                      className="settings-subsection-title"
+                      style={{ marginTop: "1rem" }}
+                    >
+                      チャンネルポイントで回復（視聴者本人）
+                    </h4>
+                    <p className="settings-hint" style={{ marginTop: 0 }}>
+                      EventSub の接続・自動完了は<strong>攻撃</strong>タブのチャンネルポイント欄と共通です。PvP
+                      が ON のときのみ有効です。回復量は上の「視聴者側の通常回復」と同じです。
+                    </p>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={
+                            config.pvp.channelPointsViewerHealEnabled !== false
+                          }
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                channelPointsViewerHealEnabled: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                        チャンネルポイントの引き換えで、引き換えた視聴者本人の HP
+                        を回復する（上の回復量・HP0 時の可否に準拠）
+                      </label>
+                    </div>
+                    {config.pvp.channelPointsViewerHealEnabled !== false ? (
+                      <>
+                        <div className="settings-row">
+                          <label>
+                            回復リワード ID（任意・空ならタイトルで一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp.channelPointsViewerHealRewardId ?? ""
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsViewerHealRewardId:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                              spellCheck={false}
+                            />
+                          </label>
+                        </div>
+                        <div className="settings-row">
+                          <label>
+                            回復リワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp.channelPointsViewerHealRewardTitle ??
+                                "自分を回復"
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsViewerHealRewardTitle:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="自分を回復"
+                            />
+                          </label>
+                        </div>
+                      </>
+                    ) : null}
                     <div
                       className="settings-row"
                       style={{ marginTop: "0.5rem", fontWeight: "bold" }}
@@ -7775,7 +8062,7 @@ export const OverlaySettings = forwardRef<
               <div className="settings-row">
                 <label>
                   配信者HPが0になったときの自動返信メッセージ（{"{attacker}"}{" "}
-                  で「HPを0にした攻撃者名（配信者/視聴者）」に置換）:
+                  で「HPを0にした攻撃者名」に置換。視聴者に加え、配信者本人が配信者HPを0にした場合も配信者名が入ります）:
                   <input
                     type="text"
                     value={
