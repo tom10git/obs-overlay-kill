@@ -3090,6 +3090,37 @@ export function OverlayPage() {
     }
   }, [isTestMode, config, username, user?.id, playStrengthBuffSound])
 
+  /** サブスク・ビッツ等で全員にストレングスバフを付与（コマンドの個人用/全員用設定とは独立） */
+  const applyAllStrengthBuffFromTwitch = useCallback(
+    (triggerDisplayName: string) => {
+      if (!config?.pvp?.enabled) return
+
+      const durationSeconds = Math.max(1, Math.floor(Number(config.pvp.strengthBuffDuration)) || 300)
+      const durationMinutesRounded = Math.max(1, Math.round(durationSeconds / 60))
+      const now = Date.now()
+      strengthBuffAllStartTimeRef.current = now
+      strengthBuffStartTimeRef.current.clear()
+
+      if (config.pvp.strengthBuffSoundEnabled) {
+        playStrengthBuffSound()
+      }
+      if (config.pvp.autoReplyStrengthBuff) {
+        const tpl = sanitizeStrengthBuffChatTemplates(
+          config.pvp.messageWhenStrengthBuffActivated ||
+            '{username} にストレングス効果を付与しました！（効果時間: {duration_human}）'
+        )
+        const reply = fillTemplate(tpl, {
+          username: triggerDisplayName,
+          duration: durationSeconds,
+          duration_minutes: durationMinutesRounded,
+          duration_human: formatStrengthBuffDurationHumanJa(durationSeconds),
+        })
+        sendAutoReply(reply, '[PvP] ストレングスバフ（サブスク・ビッツ）返信の送信失敗')
+      }
+    },
+    [config, playStrengthBuffSound, sendAutoReply]
+  )
+
   // テストモード用のイベントシミュレーション（専用ハンドラを使用）
   const { triggerAttack, triggerHeal, triggerReset } = useTestEvents({
     enabled: isTestMode,
@@ -3116,6 +3147,30 @@ export function OverlayPage() {
   const chatConnectOptions = username && chatToken ? { token: chatToken, username } : undefined
   const { messages: chatMessages, isConnected: chatConnected } = useTwitchChat(chatChannel, 100, chatConnectOptions)
   const processedChatMessagesRef = useRef<Set<string>>(new Set())
+
+  const applyAllStrengthBuffFromTwitchRef = useRef(applyAllStrengthBuffFromTwitch)
+  applyAllStrengthBuffFromTwitchRef.current = applyAllStrengthBuffFromTwitch
+
+  useEffect(() => {
+    if (!chatChannel || !config?.pvp?.enabled) return
+
+    const unsubCheer = twitchChat.onCheer((event) => {
+      if (config.pvp.twitchBitsAllStrengthBuffEnabled === false) return
+      const minBits = Math.max(1, Math.floor(Number(config.pvp.twitchBitsAllStrengthBuffMinBits)) || 100)
+      if (event.bits < minBits) return
+      applyAllStrengthBuffFromTwitchRef.current(event.displayName || event.login || '視聴者')
+    })
+
+    const unsubSub = twitchChat.onSubStrengthBuff((event) => {
+      if (config.pvp.twitchSubAllStrengthBuffEnabled === false) return
+      applyAllStrengthBuffFromTwitchRef.current(event.displayName || event.login || '視聴者')
+    })
+
+    return () => {
+      unsubCheer()
+      unsubSub()
+    }
+  }, [chatChannel, config?.pvp?.enabled, config?.pvp?.twitchBitsAllStrengthBuffEnabled, config?.pvp?.twitchBitsAllStrengthBuffMinBits, config?.pvp?.twitchSubAllStrengthBuffEnabled])
 
   useEffect(() => {
     // カスタムテキストのチャット監視（テストモードでも有効）
@@ -3870,6 +3925,7 @@ export function OverlayPage() {
   const channelPointReviveDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
   const channelPointViewerReviveDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
   const channelPointViewerHealDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
+  const channelPointStrengthBuffDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
 
   useEffect(() => {
     channelPointAttackDispatchRef.current = (redeemerUserId: string, redeemerUserName: string) => {
@@ -4047,6 +4103,46 @@ export function OverlayPage() {
     sendAutoReply,
   ])
 
+  useEffect(() => {
+    channelPointStrengthBuffDispatchRef.current = (redeemerUserId: string, redeemerUserName: string) => {
+      if (!config?.pvp?.enabled) return
+      if (config.pvp.channelPointsStrengthBuffEnabled === false) return
+
+      const target = config.pvp.strengthBuffTarget ?? 'individual'
+      if (target === 'individual' && user?.id && redeemerUserId === user.id) return
+
+      const durationSeconds = Math.max(1, Math.floor(Number(config.pvp.strengthBuffDuration)) || 300)
+      const durationMinutesRounded = Math.max(1, Math.round(durationSeconds / 60))
+      const displayName = redeemerUserName || redeemerUserId
+      const now = Date.now()
+
+      if (target === 'all') {
+        strengthBuffAllStartTimeRef.current = now
+        strengthBuffStartTimeRef.current.clear()
+      } else {
+        strengthBuffAllStartTimeRef.current = null
+        strengthBuffStartTimeRef.current.set(redeemerUserId, now)
+      }
+
+      if (config.pvp.strengthBuffSoundEnabled) {
+        playStrengthBuffSound()
+      }
+      if (config.pvp.autoReplyStrengthBuff) {
+        const tpl = sanitizeStrengthBuffChatTemplates(
+          config.pvp.messageWhenStrengthBuffActivated ||
+            '{username} にストレングス効果を付与しました！（効果時間: {duration_human}）'
+        )
+        const reply = fillTemplate(tpl, {
+          username: target === 'all' ? '全員' : displayName,
+          duration: durationSeconds,
+          duration_minutes: durationMinutesRounded,
+          duration_human: formatStrengthBuffDurationHumanJa(durationSeconds),
+        })
+        sendAutoReply(reply, '[PvP] ストレングスバフ（チャンネルポイント）返信の送信失敗')
+      }
+    }
+  }, [config, user?.id, playStrengthBuffSound, sendAutoReply])
+
   const channelPointRedemptionEnabled = Boolean(
     config &&
       !configLoading &&
@@ -4057,7 +4153,8 @@ export function OverlayPage() {
         config.retry.channelPointsReviveEnabled !== false ||
         (config.pvp?.enabled &&
           (config.pvp.channelPointsViewerReviveEnabled !== false ||
-            config.pvp.channelPointsViewerHealEnabled !== false)))
+            config.pvp.channelPointsViewerHealEnabled !== false ||
+            config.pvp.channelPointsStrengthBuffEnabled !== false)))
   )
 
   const channelPointRoutes: ChannelPointRedemptionRoute[] = []
@@ -4099,6 +4196,14 @@ export function OverlayPage() {
       rewardTitle: config.pvp.channelPointsViewerReviveRewardTitle?.trim() || '自分を蘇生',
       rewardIdOverride: config.pvp.channelPointsViewerReviveRewardId?.trim() ?? '',
       onRedemption: ({ userId, userName }) => channelPointViewerReviveDispatchRef.current(userId, userName),
+    })
+  }
+  if (config?.pvp?.enabled && config.pvp.channelPointsStrengthBuffEnabled !== false) {
+    channelPointRoutes.push({
+      tag: 'strength-buff',
+      rewardTitle: config.pvp.channelPointsStrengthBuffRewardTitle?.trim() || 'ストレングス',
+      rewardIdOverride: config.pvp.channelPointsStrengthBuffRewardId?.trim() ?? '',
+      onRedemption: ({ userId, userName }) => channelPointStrengthBuffDispatchRef.current(userId, userName),
     })
   }
 

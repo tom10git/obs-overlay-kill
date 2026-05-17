@@ -1377,6 +1377,67 @@ export const OverlaySettings = forwardRef<
                       </>
                     ) : null}
                     {config.pvp?.enabled &&
+                    config.pvp.channelPointsStrengthBuffEnabled !== false ? (
+                      <>
+                        <p
+                          className="settings-hint"
+                          style={{ marginTop: "0.35rem", marginBottom: 0 }}
+                        >
+                          <strong>ストレングスバフリワード</strong>
+                          （ユーザー側タブの「チャンネルポイントでストレングスバフ」が ON
+                          のときに使用。引き換えた視聴者にストレングスバフを付与）
+                        </p>
+                        <div className="settings-row">
+                          <label>
+                            リワード ID（任意・空なら下のタイトルで一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp.channelPointsStrengthBuffRewardId ??
+                                ""
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsStrengthBuffRewardId:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                              spellCheck={false}
+                            />
+                          </label>
+                        </div>
+                        <div className="settings-row">
+                          <label>
+                            リワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp
+                                  .channelPointsStrengthBuffRewardTitle ??
+                                "ストレングス"
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsStrengthBuffRewardTitle:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="ストレングス"
+                            />
+                          </label>
+                        </div>
+                      </>
+                    ) : null}
+                    {config.pvp?.enabled &&
                     config.pvp.channelPointsViewerReviveEnabled !== false ? (
                       <>
                         <p
@@ -7150,6 +7211,163 @@ export const OverlaySettings = forwardRef<
                       <strong>ストレングスバフ効果音</strong>
                       は「効果音」タブで設定します。
                     </p>
+                    <h4
+                      className="settings-subsection-title"
+                      style={{ marginTop: "1rem" }}
+                    >
+                      サブスク・ビッツで全員ストレングスバフ
+                    </h4>
+                    <p className="settings-hint" style={{ marginTop: 0 }}>
+                      Twitch チャット接続（オーバーレイ起動時）が必要です。発動時は常に<strong>全員</strong>にストレングスバフを付与します（上のコマンド用「個人用/全員用」設定とは別です）。効果時間・効果音・自動返信は上のストレングスバフ設定に従います。
+                    </p>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={
+                            config.pvp.twitchSubAllStrengthBuffEnabled !== false
+                          }
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                twitchSubAllStrengthBuffEnabled: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                        サブスクで全員ストレングスバフ（新規サブ・再サブ・ギフトサブ）
+                      </label>
+                    </div>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={
+                            config.pvp.twitchBitsAllStrengthBuffEnabled !== false
+                          }
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                twitchBitsAllStrengthBuffEnabled: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                        ビッツ（Cheer）で全員ストレングスバフ
+                      </label>
+                    </div>
+                    {config.pvp.twitchBitsAllStrengthBuffEnabled !== false ? (
+                      <div className="settings-row">
+                        <label>
+                          ビッツの最低量（この値以上で発動）:
+                          <input
+                            type="number"
+                            min={1}
+                            max={999999}
+                            value={config.pvp.twitchBitsAllStrengthBuffMinBits ?? 100}
+                            onChange={(e) => {
+                              const n = Math.floor(Number(e.target.value))
+                              setConfig({
+                                ...config,
+                                pvp: {
+                                  ...config.pvp,
+                                  twitchBitsAllStrengthBuffMinBits:
+                                    Number.isFinite(n) && n >= 1 ? n : 100,
+                                },
+                              })
+                            }}
+                          />
+                        </label>
+                      </div>
+                    ) : null}
+                    <h4
+                      className="settings-subsection-title"
+                      style={{ marginTop: "1rem" }}
+                    >
+                      チャンネルポイントでストレングスバフ
+                    </h4>
+                    <p className="settings-hint" style={{ marginTop: 0 }}>
+                      EventSub の接続・自動完了は<strong>攻撃</strong>タブのチャンネルポイント欄と共通です。PvP
+                      が ON のときのみ有効です。引き換えた視聴者に、上の「ストレングスバフコマンド」と同じバフを付与します（対象が全員用のときは全員に付与）。
+                    </p>
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={
+                            config.pvp.channelPointsStrengthBuffEnabled !==
+                            false
+                          }
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              pvp: {
+                                ...config.pvp,
+                                channelPointsStrengthBuffEnabled:
+                                  e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                        チャンネルポイントの引き換えでストレングスバフを付与する
+                      </label>
+                    </div>
+                    {config.pvp.channelPointsStrengthBuffEnabled !== false ? (
+                      <>
+                        <div className="settings-row">
+                          <label>
+                            ストレングスバフリワード ID（任意・空ならタイトルで一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp.channelPointsStrengthBuffRewardId ??
+                                ""
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsStrengthBuffRewardId:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="例: a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                              spellCheck={false}
+                            />
+                          </label>
+                        </div>
+                        <div className="settings-row">
+                          <label>
+                            ストレングスバフリワードタイトル（ID 未設定時に通知のタイトルで完全一致）:
+                            <input
+                              type="text"
+                              value={
+                                config.pvp
+                                  .channelPointsStrengthBuffRewardTitle ??
+                                "ストレングス"
+                              }
+                              onChange={(e) =>
+                                setConfig({
+                                  ...config,
+                                  pvp: {
+                                    ...config.pvp,
+                                    channelPointsStrengthBuffRewardTitle:
+                                      e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="ストレングス"
+                            />
+                          </label>
+                        </div>
+                      </>
+                    ) : null}
                     <div className="settings-row">
                       <label>
                         全回復コマンド（視聴者側・実行した視聴者のHPを最大まで回復）:

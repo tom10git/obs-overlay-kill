@@ -25,6 +25,7 @@ declare module 'tmi.js' {
     'user-type'?: string
     username?: string
     vip?: boolean
+    bits?: string
     'emotes-raw'?: string
     'badges-raw'?: string
     'message-type'?: string
@@ -60,6 +61,36 @@ declare module 'tmi.js' {
     readyState(): 'CONNECTING' | 'OPEN' | 'CLOSING' | 'CLOSED'
     say(channel: string, message: string): void
     on(event: 'message', listener: (channel: string, tags: ChatUserstate, message: string, self: boolean) => void): this
+    on(event: 'cheer', listener: (channel: string, userstate: ChatUserstate, message: string) => void): this
+    on(
+      event: 'subscription',
+      listener: (channel: string, username: string, methods: unknown, message: string, userstate: ChatUserstate) => void
+    ): this
+    on(
+      event: 'resub',
+      listener: (
+        channel: string,
+        username: string,
+        months: number,
+        message: string,
+        userstate: ChatUserstate
+      ) => void
+    ): this
+    on(
+      event: 'subgift',
+      listener: (
+        channel: string,
+        username: string,
+        streakMonths: number,
+        recipient: string,
+        methods: unknown,
+        userstate: ChatUserstate
+      ) => void
+    ): this
+    on(
+      event: 'submysterygift',
+      listener: (channel: string, username: string, numbOfSubs: number, methods: unknown, userstate: ChatUserstate) => void
+    ): this
     on(event: 'connected', listener: (addr: string, port: number) => void): this
     on(event: 'disconnected', listener: (reason: string) => void): this
     on(event: 'join', listener: (channel: string, username: string, self: boolean) => void): this

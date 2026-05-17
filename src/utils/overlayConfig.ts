@@ -414,6 +414,12 @@ const DEFAULT_CONFIG: OverlayConfig = {
     streamerHealOnAttackMin: 5,
     streamerHealOnAttackMax: 20,
     streamerHealOnAttackRandomStep: 1,
+    channelPointsStrengthBuffEnabled: true,
+    channelPointsStrengthBuffRewardTitle: 'ストレングス',
+    channelPointsStrengthBuffRewardId: '',
+    twitchBitsAllStrengthBuffEnabled: true,
+    twitchBitsAllStrengthBuffMinBits: 100,
+    twitchSubAllStrengthBuffEnabled: true,
     strengthBuffCommand: '!strength',
     strengthBuffCheckCommand: '!buff',
     strengthBuffDuration: 300,
@@ -2093,6 +2099,32 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     streamerHealOnAttackMin: isInRange(Number(pvpConfig.streamerHealOnAttackMin), 1, 999999) ? Number(pvpConfig.streamerHealOnAttackMin) || 5 : 5,
     streamerHealOnAttackMax: isInRange(Number(pvpConfig.streamerHealOnAttackMax), 1, 999999) ? Number(pvpConfig.streamerHealOnAttackMax) || 20 : 20,
     streamerHealOnAttackRandomStep: isInRange(Number(pvpConfig.streamerHealOnAttackRandomStep), 1, 999999) ? Number(pvpConfig.streamerHealOnAttackRandomStep) || 1 : 1,
+    channelPointsStrengthBuffEnabled:
+      typeof pvpConfig.channelPointsStrengthBuffEnabled === 'boolean'
+        ? pvpConfig.channelPointsStrengthBuffEnabled
+        : DEFAULT_CONFIG.pvp.channelPointsStrengthBuffEnabled,
+    channelPointsStrengthBuffRewardTitle:
+      typeof pvpConfig.channelPointsStrengthBuffRewardTitle === 'string'
+        ? (() => {
+            const t = pvpConfig.channelPointsStrengthBuffRewardTitle.trim().slice(0, 80)
+            return t || (DEFAULT_CONFIG.pvp.channelPointsStrengthBuffRewardTitle ?? 'ストレングス')
+          })()
+        : DEFAULT_CONFIG.pvp.channelPointsStrengthBuffRewardTitle ?? 'ストレングス',
+    channelPointsStrengthBuffRewardId:
+      typeof pvpConfig.channelPointsStrengthBuffRewardId === 'string'
+        ? pvpConfig.channelPointsStrengthBuffRewardId.trim().slice(0, 80)
+        : '',
+    twitchBitsAllStrengthBuffEnabled:
+      typeof pvpConfig.twitchBitsAllStrengthBuffEnabled === 'boolean'
+        ? pvpConfig.twitchBitsAllStrengthBuffEnabled
+        : DEFAULT_CONFIG.pvp.twitchBitsAllStrengthBuffEnabled,
+    twitchBitsAllStrengthBuffMinBits: isInRange(Number(pvpConfig.twitchBitsAllStrengthBuffMinBits), 1, 999999)
+      ? Math.floor(Number(pvpConfig.twitchBitsAllStrengthBuffMinBits)) || 100
+      : 100,
+    twitchSubAllStrengthBuffEnabled:
+      typeof pvpConfig.twitchSubAllStrengthBuffEnabled === 'boolean'
+        ? pvpConfig.twitchSubAllStrengthBuffEnabled
+        : DEFAULT_CONFIG.pvp.twitchSubAllStrengthBuffEnabled,
     strengthBuffCommand: typeof pvpConfig.strengthBuffCommand === 'string' && isValidLength(pvpConfig.strengthBuffCommand, 1, 50)
       ? (pvpConfig.strengthBuffCommand as string).replace(/[<>"']/g, '')
       : '!strength',

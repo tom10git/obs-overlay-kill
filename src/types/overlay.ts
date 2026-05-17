@@ -513,6 +513,25 @@ export interface PvPConfig {
   streamerHealOnAttackMax?: number
   /** ランダム時の刻み（1のときは最小～最大の連続値） */
   streamerHealOnAttackRandomStep?: number
+  /**
+   * Twitch チャンネルポイントでストレングスバフを付与（!strength コマンドと同じ効果）。
+   * PvP 有効時のみ。個人用のとき配信者アカウントの引き換えは対象外。
+   */
+  channelPointsStrengthBuffEnabled?: boolean
+  /** 照合するリワードのタイトル。`channelPointsStrengthBuffRewardId` が空のときに使用 */
+  channelPointsStrengthBuffRewardTitle?: string
+  channelPointsStrengthBuffRewardId?: string
+  /**
+   * Twitch ビッツ（Cheer）で全員にストレングスバフを付与。チャット接続が必要。
+   * `twitchBitsAllStrengthBuffMinBits` 以上のときのみ発動。
+   */
+  twitchBitsAllStrengthBuffEnabled?: boolean
+  /** ビッツ全員バフの最低ビッツ数（デフォルト 100） */
+  twitchBitsAllStrengthBuffMinBits?: number
+  /**
+   * Twitch サブスク（新規・再サブ・ギフトサブ）で全員にストレングスバフを付与。チャット接続が必要。
+   */
+  twitchSubAllStrengthBuffEnabled?: boolean
   /** ストレングスバフコマンド（視聴者が実行するとストレングス効果を付与） */
   strengthBuffCommand: string
   /** バフ確認コマンド（視聴者が自分のバフ状態を確認） */

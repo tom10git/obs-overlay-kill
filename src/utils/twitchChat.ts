@@ -1,6 +1,6 @@
 import tmi, { type ChatUserstate, type Client, type ClientOptions } from 'tmi.js'
 import { logger } from '../lib/logger'
-import type { TwitchChatMessage } from '../types/twitch'
+import type { TwitchChatMessage, TwitchCheerEvent, TwitchSubStrengthBuffEvent, TwitchSubStrengthBuffKind } from '../types/twitch'
 
 export interface TwitchChatConnectOptions {
   /** OAuth トークン（付与時は identity で接続し、say で送信可能） */
@@ -9,9 +9,95 @@ export interface TwitchChatConnectOptions {
   username?: string
 }
 
+function userFromUserstate(userstate: ChatUserstate, fallbackLogin: string) {
+  const login = userstate.username || fallbackLogin || ''
+  return {
+    userId: userstate['user-id'] || '',
+    login,
+    displayName: userstate['display-name'] || login || fallbackLogin || '視聴者',
+  }
+}
+
+function emitSubEvent(
+  callbacks: Set<(event: TwitchSubStrengthBuffEvent) => void>,
+  channel: string,
+  fallbackLogin: string,
+  userstate: ChatUserstate,
+  kind: TwitchSubStrengthBuffKind
+) {
+  const ch = channel.replace('#', '')
+  const user = userFromUserstate(userstate, fallbackLogin)
+  const event: TwitchSubStrengthBuffEvent = { ...user, channel: ch, kind }
+  callbacks.forEach((callback) => {
+    try {
+      callback(event)
+    } catch (error) {
+      logger.error('❌ Twitchチャット: サブスクコールバックでエラーが発生しました', error)
+    }
+  })
+}
+
+function registerStrengthBuffChatEvents(
+  client: Client,
+  cheerCallbacks: Set<(event: TwitchCheerEvent) => void>,
+  subCallbacks: Set<(event: TwitchSubStrengthBuffEvent) => void>
+): void {
+  client.on('cheer', (channel: string, userstate: ChatUserstate, message: string) => {
+    const bits = parseInt(String(userstate.bits ?? '0'), 10)
+    if (!Number.isFinite(bits) || bits <= 0) return
+    const ch = channel.replace('#', '')
+    const user = userFromUserstate(userstate, '')
+    const event: TwitchCheerEvent = { ...user, bits, message, channel: ch }
+    cheerCallbacks.forEach((callback) => {
+      try {
+        callback(event)
+      } catch (error) {
+        logger.error('❌ Twitchチャット: ビッツコールバックでエラーが発生しました', error)
+      }
+    })
+  })
+
+  client.on(
+    'subscription',
+    (channel: string, username: string, _methods: unknown, _message: string, userstate: ChatUserstate) => {
+      emitSubEvent(subCallbacks, channel, username, userstate, 'subscription')
+    }
+  )
+
+  client.on(
+    'resub',
+    (channel: string, username: string, _months: number, _message: string, userstate: ChatUserstate) => {
+      emitSubEvent(subCallbacks, channel, username, userstate, 'resub')
+    }
+  )
+
+  client.on(
+    'subgift',
+    (
+      channel: string,
+      username: string,
+      _streakMonths: number,
+      _recipient: string,
+      _methods: unknown,
+      userstate: ChatUserstate
+    ) => {
+      emitSubEvent(subCallbacks, channel, username, userstate, 'subgift')
+    }
+  )
+
+  client.on(
+    'submysterygift',
+    (channel: string, username: string, _numbOfSubs: number, _methods: unknown, userstate: ChatUserstate) => {
+      emitSubEvent(subCallbacks, channel, username, userstate, 'submysterygift')
+    }
+  )
+}
+
 class TwitchChatClient {
   private client: Client | null = null
   private messageCallbacks: Set<(message: TwitchChatMessage) => void> = new Set()
+  private cheerCallbacks: Set<(event: TwitchCheerEvent) => void> = new Set()
+  private subCallbacks: Set<(event: TwitchSubStrengthBuffEvent) => void> = new Set()
   private connectedWithIdentity = false
 
   /**
@@ -116,6 +202,8 @@ class TwitchChatClient {
           })
         })
 
+        registerStrengthBuffChatEvents(this.client, this.cheerCallbacks, this.subCallbacks)
+
         this.client.on('connected', () => {
           resolve()
         })
@@ -176,6 +264,22 @@ class TwitchChatClient {
     // 登録解除関数を返す
     return () => {
       this.messageCallbacks.delete(callback)
+    }
+  }
+
+  /** ビッツ（Cheer）のコールバックを登録（接続後の cheer イベント） */
+  onCheer(callback: (event: TwitchCheerEvent) => void): () => void {
+    this.cheerCallbacks.add(callback)
+    return () => {
+      this.cheerCallbacks.delete(callback)
+    }
+  }
+
+  /** サブスク（新規・再サブ・ギフトサブ）のコールバックを登録 */
+  onSubStrengthBuff(callback: (event: TwitchSubStrengthBuffEvent) => void): () => void {
+    this.subCallbacks.add(callback)
+    return () => {
+      this.subCallbacks.delete(callback)
     }
   }
 

@@ -218,3 +218,24 @@ export interface TwitchChatMessage {
     positions: Array<{ start: number; end: number }>
   }>
 }
+
+/** tmi.js の cheer イベント */
+export interface TwitchCheerEvent {
+  userId: string
+  login: string
+  displayName: string
+  bits: number
+  message: string
+  channel: string
+}
+
+/** tmi.js の subscription / resub / subgift 等 */
+export type TwitchSubStrengthBuffKind = 'subscription' | 'resub' | 'subgift' | 'submysterygift'
+
+export interface TwitchSubStrengthBuffEvent {
+  userId: string
+  login: string
+  displayName: string
+  channel: string
+  kind: TwitchSubStrengthBuffKind
+}
