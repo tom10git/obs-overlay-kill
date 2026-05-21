@@ -63,7 +63,7 @@ React + TypeScript + Vite で構築されたプロジェクトです。Twitch AP
 
 ### 配布パッケージを作る人
 
-1. リポジトリを用意し、**`npm install`**。
+1. リポジトリを用意し、**`install.bat`**（Windows）または **`npm ci`** で依存関係を入れる（[セットアップ](#1-依存関係をインストール) 参照）。
 2. ルートで **`npm run package:release`** を実行するか、Windows なら **`package-release.bat`** を実行する（ビルド後に **`release/dist`** が更新されます）。
 3. **`release` フォルダ全体**を配布する（フォルダのまま渡す、または zip 等で圧縮する。`dist`・起動スクリプト・`README-配布.txt` が入ります）。
 
@@ -79,9 +79,26 @@ React + TypeScript + Vite で構築されたプロジェクトです。Twitch AP
 
 ### 1. 依存関係をインストール
 
-```bash
-npm install
+**公式リポジトリのクローンからのみ**実行してください（改ざんされた `install.bat` や `package-lock.json` は任意コード実行の原因になります）。
+
+#### Windows（推奨）
+
+```batch
+install.bat
 ```
+
+`install.bat` は内部で `scripts\npm-ci-deps.bat` を呼び出し、**`package-lock.json` に厳密に従う `npm ci`** と **`npm audit --audit-level=high`** を行います。Node.js が無い場合は winget で LTS を導入します。
+
+#### macOS / Linux / 手動
+
+```bash
+npm ci
+npm run audit:ci
+```
+
+依存関係を **追加・更新** して lockfile を変えるときだけ `npm install` を使い、変更後は **`package-lock.json` をコミット**してください。日常の再インストールは `npm ci`（または `npm run install:ci`）に統一します。
+
+> **`.npmrc`:** `ignore-scripts=true` により、悪意ある `postinstall` 等のライフサイクルスクリプトは実行されません。詳細は [セキュリティと認証情報の管理](#セキュリティと認証情報の管理) を参照してください。
 
 ### 2. Twitch API の認証情報を設定
 
@@ -116,7 +133,7 @@ VITE_MAX_CHAT_MESSAGES=100  # チャットメッセージの最大表示数
 > - `.env.example` ファイルを参考にしてください
 > - **管理者側の設定情報は `src/config/admin.ts` で一元管理されています**
 > - `VITE_TWITCH_USERNAME` を設定すると、アプリ起動時に自動的にそのユーザーの情報を表示します
-> - セキュリティに関する詳細は `src/config/README.md` を参照してください
+> - 認証情報の詳細は `src/config/README.md`、サプライチェーン・CI は [セキュリティと認証情報の管理](#セキュリティと認証情報の管理) を参照してください
 
 ### 4. OAuth認証トークンの取得（チャンネルポイント機能を使用する場合）
 
@@ -209,13 +226,72 @@ TwitchTokenGenerator.comを使用する場合は、**必ず自分のClient ID/Se
 
 ## セキュリティと認証情報の管理
 
-認証情報は `src/config/auth.ts` で一元管理されています。このモジュールは以下の機能を提供します：
+### 認証情報（Twitch / `.env`）
+
+認証情報は `src/config/auth.ts` で一元管理されています。
 
 - 環境変数からの認証情報の読み取り
 - 認証情報の検証
 - エラーハンドリング
 
-詳細については、`src/config/README.md` を参照してください。
+| ファイル | 役割 |
+| -------- | ---- |
+| `.env` | 実際の Client ID / Secret / トークン（**Git に含めない**） |
+| `.env.example` | 変数名と説明のテンプレート（コミット対象） |
+| `src/config/auth.ts` | 読み取り・検証ロジック |
+| `src/config/README.md` | 設定項目の詳細 |
+| `src/utils/security.ts` | XSS 対策（HTML エスケープ・URL 検証など） |
+
+`.env` は `.gitignore` 済みです。シークレットを Issue や PR に貼らないでください。
+
+### サプライチェーン・CI（npm / GitHub Actions）
+
+npm レジストリや GitHub Actions を狙ったサプライチェーン攻撃への対策をリポジトリに組み込んでいます。運用の詳細・参考リンクは [`docs/SUPPLY-CHAIN-SECURITY.md`](docs/SUPPLY-CHAIN-SECURITY.md)、脆弱性の非公開報告は [`SECURITY.md`](SECURITY.md) を参照してください。
+
+#### リポジトリ内のセキュリティ関連ファイル
+
+| パス | 必須 | 内容 |
+| ---- | :--: | ---- |
+| `.npmrc` | ✅ | `ignore-scripts=true`（悪意ある install スクリプト対策）、`audit-level=high` |
+| `package-lock.json` | ✅ | 依存の固定・整合性検証（`npm ci` の前提。**コミット必須**） |
+| `package.json` | ✅ | 依存宣言、`install:ci` / `audit:ci` スクリプト、`engines`（Node 20+） |
+| `scripts/npm-ci-deps.bat` | ✅ | `npm ci` + `npm audit`（`install.bat` / `build.bat` / `dev.bat` から利用） |
+| `install.bat` | 推奨 | 上記 + Node.js 未導入時の winget インストール（**信頼できるクローンのみ**） |
+| `.github/dependabot.yml` | ✅ | npm・GitHub Actions の週次更新 PR |
+| `.github/workflows/ci.yml` | ✅ | lint / build / `npm audit`、PR 時 Dependency Review |
+| `.github/workflows/codeql.yml` | ✅ | CodeQL（TypeScript・ワークフロー） |
+| `SECURITY.md` | ✅ | 脆弱性報告ポリシー（調整された開示） |
+| `docs/SUPPLY-CHAIN-SECURITY.md` | ✅ | 対策一覧・バッチ用環境変数・GitHub 設定メモ |
+
+#### 開発者が守ること
+
+1. 依存のインストールは **`npm ci`**（Windows は **`install.bat`**）。`npm install` は lock を更新するときだけ。
+2. **`package-lock.json` を必ずコミット**する（再現可能ビルドと改ざん検知のため）。
+3. パッケージ追加時は名前の **タイポスクワッティング** に注意し、PR では CI の **Dependency Review** を通す。
+4. **侵害が疑われるバージョン**（例: 報道のあった `axios` の特定版）は即座に避け、Advisory / Dependabot を確認する。
+5. GitHub 上で **Dependabot alerts** を有効化し、**branch protection** で CI をマージ必須にする（[`docs/SUPPLY-CHAIN-SECURITY.md`](docs/SUPPLY-CHAIN-SECURITY.md) の「リポジトリ外で必要なこと」参照）。
+
+#### npm スクリプト
+
+| コマンド | 用途 |
+| -------- | ---- |
+| `npm run install:ci` | `npm ci`（lockfile 厳守） |
+| `npm run audit:ci` | `npm audit --audit-level=high`（CI と同じしきい値） |
+
+#### バッチ用環境変数（Windows）
+
+| 変数 | 効果 |
+| ---- | ---- |
+| `OBS_OVERLAY_KILL_SKIP_AUDIT=1` | インストール時の `npm audit` をスキップ |
+| `OBS_OVERLAY_KILL_STRICT_AUDIT=1` | high 以上の脆弱性でインストールを失敗させる |
+| `OBS_OVERLAY_KILL_NON_INTERACTIVE=1` | `build.bat` 等の `pause` を省略（CI・自動化向け） |
+
+#### GitHub Actions の方針（要約）
+
+- ワークフローの **`permissions` を最小化**（例: `contents: read`）
+- 主要 Action（`checkout` / `setup-node`）は **コミット SHA でピン留め**（タグのみより改ざんリスクを低減）
+- **`pull_request_target` は使用しない**
+- Actions の更新 PR は **Dependabot 由来か確認**してからマージ
 
 ### 認証情報の取得方法
 
@@ -480,14 +556,18 @@ npm run preview
 
 プロジェクトルートには以下のバッチファイルが用意されています：
 
-- **`dev.bat`** - 開発サーバーを起動
-- **`build.bat`** - アプリケーションをビルド
-- **`preview.bat`** - ビルド済みアプリケーションをプレビュー
-- **`install.bat`** - 依存関係をインストール
-- **`package-release.bat`** - `npm run package:release` と同等（配布用 `release/`）
-- **`get-oauth-token.bat`** - OAuth トークン取得用に `scripts/get_oauth_token.py` を実行（**Python 3** が PATH に必要。手順は上記 OAuth 節とスクリプトを参照）
+| バッチ | 説明 | セキュリティ上の注意 |
+| ------ | ---- | -------------------- |
+| **`install.bat`** | `scripts\npm-ci-deps.bat` 経由で **`npm ci`** + audit。Node 未導入時は winget で LTS | **公式クローンのみ**実行。`package-lock.json` 必須 |
+| **`build.bat`** | ビルド（`node_modules` が無いときも `npm-ci-deps.bat`） | `.env` に本物の認証情報が必要 |
+| **`dev.bat`** | 開発サーバー起動 | 同上（初回は `npm ci`） |
+| **`preview.bat`** | ビルド済みのプレビュー | — |
+| **`package-release.bat`** | `npm run package:release`（配布用 `release/`） | ビルド前に依存が最新であること |
+| **`get-oauth-token.bat`** | `scripts\get_oauth_token.py` で OAuth トークン取得 | **Python 3** が PATH に必要。トークンは `.env` のみに保存 |
 
-これらのバッチファイルをダブルクリックするだけで、対応する操作を実行できます。
+変換用（開発者向け・任意）: `convert-gif-to-webm.bat` / `convert-png-sequence.bat`（内部で `scripts\` 配下の PowerShell を `-File` 指定で実行）。
+
+これらのバッチファイルをダブルクリックするだけで、対応する操作を実行できます。サプライチェーン対策の全体像は [セキュリティと認証情報の管理](#セキュリティと認証情報の管理) を参照してください。
 
 ## バージョン情報
 

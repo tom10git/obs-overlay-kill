@@ -3961,9 +3961,57 @@ export const OverlaySettings = forwardRef<
                         })
                       }
                     />
-                    回復エフェクトを表示
+                    回復エフェクトを表示（キラキラパーティクル）
                   </label>
                 </div>
+                <h4 className="settings-subsection-title">回復エフェクト（WebM）</h4>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.heal.webmEffectEnabled ?? false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: {
+                            ...config.heal,
+                            webmEffectEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    回復時に透過 WebM を再生する（チャンネルポイント・カスタムテキスト・!heal など）
+                  </label>
+                </div>
+                {(config.heal.webmEffectEnabled ?? false) && (
+                  <div className="settings-row">
+                    <label>
+                      WebM URL:
+                      <input
+                        type="text"
+                        value={config.heal.webmEffectVideoUrl ?? ""}
+                        onChange={(e) => {
+                          const url = e.target.value;
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              heal: {
+                                ...config.heal,
+                                webmEffectVideoUrl: url,
+                              },
+                            });
+                          } else {
+                            setMessage(
+                              "無効なURLです。http://、https://、または相対パスを入力してください。",
+                            );
+                            setTimeout(() => setMessage(null), 3000);
+                          }
+                        }}
+                        placeholder="例: src/images/heal.webm または https://..."
+                      />
+                    </label>
+                  </div>
+                )}
                 <div className="settings-row">
                   <label>
                     <input
@@ -4346,6 +4394,54 @@ export const OverlaySettings = forwardRef<
                     HP0のときも通常回復を許可
                   </label>
                 </div>
+                <h4 className="settings-subsection-title">蘇生エフェクト（WebM）</h4>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.retry.reviveEffectEnabled ?? false}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          retry: {
+                            ...config.retry,
+                            reviveEffectEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    蘇生時に透過 WebM を再生する（!retry・チャンネルポイント蘇生など）
+                  </label>
+                </div>
+                {(config.retry.reviveEffectEnabled ?? false) && (
+                  <div className="settings-row">
+                    <label>
+                      WebM URL:
+                      <input
+                        type="text"
+                        value={config.retry.reviveEffectVideoUrl ?? ""}
+                        onChange={(e) => {
+                          const url = e.target.value;
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              retry: {
+                                ...config.retry,
+                                reviveEffectVideoUrl: url,
+                              },
+                            });
+                          } else {
+                            setMessage(
+                              "無効なURLです。http://、https://、または相対パスを入力してください。",
+                            );
+                            setTimeout(() => setMessage(null), 3000);
+                          }
+                        }}
+                        placeholder="例: src/images/sosei.webm または https://..."
+                      />
+                    </label>
+                  </div>
+                )}
                 <p className="settings-hint">
                   <strong>蘇生（リトライ）効果音</strong>
                   は「効果音」タブで設定します。

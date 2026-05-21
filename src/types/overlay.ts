@@ -257,6 +257,10 @@ export interface HealConfig {
   customText: string // チャットメッセージで判定するカスタムテキスト（App Access Token用）
   enabled: boolean
   effectEnabled: boolean // 回復エフェクト（パーティクル）の表示/非表示
+  /** 回復時に透過 WebM を重ねて再生する */
+  webmEffectEnabled: boolean
+  /** 回復エフェクト用の透過 WebM URL */
+  webmEffectVideoUrl: string
   healType: 'fixed' | 'random'
   healAmount: number // fixed の場合
   healMin: number // random の場合
@@ -306,6 +310,10 @@ export interface RetryConfig {
   /** 配信者HPが0のときも通常回復コマンドを許可する */
   streamerHealWhenZeroEnabled: boolean
   enabled: boolean
+  /** 蘇生時に透過 WebM を重ねて再生する */
+  reviveEffectEnabled: boolean
+  /** 蘇生エフェクト用の透過 WebM URL */
+  reviveEffectVideoUrl: string
   soundEnabled: boolean // 蘇生効果音の有効/無効
   soundUrl: string // 蘇生効果音のURL
   soundVolume: number // 蘇生効果音の音量（0-1）

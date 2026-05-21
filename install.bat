@@ -1,5 +1,6 @@
 @echo off
 chcp 65001 >nul
+setlocal EnableExtensions
 REM ============================================
 REM 依存関係インストールバッチファイル
 REM ============================================
@@ -7,6 +8,9 @@ echo.
 echo ========================================
 echo   OBS Overlay Kill - 依存関係インストール
 echo ========================================
+echo.
+echo [セキュリティ] 信頼できる公式リポジトリのクローンからのみ実行してください。
+echo [セキュリティ] 依存関係は package-lock.json に従い npm ci で入れます（.npmrc: ignore-scripts）。
 echo.
 
 REM カレントディレクトリをバッチファイルの場所に設定
@@ -36,7 +40,7 @@ if errorlevel 1 (
     echo.
     
     REM winget install OpenJS.NodeJS.LTS を実行
-    winget install --id OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
+    winget install --id OpenJS.NodeJS.LTS --source winget --silent --accept-package-agreements --accept-source-agreements
     
     if errorlevel 1 (
         echo [エラー] Node.js のインストールに失敗しました。
@@ -116,17 +120,13 @@ if exist ".env" (
     )
 )
 
-REM 依存関係をインストール（package.jsonに記載されているもののみ）
-echo [情報] 依存関係をインストール中...
-echo [情報] package.jsonに記載されている依存関係のみをインストールします...
-echo [情報] 注意: optional dependencies を省くと Vite/rolldown の Windows ネイティブ依存が欠けてビルド失敗する場合があります。
-call npm install
-
+REM 依存関係をインストール（package-lock.json に厳密に従う）
+call "%~dp0scripts\npm-ci-deps.bat"
 if errorlevel 1 (
     echo [エラー] 依存関係のインストールに失敗しました。
     echo [情報] ネットワーク接続を確認するか、npm のキャッシュをクリアしてください。
     echo [情報] キャッシュクリア: npm cache clean --force
-    echo [情報] 再試行: npm install
+    echo [情報] 再試行: install.bat または scripts\npm-ci-deps.bat
     pause
     exit /b 1
 )

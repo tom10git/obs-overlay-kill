@@ -219,6 +219,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
     customText: '',
     enabled: true,
     effectEnabled: true,
+    webmEffectEnabled: false,
+    webmEffectVideoUrl: '',
     healType: 'fixed',
     healAmount: 20,
     healMin: 10,
@@ -248,6 +250,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
     streamerHealRandomStep: 1,
     streamerHealWhenZeroEnabled: true,
     enabled: true,
+    reviveEffectEnabled: false,
+    reviveEffectVideoUrl: '',
     soundEnabled: false,
     soundUrl: '',
     soundVolume: 0.7,
@@ -1213,6 +1217,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     customText: typeof healConfig.customText === 'string' ? healConfig.customText : '',
     enabled: typeof healConfig.enabled === 'boolean' ? healConfig.enabled : true,
     effectEnabled: typeof healConfig.effectEnabled === 'boolean' ? healConfig.effectEnabled : true,
+    webmEffectEnabled:
+      typeof healConfig.webmEffectEnabled === 'boolean' ? healConfig.webmEffectEnabled : false,
+    webmEffectVideoUrl:
+      typeof healConfig.webmEffectVideoUrl === 'string' && isValidUrl(healConfig.webmEffectVideoUrl)
+        ? healConfig.webmEffectVideoUrl
+        : '',
     healType: (healConfig.healType === 'random' ? 'random' : 'fixed') as 'fixed' | 'random',
     healAmount: isInRange(Number(healConfig.healAmount), 1, 999999)
       ? Number(healConfig.healAmount) || 20
@@ -1280,6 +1290,12 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     streamerHealRandomStep: isInRange(Number(retryConfig.streamerHealRandomStep), 1, 999999) ? Math.floor(Number(retryConfig.streamerHealRandomStep)) || 1 : 1,
     streamerHealWhenZeroEnabled: typeof retryConfig.streamerHealWhenZeroEnabled === 'boolean' ? retryConfig.streamerHealWhenZeroEnabled : true,
     enabled: typeof retryConfig.enabled === 'boolean' ? retryConfig.enabled : true,
+    reviveEffectEnabled:
+      typeof retryConfig.reviveEffectEnabled === 'boolean' ? retryConfig.reviveEffectEnabled : false,
+    reviveEffectVideoUrl:
+      typeof retryConfig.reviveEffectVideoUrl === 'string' && isValidUrl(retryConfig.reviveEffectVideoUrl)
+        ? retryConfig.reviveEffectVideoUrl
+        : '',
     soundEnabled: typeof retryConfig.soundEnabled === 'boolean' ? retryConfig.soundEnabled : false,
     soundUrl:
       typeof retryConfig.soundUrl === 'string' && isValidUrl(retryConfig.soundUrl)

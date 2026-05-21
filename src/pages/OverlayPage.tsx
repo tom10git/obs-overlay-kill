@@ -353,8 +353,12 @@ export function OverlayPage() {
    * ただし重くなりすぎないよう、同時数を上限で制限し、溢れたら古いものから捨てる。
    */
   const [attackEffectBursts, setAttackEffectBursts] = useState<AttackEffectBurstState[]>([])
+  /** 回復 WebM は回復のたびに即時重ね掛け（攻撃側の同時上限とは別管理） */
+  const [healWebmEffectBursts, setHealWebmEffectBursts] = useState<Array<{ id: number; videoUrl: string }>>([])
   const MAX_WEBM_BURSTS = 2
   const MAX_GLASS_CANVAS_BURSTS = 1
+  /** 同時再生の安全上限（超えたら古いものを捨てる。終了待ちのキューにはしない） */
+  const MAX_HEAL_WEBM_BURSTS = 12
   const visibleAttackEffectBursts = useMemo(() => {
     const webm: AttackEffectBurstState[] = []
     const glass: AttackEffectBurstState[] = []
@@ -1407,6 +1411,33 @@ export function OverlayPage() {
     volume: config?.retry.soundVolume || 0.7,
   })
 
+  const playReviveWebmEffect = useCallback(() => {
+    const r = config?.retry
+    if (!r?.reviveEffectEnabled) return
+    const url = r.reviveEffectVideoUrl.trim()
+    if (!url) return
+    const id = allocEffectKey()
+    setAttackEffectBursts((prev) => prev.concat({ id, mode: 'webm', videoUrl: url }))
+  }, [allocEffectKey, config?.retry])
+
+  const playHealWebmEffect = useCallback(() => {
+    const h = config?.heal
+    if (!h?.webmEffectEnabled) return
+    const url = h.webmEffectVideoUrl.trim()
+    if (!url) return
+    const id = allocEffectKey()
+    setHealWebmEffectBursts((prev) => {
+      const next = prev.concat({ id, videoUrl: url })
+      if (next.length <= MAX_HEAL_WEBM_BURSTS) return next
+      return next.slice(-MAX_HEAL_WEBM_BURSTS)
+    })
+  }, [allocEffectKey, config?.heal])
+
+  const triggerHealVisualEffects = useCallback(() => {
+    if (config?.heal.effectEnabled) showHealEffect()
+    playHealWebmEffect()
+  }, [config?.heal.effectEnabled, playHealWebmEffect, showHealEffect])
+
   /** リトライコマンド（!retry）と同じ：最大 HP まで回復＋演出。`fromChannelPoints` 時は retry.enabled を要求しない */
   const applyStreamerRevive = useCallback((options?: { fromChannelPoints?: boolean }) => {
     if (!config) return
@@ -1418,6 +1449,7 @@ export function OverlayPage() {
       registerKawaiiSouniHealProgressRef.current()
     }
     if (config.heal.effectEnabled) showHealEffect()
+    playReviveWebmEffect()
     if (config.retry.soundEnabled) playRetrySound()
   }, [
     config?.retry.enabled,
@@ -1426,6 +1458,7 @@ export function OverlayPage() {
     maxHP,
     increaseHP,
     showHealEffect,
+    playReviveWebmEffect,
     playRetrySound,
   ])
 
@@ -2364,7 +2397,7 @@ export function OverlayPage() {
                   setHealNumbers((prev) => prev.filter((h) => h.id !== healId))
                 }, 1500)
 
-                if (config.heal?.effectEnabled) showHealEffect()
+                triggerHealVisualEffects()
                 if (config.heal?.soundEnabled) playHealSound()
               }
             }, durationMs)
@@ -2398,7 +2431,7 @@ export function OverlayPage() {
       hpCurrentSyncRef,
       reduceHPTracked,
       increaseHP,
-      showHealEffect,
+      triggerHealVisualEffects,
       showMiss,
       showFinishingMoveEffect,
       triggerDodgeEffect,
@@ -2458,9 +2491,7 @@ export function OverlayPage() {
         setHealNumbers((prev: Array<{ id: number; amount: number }>) => prev.filter((h) => h.id !== healId))
       }, 1500)
 
-      if (config.heal.effectEnabled) {
-        showHealEffect()
-      }
+      triggerHealVisualEffects()
       if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.healGlowEnabled) {
         const eff = config.obsWebSocket.effects
         void tryObsEffect('heal: glow', () =>
@@ -2482,7 +2513,7 @@ export function OverlayPage() {
       maxHP,
       increaseHP,
       registerHealStreak,
-      showHealEffect,
+      triggerHealVisualEffects,
       playHealSound,
       sendAutoReply,
       tryObsEffect,
@@ -2813,7 +2844,7 @@ export function OverlayPage() {
               setHealNumbers((prev) => prev.filter((h) => h.id !== healId))
             }, 1500)
 
-            if (config.heal?.effectEnabled) showHealEffect()
+            triggerHealVisualEffects()
             if (config.heal?.soundEnabled) playHealSound()
           }
         }, durationMs)
@@ -2843,7 +2874,7 @@ export function OverlayPage() {
     hpCurrentSyncRef,
     reduceHPTracked,
     increaseHP,
-    showHealEffect,
+    triggerHealVisualEffects,
     showMiss,
     showCritical,
     triggerDodgeEffect,
@@ -3028,10 +3059,7 @@ export function OverlayPage() {
     setTimeout(() => {
       setHealNumbers((prev) => prev.filter((h) => h.id !== healId))
     }, 1500)
-    // 回復エフェクトを表示（設定で有効な場合のみ）
-    if (config.heal.effectEnabled) {
-      showHealEffect()
-    }
+    triggerHealVisualEffects()
     // 回復効果音を再生
     if (config.heal.soundEnabled) {
       playHealSound()
@@ -3042,18 +3070,19 @@ export function OverlayPage() {
         obsGlowSource(config.obsWebSocket, eff.healGlowScale, eff.healGlowDurationMs)
       )
     }
-  }, [config, isTestMode, currentHP, maxHP, increaseHP, registerHealStreak, showHealEffect, playHealSound, tryObsEffect])
+  }, [config, isTestMode, currentHP, maxHP, increaseHP, registerHealStreak, triggerHealVisualEffects, playHealSound, tryObsEffect])
 
   const handleTestReset = useCallback(() => {
     if (!isTestMode || !config) return
     // 現在のHPが最大HPの場合は何もしない
     if (currentHP >= maxHP) return
     resetStreamerHp()
+    playReviveWebmEffect()
     // 蘇生効果音を再生
     if (config.retry.soundEnabled) {
       playRetrySound()
     }
-  }, [isTestMode, config, currentHP, maxHP, resetStreamerHp, playRetrySound])
+  }, [isTestMode, config, currentHP, maxHP, resetStreamerHp, playReviveWebmEffect, playRetrySound])
 
   // テストモード用のバフ付与ハンドラ（即時に ref を更新し、チャット送信は任意でログ用）
   const handleTestStrengthBuff = useCallback(() => {
@@ -3828,7 +3857,7 @@ export function OverlayPage() {
           commandMatched = true
           resetStreamerHp()
           getViewerUserIds().forEach((id) => setViewerHP(id, viewerMaxHP))
-          if (config.heal.effectEnabled) showHealEffect()
+          triggerHealVisualEffects()
           if (config.retry.soundEnabled) playRetrySound()
         }
       }
@@ -3847,7 +3876,7 @@ export function OverlayPage() {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
           resetStreamerHp()
-          if (config.heal.effectEnabled) showHealEffect()
+          triggerHealVisualEffects()
           if (config.retry.soundEnabled) playRetrySound()
         }
       }
@@ -3883,7 +3912,7 @@ export function OverlayPage() {
             const newHP = Math.min(maxHP, currentHP + healAmount)
             increaseHP(healAmount)
             registerKawaiiSouniHealProgressRef.current()
-            if (config.heal.effectEnabled) showHealEffect()
+            triggerHealVisualEffects()
             if (config.retry.soundEnabled) playRetrySound()
             // 回復時自動返信（攻撃コマンドと同様）。{username} は配信者なので「配信者」に置換
             if (config.heal.autoReplyEnabled && config.heal.autoReplyMessageTemplate?.trim()) {
@@ -3918,7 +3947,7 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, chatChannel, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice, activateKonamiStreamerBuff, applyStreamerRevive])
+  }, [chatMessages, config, isTestMode, chatChannel, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, triggerHealVisualEffects, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice, activateKonamiStreamerBuff, applyStreamerRevive])
 
   const channelPointAttackDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
   const channelPointHealDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
@@ -4505,6 +4534,13 @@ export function OverlayPage() {
           />
         )
       )}
+      {healWebmEffectBursts.map((b) => (
+        <AttackEffectBurst
+          key={b.id}
+          videoUrl={b.videoUrl}
+          onDone={() => setHealWebmEffectBursts((prev) => prev.filter((x) => x.id !== b.id))}
+        />
+      ))}
       {slashArcFxQueue.map((fx) => (
         <SlashArcCanvas
           key={fx.id}
@@ -5018,7 +5054,7 @@ export function OverlayPage() {
                               if (!config) return
                               resetStreamerHp()
                               getViewerUserIds().forEach((id) => setViewerHP(id, viewerMaxHP))
-                              if (config.heal.effectEnabled) showHealEffect()
+                              triggerHealVisualEffects()
                               if (config.retry.soundEnabled) playRetrySound()
                             }
                             startRepeat(triggerResetAll, 200)

@@ -1,0 +1,33 @@
+# CodeQL: ワークフロー・TypeScript の静的解析（GitHub 推奨）
+# https://github.blog/changelog/2026-04-01-securing-the-open-source-supply-chain-across-github/
+name: CodeQL
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ca339c3e4837a03b136b39 # v4.2.2
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
