@@ -9,6 +9,7 @@ lerna-debug.log*
 
 # Config
 public/config/*
+scripts/billing-invites.json
 
 # Custom Technique Names
 src/constants/customTechniqueNames.ts
@@ -17,10 +18,12 @@ src/constants/customTechniqueNames.ts
 src/sounds/
 
 node_modules
+web/node_modules
 dist
 dist-ssr
-# 配布用にコピーしたビルド（release/README と .bat はコミットする）
-release/dist
+# 配布ビルド成果物（release/ には OBS-Overlay-Kill.exe のみ）
+build/pkg-dist
+release/
 *.local
 
 # Environment variables
