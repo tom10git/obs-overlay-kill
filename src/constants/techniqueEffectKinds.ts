@@ -7,6 +7,7 @@ import type { CSSProperties } from 'react'
 import {
   COMBO_TECHNIQUE_NAMES,
   MAGIC_TECHNIQUE_NAMES,
+  onTechniqueNamePoolsChanged,
   SHOOTING_TECHNIQUE_NAMES,
   SLASH_TECHNIQUE_NAMES,
 } from './comboTechniqueNames'
@@ -304,15 +305,23 @@ function getShootingKind(name: string): TechniqueEffectKind {
   return 'meteor'
 }
 
-/** 技名 → 演出種別（3タイプ構成: 斬撃 / 魔法 / 射撃） */
-export const TECHNIQUE_EFFECT_KIND_BY_NAME: Readonly<Record<string, TechniqueEffectKind>> =
-  Object.freeze(
+function buildTechniqueEffectKindByName(): Readonly<Record<string, TechniqueEffectKind>> {
+  return Object.freeze(
     Object.fromEntries([
       ...SLASH_TECHNIQUE_NAMES.map((n) => [n, getSlashKind(n)] as const),
       ...MAGIC_TECHNIQUE_NAMES.map((n) => [n, getMagicKind(n)] as const),
       ...SHOOTING_TECHNIQUE_NAMES.map((n) => [n, getShootingKind(n)] as const),
-    ])
+    ]),
   )
+}
+
+/** 技名 → 演出種別（3タイプ構成: 斬撃 / 魔法 / 射撃） */
+export let TECHNIQUE_EFFECT_KIND_BY_NAME: Readonly<Record<string, TechniqueEffectKind>> =
+  buildTechniqueEffectKindByName()
+
+onTechniqueNamePoolsChanged(() => {
+  TECHNIQUE_EFFECT_KIND_BY_NAME = buildTechniqueEffectKindByName()
+})
 
 const KINDS: readonly TechniqueEffectKind[] = [
   'inferno',

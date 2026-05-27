@@ -74,6 +74,8 @@ import {
 import type { TwitchChatMessage } from '../types/twitch'
 import { DEFAULT_GAUGE_SHAPE, getDefaultConfig, saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
 import { OverlaySettings, type OverlaySettingsHandle } from '../components/settings/OverlaySettings'
+import { FeatureUnlockPanel } from '../components/settings/FeatureUnlockPanel'
+import { useFeatureUnlock } from '../context/FeatureUnlockContext'
 import { twitchApi } from '../utils/twitchApi'
 import type { OverlayConfig, AttackConfig, AttackDebuffKind } from '../types/overlay'
 import type { ChannelPointEvent } from '../types/overlay'
@@ -450,13 +452,16 @@ export function OverlayPage() {
     import.meta.env.DEV ||
     import.meta.env.PROD ||
     import.meta.env.VITE_OVERLAY_EMBEDDED_SETTINGS_IN_PROD === 'true'
-  const [showTestSettings, setShowTestSettings] = useState(() => {
+  type TestPanelSection = null | 'settings' | 'billing'
+  const [testPanelSection, setTestPanelSection] = useState<TestPanelSection>(() => {
     if (typeof window !== 'undefined') {
       const v = new URLSearchParams(window.location.search).get('openSettings')
-      if (v === '1' || v === 'true') return true
-      if (v === '0' || v === 'false') return false
+      if (v === '1' || v === 'true') return 'settings'
+      if (v === '0' || v === 'false') return null
     }
     return import.meta.env.VITE_OVERLAY_SETTINGS_DEFAULT_EXPANDED === 'true'
+      ? 'settings'
+      : null
   })
   const [showSaveDialog, setShowSaveDialog] = useState(false) // 保存成功ダイアログの表示/非表示
   const fileInputRef = useRef<HTMLInputElement>(null) // ファイル選択用のinput要素の参照
@@ -895,6 +900,9 @@ export function OverlayPage() {
     },
   })
 
+  const { isUnlocked } = useFeatureUnlock()
+  const pvpRuntimeEnabled =
+    Boolean(config?.pvp?.enabled) && isUnlocked('viewerSettings')
   const {
     dialogueVisible: sicknessDialogueVisible,
     registerHealStreak,
@@ -1050,6 +1058,7 @@ export function OverlayPage() {
     getViewerUserIds,
     ensureViewerHP,
     applyViewerDamage,
+    applyViewerCounterDamage,
     setViewerHP,
     maxHP: viewerMaxHP,
   } = useViewerHP(config)
@@ -1438,11 +1447,12 @@ export function OverlayPage() {
     playHealWebmEffect()
   }, [config?.heal.effectEnabled, playHealWebmEffect, showHealEffect])
 
-  /** リトライコマンド（!retry）と同じ：最大 HP まで回復＋演出。`fromChannelPoints` 時は retry.enabled を要求しない */
+  /** リトライコマンド（!retry）と同じ：HP0のときのみ最大 HP まで回復＋演出。`fromChannelPoints` 時は retry.enabled を要求しない */
   const applyStreamerRevive = useCallback((options?: { fromChannelPoints?: boolean }) => {
     if (!config) return
     if (!options?.fromChannelPoints && !config.retry.enabled) return
     const streamerHp = hpCurrentSyncRef.current
+    if (streamerHp > 0) return
     const healAmount = maxHP - streamerHp
     if (healAmount > 0) {
       increaseHP(healAmount)
@@ -1887,7 +1897,7 @@ export function OverlayPage() {
     ) => {
       if (!config) return
       if (
-        !config.pvp?.enabled ||
+        !pvpRuntimeEnabled ||
         !event.userId ||
         !username ||
         (!config.pvp.counterOnAttackTargetAttacker && !config.pvp.counterOnAttackTargetRandom)
@@ -1914,7 +1924,7 @@ export function OverlayPage() {
           const state = getViewerHPCurrent(targetUserId) ?? getViewerHP(targetUserId)
           return state?.current ?? viewerMaxHP
         }
-        const result = applyViewerDamage(targetUserId, getAttackDamage(sa), sa)
+        const result = applyViewerCounterDamage(targetUserId, getAttackDamage(sa))
         return result.newHP
       })()
       const max = viewerMaxHP
@@ -1937,7 +1947,8 @@ export function OverlayPage() {
       getViewerUserIds,
       getViewerHPCurrent,
       getViewerHP,
-      applyViewerDamage,
+      applyViewerCounterDamage,
+      pvpRuntimeEnabled,
       viewerMaxHP,
       sendAutoReply,
     ]
@@ -2041,7 +2052,7 @@ export function OverlayPage() {
 
       if (!isCustomTextMatch && !isViewerAttackCommandMatch && !isTestNoDamageMatch && !isChannelPointStreamerAttackMatch) return
 
-      if (config.pvp?.enabled && event.userId) {
+      if (pvpRuntimeEnabled && event.userId) {
         lastAttackerRef.current = {
           userId: event.userId,
           userName: event.userName ?? event.userId,
@@ -2069,6 +2080,8 @@ export function OverlayPage() {
 
         if (shouldDamage) {
           const noDamage = 'noDamage' in event && event.noDamage === true
+          /** 合わせ技チャンスまたは追加攻撃ルーレットがこの命中で始まったときは自動カウンターしない */
+          let skipAutoPvpCounter = false
           // 反転回復の判定（この攻撃で「HPが減ったあとに回復」するか。0なら通常ダメージのみ）
           let reverseHealAmount = 0
           if (config.pvp?.streamerHealOnAttackEnabled && (config.pvp.streamerHealOnAttackProbability ?? 0) > 0) {
@@ -2199,8 +2212,8 @@ export function OverlayPage() {
             )}`.normalize('NFKC')
             const next: ComboChallengeState = {
               targetFull,
-              // 「合わせ技：」などの接頭辞は入力不要にする（開始時点で一致済み扱い）
-              matchedLength: comboPrefix.length,
+              // 接頭辞（comboTechniqueInputPrefix）も含めて入力してもらう（表示と同じ文字列を打てば確実に完走する）
+              matchedLength: 0,
               endsAt,
               userId: attackerUserId,
               userName: event.userName ?? event.userId ?? '視聴者',
@@ -2220,6 +2233,7 @@ export function OverlayPage() {
             })
             comboChallengeRef.current = next
             setComboChallenge(next)
+            skipAutoPvpCounter = true
             if (comboExpireTimerRef.current != null) window.clearTimeout(comboExpireTimerRef.current)
             comboExpireTimerRef.current = window.setTimeout(() => {
               comboExpireTimerRef.current = null
@@ -2239,8 +2253,11 @@ export function OverlayPage() {
           // 追加攻撃ルーレット（通常40%・合わせ技とは別。技名リストのみ共通）
           if (attackerUserId) {
             const started = startRouletteBonus({ attackerUserId, isTestMode, noDamage })
-            if (!started && rouletteBonusLockRef.current) {
+            if (started) {
+              skipAutoPvpCounter = true
+            } else if (rouletteBonusLockRef.current) {
               reserveRouletteBonus({ attackerUserId, isTestMode, noDamage })
+              skipAutoPvpCounter = true
             }
           }
 
@@ -2402,6 +2419,10 @@ export function OverlayPage() {
               }
             }, durationMs)
           }
+
+          if (!skipAutoPvpCounter) {
+            runPvpCounterAfterAttack(event)
+          }
         } else {
           // MISS（stale な currentHP でここに来た場合など）: 実HP0なら回避演出も PvP 反撃も行わない
           if (hpCurrentSyncRef.current <= 0) {
@@ -2422,8 +2443,6 @@ export function OverlayPage() {
             playMissSound()
           }
         }
-
-        runPvpCounterAfterAttack(event)
       }
     },
     [
@@ -2444,7 +2463,8 @@ export function OverlayPage() {
       sendAutoReply,
       tryObsEffect,
       user?.id,
-      applyViewerDamage,
+      startRouletteBonus,
+      reserveRouletteBonus,
       runPvpCounterAfterAttack,
       applyStreamerOverkillHit,
       fireAttackEffectBurst,
@@ -2669,8 +2689,8 @@ export function OverlayPage() {
         )}`.normalize('NFKC')
         const next: ComboChallengeState = {
           targetFull,
-          // 「合わせ技：」などの接頭辞は入力不要にする（開始時点で一致済み扱い）
-          matchedLength: comboPrefix.length,
+          // 接頭辞（comboTechniqueInputPrefix）も含めて入力してもらう
+          matchedLength: 0,
           endsAt,
           userId: 'test-user',
           userName: 'TestUser',
@@ -3074,8 +3094,8 @@ export function OverlayPage() {
 
   const handleTestReset = useCallback(() => {
     if (!isTestMode || !config) return
-    // 現在のHPが最大HPの場合は何もしない
-    if (currentHP >= maxHP) return
+    // HP0のときのみ蘇生（リトライと同じ）
+    if (currentHP > 0) return
     resetStreamerHp()
     playReviveWebmEffect()
     // 蘇生効果音を再生
@@ -3346,7 +3366,7 @@ export function OverlayPage() {
       // PvP: 配信者のカウンター攻撃コマンド（配信者のみ実行可能）
       if (
         !commandMatched &&
-        config.pvp?.enabled &&
+        pvpRuntimeEnabled &&
         config.pvp.counterCommand &&
         user?.id &&
         message.user.id === user.id
@@ -3382,11 +3402,10 @@ export function OverlayPage() {
               commandMatched = true
               ensureViewerHP(targetUserId)
               const sa = config.pvp.streamerAttack
-              const result = applyViewerDamage(
+              const result = applyViewerCounterDamage(
                 targetUserId,
                 // カウンター攻撃（配信者→視聴者）には視聴者バフを乗せない
-                getAttackDamage(sa),
-                sa
+                getAttackDamage(sa)
               )
               const tpl = config.pvp.autoReplyMessageTemplate || '{username} の残りHP: {hp}/{max}'
               const reply = fillTemplate(tpl, {
@@ -3413,7 +3432,7 @@ export function OverlayPage() {
       const viewerAttackViewerCmd = (config.pvp?.viewerAttackViewerCommand ?? '!attack').trim()
       if (
         !commandMatched &&
-        config.pvp?.enabled &&
+        pvpRuntimeEnabled &&
         viewerAttackViewerCmd.length > 0 &&
         user?.id &&
         (message.user.id !== user.id || isTestMode)
@@ -3535,7 +3554,7 @@ export function OverlayPage() {
       // PvP: 視聴者のHP確認コマンド（配信者以外が実行）
       if (
         !commandMatched &&
-        config.pvp?.enabled &&
+        pvpRuntimeEnabled &&
         config.pvp.hpCheckCommand &&
         user?.id &&
         message.user.id !== user.id
@@ -3560,7 +3579,7 @@ export function OverlayPage() {
       // PvP: 視聴者側の全回復コマンド（実行した視聴者のHPを最大まで回復）
       if (
         !commandMatched &&
-        config.pvp?.enabled &&
+        pvpRuntimeEnabled &&
         config.pvp.viewerFullHealCommand &&
         config.pvp.viewerFullHealCommand.length > 0 &&
         user?.id &&
@@ -3705,7 +3724,7 @@ export function OverlayPage() {
       const viewerHealCmd = (config.pvp?.viewerHealCommand ?? '!heal').trim()
       if (
         !commandMatched &&
-        config.pvp?.enabled &&
+        pvpRuntimeEnabled &&
         viewerHealCmd.length > 0 &&
         user?.id &&
         message.user.id !== user.id
@@ -3773,7 +3792,7 @@ export function OverlayPage() {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
           // PvP時: 視聴者がHP0のときは攻撃をブロックして自動返信
-          if (config.pvp?.enabled && user?.id && message.user.id !== user.id) {
+          if (pvpRuntimeEnabled && user?.id && message.user.id !== user.id) {
             const state = getViewerHPCurrent(message.user.id) ?? getViewerHP(message.user.id)
             const current = state?.current ?? viewerMaxHP
             if (current <= 0) {
@@ -3820,7 +3839,7 @@ export function OverlayPage() {
           processedChatMessagesRef.current.add(message.id)
           commandMatched = true
           // PvP時: 視聴者がHP0のときは回復をブロックして自動返信
-          if (config.pvp?.enabled && user?.id && message.user.id !== user.id) {
+          if (pvpRuntimeEnabled && user?.id && message.user.id !== user.id) {
             const state = getViewerHPCurrent(message.user.id) ?? getViewerHP(message.user.id)
             const current = state?.current ?? viewerMaxHP
             if (current <= 0) {
@@ -3924,7 +3943,7 @@ export function OverlayPage() {
         }
       }
 
-      // リトライコマンドの判定（HP最大でも受け付ける）
+      // リトライコマンドの判定（HP0のときのみ蘇生）
       if (
         !commandMatched &&
         config.retry.enabled &&
@@ -3947,7 +3966,7 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, chatChannel, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, triggerHealVisualEffects, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice, activateKonamiStreamerBuff, applyStreamerRevive])
+  }, [chatMessages, config, isTestMode, chatChannel, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, triggerHealVisualEffects, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, applyViewerCounterDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice, activateKonamiStreamerBuff, applyStreamerRevive])
 
   const channelPointAttackDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
   const channelPointHealDispatchRef = useRef<(userId: string, userName: string) => void>(() => {})
@@ -3961,7 +3980,7 @@ export function OverlayPage() {
       if (!config) return
       if (config.attack.channelPointsAttackEnabled === false) return
 
-      if (config.pvp?.enabled && user?.id && redeemerUserId !== user.id) {
+      if (pvpRuntimeEnabled && user?.id && redeemerUserId !== user.id) {
         ensureViewerHP(redeemerUserId)
         const state = getViewerHPCurrent(redeemerUserId) ?? getViewerHP(redeemerUserId)
         const current = state?.current ?? viewerMaxHP
@@ -3993,7 +4012,7 @@ export function OverlayPage() {
       if (!config) return
       if (config.heal.channelPointsHealEnabled === false) return
 
-      if (config.pvp?.enabled && user?.id && redeemerUserId !== user.id) {
+      if (pvpRuntimeEnabled && user?.id && redeemerUserId !== user.id) {
         ensureViewerHP(redeemerUserId)
         const state = getViewerHPCurrent(redeemerUserId) ?? getViewerHP(redeemerUserId)
         const current = state?.current ?? viewerMaxHP
@@ -4025,7 +4044,7 @@ export function OverlayPage() {
       if (!config) return
       if (config.retry.channelPointsReviveEnabled === false) return
 
-      if (config.pvp?.enabled && user?.id && redeemerUserId !== user.id) {
+      if (pvpRuntimeEnabled && user?.id && redeemerUserId !== user.id) {
         ensureViewerHP(redeemerUserId)
         const state = getViewerHPCurrent(redeemerUserId) ?? getViewerHP(redeemerUserId)
         const current = state?.current ?? viewerMaxHP
@@ -4180,7 +4199,7 @@ export function OverlayPage() {
       (config.attack.channelPointsAttackEnabled !== false ||
         config.heal.channelPointsHealEnabled !== false ||
         config.retry.channelPointsReviveEnabled !== false ||
-        (config.pvp?.enabled &&
+        (pvpRuntimeEnabled &&
           (config.pvp.channelPointsViewerReviveEnabled !== false ||
             config.pvp.channelPointsViewerHealEnabled !== false ||
             config.pvp.channelPointsStrengthBuffEnabled !== false)))
@@ -4211,7 +4230,11 @@ export function OverlayPage() {
       onRedemption: ({ userId, userName }) => channelPointReviveDispatchRef.current(userId, userName),
     })
   }
-  if (config?.pvp?.enabled && config.pvp.channelPointsViewerHealEnabled !== false) {
+  if (
+    config?.pvp &&
+    pvpRuntimeEnabled &&
+    config.pvp.channelPointsViewerHealEnabled !== false
+  ) {
     channelPointRoutes.push({
       tag: 'viewer-heal',
       rewardTitle: config.pvp.channelPointsViewerHealRewardTitle?.trim() || '自分を回復',
@@ -4219,7 +4242,11 @@ export function OverlayPage() {
       onRedemption: ({ userId, userName }) => channelPointViewerHealDispatchRef.current(userId, userName),
     })
   }
-  if (config?.pvp?.enabled && config.pvp.channelPointsViewerReviveEnabled !== false) {
+  if (
+    config?.pvp &&
+    pvpRuntimeEnabled &&
+    config.pvp.channelPointsViewerReviveEnabled !== false
+  ) {
     channelPointRoutes.push({
       tag: 'viewer-revive',
       rewardTitle: config.pvp.channelPointsViewerReviveRewardTitle?.trim() || '自分を蘇生',
@@ -4227,7 +4254,11 @@ export function OverlayPage() {
       onRedemption: ({ userId, userName }) => channelPointViewerReviveDispatchRef.current(userId, userName),
     })
   }
-  if (config?.pvp?.enabled && config.pvp.channelPointsStrengthBuffEnabled !== false) {
+  if (
+    config?.pvp &&
+    pvpRuntimeEnabled &&
+    config.pvp.channelPointsStrengthBuffEnabled !== false
+  ) {
     channelPointRoutes.push({
       tag: 'strength-buff',
       rewardTitle: config.pvp.channelPointsStrengthBuffRewardTitle?.trim() || 'ストレングス',
@@ -4868,24 +4899,46 @@ export function OverlayPage() {
                           </button>
                         </>
                       )}
-                      <button
-                        type="button"
-                        className={`test-panel-segment ${showTestSettings ? 'test-panel-segment--on' : ''}`}
-                        onClick={() => setShowTestSettings(!showTestSettings)}
-                        title={showTestSettings ? '詳細設定を閉じる' : '詳細設定を開く'}
-                      >
-                        設定
-                      </button>
+                      <div className="test-panel-segments" role="tablist" aria-label="パネル表示">
+                        <button
+                          type="button"
+                          className={`test-panel-segment${testPanelSection === null ? ' test-panel-segment--on' : ''}`}
+                          onClick={() => setTestPanelSection(null)}
+                          title="テスト操作（攻撃・回復など）"
+                        >
+                          操作
+                        </button>
+                        <button
+                          type="button"
+                          className={`test-panel-segment${testPanelSection === 'settings' ? ' test-panel-segment--on' : ''}`}
+                          onClick={() =>
+                            setTestPanelSection((s) => (s === 'settings' ? null : 'settings'))
+                          }
+                          title="オーバーレイ設定（JSON編集不要）"
+                        >
+                          設定
+                        </button>
+                        <button
+                          type="button"
+                          className={`test-panel-segment test-panel-segment--billing${testPanelSection === 'billing' ? ' test-panel-segment--on' : ''}`}
+                          onClick={() =>
+                            setTestPanelSection((s) => (s === 'billing' ? null : 'billing'))
+                          }
+                          title="PRO機能の解放（Stripe・招待コード）"
+                        >
+                          課金
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  {showTestSettings && config && (
+                  {testPanelSection === 'settings' && config && (
                     <div className="test-settings-panel test-settings-panel--embedded">
                       <div className="test-settings-embedded-toolbar test-settings-embedded-toolbar--compact">
                         <button type="button" className="test-button test-save test-panel-preset-btn" onClick={() => applyTestPreset('safe')}>
-                          プリセット: 配信（安全）
+                          配信プリセット
                         </button>
                         <button type="button" className="test-button test-reload test-panel-preset-btn" onClick={() => applyTestPreset('allOn')}>
-                          プリセット: 検証（全ON）
+                          検証プリセット
                         </button>
                       </div>
                       <OverlaySettings
@@ -4896,6 +4949,12 @@ export function OverlayPage() {
                       />
                     </div>
                   )}
+                  {testPanelSection === 'billing' && (
+                    <div className="test-settings-panel test-settings-panel--embedded test-settings-panel--billing">
+                      <FeatureUnlockPanel />
+                    </div>
+                  )}
+                  {testPanelSection === null && (
                   <div className="test-panel-status">
                     <span className="test-panel-hp-readout" title="メインゲージの現在値">
                       HP {currentHP.toLocaleString()} / {maxHP.toLocaleString()}
@@ -4906,7 +4965,8 @@ export function OverlayPage() {
                         : '「設定」で「テストモードを有効にする」にチェックすると操作できます。'}
                     </span>
                   </div>
-                  {isTestMode && (
+                  )}
+                  {testPanelSection === null && isTestMode && (
                     <div className="test-panel-group test-panel-combo-group">
                       <span className="test-panel-group-label">合わせ技</span>
                       <label className="test-panel-combo-toggle">
@@ -4959,6 +5019,7 @@ export function OverlayPage() {
                       </div>
                     </div>
                   )}
+                  {testPanelSection === null && (
                   <div className="test-panel-actions">
                     <div className="test-panel-group">
                       <span className="test-panel-group-label">ダメージ・回復</span>
@@ -5078,6 +5139,7 @@ export function OverlayPage() {
                       </div>
                     </div>
                   </div>
+                  )}
                 </div>
               </div>
               <div

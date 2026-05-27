@@ -4,6 +4,8 @@ import { UserDetails } from './components/UserDetails'
 import { OverlayPage } from './pages/OverlayPage'
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage'
 import { getAdminUsername } from './config/admin'
+import { AuthProvider } from './context/AuthContext'
+import { FeatureUnlockProvider } from './context/FeatureUnlockContext'
 import './App.css'
 
 function TwitchOAuthSection() {
@@ -118,14 +120,18 @@ function MainApp() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainApp />} />
-        <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
-        <Route path="/overlay" element={<OverlayPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <FeatureUnlockProvider>
+        <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<MainApp />} />
+          <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+          <Route path="/overlay" element={<OverlayPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        </BrowserRouter>
+      </FeatureUnlockProvider>
+    </AuthProvider>
   )
 }
 

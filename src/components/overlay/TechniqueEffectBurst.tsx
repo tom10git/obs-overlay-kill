@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom'
 import type { TechniqueEffectKind } from '../../constants/techniqueEffectKinds'
 import {
   MAGIC_TECHNIQUE_NAMES,
+  onTechniqueNamePoolsChanged,
   SHOOTING_TECHNIQUE_NAMES,
   SLASH_TECHNIQUE_NAMES,
 } from '../../constants/comboTechniqueNames'
@@ -50,17 +51,25 @@ export interface TechniqueEffectBurstProps {
 
 type TechniqueNameType = 'slash' | 'magic' | 'shooting' | 'other'
 
-const SLASH_NAME_SET = new Set<string>(SLASH_TECHNIQUE_NAMES)
-const MAGIC_NAME_SET = new Set<string>(MAGIC_TECHNIQUE_NAMES)
-const SHOOTING_NAME_SET = new Set<string>(SHOOTING_TECHNIQUE_NAMES)
+let slashNameSet = new Set<string>(SLASH_TECHNIQUE_NAMES)
+let magicNameSet = new Set<string>(MAGIC_TECHNIQUE_NAMES)
+let shootingNameSet = new Set<string>(SHOOTING_TECHNIQUE_NAMES)
+
+function rebuildTechniqueNameTypeSets() {
+  slashNameSet = new Set(SLASH_TECHNIQUE_NAMES)
+  magicNameSet = new Set(MAGIC_TECHNIQUE_NAMES)
+  shootingNameSet = new Set(SHOOTING_TECHNIQUE_NAMES)
+}
+
+onTechniqueNamePoolsChanged(rebuildTechniqueNameTypeSets)
 
 function getTechniqueNameType(name: string): TechniqueNameType {
   const s = name.trim()
   // 雷鳴*（射撃名）は演出上スラッシュ扱いに寄せる
-  if (SHOOTING_NAME_SET.has(s) && s.startsWith('雷鳴')) return 'slash'
-  if (SLASH_NAME_SET.has(s)) return 'slash'
-  if (MAGIC_NAME_SET.has(s)) return 'magic'
-  if (SHOOTING_NAME_SET.has(s)) return 'shooting'
+  if (shootingNameSet.has(s) && s.startsWith('雷鳴')) return 'slash'
+  if (slashNameSet.has(s)) return 'slash'
+  if (magicNameSet.has(s)) return 'magic'
+  if (shootingNameSet.has(s)) return 'shooting'
   return 'other'
 }
 

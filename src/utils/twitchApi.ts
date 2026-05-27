@@ -1,5 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
 import { logger } from '../lib/logger'
+import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient'
+import { refreshTwitchTokenViaBackend } from '../lib/twitchOAuthApi'
 import { getTwitchClientId, getTwitchClientSecret, getTwitchConsoleClientId, getTwitchConsoleClientSecret, getTwitchAccessToken, getTwitchRefreshToken, setTwitchOAuthTokens } from '../config/auth'
 import {
   TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT,
@@ -252,20 +254,91 @@ class TwitchApiClient {
     }
   }
 
+  private cacheRefreshedUserTokens(
+    accessToken: string,
+    expiresIn: number,
+    refreshToken: string,
+  ): string {
+    this.userAccessToken = accessToken
+    this.userTokenExpiresAt = Date.now() + (expiresIn - 300) * 1000
+    try {
+      setTwitchOAuthTokens(accessToken, refreshToken)
+    } catch {
+      /* localStorage 不可 */
+    }
+    return accessToken
+  }
+
+  private overlayAuthHint(): string {
+    const origin =
+      typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4173'
+    return (
+      `「${origin}/overlay」の課金タブで Supabase にログインし、同じ URL（${origin}）で Twitch OAuth を完了してください。` +
+      ' exe (:4173) と npm run dev (:5173) はログイン・トークンが別です。'
+    )
+  }
+
+  /** Supabase + twitch-oauth のみ（/overlay 用。ブラウザから Twitch token エンドポイントは呼ばない） */
+  private async refreshUserAccessTokenViaSupabase(): Promise<string> {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      throw new Error('Supabase が未設定です。')
+    }
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      throw new Error(
+        `${this.overlayAuthHint()} .env の VITE_TWITCH_REFRESH_TOKEN だけでは /overlay のチャット・チャンネルポイントは動きません。`,
+      )
+    }
+
+    const localRefresh = getTwitchRefreshToken()
+    let tokens = await refreshTwitchTokenViaBackend(session, {})
+    if (!tokens?.access_token && localRefresh) {
+      tokens = await refreshTwitchTokenViaBackend(session, {
+        refreshToken: localRefresh,
+      })
+    }
+
+    if (!tokens?.access_token) {
+      throw new Error(
+        'Twitch トークン更新に失敗しました（twitch-oauth）。' +
+          ` ${this.overlayAuthHint()}` +
+          ' 無効な VITE_TWITCH_REFRESH_TOKEN は .env から削除し、OAuth で取り直してください。',
+      )
+    }
+
+    const newRefresh =
+      tokens.refresh_token?.trim() || localRefresh || ''
+    return this.cacheRefreshedUserTokens(
+      tokens.access_token,
+      tokens.expires_in,
+      newRefresh,
+    )
+  }
+
   /**
    * リフレッシュトークンを使って新しいアクセストークンを取得
    */
   private async refreshUserAccessToken(): Promise<string> {
+    if (isSupabaseConfigured()) {
+      return this.refreshUserAccessTokenViaSupabase()
+    }
+
     let refreshToken = getTwitchRefreshToken()
     const clientId = getTwitchClientId()
     const clientSecret = getTwitchClientSecret()
 
     if (!refreshToken) {
-      throw new Error('VITE_TWITCH_REFRESH_TOKEN is not set. Cannot refresh access token.')
+      throw new Error(
+        'Twitch リフレッシュトークンがありません。課金タブで Supabase にログイン後、OAuth するか DB に import してください。',
+      )
     }
 
     if (!clientId || !clientSecret) {
-      throw new Error('Client ID and Client Secret must be set to refresh token.')
+      throw new Error(
+        'Client Secret はブラウザに置かず、Supabase secrets + twitch-oauth を使ってください（docs/SECURITY.md）',
+      )
     }
 
     // "oauth:" プレフィックスを削除（Twitch APIでは不要）
@@ -309,21 +382,22 @@ class TwitchApiClient {
         throw error
       }
 
-      this.userAccessToken = response.data.access_token
-      // 有効期限の5分前に期限切れとみなす
-      this.userTokenExpiresAt =
-        Date.now() + (response.data.expires_in - 300) * 1000
+      const newRefresh = response.data.refresh_token?.trim() || refreshToken
+      const accessToken = this.cacheRefreshedUserTokens(
+        response.data.access_token,
+        response.data.expires_in,
+        newRefresh,
+      )
 
       if (import.meta.env.DEV) {
         logger.debug('✅ Twitch API: ユーザーアクセストークンのリフレッシュ成功', {
-          トークン長: this.userAccessToken.length,
+          トークン長: accessToken.length,
           有効期限: `${response.data.expires_in}秒`,
           期限切れ日時: new Date(this.userTokenExpiresAt).toISOString(),
           スコープ: response.data.scope || '未提供',
         })
 
-        // リフレッシュされたトークンを検証
-        const validation = await this.validateOAuthToken(this.userAccessToken)
+        const validation = await this.validateOAuthToken(accessToken)
         if (!validation.valid) {
           logger.error('❌ リフレッシュされたトークンの検証に失敗しました')
         } else {
@@ -332,20 +406,12 @@ class TwitchApiClient {
             スコープ: validation.scopes,
           })
         }
-      }
-
-      // 新しいトークンを localStorage に保存（getTwitchAccessToken やチャット接続で即反映）
-      const newRefresh = response.data.refresh_token?.trim() || refreshToken
-      try {
-        setTwitchOAuthTokens(this.userAccessToken!, newRefresh)
-        if (import.meta.env.DEV && response.data.refresh_token && response.data.refresh_token !== refreshToken) {
+        if (response.data.refresh_token && response.data.refresh_token !== refreshToken) {
           logger.debug('🔄 新しいリフレッシュトークンを localStorage に保存しました')
         }
-      } catch {
-        // localStorage が使えない環境では無視
       }
 
-      return this.userAccessToken
+      return accessToken
     } catch (error) {
       if (axios.isAxiosError(error)) {
         // リクエストが中断された場合の処理

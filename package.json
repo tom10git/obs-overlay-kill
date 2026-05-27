@@ -7,9 +7,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:release": "tsc && vite build --mode release",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "package:release": "node scripts/package-release.mjs",
+    "package:exe": "node scripts/package-exe.mjs",
     "install:ci": "npm ci",
     "audit:ci": "npm audit --audit-level=high"
   },
@@ -17,7 +19,13 @@
     "node": ">=20",
     "npm": ">=10"
   },
+  "pkg": {
+    "assets": [
+      "build/pkg-dist/**/*"
+    ]
+  },
   "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
     "@tanstack/react-query": "^5.95.2",
     "axios": "^1.16.1",
     "howler": "^2.2.4",
@@ -34,9 +42,11 @@
     "@typescript-eslint/eslint-plugin": "^8.38.0",
     "@typescript-eslint/parser": "^8.38.0",
     "@vitejs/plugin-react": "^6.0.0",
+    "@yao-pkg/pkg": "6.19.0",
     "eslint": "^8.57.1",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "rollup-obfuscator": "4.1.1",
     "typescript": "~5.9.2",
     "vite": "^8.0.14"
   }

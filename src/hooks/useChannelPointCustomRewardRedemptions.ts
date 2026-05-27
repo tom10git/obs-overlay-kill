@@ -141,7 +141,9 @@ export function useChannelPointCustomRewardRedemptions(options: UseChannelPointC
       const info = await twitchApi.getOAuthUserIdAndScopes()
       if (!info) {
         logger.error(
-          '[channel-points] OAuth ユーザーアクセストークンを検証できませんでした。VITE_TWITCH_ACCESS_TOKEN またはリフレッシュ可能な VITE_TWITCH_REFRESH_TOKEN を確認してください。'
+          '[channel-points] OAuth ユーザーアクセストークンを検証できませんでした。' +
+            ' /overlay だけがユーザートークンを使います。' +
+            ` 今開いている ${typeof window !== 'undefined' ? window.location.origin : ''} の課金タブで Supabase ログインと Twitch OAuth を行ってください（4173 の exe と 5173 の dev は別）。`,
         )
       } else {
         if (info.userId !== broadcasterId) {

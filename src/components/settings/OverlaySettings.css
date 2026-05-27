@@ -147,7 +147,7 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.settings-section-intro + .settings-subsection-title {
+.settings-section-intro+.settings-subsection-title {
   margin-top: 0.35rem;
 }
 
@@ -827,7 +827,21 @@
 .overlay-settings--embedded .settings-tabs.settings-tabs--embedded-main .settings-tab-active {
   color: #fff !important;
   background: rgba(120, 150, 255, 0.22) !important;
-  box-shadow: 0 0 0 1px rgba(140, 170, 255, 0.28) inset;
+}
+
+.settings-tab--billing {
+  color: rgba(255, 213, 79, 0.85) !important;
+}
+
+.settings-section-intro--compact,
+.settings-hint--compact {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.settings-tab-panel--billing {
+  padding-top: 0.15rem;
   border-bottom: none !important;
 }
 

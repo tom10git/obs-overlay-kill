@@ -1,0 +1,45 @@
+.settings-hint-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: help;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.28);
+}
+
+.settings-hint-label {
+  font-size: inherit;
+}
+
+.settings-hint-bubble {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  z-index: 30;
+  min-width: 10rem;
+  max-width: min(280px, 90vw);
+  padding: 0.45rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.45;
+  color: #f2f2f5;
+  background: rgba(12, 14, 22, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    visibility 0.15s;
+}
+
+.settings-hint-wrap:hover .settings-hint-bubble,
+.settings-hint-wrap:focus-visible .settings-hint-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}

@@ -852,6 +852,32 @@
   border-color: rgba(140, 170, 255, 0.35);
 }
 
+.test-panel-segments {
+  display: flex;
+  gap: 0.22rem;
+  flex-wrap: wrap;
+}
+
+.test-panel-segment--billing.test-panel-segment--on {
+  background: rgba(255, 193, 7, 0.15);
+  border-color: rgba(255, 213, 79, 0.4);
+  color: #ffe082;
+}
+
+.test-settings-panel--billing {
+  /* 課金パネルはテキスト量が多いので左右余白を確保 */
+  padding: 0.35rem 0.6rem;
+}
+
+.test-settings-panel--embedded.test-settings-panel--billing {
+  /* 課金パネルは OverlaySettings のような内部スクロール要素がないため、
+     親コンテナ側をスクロール可能にしないと内容が見切れる */
+  padding: 0.35rem 0.6rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-color: #404040 #141414;
+}
+
 .test-panel-status {
   display: flex;
   flex-wrap: wrap;

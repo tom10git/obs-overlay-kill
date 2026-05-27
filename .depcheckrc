@@ -1,0 +1,4 @@
+{
+  "ignorePaths": ["supabase", "web", "dist", "release"],
+  "ignoreMatches": ["@types/howler", "@types/react", "@types/react-dom"]
+}

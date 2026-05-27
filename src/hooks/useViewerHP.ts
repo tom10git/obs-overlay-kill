@@ -70,6 +70,13 @@ function resolveAttackDamage(
   return { newHP, appliedDamage, miss, critical, survivalHp1 }
 }
 
+/** PvPカウンター用: 設定ダメージをそのまま適用（ミス・クリ・食いしばりは乗せない） */
+function resolveCounterDamage(currentHP: number, baseDamage: number): ApplyViewerDamageResult {
+  const appliedDamage = Math.max(0, baseDamage)
+  const newHP = Math.max(0, currentHP - appliedDamage)
+  return { newHP, appliedDamage, miss: false, critical: false, survivalHp1: false }
+}
+
 export function useViewerHP(config: OverlayConfig | null) {
   const maxHP = config?.pvp?.viewerMaxHp ?? config?.hp?.max ?? 100
   const [viewerHpMap, setViewerHpMap] = useState<Record<string, ViewerHPState>>({})
@@ -129,6 +136,24 @@ export function useViewerHP(config: OverlayConfig | null) {
     [maxHP]
   )
 
+  /** 配信者→視聴者のカウンター攻撃（streamerAttack のダメージ量のみ反映） */
+  const applyViewerCounterDamage = useCallback(
+    (userId: string, baseDamage: number): ApplyViewerDamageResult => {
+      const state = viewerHpMapRef.current[userId] ?? { current: maxHP, max: maxHP }
+      const result = resolveCounterDamage(state.current, baseDamage)
+      setViewerHpMap((prev) => {
+        const next = {
+          ...prev,
+          [userId]: { current: result.newHP, max: maxHP },
+        }
+        viewerHpMapRef.current = next
+        return next
+      })
+      return result
+    },
+    [maxHP]
+  )
+
   const setViewerHP = useCallback((userId: string, current: number) => {
     const clamped = Math.max(0, Math.min(current, maxHP))
     setViewerHpMap((prev) => {
@@ -156,6 +181,7 @@ export function useViewerHP(config: OverlayConfig | null) {
     getViewerUserIds,
     ensureViewerHP,
     applyViewerDamage,
+    applyViewerCounterDamage,
     setViewerHP,
     initViewerHP,
     maxHP,

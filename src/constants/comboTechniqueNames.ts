@@ -5,10 +5,11 @@
  */
 
 import {
-  CUSTOM_MAGIC_TECHNIQUE_NAMES,
-  CUSTOM_SHOOTING_TECHNIQUE_NAMES,
-  CUSTOM_SLASH_TECHNIQUE_NAMES,
+  CUSTOM_MAGIC_TECHNIQUE_NAMES as BUNDLED_CUSTOM_MAGIC_TECHNIQUE_NAMES,
+  CUSTOM_SHOOTING_TECHNIQUE_NAMES as BUNDLED_CUSTOM_SHOOTING_TECHNIQUE_NAMES,
+  CUSTOM_SLASH_TECHNIQUE_NAMES as BUNDLED_CUSTOM_SLASH_TECHNIQUE_NAMES,
 } from './customTechniqueNames'
+import type { CustomTechniqueNameLists } from '../utils/parseCustomTechniqueNames'
 import {
   DIFFICULT_KANJI_MAGIC_TECHNIQUE_NAMES,
   DIFFICULT_KANJI_SHOOTING_TECHNIQUE_NAMES,
@@ -21,6 +22,12 @@ export const DIFFICULT_KANJI_TECHNIQUE_NAME_SET = new Set<string>([
   ...DIFFICULT_KANJI_MAGIC_TECHNIQUE_NAMES,
   ...DIFFICULT_KANJI_SHOOTING_TECHNIQUE_NAMES,
 ])
+
+let customSlashNames: readonly string[] = [...BUNDLED_CUSTOM_SLASH_TECHNIQUE_NAMES]
+let customMagicNames: readonly string[] = [...BUNDLED_CUSTOM_MAGIC_TECHNIQUE_NAMES]
+let customShootingNames: readonly string[] = [...BUNDLED_CUSTOM_SHOOTING_TECHNIQUE_NAMES]
+
+const poolChangeListeners = new Set<() => void>()
 
 function buildTechniqueNames(
   heads: readonly string[],
@@ -226,10 +233,10 @@ const generatedSlashNames = buildTechniqueNames(
   SLASH_TECHNIQUE_NAME_COUNT
 )
 
-export const SLASH_TECHNIQUE_NAMES: readonly string[] = mergeTechniqueNames(
-  [...CUSTOM_SLASH_TECHNIQUE_NAMES, ...DIFFICULT_KANJI_SLASH_TECHNIQUE_NAMES, ...MH_SLASH_SPECIAL_NAMES],
+export let SLASH_TECHNIQUE_NAMES: readonly string[] = mergeTechniqueNames(
+  [...customSlashNames, ...DIFFICULT_KANJI_SLASH_TECHNIQUE_NAMES, ...MH_SLASH_SPECIAL_NAMES],
   generatedSlashNames,
-  SLASH_TECHNIQUE_NAME_COUNT
+  SLASH_TECHNIQUE_NAME_COUNT,
 )
 
 const generatedMagicNames = buildTechniqueNames(
@@ -322,8 +329,8 @@ const generatedMagicNames = buildTechniqueNames(
 )
 
 // 専用デバフ連携に使う名称は維持する。
-export const MAGIC_TECHNIQUE_NAMES: readonly string[] = [
-  ...CUSTOM_MAGIC_TECHNIQUE_NAMES,
+export let MAGIC_TECHNIQUE_NAMES: readonly string[] = [
+  ...customMagicNames,
   ...DIFFICULT_KANJI_MAGIC_TECHNIQUE_NAMES,
   'カワイソウニ',
   ...generatedMagicNames.slice(1, MAGIC_TECHNIQUE_NAME_COUNT),
@@ -348,10 +355,10 @@ export const MONSTER_HUNTER_VERBATIM_TECHNIQUE_NAMES = [
 ] as const
 
 /** `customTechniqueNames.ts` のオリジナル技名（合わせ技／ルーレットの優先抽選用） */
-export const CUSTOM_ORIGINAL_TECHNIQUE_NAME_SET = new Set<string>([
-  ...CUSTOM_SLASH_TECHNIQUE_NAMES,
-  ...CUSTOM_MAGIC_TECHNIQUE_NAMES,
-  ...CUSTOM_SHOOTING_TECHNIQUE_NAMES,
+export let CUSTOM_ORIGINAL_TECHNIQUE_NAME_SET = new Set<string>([
+  ...customSlashNames,
+  ...customMagicNames,
+  ...customShootingNames,
 ])
 
 const generatedShootingNames = buildTechniqueNames(
@@ -438,15 +445,66 @@ const generatedShootingNames = buildTechniqueNames(
   SHOOTING_TECHNIQUE_NAME_COUNT
 )
 
-export const SHOOTING_TECHNIQUE_NAMES: readonly string[] = mergeTechniqueNames(
-  [...CUSTOM_SHOOTING_TECHNIQUE_NAMES, ...DIFFICULT_KANJI_SHOOTING_TECHNIQUE_NAMES, ...MH_SHOOTING_SPECIAL_NAMES],
+export let SHOOTING_TECHNIQUE_NAMES: readonly string[] = mergeTechniqueNames(
+  [...customShootingNames, ...DIFFICULT_KANJI_SHOOTING_TECHNIQUE_NAMES, ...MH_SHOOTING_SPECIAL_NAMES],
   generatedShootingNames,
-  SHOOTING_TECHNIQUE_NAME_COUNT
+  SHOOTING_TECHNIQUE_NAME_COUNT,
 )
 
 /** 技名プール・タイプ順で連結（ルーレット／合わせ技で同一プール） */
-export const COMBO_TECHNIQUE_NAMES: readonly string[] = [
+export let COMBO_TECHNIQUE_NAMES: readonly string[] = [
   ...SLASH_TECHNIQUE_NAMES,
   ...MAGIC_TECHNIQUE_NAMES,
   ...SHOOTING_TECHNIQUE_NAMES,
 ]
+
+function notifyTechniqueNamePoolsChanged() {
+  for (const fn of poolChangeListeners) fn()
+}
+
+function rebuildTechniqueNamePools() {
+  SLASH_TECHNIQUE_NAMES = mergeTechniqueNames(
+    [...customSlashNames, ...DIFFICULT_KANJI_SLASH_TECHNIQUE_NAMES, ...MH_SLASH_SPECIAL_NAMES],
+    generatedSlashNames,
+    SLASH_TECHNIQUE_NAME_COUNT,
+  )
+  MAGIC_TECHNIQUE_NAMES = [
+    ...customMagicNames,
+    ...DIFFICULT_KANJI_MAGIC_TECHNIQUE_NAMES,
+    'カワイソウニ',
+    ...generatedMagicNames.slice(1, MAGIC_TECHNIQUE_NAME_COUNT),
+  ]
+  SHOOTING_TECHNIQUE_NAMES = mergeTechniqueNames(
+    [
+      ...customShootingNames,
+      ...DIFFICULT_KANJI_SHOOTING_TECHNIQUE_NAMES,
+      ...MH_SHOOTING_SPECIAL_NAMES,
+    ],
+    generatedShootingNames,
+    SHOOTING_TECHNIQUE_NAME_COUNT,
+  )
+  COMBO_TECHNIQUE_NAMES = [
+    ...SLASH_TECHNIQUE_NAMES,
+    ...MAGIC_TECHNIQUE_NAMES,
+    ...SHOOTING_TECHNIQUE_NAMES,
+  ]
+  CUSTOM_ORIGINAL_TECHNIQUE_NAME_SET = new Set([
+    ...customSlashNames,
+    ...customMagicNames,
+    ...customShootingNames,
+  ])
+  notifyTechniqueNamePoolsChanged()
+}
+
+export function onTechniqueNamePoolsChanged(listener: () => void): () => void {
+  poolChangeListeners.add(listener)
+  return () => poolChangeListeners.delete(listener)
+}
+
+/** AppData の customTechniqueNames.ts を読み込んだあとに呼ぶ */
+export function applyCustomTechniqueNameLists(lists: CustomTechniqueNameLists) {
+  customSlashNames = [...lists.slash]
+  customMagicNames = [...lists.magic]
+  customShootingNames = [...lists.shooting]
+  rebuildTechniqueNamePools()
+}

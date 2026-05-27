@@ -34,7 +34,24 @@ import type {
 } from "../../types/overlay";
 import { COMBO_TECHNIQUE_PREFIX } from "../../constants/comboTechnique";
 import { OverlaySettingsSoundTab } from "./OverlaySettingsSoundTab";
+import { FeatureUnlockPanel } from "./FeatureUnlockPanel";
+import { PremiumGate } from "./PremiumGate";
+import { PremiumLabel } from "../ui/PremiumLabel";
+import { SettingsHint } from "../ui/SettingsHint";
+import {
+  shouldUseLocalDataApi,
+  uploadImageToLocalData,
+  uploadSoundToLocalData,
+} from "../../utils/overlayLocalAssets";
 import "./OverlaySettings.css";
+
+type SettingsTabId =
+  | "streamer"
+  | "user"
+  | "autoReply"
+  | "probabilities"
+  | "sounds"
+  | "billing";
 
 const GAUGE_SHAPE_FIELD_META: {
   shapeKey: keyof GaugeShapeConfig;
@@ -146,16 +163,15 @@ export const OverlaySettings = forwardRef<
     obsWebSocket: false,
     test: false,
   });
-  const [activeTab, setActiveTab] = useState<
-    "streamer" | "user" | "autoReply" | "probabilities" | "sounds"
-  >(() => {
+  const [activeTab, setActiveTab] = useState<SettingsTabId>(() => {
     const env = import.meta.env.VITE_OVERLAY_SETTINGS_TAB as string | undefined;
     if (
       env === "user" ||
       env === "autoReply" ||
       env === "streamer" ||
       env === "sounds" ||
-      env === "probabilities"
+      env === "probabilities" ||
+      env === "billing"
     )
       return env;
     return "streamer";
@@ -176,12 +192,19 @@ export const OverlaySettings = forwardRef<
   const fileInputRef = useRef<HTMLInputElement>(null); // ファイル選択用のinput要素の参照
   const soundFileInputRef = useRef<HTMLInputElement>(null);
   const pendingSoundApplyRef = useRef<((dataUrl: string) => void) | null>(null);
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
+  const pendingImageApplyRef = useRef<((url: string) => void) | null>(null);
   const handlePickedSoundFile = useCallback(
     async (file: File, applyUrl: (dataUrlOrUrl: string) => void) => {
-      // "普通の" 参照ボタン挙動: 選んだファイル名をそのまま src/sounds/ 配下の相対パスとして入力する。
-      // ※実ファイルのコピー/保存は行わない（ユーザーが src/sounds に配置する運用）。
-      // Keep original filename (including Japanese). Only strip any path separators.
-      // Browser will handle URL encoding as needed.
+      if (shouldUseLocalDataApi()) {
+        const url = await uploadSoundToLocalData(file);
+        applyUrl(url);
+        setMessage(`✅ 効果音をユーザーデータに保存しました: ${url}`);
+        setTimeout(() => setMessage(null), 2000);
+        return;
+      }
+
+      // 開発: ファイル名のみ（実体は src/sounds へ手動配置 or /api/sounds/save）
       const safeName = file.name
         .trim()
         .replace(/^.*[\\/]/, "")
@@ -250,6 +273,105 @@ export const OverlaySettings = forwardRef<
     [handlePickedSoundFile],
   );
 
+  const handlePickedMediaFile = useCallback(
+    async (file: File, applyUrl: (url: string) => void) => {
+      const isWebm = /\.webm$/i.test(file.name) || file.type.toLowerCase().includes("webm");
+
+      if (shouldUseLocalDataApi()) {
+        const url = await uploadImageToLocalData(file);
+        applyUrl(url);
+        setMessage(
+          isWebm
+            ? `✅ WebM をユーザーデータに保存しました: ${url}`
+            : `✅ 画像をユーザーデータに保存しました: ${url}`,
+        );
+        setTimeout(() => setMessage(null), 2000);
+        return;
+      }
+
+      const safeName = file.name
+        .trim()
+        .replace(/^.*[\\/]/, "")
+        .slice(0, 200);
+
+      if (!safeName) {
+        throw new Error("ファイル名を取得できませんでした");
+      }
+
+      const url = `src/images/${safeName}`;
+      applyUrl(url);
+      setMessage(
+        isWebm ? `✅ WebM URLを設定しました: ${url}` : `✅ 画像URLを設定しました: ${url}`,
+      );
+      setTimeout(() => setMessage(null), 2000);
+    },
+    [],
+  );
+
+  const openMediaFilePicker = useCallback(
+    async (applyUrl: (url: string) => void) => {
+      const w = window as unknown as {
+        showOpenFilePicker?: (
+          options?: unknown,
+        ) => Promise<Array<{ getFile: () => Promise<File> }>>;
+      };
+
+      if (typeof w.showOpenFilePicker === "function") {
+        try {
+          const handles = await w.showOpenFilePicker({
+            multiple: false,
+            types: [
+              {
+                description: "Images",
+                accept: {
+                  "image/*": [
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".gif",
+                    ".webp",
+                    ".svg",
+                    ".bmp",
+                  ],
+                },
+              },
+              {
+                description: "WebM video",
+                accept: {
+                  "video/webm": [".webm"],
+                },
+              },
+            ],
+          });
+          const h = handles?.[0];
+          if (!h) return;
+
+          const file = await h.getFile();
+          await handlePickedMediaFile(file, applyUrl);
+          return;
+        } catch (err) {
+          const e = err as { name?: unknown; message?: unknown };
+          if (e && typeof e.name === "string" && e.name === "AbortError") {
+            return;
+          }
+          const msg =
+            e && typeof e.message === "string" && e.message.trim()
+              ? e.message.trim()
+              : "ファイルの選択に失敗しました";
+          setMessage(`❌ ${msg}`);
+          setTimeout(() => setMessage(null), 5000);
+          return;
+        }
+      }
+
+      pendingImageApplyRef.current = applyUrl;
+      imageFileInputRef.current?.click();
+    },
+    [handlePickedMediaFile],
+  );
+
+  const openImageFilePicker = openMediaFilePicker;
+
   const config = isControlled ? (controlledConfig ?? null) : internalConfig;
 
   const setConfig = useCallback(
@@ -279,9 +401,10 @@ export const OverlaySettings = forwardRef<
       t === "streamer" ||
       t === "autoReply" ||
       t === "sounds" ||
-      t === "probabilities"
+      t === "probabilities" ||
+      t === "billing"
     ) {
-      setActiveTab(t);
+      setActiveTab(t as SettingsTabId);
     }
   }, [embedded]);
 
@@ -343,6 +466,11 @@ export const OverlaySettings = forwardRef<
           setMessage(
             "✅ 設定をJSONファイルに保存しました（public/config/overlay-config.json）",
           );
+          alert(message);
+        } else if (import.meta.env.PROD) {
+          const message =
+            "✅ 設定を保存しました\n\n保存先: %LOCALAPPDATA%\\OBS-Overlay-Kill\\data\\config\\overlay-config.json";
+          setMessage("✅ 設定をユーザーデータに保存しました");
           alert(message);
         } else {
           const message =
@@ -444,11 +572,43 @@ export const OverlaySettings = forwardRef<
           }
         }}
       />
+      <input
+        type="file"
+        ref={imageFileInputRef}
+        accept="image/*,video/webm,.webm"
+        style={{ display: "none" }}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          const apply = pendingImageApplyRef.current;
+          pendingImageApplyRef.current = null;
+
+          if (!file || !apply) {
+            if (imageFileInputRef.current) imageFileInputRef.current.value = "";
+            return;
+          }
+          try {
+            await handlePickedMediaFile(file, apply);
+          } catch (err) {
+            const e2 = err as { message?: unknown };
+            const msg =
+              e2 && typeof e2.message === "string" && e2.message.trim()
+                ? e2.message.trim()
+                : "画像の選択に失敗しました";
+            setMessage(`❌ ${msg}`);
+            setTimeout(() => setMessage(null), 5000);
+          } finally {
+            if (imageFileInputRef.current) imageFileInputRef.current.value = "";
+          }
+        }}
+      />
       {!embedded && (
         <header className="overlay-settings-header">
           <h2>OBS Overlay 設定</h2>
           <p className="overlay-settings-desc">
-            HPゲージ・攻撃・回復・PvP・アニメーションなど、オーバーレイの動作を設定します。
+            <SettingsHint
+              label="この画面で設定を完結"
+              tip="JSONを直接編集せず、タブごとに項目を変更し「保存」で反映できます。PRO項目は課金タブから解放してください。"
+            />
           </p>
         </header>
       )}
@@ -466,35 +626,33 @@ export const OverlaySettings = forwardRef<
           type="button"
           className={`settings-tab ${activeTab === "streamer" ? "settings-tab-active" : ""}`}
           onClick={() => setActiveTab("streamer")}
-          title={embedded ? "配信者側（ストリーマー用）" : undefined}
+          title={embedded ? "HP・攻撃・回復・見た目・OBS" : undefined}
         >
-          {embedded ? "配信者" : "配信者側"}
+          {embedded ? "基本" : "基本（配信者）"}
         </button>
         <button
           type="button"
           className={`settings-tab ${activeTab === "user" ? "settings-tab-active" : ""}`}
           onClick={() => setActiveTab("user")}
-          title={
-            embedded ? "ユーザー側（チャット・リデンプション）" : undefined
-          }
+          title={embedded ? "視聴者対人・PvP（PRO）" : undefined}
         >
-          {embedded ? "視聴者" : "ユーザー側"}
+          {embedded ? "対人" : "対人（PRO）"}
         </button>
         <button
           type="button"
           className={`settings-tab ${activeTab === "autoReply" ? "settings-tab-active" : ""}`}
           onClick={() => setActiveTab("autoReply")}
-          title={embedded ? "自動返信設定" : undefined}
+          title={embedded ? "チャット自動返信（PRO）" : undefined}
         >
-          {embedded ? "自動返信" : "自動返信設定"}
+          {embedded ? "返信" : "返信（PRO）"}
         </button>
         <button
           type="button"
           className={`settings-tab ${activeTab === "probabilities" ? "settings-tab-active" : ""}`}
           onClick={() => setActiveTab("probabilities")}
-          title={embedded ? "確率・抽選" : undefined}
+          title={embedded ? "確率・抽選（PRO）" : undefined}
         >
-          {embedded ? "確率" : "確率・抽選"}
+          {embedded ? "確率" : "確率（PRO）"}
         </button>
         <button
           type="button"
@@ -502,7 +660,15 @@ export const OverlaySettings = forwardRef<
           onClick={() => setActiveTab("sounds")}
           title={embedded ? "効果音（SE）一覧" : "効果音・SEのまとめ"}
         >
-          {embedded ? "効果音" : "効果音"}
+          {embedded ? "音" : "効果音"}
+        </button>
+        <button
+          type="button"
+          className={`settings-tab settings-tab--billing ${activeTab === "billing" ? "settings-tab-active" : ""}`}
+          onClick={() => setActiveTab("billing")}
+          title="サブスク・招待コード"
+        >
+          {embedded ? "課金" : "課金・解放"}
         </button>
       </div>
 
@@ -516,12 +682,15 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.hp ? "▼" : "▶"}
               </span>
-              配信者HP・ゲージのレイアウト
+              <SettingsHint
+                label="配信者HP・ゲージ"
+                tip="最大HP・本数・位置・ルーレット見た目。位置の数値はPRO「表示位置」機能です。"
+              />
             </h3>
             {expandedSections.hp && (
               <div className="settings-section-content">
-                <p className="settings-section-intro">
-                  配信者の<strong>最大HP・現在HP・ゲージ本数</strong>、ゲージの<strong>位置・サイズ</strong>、追加攻撃ルーレットの<strong>見た目</strong>（ゲージ上の技名の大きさ・パネル位置のずれ）です。攻撃のダメージ・ミス・ルーレット抽選のON/OFFは<strong>「攻撃・ダメージ・リワード」</strong>にあります。
+                <p className="settings-section-intro settings-section-intro--compact">
+                  HPの数値・本数はここ。攻撃ダメージは「攻撃」、リワードは「攻撃」内のPRO欄です。
                 </p>
                 <h4 className="settings-subsection-title">HPの数値・ゲージ本数</h4>
                 <div className="settings-row">
@@ -657,7 +826,10 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
-                <h4 className="settings-subsection-title">ゲージの位置（画面中央基準）</h4>
+                <PremiumGate featureId="layoutFine" title="ゲージの位置・サイズ">
+                <h4 className="settings-subsection-title">
+                  <PremiumLabel>ゲージの位置（画面中央基準）</PremiumLabel>
+                </h4>
                 <div className="settings-row">
                   <label>
                     位置X（px）:
@@ -746,9 +918,8 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
-                <p className="settings-hint">
-                  画面中央を基準としたオフセットです（右・下が正）。オーバーレイ全体の中央に合わせてゲージを置く場合は
-                  0 / 0 です。
+                <p className="settings-hint settings-hint--compact">
+                  中央基準・右下が正。既定は 0 / 0。
                 </p>
                 <h4 className="settings-subsection-title">ゲージの幅・高さ（px）</h4>
                 <div className="settings-row">
@@ -839,9 +1010,10 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
-                <p className="settings-hint">
-                  ゲージ枠全体の横幅・縦幅です。合わせ技・ルーレットなどゲージ周りの表示もこの幅に合わせて調整されます。
+                <p className="settings-hint settings-hint--compact">
+                  ゲージ枠の横幅・縦幅（合わせ技・ルーレットも追随）。
                 </p>
+                </PremiumGate>
                 <h4 className="settings-subsection-title">追加攻撃ルーレット（見た目・ゲージ周り）</h4>
                 <p className="settings-hint" style={{ marginTop: 0 }}>
                   ルーレットの<strong>抽選（表示確率・成功確率）</strong>は<strong>「確率・抽選」</strong>タブの「追加攻撃ルーレット（オーバーレイからの攻撃のみ）」です。
@@ -947,9 +1119,10 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
-                <p className="settings-hint">
-                  スピン中のパネル（タイトル・ストリップ・成功／失敗の一行）全体のスケールです。上の「技名テキスト」は<strong>成功後にゲージ帯へ重ねる大技名</strong>用で別項目です。
+                <p className="settings-hint settings-hint--compact">
+                  スピン中パネル全体のスケール（成功後の帯上技名とは別）。
                 </p>
+                <PremiumGate featureId="layoutFine" title="ルーレット表示位置">
                 <div className="settings-row">
                   <label>
                     ルーレット表示位置 X（px）:
@@ -1040,9 +1213,10 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
-                <p className="settings-hint">
-                  追加攻撃ルーレットのパネル位置です。HPゲージの位置（位置X/Y）に追従したあと、ここで指定した分だけずらします（Xは右が正、Yは下が正）。
+                <p className="settings-hint settings-hint--compact">
+                  ゲージ位置に追従したうえでのずらし（右・下が正）。
                 </p>
+                </PremiumGate>
               </div>
             )}
           </div>
@@ -1055,7 +1229,7 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.attack ? "▼" : "▶"}
               </span>
-              攻撃・ダメージ
+              <SettingsHint label="攻撃・ダメージ" tip="チャット・コマンド・カスタムリワード連携（リワードは無料で設定可）。" />
             </h3>
             {expandedSections.attack && (
               <div className="settings-section-content">
@@ -1116,6 +1290,13 @@ export const OverlaySettings = forwardRef<
                     </li>
                   </ul>
                 </div>
+                <h4 className="settings-subsection-title">
+                  カスタムリワード連携（無料）
+                </h4>
+                <p className="settings-hint settings-hint--compact">
+                  Twitchのカスタムリワード（チャンネルポイント）設定です。課金対象外です。視聴者向けリワードはPvP
+                  ON時、下の欄または「対人」タブからも編集できます。
+                </p>
                 <div className="settings-row">
                   <label>
                     <input
@@ -2497,28 +2678,50 @@ export const OverlaySettings = forwardRef<
                       <div className="settings-row">
                         <label>
                           WebM URL:
-                          <input
-                            type="text"
-                            value={config.attack.attackEffectVideoUrl}
-                            onChange={(e) => {
-                              const url = e.target.value;
-                              if (isValidUrl(url)) {
-                                setConfig({
-                                  ...config,
-                                  attack: {
-                                    ...config.attack,
-                                    attackEffectVideoUrl: url,
-                                  },
+                          <div className="settings-url-with-button">
+                            <input
+                              type="text"
+                              value={config.attack.attackEffectVideoUrl}
+                              onChange={(e) => {
+                                const url = e.target.value;
+                                if (isValidUrl(url)) {
+                                  setConfig({
+                                    ...config,
+                                    attack: {
+                                      ...config.attack,
+                                      attackEffectVideoUrl: url,
+                                    },
+                                  });
+                                } else {
+                                  setMessage(
+                                    "無効なURLです。http://、https://、または相対パスを入力してください。",
+                                  );
+                                  setTimeout(() => setMessage(null), 3000);
+                                }
+                              }}
+                              placeholder="例: src/images/attack.webm または https://..."
+                            />
+                            <button
+                              type="button"
+                              className="settings-action-secondary settings-url-browse"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                void openMediaFilePicker((url) => {
+                                  setConfig({
+                                    ...config,
+                                    attack: {
+                                      ...config.attack,
+                                      attackEffectVideoUrl: url,
+                                    },
+                                  });
                                 });
-                              } else {
-                                setMessage(
-                                  "無効なURLです。http://、https://、または相対パスを入力してください。",
-                                );
-                                setTimeout(() => setMessage(null), 3000);
-                              }
-                            }}
-                            placeholder="例: src/images/attack.webm または https://..."
-                          />
+                              }}
+                              title="WebM を選んで src/images/ に保存（配布 exe は AppData）"
+                            >
+                              参照...
+                            </button>
+                          </div>
                         </label>
                       </div>
                     )}
@@ -2572,28 +2775,50 @@ export const OverlaySettings = forwardRef<
                     <div className="settings-row">
                       <label>
                         WebM URL:
-                        <input
-                          type="text"
-                          value={config.attack.comboTechniqueEffectVideoUrl}
-                          onChange={(e) => {
-                            const url = e.target.value;
-                            if (isValidUrl(url)) {
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  comboTechniqueEffectVideoUrl: url,
-                                },
+                        <div className="settings-url-with-button">
+                          <input
+                            type="text"
+                            value={config.attack.comboTechniqueEffectVideoUrl}
+                            onChange={(e) => {
+                              const url = e.target.value;
+                              if (isValidUrl(url)) {
+                                setConfig({
+                                  ...config,
+                                  attack: {
+                                    ...config.attack,
+                                    comboTechniqueEffectVideoUrl: url,
+                                  },
+                                });
+                              } else {
+                                setMessage(
+                                  "無効なURLです。http://、https://、または相対パスを入力してください。",
+                                );
+                                setTimeout(() => setMessage(null), 3000);
+                              }
+                            }}
+                            placeholder="例: src/images/combo.webm または https://..."
+                          />
+                          <button
+                            type="button"
+                            className="settings-action-secondary settings-url-browse"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              void openMediaFilePicker((url) => {
+                                setConfig({
+                                  ...config,
+                                  attack: {
+                                    ...config.attack,
+                                    comboTechniqueEffectVideoUrl: url,
+                                  },
+                                });
                               });
-                            } else {
-                              setMessage(
-                                "無効なURLです。http://、https://、または相対パスを入力してください。",
-                              );
-                              setTimeout(() => setMessage(null), 3000);
-                            }
-                          }}
-                          placeholder="例: src/images/combo.webm または https://..."
-                        />
+                            }}
+                            title="WebM を選んで src/images/ に保存（配布 exe は AppData）"
+                          >
+                            参照...
+                          </button>
+                        </div>
                       </label>
                     </div>
                   )}
@@ -2645,28 +2870,50 @@ export const OverlaySettings = forwardRef<
                     <div className="settings-row">
                       <label>
                         WebM URL:
-                        <input
-                          type="text"
-                          value={config.attack.rouletteEffectVideoUrl}
-                          onChange={(e) => {
-                            const url = e.target.value;
-                            if (isValidUrl(url)) {
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  rouletteEffectVideoUrl: url,
-                                },
+                        <div className="settings-url-with-button">
+                          <input
+                            type="text"
+                            value={config.attack.rouletteEffectVideoUrl}
+                            onChange={(e) => {
+                              const url = e.target.value;
+                              if (isValidUrl(url)) {
+                                setConfig({
+                                  ...config,
+                                  attack: {
+                                    ...config.attack,
+                                    rouletteEffectVideoUrl: url,
+                                  },
+                                });
+                              } else {
+                                setMessage(
+                                  "無効なURLです。http://、https://、または相対パスを入力してください。",
+                                );
+                                setTimeout(() => setMessage(null), 3000);
+                              }
+                            }}
+                            placeholder="例: src/images/roulette.webm または https://..."
+                          />
+                          <button
+                            type="button"
+                            className="settings-action-secondary settings-url-browse"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              void openMediaFilePicker((url) => {
+                                setConfig({
+                                  ...config,
+                                  attack: {
+                                    ...config.attack,
+                                    rouletteEffectVideoUrl: url,
+                                  },
+                                });
                               });
-                            } else {
-                              setMessage(
-                                "無効なURLです。http://、https://、または相対パスを入力してください。",
-                              );
-                              setTimeout(() => setMessage(null), 3000);
-                            }
-                          }}
-                          placeholder="例: src/images/roulette.webm または https://..."
-                        />
+                            }}
+                            title="WebM を選んで src/images/ に保存（配布 exe は AppData）"
+                          >
+                            参照...
+                          </button>
+                        </div>
                       </label>
                     </div>
                   )}
@@ -3699,9 +3946,9 @@ export const OverlaySettings = forwardRef<
                     <li>カスタムテキストが空欄のときは、チャット経由のこの回復トリガーは使われません</li>
                   </ul>
                 </div>
-                <h4 className="settings-subsection-title">チャンネルポイントで回復</h4>
-                <p className="settings-hint">
-                  EventSub の接続・自動完了は<strong>攻撃</strong>タブのチャンネルポイント欄と共通です。OAuth トークンやリワード作成手順はそちらを参照してください。
+                <h4 className="settings-subsection-title">カスタムリワードで回復（無料）</h4>
+                <p className="settings-hint settings-hint--compact">
+                  EventSub・自動完了は「攻撃」のリワード欄と共通。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -3987,28 +4234,50 @@ export const OverlaySettings = forwardRef<
                   <div className="settings-row">
                     <label>
                       WebM URL:
-                      <input
-                        type="text"
-                        value={config.heal.webmEffectVideoUrl ?? ""}
-                        onChange={(e) => {
-                          const url = e.target.value;
-                          if (isValidUrl(url)) {
-                            setConfig({
-                              ...config,
-                              heal: {
-                                ...config.heal,
-                                webmEffectVideoUrl: url,
-                              },
+                      <div className="settings-url-with-button">
+                        <input
+                          type="text"
+                          value={config.heal.webmEffectVideoUrl ?? ""}
+                          onChange={(e) => {
+                            const url = e.target.value;
+                            if (isValidUrl(url)) {
+                              setConfig({
+                                ...config,
+                                heal: {
+                                  ...config.heal,
+                                  webmEffectVideoUrl: url,
+                                },
+                              });
+                            } else {
+                              setMessage(
+                                "無効なURLです。http://、https://、または相対パスを入力してください。",
+                              );
+                              setTimeout(() => setMessage(null), 3000);
+                            }
+                          }}
+                          placeholder="例: src/images/heal.webm または https://..."
+                        />
+                        <button
+                          type="button"
+                          className="settings-action-secondary settings-url-browse"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void openMediaFilePicker((url) => {
+                              setConfig({
+                                ...config,
+                                heal: {
+                                  ...config.heal,
+                                  webmEffectVideoUrl: url,
+                                },
+                              });
                             });
-                          } else {
-                            setMessage(
-                              "無効なURLです。http://、https://、または相対パスを入力してください。",
-                            );
-                            setTimeout(() => setMessage(null), 3000);
-                          }
-                        }}
-                        placeholder="例: src/images/heal.webm または https://..."
-                      />
+                          }}
+                          title="WebM を選んで src/images/ に保存（配布 exe は AppData）"
+                        >
+                          参照...
+                        </button>
+                      </div>
                     </label>
                   </div>
                 )}
@@ -4072,7 +4341,7 @@ export const OverlaySettings = forwardRef<
                 </p>
                 <div className="settings-row">
                   <label>
-                    リトライコマンド（HPが最大未満のとき最大まで回復）:
+                    リトライコマンド（HPが0のときのみ最大まで回復）:
                     <input
                       type="text"
                       value={config.retry.command}
@@ -4133,9 +4402,9 @@ export const OverlaySettings = forwardRef<
                     コマンドを有効にする
                   </label>
                 </div>
-                <h4 className="settings-subsection-title">チャンネルポイントで蘇生</h4>
-                <p className="settings-hint">
-                  EventSub の接続・自動完了は<strong>攻撃</strong>タブのチャンネルポイント欄と共通です。
+                <h4 className="settings-subsection-title">カスタムリワードで蘇生（無料）</h4>
+                <p className="settings-hint settings-hint--compact">
+                  EventSub・自動完了は「攻撃」のリワード欄と共通。
                 </p>
                 <div className="settings-row">
                   <label>
@@ -4417,28 +4686,50 @@ export const OverlaySettings = forwardRef<
                   <div className="settings-row">
                     <label>
                       WebM URL:
-                      <input
-                        type="text"
-                        value={config.retry.reviveEffectVideoUrl ?? ""}
-                        onChange={(e) => {
-                          const url = e.target.value;
-                          if (isValidUrl(url)) {
-                            setConfig({
-                              ...config,
-                              retry: {
-                                ...config.retry,
-                                reviveEffectVideoUrl: url,
-                              },
+                      <div className="settings-url-with-button">
+                        <input
+                          type="text"
+                          value={config.retry.reviveEffectVideoUrl ?? ""}
+                          onChange={(e) => {
+                            const url = e.target.value;
+                            if (isValidUrl(url)) {
+                              setConfig({
+                                ...config,
+                                retry: {
+                                  ...config.retry,
+                                  reviveEffectVideoUrl: url,
+                                },
+                              });
+                            } else {
+                              setMessage(
+                                "無効なURLです。http://、https://、または相対パスを入力してください。",
+                              );
+                              setTimeout(() => setMessage(null), 3000);
+                            }
+                          }}
+                          placeholder="例: src/images/sosei.webm または https://..."
+                        />
+                        <button
+                          type="button"
+                          className="settings-action-secondary settings-url-browse"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void openMediaFilePicker((url) => {
+                              setConfig({
+                                ...config,
+                                retry: {
+                                  ...config.retry,
+                                  reviveEffectVideoUrl: url,
+                                },
+                              });
                             });
-                          } else {
-                            setMessage(
-                              "無効なURLです。http://、https://、または相対パスを入力してください。",
-                            );
-                            setTimeout(() => setMessage(null), 3000);
-                          }
-                        }}
-                        placeholder="例: src/images/sosei.webm または https://..."
-                      />
+                          }}
+                          title="WebM を選んで src/images/ に保存（配布 exe は AppData）"
+                        >
+                          参照...
+                        </button>
+                      </div>
                     </label>
                   </div>
                 )}
@@ -5672,28 +5963,50 @@ export const OverlaySettings = forwardRef<
                 <div className="settings-row">
                   <label>
                     画像URL:
-                    <input
-                      type="text"
-                      value={config.zeroHpImage.imageUrl}
-                      onChange={(e) => {
-                        const url = e.target.value;
-                        if (isValidUrl(url)) {
-                          setConfig({
-                            ...config,
-                            zeroHpImage: {
-                              ...config.zeroHpImage,
-                              imageUrl: url,
-                            },
+                    <div className="settings-url-with-button">
+                      <input
+                        type="text"
+                        value={config.zeroHpImage.imageUrl}
+                        onChange={(e) => {
+                          const url = e.target.value;
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              zeroHpImage: {
+                                ...config.zeroHpImage,
+                                imageUrl: url,
+                              },
+                            });
+                          } else {
+                            setMessage(
+                              "無効なURLです。http://、https://、または相対パスを入力してください。",
+                            );
+                            setTimeout(() => setMessage(null), 3000);
+                          }
+                        }}
+                        placeholder="画像のURLを入力"
+                      />
+                      <button
+                        type="button"
+                        className="settings-action-secondary settings-url-browse"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void openImageFilePicker((url) => {
+                            setConfig({
+                              ...config,
+                              zeroHpImage: {
+                                ...config.zeroHpImage,
+                                imageUrl: url,
+                              },
+                            });
                           });
-                        } else {
-                          setMessage(
-                            "無効なURLです。http://、https://、または相対パスを入力してください。",
-                          );
-                          setTimeout(() => setMessage(null), 3000);
-                        }
-                      }}
-                      placeholder="画像のURLを入力"
-                    />
+                        }}
+                        title="画像ファイルを選んで src/images/ 配下の相対パスを自動入力"
+                      >
+                        参照...
+                      </button>
+                    </div>
                   </label>
                 </div>
                 <div className="settings-row">
@@ -5794,28 +6107,50 @@ export const OverlaySettings = forwardRef<
                 <div className="settings-row">
                   <label>
                     動画 URL（透過WebM推奨）:
-                    <input
-                      type="text"
-                      value={config.zeroHpEffect.videoUrl}
-                      onChange={(e) => {
-                        const url = e.target.value;
-                        if (isValidUrl(url)) {
-                          setConfig({
-                            ...config,
-                            zeroHpEffect: {
-                              ...config.zeroHpEffect,
-                              videoUrl: url,
-                            },
+                    <div className="settings-url-with-button">
+                      <input
+                        type="text"
+                        value={config.zeroHpEffect.videoUrl}
+                        onChange={(e) => {
+                          const url = e.target.value;
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              zeroHpEffect: {
+                                ...config.zeroHpEffect,
+                                videoUrl: url,
+                              },
+                            });
+                          } else {
+                            setMessage(
+                              "無効なURLです。http://、https://、または相対パスを入力してください。",
+                            );
+                            setTimeout(() => setMessage(null), 3000);
+                          }
+                        }}
+                        placeholder="例: src/images/zero-hp.webm または https://..."
+                      />
+                      <button
+                        type="button"
+                        className="settings-action-secondary settings-url-browse"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void openMediaFilePicker((url) => {
+                            setConfig({
+                              ...config,
+                              zeroHpEffect: {
+                                ...config.zeroHpEffect,
+                                videoUrl: url,
+                              },
+                            });
                           });
-                        } else {
-                          setMessage(
-                            "無効なURLです。http://、https://、または相対パスを入力してください。",
-                          );
-                          setTimeout(() => setMessage(null), 3000);
-                        }
-                      }}
-                      placeholder="動画のURLを入力"
-                    />
+                        }}
+                        title="WebM を選んで src/images/ に保存（配布 exe は AppData）"
+                      >
+                        参照...
+                      </button>
+                    </div>
                   </label>
                 </div>
                 <div className="settings-row">
@@ -6383,6 +6718,7 @@ export const OverlaySettings = forwardRef<
 
       {activeTab === "user" && (
         <div className="settings-tab-panel">
+          <PremiumGate featureId="viewerSettings">
           <div className="settings-section">
             <h3
               className="settings-section-header"
@@ -6391,7 +6727,7 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.pvp ? "▼" : "▶"}
               </span>
-              PvPモード（配信者 vs 視聴者）
+              <PremiumLabel>PvP・視聴者対人</PremiumLabel>
             </h3>
             {expandedSections.pvp && (
               <div className="settings-section-content">
@@ -7386,9 +7722,8 @@ export const OverlaySettings = forwardRef<
                     >
                       チャンネルポイントでストレングスバフ
                     </h4>
-                    <p className="settings-hint" style={{ marginTop: 0 }}>
-                      EventSub の接続・自動完了は<strong>攻撃</strong>タブのチャンネルポイント欄と共通です。PvP
-                      が ON のときのみ有効です。引き換えた視聴者に、上の「ストレングスバフコマンド」と同じバフを付与します（対象が全員用のときは全員に付与）。
+                    <p className="settings-hint settings-hint--compact" style={{ marginTop: 0 }}>
+                      無料で設定可。EventSubは「攻撃」のリワード欄と共通。ID・タイトルは「基本」→「攻撃」でも編集できます。
                     </p>
                     <div className="settings-row">
                       <label>
@@ -8325,11 +8660,19 @@ export const OverlaySettings = forwardRef<
               </div>
             )}
           </div>
+          </PremiumGate>
+        </div>
+      )}
+
+      {activeTab === "billing" && (
+        <div className="settings-tab-panel settings-tab-panel--billing">
+          <FeatureUnlockPanel />
         </div>
       )}
 
       {activeTab === "autoReply" && (
         <div className="settings-tab-panel">
+          <PremiumGate featureId="autoReply">
           <div className="settings-tabs settings-tabs--sub">
             <button
               type="button"
@@ -8653,13 +8996,17 @@ export const OverlaySettings = forwardRef<
               </div>
             </div>
           )}
+          </PremiumGate>
         </div>
       )}
 
       {activeTab === "probabilities" && (
         <div className="settings-tab-panel">
+          <PremiumGate featureId="probabilities">
           <div className="settings-section">
-            <h3>確率・抽選</h3>
+            <h3>
+              <PremiumLabel>確率・抽選</PremiumLabel>
+            </h3>
             <p className="settings-section-intro">
               技名・テスト用ルーレットに加え、<strong>リワード／チャット攻撃</strong>のミス・クリティカル・出血・食いしばり、
               <strong>視聴者タブ</strong>のPvP（反転回復・視聴者が配信者を攻撃する際のミス／クリ／食いしばり・必殺技発動）の数値をここに集約しています。
@@ -8850,7 +9197,9 @@ export const OverlaySettings = forwardRef<
               </label>
             </div>
             <p className="settings-hint">
-              モンハン実在枠は先に抽選され、外れたあとにオリジナル枠（<code>src/constants/customTechniqueNames.ts</code>
+              モンハン実在枠は先に抽選され、外れたあとにオリジナル枠（配布 exe は{" "}
+              <code>%LOCALAPPDATA%\OBS-Overlay-Kill\data\config\customTechniqueNames.ts</code>
+              、開発時は <code>src/constants/customTechniqueNames.ts</code>
               のみ）をこの％で狙います。どちらも外れた場合は従来どおり全プールから一様です。合わせ技チャンスの技名と追加攻撃ルーレットの止まり先の両方に使われます。魔法の生成名はモンハン実在％では増えませんが、オリジナルに魔法枠の名前を書けばここで狙えます。
             </p>
             <h4 className="settings-subsection-title">合わせ技チャンス（オーバーレイからの攻撃のみ）</h4>
@@ -9516,6 +9865,7 @@ export const OverlaySettings = forwardRef<
               </button>
             </div>
           </div>
+          </PremiumGate>
         </div>
       )}
 
@@ -9548,9 +9898,19 @@ export const OverlaySettings = forwardRef<
 
                 setConfig(validated);
                 setInputValues({});
-                setMessage(
-                  "✅ 設定ファイルを読み込みました。保存するには「設定を保存」を押してください。",
-                );
+
+                if (import.meta.env.PROD) {
+                  const saved = await saveOverlayConfig(validated);
+                  setMessage(
+                    saved
+                      ? "✅ 設定をユーザーデータ（overlay-config.json）に読み込み・保存しました"
+                      : "✅ 設定を読み込みましたが保存に失敗しました。「設定を保存」を押してください。",
+                  );
+                } else {
+                  setMessage(
+                    "✅ 設定ファイルを読み込みました。保存するには「設定を保存」を押してください。",
+                  );
+                }
                 setTimeout(() => setMessage(null), 3000);
                 logger.info("✅ 設定ファイルを読み込みました");
               } catch (error) {
@@ -9590,7 +9950,11 @@ export const OverlaySettings = forwardRef<
             className="settings-action-secondary"
             onClick={handleLoadFromFile}
             disabled={loadingFromFile}
-            title="public/config/overlay-config.json の内容でフォームを上書きします"
+            title={
+              import.meta.env.PROD
+                ? "ユーザーデータの overlay-config.json を再読み込み"
+                : "public/config/overlay-config.json の内容でフォームを上書き"
+            }
           >
             {loadingFromFile ? "読み込み中..." : "JSONファイルから読み込み"}
           </button>
@@ -9616,14 +9980,15 @@ export const OverlaySettings = forwardRef<
               <code>public/config/overlay-config.json</code> に保存されます
             </li>
             <li>
-              <strong>本番環境:</strong>{" "}
-              「設定を保存」ボタンをクリックすると、JSONファイルがダウンロードされます。ダウンロードしたファイルを{" "}
-              <code>public/config/overlay-config.json</code> に配置してください
+              <strong>配布 exe（本番）:</strong>{" "}
+              「設定を保存」で{" "}
+              <code>%LOCALAPPDATA%\OBS-Overlay-Kill\data\config\overlay-config.json</code>{" "}
+              に保存。読み込みも同ファイルを優先（初回は exe 同梱分を自動コピー）。
             </li>
             <li>
-              <strong>設定の保存先:</strong> JSONファイルのみ。読み込みは
-              JSONファイル →
-              デフォルト設定。同じ内容を再読み込みする場合は「JSONファイルから読み込み」を押してください。
+              <strong>設定の保存先:</strong> 開発は{" "}
+              <code>public/config/overlay-config.json</code>
+              、配布 exe は上記ユーザーデータのみ。
             </li>
           </ul>
           <p>

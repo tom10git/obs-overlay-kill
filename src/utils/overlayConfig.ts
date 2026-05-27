@@ -12,6 +12,8 @@ import type {
   TestPanelAttackSimulationConfig,
 } from '../types/overlay'
 import { logger } from '../lib/logger'
+import { loadOverlayConfigFromLocalApi, saveOverlayConfigToLocalApi, shouldUseLocalDataApi } from './overlayLocalAssets'
+import { normalizeOverlayAssetPathsDeep } from './overlayConfigPaths'
 import { isValidUrl, isInRange, isValidLength } from './security'
 import { sanitizeStrengthBuffChatTemplates } from './messageTemplate'
 import { COMBO_TECHNIQUE_PREFIX } from '../constants/comboTechnique'
@@ -612,64 +614,83 @@ const DEFAULT_CONFIG: OverlayConfig = {
   },
 }
 
+async function fetchOverlayConfigRaw(): Promise<{ config: unknown; source: string } | null> {
+  if (shouldUseLocalDataApi()) {
+    const api = await loadOverlayConfigFromLocalApi()
+    if (api?.success && api.config) {
+      return { config: api.config, source: api.source ?? 'userData' }
+    }
+  }
+
+  const response = await fetch('/config/overlay-config.json', { cache: 'no-store' })
+  if (!response.ok) return null
+  const config = await response.json()
+  return { config, source: 'static' }
+}
+
+function mergeWithDefaults(validated: OverlayConfig): OverlayConfig {
+  return {
+    ...DEFAULT_CONFIG,
+    ...validated,
+    hp: { ...DEFAULT_CONFIG.hp, ...validated.hp },
+    attack: { ...DEFAULT_CONFIG.attack, ...validated.attack },
+    heal: { ...DEFAULT_CONFIG.heal, ...validated.heal },
+    retry: { ...DEFAULT_CONFIG.retry, ...validated.retry },
+    animation: { ...DEFAULT_CONFIG.animation, ...validated.animation },
+    display: {
+      ...DEFAULT_CONFIG.display,
+      ...validated.display,
+      gaugeShape: {
+        ...DEFAULT_CONFIG.display.gaugeShape,
+        ...validated.display.gaugeShape,
+      },
+    },
+    zeroHpImage: { ...DEFAULT_CONFIG.zeroHpImage, ...validated.zeroHpImage },
+    zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...validated.zeroHpSound },
+    zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...validated.zeroHpEffect },
+    test: { ...DEFAULT_CONFIG.test, ...validated.test },
+    pvp: {
+      ...DEFAULT_CONFIG.pvp,
+      ...validated.pvp,
+      streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...validated.pvp.streamerAttack },
+      viewerVsViewerAttack: {
+        ...DEFAULT_CONFIG.pvp.viewerVsViewerAttack,
+        ...(validated.pvp?.viewerVsViewerAttack || {}),
+      },
+    },
+    webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
+    damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...validated.damageEffectFilter },
+    healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...validated.healEffectFilter },
+    gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...validated.gaugeColors },
+    damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
+    healColors: { ...DEFAULT_CONFIG.healColors, ...validated.healColors },
+    obsCaptureGuide: { ...DEFAULT_CONFIG.obsCaptureGuide, ...validated.obsCaptureGuide },
+    obsWebSocket: {
+      ...DEFAULT_CONFIG.obsWebSocket,
+      ...validated.obsWebSocket,
+      effects: {
+        ...DEFAULT_CONFIG.obsWebSocket.effects,
+        ...(validated.obsWebSocket?.effects || {}),
+      },
+    },
+    background: { ...DEFAULT_CONFIG.background, ...validated.background },
+  }
+}
+
 /**
  * 設定ファイルを読み込む
- * 保存先はJSONファイルのみ。優先順位: JSONファイル → デフォルト設定
+ * 配布 exe: ユーザーデータ config/overlay-config.json → 同梱 config
  */
 export async function loadOverlayConfig(): Promise<OverlayConfig> {
   try {
-    const response = await fetch('/config/overlay-config.json')
-    if (!response.ok) {
+    const fetched = await fetchOverlayConfigRaw()
+    if (!fetched) {
       logger.warn('設定ファイルが見つかりません。デフォルト設定を使用します。')
       return DEFAULT_CONFIG
     }
-    const config = await response.json()
-    // 設定値を検証・サニタイズ
-    const validated = validateAndSanitizeConfig(config)
-    // デフォルト値でマージ（不足している項目を補完）
-    return {
-      ...DEFAULT_CONFIG,
-      ...validated,
-      hp: { ...DEFAULT_CONFIG.hp, ...validated.hp },
-      attack: { ...DEFAULT_CONFIG.attack, ...validated.attack },
-      heal: { ...DEFAULT_CONFIG.heal, ...validated.heal },
-      retry: { ...DEFAULT_CONFIG.retry, ...validated.retry },
-      animation: { ...DEFAULT_CONFIG.animation, ...validated.animation },
-      display: {
-        ...DEFAULT_CONFIG.display,
-        ...validated.display,
-        gaugeShape: {
-          ...DEFAULT_CONFIG.display.gaugeShape,
-          ...validated.display.gaugeShape,
-        },
-      },
-      zeroHpImage: { ...DEFAULT_CONFIG.zeroHpImage, ...validated.zeroHpImage },
-      zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...validated.zeroHpSound },
-      zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...validated.zeroHpEffect },
-      test: { ...DEFAULT_CONFIG.test, ...validated.test },
-      pvp: {
-        ...DEFAULT_CONFIG.pvp,
-        ...validated.pvp,
-        streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...validated.pvp.streamerAttack },
-        viewerVsViewerAttack: { ...DEFAULT_CONFIG.pvp.viewerVsViewerAttack, ...(validated.pvp?.viewerVsViewerAttack || {}) },
-      },
-      webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
-      damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...validated.damageEffectFilter },
-      healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...validated.healEffectFilter },
-      gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...validated.gaugeColors },
-      damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
-      healColors: { ...DEFAULT_CONFIG.healColors, ...validated.healColors },
-      obsCaptureGuide: { ...DEFAULT_CONFIG.obsCaptureGuide, ...validated.obsCaptureGuide },
-      obsWebSocket: {
-        ...DEFAULT_CONFIG.obsWebSocket,
-        ...validated.obsWebSocket,
-        effects: {
-          ...DEFAULT_CONFIG.obsWebSocket.effects,
-          ...(validated.obsWebSocket?.effects || {}),
-        },
-      },
-      background: { ...DEFAULT_CONFIG.background, ...validated.background },
-    }
+    const normalized = normalizeOverlayAssetPathsDeep(fetched.config)
+    const validated = validateAndSanitizeConfig(normalized)
+    return mergeWithDefaults(validated)
   } catch (error) {
     logger.error('設定ファイルの読み込みに失敗しました:', error)
     return DEFAULT_CONFIG
@@ -677,64 +698,10 @@ export async function loadOverlayConfig(): Promise<OverlayConfig> {
 }
 
 /**
- * JSONファイルから設定を読み込む（loadOverlayConfig と同じ内容。設定画面の「JSONファイルから読み込み」用）
+ * JSONファイルから設定を読み込む（設定画面の「JSONファイルから読み込み」用）
  */
 export async function loadOverlayConfigFromFile(): Promise<OverlayConfig> {
-  try {
-    const response = await fetch('/config/overlay-config.json')
-    if (!response.ok) {
-      logger.warn('設定ファイルが見つかりません。デフォルト設定を使用します。')
-      return DEFAULT_CONFIG
-    }
-    const config = await response.json()
-    const validated = validateAndSanitizeConfig(config)
-    return {
-      ...DEFAULT_CONFIG,
-      ...validated,
-      hp: { ...DEFAULT_CONFIG.hp, ...validated.hp },
-      attack: { ...DEFAULT_CONFIG.attack, ...validated.attack },
-      heal: { ...DEFAULT_CONFIG.heal, ...validated.heal },
-      retry: { ...DEFAULT_CONFIG.retry, ...validated.retry },
-      animation: { ...DEFAULT_CONFIG.animation, ...validated.animation },
-      display: {
-        ...DEFAULT_CONFIG.display,
-        ...validated.display,
-        gaugeShape: {
-          ...DEFAULT_CONFIG.display.gaugeShape,
-          ...validated.display.gaugeShape,
-        },
-      },
-      zeroHpImage: { ...DEFAULT_CONFIG.zeroHpImage, ...validated.zeroHpImage },
-      zeroHpSound: { ...DEFAULT_CONFIG.zeroHpSound, ...validated.zeroHpSound },
-      zeroHpEffect: { ...DEFAULT_CONFIG.zeroHpEffect, ...validated.zeroHpEffect },
-      test: { ...DEFAULT_CONFIG.test, ...validated.test },
-      pvp: {
-        ...DEFAULT_CONFIG.pvp,
-        ...validated.pvp,
-        streamerAttack: { ...DEFAULT_CONFIG.pvp.streamerAttack, ...validated.pvp.streamerAttack },
-        viewerVsViewerAttack: { ...DEFAULT_CONFIG.pvp.viewerVsViewerAttack, ...(validated.pvp?.viewerVsViewerAttack || {}) },
-      },
-      webmLoop: { ...DEFAULT_CONFIG.webmLoop, ...validated.webmLoop },
-      damageEffectFilter: { ...DEFAULT_CONFIG.damageEffectFilter, ...validated.damageEffectFilter },
-      healEffectFilter: { ...DEFAULT_CONFIG.healEffectFilter, ...validated.healEffectFilter },
-      gaugeColors: { ...DEFAULT_CONFIG.gaugeColors, ...validated.gaugeColors },
-      damageColors: { ...DEFAULT_CONFIG.damageColors, ...validated.damageColors },
-      healColors: { ...DEFAULT_CONFIG.healColors, ...validated.healColors },
-      obsCaptureGuide: { ...DEFAULT_CONFIG.obsCaptureGuide, ...validated.obsCaptureGuide },
-      obsWebSocket: {
-        ...DEFAULT_CONFIG.obsWebSocket,
-        ...validated.obsWebSocket,
-        effects: {
-          ...DEFAULT_CONFIG.obsWebSocket.effects,
-          ...(validated.obsWebSocket?.effects || {}),
-        },
-      },
-      background: { ...DEFAULT_CONFIG.background, ...validated.background },
-    }
-  } catch (error) {
-    logger.error('設定ファイルの読み込みに失敗しました:', error)
-    return DEFAULT_CONFIG
-  }
+  return loadOverlayConfig()
 }
 
 export type SaveOverlayConfigOptions = {
@@ -754,7 +721,9 @@ export async function saveOverlayConfig(
 ): Promise<boolean> {
   try {
     // 設定値を検証・サニタイズ
-    const validated = validateAndSanitizeConfig(config)
+    const validated = validateAndSanitizeConfig(
+      normalizeOverlayAssetPathsDeep(config) as OverlayConfig,
+    )
 
     // 開発環境ではAPI経由でファイルに保存
     if (import.meta.env.DEV) {
@@ -789,7 +758,16 @@ export async function saveOverlayConfig(
       }
     }
 
-    // 本番環境ではダウンロード方式
+    // 配布 exe: ユーザーデータへ API 保存
+    if (shouldUseLocalDataApi()) {
+      const saved = await saveOverlayConfigToLocalApi(validated)
+      if (saved) {
+        logger.info('✅ 設定をユーザーデータに保存しました')
+        return true
+      }
+      logger.warn('ユーザーデータへの保存に失敗しました。ダウンロード方式にフォールバックします。')
+    }
+
     return downloadConfigAsJson(validated)
   } catch (error) {
     logger.error('設定の保存に失敗しました:', error)

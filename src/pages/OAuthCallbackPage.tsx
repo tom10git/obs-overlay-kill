@@ -1,15 +1,17 @@
 /**
  * Twitch OAuth コールバック
- * 認証後にリダイレクトされ、code をトークンに交換して localStorage に保存する
+ * Supabase ログイン時は Edge Function で code 交換（Secret をブラウザに載せない）
  */
 
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { getTwitchClientId, getTwitchClientSecret, setTwitchOAuthTokens } from '../config/auth'
+import { setTwitchOAuthTokens } from '../config/auth'
 import {
   TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT,
   TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT,
 } from '../constants/twitchEnv'
+import { getSupabaseClient, isSupabaseConfigured } from '../lib/supabaseClient'
+import { exchangeTwitchCodeViaBackend } from '../lib/twitchOAuthApi'
 import './OAuthCallbackPage.css'
 
 export function OAuthCallbackPage() {
@@ -34,79 +36,58 @@ export function OAuthCallbackPage() {
       return
     }
 
-    const clientId = getTwitchClientId()
-    const clientSecret = getTwitchClientSecret()
-    if (!clientSecret) {
-      setStatus('error')
-      setErrorMessage(`.env に ${TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT} を設定してください。`)
-      return
-    }
-
     const redirectUri = `${window.location.origin}/oauth/callback`
 
-    const body = new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: redirectUri,
-    })
-
-    // 開発時は Vite プロキシ経由で CORS を回避
-    const tokenUrl = import.meta.env.DEV ? '/api/oauth/token' : 'https://id.twitch.tv/oauth2/token'
-    fetch(tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}))
-        if (!res.ok) {
-          throw new Error(data.message || data.error_description || `HTTP ${res.status}`)
+    const run = async () => {
+      const supabase = getSupabaseClient()
+      if (isSupabaseConfigured() && supabase) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          setStatus('error')
+          setErrorMessage(
+            '先にオーバーレイの「課金」タブで Supabase にログインしてから、Twitch 認証をやり直してください。',
+          )
+          return
         }
-        const accessToken = data.access_token
-        const refreshToken = data.refresh_token
-        if (!accessToken || !refreshToken) {
-          throw new Error('トークンが取得できませんでした。')
+        const tokens = await exchangeTwitchCodeViaBackend(
+          session,
+          code,
+          redirectUri,
+        )
+        if (!tokens?.access_token || !tokens.refresh_token) {
+          setStatus('error')
+          setErrorMessage(
+            'トークン交換に失敗しました。twitch-oauth をデプロイし、Supabase secrets に Twitch Client Secret を設定してください。',
+          )
+          return
         }
-        setTwitchOAuthTokens(accessToken, refreshToken)
+        setTwitchOAuthTokens(tokens.access_token, tokens.refresh_token)
         setStatus('success')
-        setTimeout(() => {
-          navigate('/?oauth=success', { replace: true })
-        }, 2000)
-      })
-      .catch((err) => {
-        setStatus('error')
-        setErrorMessage(err.message || String(err))
-      })
+        setTimeout(() => navigate('/overlay?oauth=success', { replace: true }), 2000)
+        return
+      }
+
+      setStatus('error')
+      setErrorMessage(
+        `Supabase が未設定です。${TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT} / 課金タブのログイン、または docs/SECURITY.md のレガシー手順を確認してください。` +
+          `（レガシーでは ${TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT} が必要です）`,
+      )
+    }
+
+    void run()
   }, [searchParams, navigate])
 
   return (
     <div className="oauth-callback-page">
-      {status === 'exchanging' && (
-        <div className="oauth-callback-box">
-          <h1>トークンを取得しています...</h1>
-          <p>しばらくお待ちください。</p>
-        </div>
-      )}
+      {status === 'exchanging' && <p>Twitch 認証を処理しています…</p>}
       {status === 'success' && (
-        <div className="oauth-callback-box oauth-callback-success">
-          <h1>✅ 認証完了</h1>
-          <p>トークンを保存しました。ホームに戻ります。</p>
-        </div>
+        <p>認証に成功しました。トークンは Supabase に保存されました。トップへ戻ります…</p>
       )}
       {status === 'error' && (
-        <div className="oauth-callback-box oauth-callback-error">
-          <h1>❌ エラー</h1>
+        <>
+          <p className="oauth-callback-error">認証に失敗しました</p>
           <p>{errorMessage}</p>
-          <p className="oauth-callback-hint">
-            .env に {TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT} と {TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT}{' '}
-            を設定し、Twitch 開発者コンソールでリダイレクト URL に
-            <code>{window.location.origin}/oauth/callback</code>
-            を追加してください。
-          </p>
-          <a href="/" className="oauth-callback-link">ホームに戻る</a>
-        </div>
+        </>
       )}
     </div>
   )

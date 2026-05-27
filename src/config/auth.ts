@@ -4,6 +4,7 @@
  */
 
 import { logger } from '../lib/logger'
+import { isSupabaseConfigured } from '../lib/supabaseClient'
 import {
   TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT,
   TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT,
@@ -56,15 +57,30 @@ class AuthConfigManager {
     const twitchRefreshToken = import.meta.env.VITE_TWITCH_REFRESH_TOKEN?.trim()
     const twitchUsername = import.meta.env.VITE_TWITCH_USERNAME?.trim()
 
-    // トークンジェネレーター用: TOKEN_APP_* または CLIENT_ID/SECRET のいずれか必須
     const tokenAppId = twitchTokenAppClientId || twitchClientId
     const tokenAppSecret = twitchTokenAppClientSecret || twitchClientSecret
-    if (!tokenAppId || !tokenAppSecret) {
+    const serverOAuth = isSupabaseConfigured()
+
+    if (!tokenAppId) {
       throw new Error(
-        'トークン用 Twitch アプリの Client ID / Secret を .env に設定してください。\n' +
-        `  推奨: ${TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT} と ${TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT}\n` +
-        '  代替: VITE_TWITCH_CLIENT_ID と VITE_TWITCH_CLIENT_SECRET（上記未設定時に使用）\n' +
-        '取得先: https://dev.twitch.tv/console/apps / https://twitchtokengenerator.com/'
+        'トークン用 Twitch アプリの Client ID を .env に設定してください。\n' +
+        `  推奨: ${TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT}\n` +
+        '取得先: https://dev.twitch.tv/console/apps'
+      )
+    }
+
+    if (!serverOAuth && !tokenAppSecret) {
+      throw new Error(
+        'Twitch Client Secret は Supabase Edge Function（推奨）か .env に設定してください。\n' +
+        `  Supabase: supabase secrets set ${TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT}=... （VITE_ なし）\n` +
+        `  レガシー: ${TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT} を .env（配布ビルドには含めない）\n` +
+        '詳細: docs/SECURITY.md'
+      )
+    }
+
+    if (serverOAuth && tokenAppSecret) {
+      logger.warn(
+        '⚠️ Twitch Client Secret が .env (VITE_) にあります。配布ビルドでは漏洩します。Supabase secrets + 課金タブログイン後の OAuth を推奨します（docs/SECURITY.md）',
       )
     }
 

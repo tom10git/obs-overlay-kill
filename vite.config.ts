@@ -1,9 +1,15 @@
 import { defineConfig } from 'vite'
+import { obfuscator } from 'rollup-obfuscator'
 import react from '@vitejs/plugin-react'
 import { spawn } from 'node:child_process'
 import { writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import type { Plugin } from 'vite'
+import {
+  readCustomTechniqueNamesFile,
+  resolveCustomTechniqueNamesPath,
+} from './scripts/custom-technique-names.mjs'
+import { resolveWindowsUserDataDir } from './scripts/user-data-dir.mjs'
 
 /** テストパネル保存後の build.bat → package-release.bat を直列キューで実行 */
 function createPostSaveReleaseRunner() {
@@ -76,6 +82,43 @@ function configSavePlugin(): Plugin {
   return {
     name: 'config-save-api',
     configureServer(server) {
+      server.middlewares.use('/api/custom-technique-names/load', (req, res, next) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+        try {
+          const root = process.cwd()
+          const userDataDir = resolveWindowsUserDataDir()
+          const hit = resolveCustomTechniqueNamesPath({
+            root,
+            userDataDir: userDataDir && existsSync(userDataDir) ? userDataDir : null,
+          })
+          if (!hit) {
+            res.setHeader('Content-Type', 'application/json')
+            res.statusCode = 404
+            res.end(JSON.stringify({ success: false, error: 'customTechniqueNames.ts not found' }))
+            return
+          }
+          const names = readCustomTechniqueNamesFile(hit.path)
+          if (!names) {
+            res.setHeader('Content-Type', 'application/json')
+            res.statusCode = 500
+            res.end(JSON.stringify({ success: false, error: 'failed to parse customTechniqueNames.ts' }))
+            return
+          }
+          res.setHeader('Content-Type', 'application/json')
+          res.statusCode = 200
+          res.end(JSON.stringify({ success: true, source: hit.source, path: hit.path, names }))
+        } catch (error) {
+          console.error('customTechniqueNames API エラー:', error)
+          res.setHeader('Content-Type', 'application/json')
+          res.statusCode = 500
+          res.end(JSON.stringify({ success: false, error: String(error) }))
+        }
+      })
+
       server.middlewares.use('/api/config/save', async (req, res, _next) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
@@ -233,10 +276,49 @@ function configSavePlugin(): Plugin {
   }
 }
 
+/** 配布用（--mode release）: 改変・解析を困難にする難読化オプション（React 互換を優先） */
+const releaseObfuscatorOptions = {
+  compact: true,
+  controlFlowFlattening: false,
+  deadCodeInjection: false,
+  debugProtection: false,
+  disableConsoleOutput: true,
+  identifierNamesGenerator: 'hexadecimal' as const,
+  renameGlobals: false,
+  selfDefending: false,
+  sourceMap: false,
+  stringArray: true,
+  stringArrayEncoding: ['base64'] as const,
+  stringArrayThreshold: 0.75,
+  transformObjectKeys: false,
+  unicodeEscapeSequence: false,
+}
+
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const isRelease = mode === 'release'
+
+  return {
   // enforce: 'pre' で保存APIをViteの静的ファイルより先に処理し、POST /api/config/save が確実に届くようにする
-  plugins: [react(), { ...configSavePlugin(), enforce: 'pre' }],
+  plugins: [
+    react(),
+    { ...configSavePlugin(), enforce: 'pre' },
+    ...(isRelease
+      ? [
+          obfuscator({
+            options: releaseObfuscatorOptions,
+          }),
+        ]
+      : []),
+  ],
+  build: isRelease
+    ? {
+        sourcemap: false,
+        cssMinify: true,
+        target: 'es2020',
+        reportCompressedSize: false,
+      }
+    : undefined,
   server: {
     proxy: {
       // アプリ内OAuth: トークン取得をプロキシ（CORS回避）
@@ -248,4 +330,5 @@ export default defineConfig({
       },
     },
   },
+  }
 })
