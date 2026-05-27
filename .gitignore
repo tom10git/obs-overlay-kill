@@ -24,6 +24,10 @@ dist-ssr
 # 配布ビルド成果物（release/ には OBS-Overlay-Kill.exe のみ）
 build/pkg-dist
 release/
+# ただし「配布用に固めた ZIP」は push したい（exe は引き続き release/ に残す想定）
+!release/*.zip
+!release/*.zip.sha256
+!release/*.zip.txt
 *.local
 
 # build/ 配下の生成された src は追跡しない
