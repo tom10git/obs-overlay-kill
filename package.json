@@ -13,7 +13,8 @@
     "package:release": "node scripts/package-release.mjs",
     "package:exe": "node scripts/package-exe.mjs",
     "install:ci": "npm ci",
-    "audit:ci": "npm audit --audit-level=high"
+    "audit:ci": "npm audit --audit-level=high",
+    "guard:lockfile": "node scripts/guard-lockfile-supplychain.mjs"
   },
   "engines": {
     "node": ">=20",
