@@ -26,6 +26,18 @@ build/pkg-dist
 release/
 *.local
 
+# build/ 配下の生成された src は追跡しない
+build/
+build/**/src/
+build/**/src/**
+
+# 招待トークン出力（個人情報・トークンを含む）
+created-invites-*.json
+
+# Supabase CLI の一時ファイル（ローカル環境依存）
+supabase/.temp/
+supabase\.temp/
+
 # Environment variables
 .env
 .env.local
