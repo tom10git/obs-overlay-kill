@@ -53,6 +53,13 @@ import {
   streamerFinishingMoveDamageFraction,
 } from '../constants/konamiStreamerBuff'
 import { TECHNIQUE_EFFECT_BURST_MS } from '../constants/techniqueEffects'
+import {
+  CHANNEL_POINT_REWARD_ATTACK,
+  CHANNEL_POINT_REWARD_HEAL,
+  CHANNEL_POINT_REWARD_REVIVE,
+  CHANNEL_POINT_REWARD_STRENGTH,
+} from '../constants/channelPointActions'
+import { useChannelPointRedemptions } from '../hooks/useChannelPointRedemptions'
 import { advanceComboTechniqueInput, normalizeComboTechniqueText } from '../utils/comboTechniqueInput'
 import { techniqueNameFromComboTarget } from '../utils/techniqueEffectName'
 import { useSound } from '../hooks/useSound'
@@ -61,6 +68,7 @@ import { useTwitchUser } from '../hooks/useTwitchUser'
 import { twitchChat } from '../utils/twitchChat'
 import { stripEmotesFromMessage } from '../utils/chatMessage'
 import { isCommandMatch } from '../utils/commandMatch'
+import { isViewerAttackWithPvpAutoCounter } from '../utils/pvpCounter'
 import {
   fillTemplate,
   formatStrengthBuffDurationHumanJa,
@@ -1440,6 +1448,7 @@ export function OverlayPage() {
       )
       if (bonus < 1) return
       if (!opts?.noDamage) {
+        // 合わせ技追加ダメージは配信者HPのみ。視聴者への自動カウンターは runPvpCounterAfterAttack（streamerAttack）の1回のみ。
         reduceHPTracked(bonus)
       }
       if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.damageShakeEnabled) {
@@ -1472,6 +1481,7 @@ export function OverlayPage() {
       )
       if (bonus < 1) return
       if (!opts?.noDamage) {
+        // ルーレット追加ダメージは配信者HPのみ。視聴者への自動カウンターは runPvpCounterAfterAttack（streamerAttack）の1回のみ。
         reduceHPTracked(bonus)
       }
       if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.damageShakeEnabled) {
@@ -2007,13 +2017,19 @@ export function OverlayPage() {
       event: ChannelPointEvent | { rewardId: string; userId?: string; userName?: string; noDamage?: boolean }
     ) => {
       if (!config) return
-      if (!config.attack.enabled) return
+      if (
+        !config.attack.enabled &&
+        !(event.rewardId === CHANNEL_POINT_REWARD_ATTACK && config.attack.channelPointsAttackEnabled)
+      ) {
+        return
+      }
 
       const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.attack.customText && config.attack.customText.length > 0
       const isViewerAttackCommandMatch = event.rewardId === 'viewer-attack-command'
       const isTestNoDamageMatch = event.rewardId === 'test-no-damage-command'
+      const isChannelPointsMatch = event.rewardId === CHANNEL_POINT_REWARD_ATTACK
 
-      if (!isCustomTextMatch && !isViewerAttackCommandMatch && !isTestNoDamageMatch) return
+      if (!isCustomTextMatch && !isViewerAttackCommandMatch && !isTestNoDamageMatch && !isChannelPointsMatch) return
 
       if (config.pvp?.enabled && event.userId) {
         lastAttackerRef.current = {
@@ -2031,7 +2047,7 @@ export function OverlayPage() {
         return
       }
 
-      if (isCustomTextMatch || isViewerAttackCommandMatch || isTestNoDamageMatch) {
+      if (isCustomTextMatch || isViewerAttackCommandMatch || isTestNoDamageMatch || isChannelPointsMatch) {
         // ミス判定（HP0は上で除外済み。ここでも ref を見て二重にガード）
         let shouldDamage = true
         if (hpCurrentSyncRef.current > 0 && config.attack.missEnabled) {
@@ -2152,10 +2168,17 @@ export function OverlayPage() {
             showCritical(config.animation.duration)
           }
 
-          // 合わせ技チャンス（通常30%・プロンプト表示中は重複なし・視聴者が配信者を攻撃したときのみ）
+          const skipComboRouletteForPvpCounter = isViewerAttackWithPvpAutoCounter(
+            config,
+            attackerUserId,
+            broadcasterId
+          )
+
+          // 合わせ技チャンス（オーバーレイ／テスト攻撃向け。PvP自動カウンター付きの視聴者攻撃では抽選しない）
           if (
             config.attack.comboTechniqueEnabled !== false &&
             attackerUserId &&
+            !skipComboRouletteForPvpCounter &&
             !comboChallengeRef.current &&
             (() => {
               const p = isTestMode
@@ -2210,8 +2233,8 @@ export function OverlayPage() {
             }, comboMs)
           }
 
-          // 追加攻撃ルーレット（通常40%・合わせ技とは別。技名リストのみ共通）
-          if (attackerUserId) {
+          // 追加攻撃ルーレット（オーバーレイ／テスト攻撃向け。PvP自動カウンター付きの視聴者攻撃では抽選しない）
+          if (attackerUserId && !skipComboRouletteForPvpCounter) {
             const started = startRouletteBonus({ attackerUserId, isTestMode, noDamage })
             if (!started && rouletteBonusLockRef.current) {
               reserveRouletteBonus({ attackerUserId, isTestMode, noDamage })
@@ -2399,7 +2422,9 @@ export function OverlayPage() {
           }
         }
 
-        runPvpCounterAfterAttack(event)
+        if (shouldDamage) {
+          runPvpCounterAfterAttack(event)
+        }
       }
     },
     [
@@ -2432,16 +2457,24 @@ export function OverlayPage() {
   const handleHealEvent = useCallback(
     (event: { rewardId: string; userId?: string; userName?: string }) => {
       if (!config) return
-      if (!config.heal.enabled) return
-
-      // HPが0の場合は回復をブロック
-      if (currentHP <= 0) {
+      if (
+        !config.heal.enabled &&
+        !(event.rewardId === CHANNEL_POINT_REWARD_HEAL && config.heal.channelPointsHealEnabled)
+      ) {
         return
       }
 
       const isCustomTextMatch = event.rewardId === 'custom-text' && !!config.heal.customText && config.heal.customText.length > 0
+      const isChannelPointsMatch = event.rewardId === CHANNEL_POINT_REWARD_HEAL
 
-      if (isCustomTextMatch) {
+      if (!isCustomTextMatch && !isChannelPointsMatch) return
+
+      // HPが0の場合は回復をブロック（healWhenZeroEnabled が ON のときのみ許可）
+      if (currentHP <= 0 && !config.heal.healWhenZeroEnabled) {
+        return
+      }
+
+      if (isCustomTextMatch || isChannelPointsMatch) {
         let healAmount = 0
         if (config.heal.healType === 'fixed') {
           healAmount = config.heal.healAmount
@@ -2494,8 +2527,87 @@ export function OverlayPage() {
     [config, currentHP, maxHP, increaseHP, registerHealStreak, showHealEffect, fireHealOverlayEffect, playHealSound, sendAutoReply, tryObsEffect, user?.id]
   )
 
+  /** 蘇生（リトライ相当・HP最大まで回復） */
+  const handleReviveEvent = useCallback(
+    (_event: { userId?: string; userName?: string }) => {
+      if (!config || !config.retry.channelPointsReviveEnabled) return
+
+      const healAmount = maxHP - currentHP
+      if (healAmount > 0) {
+        increaseHP(healAmount)
+        registerKawaiiSouniHealProgressRef.current()
+      }
+      if (config.heal.effectEnabled) showHealEffect()
+      fireRetryOverlayEffect()
+      if (config.retry.soundEnabled) playRetrySound()
+    },
+    [config, currentHP, maxHP, increaseHP, showHealEffect, fireRetryOverlayEffect, playRetrySound]
+  )
+
+  /** ストレングスバフ（チャンネルポイント引き換え） */
+  const applyStrengthBuffFromRedemption = useCallback(
+    (event: { userId?: string; userName?: string }) => {
+      if (!config?.pvp) return
+
+      const durationSeconds = Math.max(1, Math.floor(Number(config.pvp.strengthBuffDuration)) || 300)
+      const durationMinutesRounded = Math.max(1, Math.round(durationSeconds / 60))
+      const target = config.pvp.strengthBuffTarget ?? 'individual'
+      const displayName = event.userName ?? event.userId ?? '視聴者'
+      const individualBuffUserId = event.userId ?? 'unknown-viewer'
+      const now = Date.now()
+
+      if (target === 'all') {
+        strengthBuffAllStartTimeRef.current = now
+        strengthBuffStartTimeRef.current.clear()
+      } else {
+        strengthBuffAllStartTimeRef.current = null
+        strengthBuffStartTimeRef.current.set(individualBuffUserId, now)
+      }
+
+      if (config.pvp.strengthBuffSoundEnabled) {
+        playStrengthBuffSound()
+      }
+      if (config.pvp.autoReplyStrengthBuff) {
+        const tpl = sanitizeStrengthBuffChatTemplates(
+          config.pvp.messageWhenStrengthBuffActivated ||
+            '{username} にストレングス効果を付与しました！（効果時間: {duration_human}）',
+        )
+        const reply = fillTemplate(tpl, {
+          username: target === 'all' ? '全員' : displayName,
+          duration: durationSeconds,
+          duration_minutes: durationMinutesRounded,
+          duration_human: formatStrengthBuffDurationHumanJa(durationSeconds),
+        })
+        sendAutoReply(reply, '[PvP] ストレングスバフ返信の送信失敗')
+      }
+    },
+    [config, playStrengthBuffSound, sendAutoReply]
+  )
+
   // テストモードかどうか
   const isTestMode = config?.test.enabled ?? false
+
+  useChannelPointRedemptions({
+    config,
+    broadcasterId: user?.id,
+    onRedemption: async (event) => {
+      if (!config) return
+      if (event.rewardId === CHANNEL_POINT_REWARD_ATTACK) {
+        if (config.pvp?.enabled && user?.id && event.userId !== user.id) {
+          const state = getViewerHPCurrent(event.userId) ?? getViewerHP(event.userId)
+          const current = state?.current ?? viewerMaxHP
+          if (current <= 0) return
+        }
+        handleAttackEvent(event)
+      } else if (event.rewardId === CHANNEL_POINT_REWARD_HEAL) {
+        handleHealEvent(event)
+      } else if (event.rewardId === CHANNEL_POINT_REWARD_REVIVE) {
+        handleReviveEvent(event)
+      } else if (event.rewardId === CHANNEL_POINT_REWARD_STRENGTH) {
+        applyStrengthBuffFromRedemption(event)
+      }
+    },
+  })
 
   const submitComboFromTestPanel = useCallback(() => {
     if (!isTestMode || !comboChallengeRef.current || config?.attack.comboTechniqueEnabled === false) return

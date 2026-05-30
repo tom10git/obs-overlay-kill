@@ -246,6 +246,16 @@ export interface AttackConfig {
   survivalHp1Enabled: boolean // 攻撃でHPが0になる場合に一定確率で1残す機能の有効/無効
   survivalHp1Probability: number // HPが1残る確率（0-100）
   survivalHp1Message: string // 食いしばり発動時に表示するカスタムメッセージ
+  /** チャンネルポイント引き換えで通常攻撃を発動 */
+  channelPointsAttackEnabled: boolean
+  /** Twitch カスタムリワードの表示名（rewardId 未設定時に照合） */
+  channelPointsRewardTitle: string
+  /** Twitch カスタムリワード ID（設定時は title より優先） */
+  channelPointsRewardId: string
+  /** 引き換え履歴のポーリング間隔（秒・2〜60） */
+  channelPointsPollIntervalSec: number
+  /** 処理後に引き換えを FULFILLED にする（要 channel:manage:redemptions） */
+  channelPointsAutoFulfill: boolean
 }
 
 export interface HealConfig {
@@ -270,6 +280,10 @@ export interface HealConfig {
   autoReplyEnabled: boolean
   /** 回復時自動返信メッセージ。{hp} {max} で置換（攻撃時と同様） */
   autoReplyMessageTemplate: string
+  /** チャンネルポイント引き換えで回復を発動 */
+  channelPointsHealEnabled: boolean
+  channelPointsHealRewardTitle: string
+  channelPointsHealRewardId: string
 }
 
 export interface RetryConfig {
@@ -301,6 +315,10 @@ export interface RetryConfig {
   /** 蘇生（リトライ等）時の中央オーバーレイエフェクト（透過 WebM） */
   overlayEffectEnabled: boolean
   overlayEffectVideoUrl: string
+  /** チャンネルポイント引き換えで蘇生（HP最大まで回復）を発動 */
+  channelPointsReviveEnabled: boolean
+  channelPointsReviveRewardTitle: string
+  channelPointsReviveRewardId: string
 }
 
 export interface AnimationConfig {
@@ -504,6 +522,10 @@ export interface PvPConfig {
   strengthBuffSoundUrl: string
   /** ストレングスバフ効果音の音量（0-1） */
   strengthBuffSoundVolume: number
+  /** チャンネルポイント引き換えでストレングスバフを発動 */
+  channelPointsStrengthBuffEnabled: boolean
+  channelPointsStrengthBuffRewardTitle: string
+  channelPointsStrengthBuffRewardId: string
   /** チャットのコナミコードで配信者バフを発動できる */
   konamiStreamerBuffEnabled: boolean
   /** コナミコードで配信者バフが発動したときの効果音 */

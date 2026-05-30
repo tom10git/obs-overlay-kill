@@ -15,6 +15,8 @@ import type {
   TwitchFollowerResponse,
   TwitchChatBadge,
   TwitchApiPaginatedResponse,
+  TwitchChannelPointReward,
+  TwitchChannelPointRedemption,
 } from '../types/twitch'
 
 class TwitchApiClient {
@@ -26,6 +28,8 @@ class TwitchApiClient {
   private userAccessToken: string | null = null
   private userTokenExpiresAt: number = 0
   private isRefreshing: boolean = false
+  /** validate 結果の client_id（OAuth ヘッダー用。トークン発行アプリと .env の Client ID が異なる場合に使用） */
+  private oauthClientIdForUserToken: string | null = null
 
   constructor() {
     this.client = axios.create({
@@ -307,6 +311,7 @@ class TwitchApiClient {
       // 有効期限の5分前に期限切れとみなす
       this.userTokenExpiresAt =
         Date.now() + (response.data.expires_in - 300) * 1000
+      this.oauthClientIdForUserToken = null
 
       if (import.meta.env.DEV) {
         logger.debug('✅ Twitch API: ユーザーアクセストークンのリフレッシュ成功', {
@@ -562,57 +567,53 @@ class TwitchApiClient {
   }
 
   /**
-   * OAuth認証（ユーザートークン）用ヘッダー取得（チャット送信など）
+   * OAuth ユーザートークンに紐づく Client ID（Helix の Client-Id ヘッダーはこれと一致必須）
+   */
+  private async resolveOAuthClientId(userToken: string): Promise<string> {
+    if (this.oauthClientIdForUserToken) {
+      return this.oauthClientIdForUserToken
+    }
+    const validation = await this.validateOAuthToken(userToken)
+    if (validation.valid && validation.clientId) {
+      this.oauthClientIdForUserToken = validation.clientId
+      const configured = getTwitchClientId()
+      if (configured && configured !== validation.clientId) {
+        logger.warn(
+          `[Twitch API] OAuth トークンの client_id (${validation.clientId}) と ` +
+            `VITE_TWITCH_TOKEN_APP_CLIENT_ID (${configured}) が一致しません。` +
+            'トークン側の client_id で API を呼び出します。'
+        )
+      }
+      return validation.clientId
+    }
+    return getTwitchClientId()
+  }
+
+  /**
+   * OAuth認証（ユーザートークン）用ヘッダー取得（チャット送信・チャンネルポイント等）
    */
   private async getOAuthHeaders(): Promise<Record<string, string>> {
-    try {
-      const userToken = await this.getUserAccessToken()
+    const userToken = await this.getUserAccessToken()
+    const clientId = await this.resolveOAuthClientId(userToken)
 
-      if (import.meta.env.DEV) {
-        const isFromRefresh = this.userTokenExpiresAt > Date.now() && this.userAccessToken === userToken
-        logger.debug('🔑 Twitch API: OAuthユーザートークンを使用', {
-          トークン長: userToken.length,
-          トークン先頭: userToken.substring(0, 10) + '...',
-          リフレッシュから取得: isFromRefresh,
-          期限切れ日時: this.userTokenExpiresAt > 0 ? new Date(this.userTokenExpiresAt).toISOString() : '不明',
+    if (import.meta.env.DEV) {
+      const validation = await this.validateOAuthToken(userToken)
+      if (!validation.valid) {
+        logger.error(
+          '❌ OAuthトークンの検証に失敗しました。トークンが無効または期限切れの可能性があります。'
+        )
+      } else {
+        logger.debug('✅ Twitch API: OAuthトークンの検証成功', {
+          ユーザーID: validation.userId,
+          スコープ: validation.scopes,
+          クライアントID: validation.clientId,
         })
-
-        // 開発環境ではトークンを検証（毎回検証して問題を早期発見）
-        const validation = await this.validateOAuthToken(userToken)
-        if (!validation.valid) {
-          logger.error(
-            '❌ OAuthトークンの検証に失敗しました。トークンが無効または期限切れの可能性があります。\n' +
-            'VITE_TWITCH_REFRESH_TOKEN が設定されている場合、自動的にトークンをリフレッシュします。'
-          )
-        } else {
-          const configuredClientId = getTwitchClientId()
-          if (validation.clientId && configuredClientId && validation.clientId !== configuredClientId) {
-            logger.error(
-              '❌ OAuthトークンのclient_idが一致しません。\n' +
-              `トークンは client_id=${validation.clientId} で発行されましたが、VITE_TWITCH_CLIENT_ID=${configuredClientId} です。\n` +
-              'Twitchでは、Client-IdヘッダーがOAuthトークン内のclient_idと一致する必要があります。\n' +
-              '修正方法: VITE_TWITCH_CLIENT_ID と同じTwitchアプリを使用して、新しいユーザートークン/リフレッシュトークンを生成してください。'
-            )
-          }
-          logger.debug('✅ Twitch API: OAuthトークンの検証成功', {
-            ユーザーID: validation.userId,
-            スコープ: validation.scopes,
-            クライアントID: validation.clientId,
-          })
-        }
       }
+    }
 
-      return {
-        'Client-ID': getTwitchClientId(),
-        Authorization: `Bearer ${userToken}`,
-      }
-    } catch {
-      logger.error(
-        '❌ Twitch API: ユーザーアクセストークンの取得に失敗しました\n' +
-        'チャット送信などには VITE_TWITCH_ACCESS_TOKEN またはリフレッシュ可能なトークンが必要です。\n' +
-        'https://dev.twitch.tv/docs/authentication/getting-tokens-oauth#oauth-authorization-code-flow'
-      )
-      return await this.getHeaders()
+    return {
+      'Client-ID': clientId,
+      Authorization: `Bearer ${userToken}`,
     }
   }
 
@@ -924,6 +925,113 @@ class TwitchApiClient {
     }
   }
 
+
+  /**
+   * チャンネルポイントのカスタムリワード一覧（OAuth・channel:read:redemptions 必須）
+   */
+  async getChannelPointRewards(
+    broadcasterId: string,
+    onlyManageable = false,
+  ): Promise<TwitchChannelPointReward[]> {
+    try {
+      const headers = await this.getOAuthHeaders()
+      const response = await this.client.get<TwitchApiResponse<TwitchChannelPointReward>>(
+        '/channel_points/custom_rewards',
+        {
+          headers,
+          params: {
+            broadcaster_id: broadcasterId,
+            only_manageable_rewards: onlyManageable,
+          },
+        },
+      )
+      return response.data.data ?? []
+    } catch (error) {
+      logger.error('❌ Twitch API: チャンネルポイントリワードの取得に失敗しました', error)
+      throw error
+    }
+  }
+
+  /**
+   * EventSub WebSocket 購読を作成（channel:read:redemptions 必須）
+   */
+  async createEventSubWebSocketSubscription(
+    type: string,
+    version: string,
+    condition: Record<string, string>,
+    sessionId: string,
+  ): Promise<string | undefined> {
+    const headers = await this.getOAuthHeaders()
+    const response = await axios.post<{ data?: Array<{ id: string }> }>(
+      'https://api.twitch.tv/helix/eventsub/subscriptions',
+      {
+        type,
+        version,
+        condition,
+        transport: { method: 'websocket', session_id: sessionId },
+      },
+      { headers },
+    )
+    return response.data?.data?.[0]?.id
+  }
+
+  /**
+   * チャンネルポイント引き換え履歴（OAuth・channel:read:redemptions 必須）
+   */
+  async getChannelPointRedemptions(
+    broadcasterId: string,
+    rewardId: string,
+    status: 'UNFULFILLED' | 'FULFILLED' | 'CANCELED' = 'UNFULFILLED',
+  ): Promise<TwitchChannelPointRedemption[]> {
+    try {
+      const headers = await this.getOAuthHeaders()
+      const response = await this.client.get<TwitchApiResponse<TwitchChannelPointRedemption>>(
+        '/channel_points/custom_rewards/redemptions',
+        {
+          headers,
+          params: {
+            broadcaster_id: broadcasterId,
+            reward_id: rewardId,
+            status,
+            first: 50,
+          },
+        },
+      )
+      return response.data.data ?? []
+    } catch (error) {
+      logger.error('❌ Twitch API: チャンネルポイント引き換えの取得に失敗しました', error)
+      throw error
+    }
+  }
+
+  /**
+   * 引き換えを FULFILLED / CANCELED に更新（OAuth・channel:manage:redemptions 必須）
+   */
+  async updateChannelPointRedemptionStatus(
+    broadcasterId: string,
+    rewardId: string,
+    redemptionId: string,
+    status: 'FULFILLED' | 'CANCELED',
+  ): Promise<void> {
+    try {
+      const headers = await this.getOAuthHeaders()
+      await this.client.patch(
+        '/channel_points/custom_rewards/redemptions',
+        { status },
+        {
+          headers,
+          params: {
+            broadcaster_id: broadcasterId,
+            reward_id: rewardId,
+            id: redemptionId,
+          },
+        },
+      )
+    } catch (error) {
+      logger.error('❌ Twitch API: チャンネルポイント引き換えの更新に失敗しました', error)
+      throw error
+    }
+  }
 
   /**
    * チャットにメッセージを送信（配信者アカウントで送信）

@@ -192,3 +192,30 @@ export interface TwitchChatMessage {
     positions: Array<{ start: number; end: number }>
   }>
 }
+
+export interface TwitchChannelPointReward {
+  id: string
+  title: string
+  prompt: string
+  cost: number
+  is_enabled: boolean
+  is_paused: boolean
+  is_user_input_required: boolean
+}
+
+export interface TwitchChannelPointRedemption {
+  id: string
+  broadcaster_id: string
+  broadcaster_name: string
+  user_id: string
+  user_name: string
+  user_input: string
+  status: 'UNFULFILLED' | 'FULFILLED' | 'CANCELED'
+  redeemed_at: string
+  reward: {
+    id: string
+    title: string
+    prompt: string
+    cost: number
+  }
+}

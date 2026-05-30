@@ -228,6 +228,11 @@ const DEFAULT_CONFIG: OverlayConfig = {
     survivalHp1Enabled: false,
     survivalHp1Probability: 30,
     survivalHp1Message: '食いしばり!',
+    channelPointsAttackEnabled: false,
+    channelPointsRewardTitle: '配信者を攻撃',
+    channelPointsRewardId: '',
+    channelPointsPollIntervalSec: 4,
+    channelPointsAutoFulfill: true,
   },
   heal: {
     customText: '',
@@ -247,6 +252,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
     healWhenZeroEnabled: true,
     autoReplyEnabled: false,
     autoReplyMessageTemplate: '配信者の残りHP: {hp}/{max}',
+    channelPointsHealEnabled: false,
+    channelPointsHealRewardTitle: '配信者を回復',
+    channelPointsHealRewardId: '',
   },
   retry: {
     command: '!retry',
@@ -266,6 +274,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundVolume: 0.7,
     overlayEffectEnabled: false,
     overlayEffectVideoUrl: '',
+    channelPointsReviveEnabled: false,
+    channelPointsReviveRewardTitle: '配信者を蘇生',
+    channelPointsReviveRewardId: '',
   },
   animation: {
     duration: 500,
@@ -392,6 +403,11 @@ const DEFAULT_CONFIG: OverlayConfig = {
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
       survivalHp1Message: '食いしばり!',
+      channelPointsAttackEnabled: false,
+      channelPointsRewardTitle: '配信者を攻撃',
+      channelPointsRewardId: '',
+      channelPointsPollIntervalSec: 4,
+      channelPointsAutoFulfill: true,
     },
     viewerMaxHp: 100,
     counterCommand: '!counter',
@@ -437,6 +453,9 @@ const DEFAULT_CONFIG: OverlayConfig = {
     strengthBuffSoundEnabled: false,
     strengthBuffSoundUrl: '',
     strengthBuffSoundVolume: 0.7,
+    channelPointsStrengthBuffEnabled: false,
+    channelPointsStrengthBuffRewardTitle: '強化バフ',
+    channelPointsStrengthBuffRewardId: '',
     konamiStreamerBuffEnabled: true,
     konamiStreamerBuffSoundEnabled: false,
     konamiStreamerBuffSoundUrl: '',
@@ -540,6 +559,11 @@ const DEFAULT_CONFIG: OverlayConfig = {
       survivalHp1Enabled: false,
       survivalHp1Probability: 30,
       survivalHp1Message: '食いしばり!',
+      channelPointsAttackEnabled: false,
+      channelPointsRewardTitle: '配信者を攻撃',
+      channelPointsRewardId: '',
+      channelPointsPollIntervalSec: 4,
+      channelPointsAutoFulfill: true,
     },
   },
   webmLoop: {
@@ -1195,6 +1219,19 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       ? Number(attackConfig.survivalHp1Probability) || 30
       : 30,
     survivalHp1Message: typeof attackConfig.survivalHp1Message === 'string' ? attackConfig.survivalHp1Message : '食いしばり!',
+    channelPointsAttackEnabled:
+      typeof attackConfig.channelPointsAttackEnabled === 'boolean' ? attackConfig.channelPointsAttackEnabled : false,
+    channelPointsRewardTitle:
+      typeof attackConfig.channelPointsRewardTitle === 'string'
+        ? (attackConfig.channelPointsRewardTitle as string).slice(0, 100)
+        : '配信者を攻撃',
+    channelPointsRewardId:
+      typeof attackConfig.channelPointsRewardId === 'string' ? (attackConfig.channelPointsRewardId as string).trim() : '',
+    channelPointsPollIntervalSec: isInRange(Number(attackConfig.channelPointsPollIntervalSec), 2, 60)
+      ? Math.floor(Number(attackConfig.channelPointsPollIntervalSec)) || 4
+      : 4,
+    channelPointsAutoFulfill:
+      typeof attackConfig.channelPointsAutoFulfill === 'boolean' ? attackConfig.channelPointsAutoFulfill : true,
   }
 
   // 回復設定の検証
@@ -1235,6 +1272,14 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     healWhenZeroEnabled: typeof healConfig.healWhenZeroEnabled === 'boolean' ? healConfig.healWhenZeroEnabled : true,
     autoReplyEnabled: typeof healConfig.autoReplyEnabled === 'boolean' ? healConfig.autoReplyEnabled : false,
     autoReplyMessageTemplate: typeof healConfig.autoReplyMessageTemplate === 'string' ? healConfig.autoReplyMessageTemplate : '配信者の残りHP: {hp}/{max}',
+    channelPointsHealEnabled:
+      typeof healConfig.channelPointsHealEnabled === 'boolean' ? healConfig.channelPointsHealEnabled : false,
+    channelPointsHealRewardTitle:
+      typeof healConfig.channelPointsHealRewardTitle === 'string'
+        ? (healConfig.channelPointsHealRewardTitle as string).slice(0, 100)
+        : '配信者を回復',
+    channelPointsHealRewardId:
+      typeof healConfig.channelPointsHealRewardId === 'string' ? (healConfig.channelPointsHealRewardId as string).trim() : '',
   }
 
   // リトライ設定の検証
@@ -1279,6 +1324,16 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
         overlayEffectVideoUrl: fx.videoUrl,
       }
     })(),
+    channelPointsReviveEnabled:
+      typeof retryConfig.channelPointsReviveEnabled === 'boolean' ? retryConfig.channelPointsReviveEnabled : false,
+    channelPointsReviveRewardTitle:
+      typeof retryConfig.channelPointsReviveRewardTitle === 'string'
+        ? (retryConfig.channelPointsReviveRewardTitle as string).slice(0, 100)
+        : '配信者を蘇生',
+    channelPointsReviveRewardId:
+      typeof retryConfig.channelPointsReviveRewardId === 'string'
+        ? (retryConfig.channelPointsReviveRewardId as string).trim()
+        : '',
   }
 
   // アニメーション設定の検証
@@ -1821,6 +1876,19 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     survivalHp1Enabled: typeof sa.survivalHp1Enabled === 'boolean' ? sa.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(sa.survivalHp1Probability), 0, 100) ? Number(sa.survivalHp1Probability) || 30 : 30,
     survivalHp1Message: typeof sa.survivalHp1Message === 'string' ? sa.survivalHp1Message : '食いしばり!',
+    channelPointsAttackEnabled:
+      typeof sa.channelPointsAttackEnabled === 'boolean' ? sa.channelPointsAttackEnabled : false,
+    channelPointsRewardTitle:
+      typeof sa.channelPointsRewardTitle === 'string'
+        ? (sa.channelPointsRewardTitle as string).slice(0, 100)
+        : '配信者を攻撃',
+    channelPointsRewardId:
+      typeof sa.channelPointsRewardId === 'string' ? (sa.channelPointsRewardId as string).trim() : '',
+    channelPointsPollIntervalSec: isInRange(Number(sa.channelPointsPollIntervalSec), 2, 60)
+      ? Math.floor(Number(sa.channelPointsPollIntervalSec)) || 4
+      : 4,
+    channelPointsAutoFulfill:
+      typeof sa.channelPointsAutoFulfill === 'boolean' ? sa.channelPointsAutoFulfill : true,
   }
   const viewerMaxHp = typeof pvpConfig.viewerMaxHp === 'number' && pvpConfig.viewerMaxHp > 0
     ? Math.floor(pvpConfig.viewerMaxHp)
@@ -2026,6 +2094,19 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     survivalHp1Enabled: typeof vva.survivalHp1Enabled === 'boolean' ? vva.survivalHp1Enabled : false,
     survivalHp1Probability: isInRange(Number(vva.survivalHp1Probability), 0, 100) ? Number(vva.survivalHp1Probability) || 30 : 30,
     survivalHp1Message: typeof vva.survivalHp1Message === 'string' ? vva.survivalHp1Message : '食いしばり!',
+    channelPointsAttackEnabled:
+      typeof vva.channelPointsAttackEnabled === 'boolean' ? vva.channelPointsAttackEnabled : false,
+    channelPointsRewardTitle:
+      typeof vva.channelPointsRewardTitle === 'string'
+        ? (vva.channelPointsRewardTitle as string).slice(0, 100)
+        : '配信者を攻撃',
+    channelPointsRewardId:
+      typeof vva.channelPointsRewardId === 'string' ? (vva.channelPointsRewardId as string).trim() : '',
+    channelPointsPollIntervalSec: isInRange(Number(vva.channelPointsPollIntervalSec), 2, 60)
+      ? Math.floor(Number(vva.channelPointsPollIntervalSec)) || 4
+      : 4,
+    channelPointsAutoFulfill:
+      typeof vva.channelPointsAutoFulfill === 'boolean' ? vva.channelPointsAutoFulfill : true,
   }
   const pvp = {
     enabled: typeof pvpConfig.enabled === 'boolean' ? pvpConfig.enabled : false,
@@ -2109,6 +2190,18 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       }
       return 0.7
     })(),
+    channelPointsStrengthBuffEnabled:
+      typeof pvpConfig.channelPointsStrengthBuffEnabled === 'boolean'
+        ? pvpConfig.channelPointsStrengthBuffEnabled
+        : false,
+    channelPointsStrengthBuffRewardTitle:
+      typeof pvpConfig.channelPointsStrengthBuffRewardTitle === 'string'
+        ? (pvpConfig.channelPointsStrengthBuffRewardTitle as string).slice(0, 100)
+        : '強化バフ',
+    channelPointsStrengthBuffRewardId:
+      typeof pvpConfig.channelPointsStrengthBuffRewardId === 'string'
+        ? (pvpConfig.channelPointsStrengthBuffRewardId as string).trim()
+        : '',
     konamiStreamerBuffEnabled:
       typeof pvpConfig.konamiStreamerBuffEnabled === 'boolean' ? pvpConfig.konamiStreamerBuffEnabled : true,
     konamiStreamerBuffSoundEnabled:

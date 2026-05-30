@@ -33,6 +33,8 @@ import type {
   OverlayConfig,
 } from "../../types/overlay";
 import { COMBO_TECHNIQUE_PREFIX } from "../../constants/comboTechnique";
+import { OverlaySettingsChannelPointsTab } from "./OverlaySettingsChannelPointsTab";
+import { OverlaySettingsEffectsTab } from "./OverlaySettingsEffectsTab";
 import { OverlaySettingsSoundTab } from "./OverlaySettingsSoundTab";
 import "./OverlaySettings.css";
 
@@ -147,13 +149,15 @@ export const OverlaySettings = forwardRef<
     test: false,
   });
   const [activeTab, setActiveTab] = useState<
-    "streamer" | "user" | "autoReply" | "probabilities" | "sounds"
+    "streamer" | "user" | "autoReply" | "probabilities" | "channelPoints" | "effects" | "sounds"
   >(() => {
     const env = import.meta.env.VITE_OVERLAY_SETTINGS_TAB as string | undefined;
     if (
       env === "user" ||
       env === "autoReply" ||
       env === "streamer" ||
+      env === "channelPoints" ||
+      env === "effects" ||
       env === "sounds" ||
       env === "probabilities"
     )
@@ -278,6 +282,8 @@ export const OverlaySettings = forwardRef<
       t === "user" ||
       t === "streamer" ||
       t === "autoReply" ||
+      t === "channelPoints" ||
+      t === "effects" ||
       t === "sounds" ||
       t === "probabilities"
     ) {
@@ -495,6 +501,22 @@ export const OverlaySettings = forwardRef<
           title={embedded ? "確率・抽選" : undefined}
         >
           {embedded ? "確率" : "確率・抽選"}
+        </button>
+        <button
+          type="button"
+          className={`settings-tab ${activeTab === "channelPoints" ? "settings-tab-active" : ""}`}
+          onClick={() => setActiveTab("channelPoints")}
+          title={embedded ? "チャンネルポイント連携" : "チャンネルポイントのまとめ"}
+        >
+          {embedded ? "CP" : "チャンネルポイント"}
+        </button>
+        <button
+          type="button"
+          className={`settings-tab ${activeTab === "effects" ? "settings-tab-active" : ""}`}
+          onClick={() => setActiveTab("effects")}
+          title={embedded ? "視覚エフェクト一覧" : "視覚エフェクトのまとめ"}
+        >
+          {embedded ? "エフェクト" : "エフェクト"}
         </button>
         <button
           type="button"
@@ -1997,326 +2019,12 @@ export const OverlaySettings = forwardRef<
                     </div>
                   </div>
                 )}
-                <h4 className="settings-subsection-title">デバフ付与エフェクト（WebM）</h4>
                 <p className="settings-hint">
-                  出血・毒・炎の DOT が付与されたときに中央へ重ねる透過 WebM です。種類ごとに設定できます。
-                </p>
-                {(
-                  [
-                    {
-                      label: "出血",
-                      enabledKey: "dotBleedEffectEnabled" as const,
-                      urlKey: "dotBleedEffectVideoUrl" as const,
-                    },
-                    {
-                      label: "毒",
-                      enabledKey: "dotPoisonEffectEnabled" as const,
-                      urlKey: "dotPoisonEffectVideoUrl" as const,
-                    },
-                    {
-                      label: "炎",
-                      enabledKey: "dotBurnEffectEnabled" as const,
-                      urlKey: "dotBurnEffectVideoUrl" as const,
-                    },
-                  ] as const
-                ).map(({ label, enabledKey, urlKey }) => (
-                  <div key={enabledKey} className="settings-debuff-effect-block">
-                    <div className="settings-row">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={config.attack[enabledKey]}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              attack: {
-                                ...config.attack,
-                                [enabledKey]: e.target.checked,
-                              },
-                            })
-                          }
-                        />
-                        {label} DOT 付与エフェクトを有効にする
-                      </label>
-                    </div>
-                    {config.attack[enabledKey] && (
-                      <div className="settings-row">
-                        <label>
-                          WebM URL:
-                          <input
-                            type="text"
-                            value={config.attack[urlKey]}
-                            onChange={(e) => {
-                              const url = e.target.value;
-                              if (isValidUrl(url)) {
-                                setConfig({
-                                  ...config,
-                                  attack: {
-                                    ...config.attack,
-                                    [urlKey]: url,
-                                  },
-                                });
-                              } else {
-                                setMessage(
-                                  "無効なURLです。http://、https://、または相対パスを入力してください。",
-                                );
-                                setTimeout(() => setMessage(null), 3000);
-                              }
-                            }}
-                            placeholder="例: src/images/debuff.webm または https://..."
-                          />
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                ))}
-                <p className="settings-hint" style={{ marginTop: "0.35rem" }}>
                   攻撃・ミス・出血・DOT などの<strong>効果音</strong>
-                  は上部の「効果音」タブで設定します。
+                  は「効果音」タブで設定します。
+                  <strong>視覚エフェクト</strong>（フィルター・WebM・内蔵Canvas・DOT 付与演出など）は
+                  <strong>「エフェクト」</strong>タブで設定します。
                 </p>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.attack.filterEffectEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          attack: {
-                            ...config.attack,
-                            filterEffectEnabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    攻撃時のフィルターエフェクトを有効にする
-                  </label>
-                </div>
-                <h4 className="settings-subsection-title">攻撃エフェクト（WebM / 内蔵Canvas）</h4>
-                <p className="settings-hint">
-                  通常命中・合わせ技成功・ルーレット成功それぞれで、透過 WebM・内蔵ガラス着弾・内蔵斬撃フラッシュから選べます。WebM のときだけ URL が必要です（任意・各チェック ON 時のみ再生）。
-                </p>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.attack.attackEffectEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          attack: {
-                            ...config.attack,
-                            attackEffectEnabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    通常攻撃（命中）エフェクトを有効にする
-                  </label>
-                </div>
-                {config.attack.attackEffectEnabled && (
-                  <>
-                    <div className="settings-row">
-                      <label>
-                        映像の種類:
-                        <select
-                          value={config.attack.attackEffectVisual ?? 'webm'}
-                          onChange={(e) => {
-                            const v = e.target.value
-                            const attackEffectVisual =
-                              v === 'glassCanvas' ? 'glassCanvas' : v === 'slashArc' ? 'slashArc' : 'webm'
-                            setConfig({
-                              ...config,
-                              attack: {
-                                ...config.attack,
-                                attackEffectVisual,
-                              },
-                            })
-                          }}
-                        >
-                          <option value="webm">透過 WebM（下の URL）</option>
-                          <option value="glassCanvas">内蔵: ガラス着弾 Canvas（約3.5秒・URL 不要）</option>
-                          <option value="slashArc">内蔵: 斬撃フラッシュ（全画面 Canvas・約0.75秒・URL 不要）</option>
-                        </select>
-                      </label>
-                    </div>
-                    {(config.attack.attackEffectVisual ?? 'webm') === 'webm' && (
-                      <div className="settings-row">
-                        <label>
-                          WebM URL:
-                          <input
-                            type="text"
-                            value={config.attack.attackEffectVideoUrl}
-                            onChange={(e) => {
-                              const url = e.target.value;
-                              if (isValidUrl(url)) {
-                                setConfig({
-                                  ...config,
-                                  attack: {
-                                    ...config.attack,
-                                    attackEffectVideoUrl: url,
-                                  },
-                                });
-                              } else {
-                                setMessage(
-                                  "無効なURLです。http://、https://、または相対パスを入力してください。",
-                                );
-                                setTimeout(() => setMessage(null), 3000);
-                              }
-                            }}
-                            placeholder="例: src/images/attack.webm または https://..."
-                          />
-                        </label>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.attack.comboTechniqueEffectEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          attack: {
-                            ...config.attack,
-                            comboTechniqueEffectEnabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    合わせ技成功エフェクトを有効にする
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    合わせ技成功 — 映像の種類:
-                    <select
-                      value={config.attack.comboTechniqueEffectVisual ?? 'webm'}
-                      onChange={(e) => {
-                        const v = e.target.value
-                        const comboTechniqueEffectVisual =
-                          v === 'glassCanvas' ? 'glassCanvas' : v === 'slashArc' ? 'slashArc' : 'webm'
-                        setConfig({
-                          ...config,
-                          attack: {
-                            ...config.attack,
-                            comboTechniqueEffectVisual,
-                          },
-                        })
-                      }}
-                    >
-                      <option value="webm">透過 WebM（下の URL）</option>
-                      <option value="glassCanvas">内蔵: ガラス着弾 Canvas（約3.5秒・URL 不要）</option>
-                      <option value="slashArc">内蔵: 斬撃フラッシュ（全画面 Canvas・約0.75秒・URL 不要）</option>
-                    </select>
-                  </label>
-                </div>
-                {config.attack.comboTechniqueEffectEnabled &&
-                  (config.attack.comboTechniqueEffectVisual ?? 'webm') === 'webm' && (
-                    <div className="settings-row">
-                      <label>
-                        WebM URL:
-                        <input
-                          type="text"
-                          value={config.attack.comboTechniqueEffectVideoUrl}
-                          onChange={(e) => {
-                            const url = e.target.value;
-                            if (isValidUrl(url)) {
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  comboTechniqueEffectVideoUrl: url,
-                                },
-                              });
-                            } else {
-                              setMessage(
-                                "無効なURLです。http://、https://、または相対パスを入力してください。",
-                              );
-                              setTimeout(() => setMessage(null), 3000);
-                            }
-                          }}
-                          placeholder="例: src/images/combo.webm または https://..."
-                        />
-                      </label>
-                    </div>
-                  )}
-
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.attack.rouletteEffectEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          attack: {
-                            ...config.attack,
-                            rouletteEffectEnabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    追加攻撃ルーレット成功エフェクトを有効にする
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    ルーレット成功 — 映像の種類:
-                    <select
-                      value={config.attack.rouletteEffectVisual ?? 'webm'}
-                      onChange={(e) => {
-                        const v = e.target.value
-                        const rouletteEffectVisual =
-                          v === 'glassCanvas' ? 'glassCanvas' : v === 'slashArc' ? 'slashArc' : 'webm'
-                        setConfig({
-                          ...config,
-                          attack: {
-                            ...config.attack,
-                            rouletteEffectVisual,
-                          },
-                        })
-                      }}
-                    >
-                      <option value="webm">透過 WebM（下の URL）</option>
-                      <option value="glassCanvas">内蔵: ガラス着弾 Canvas（約3.5秒・URL 不要）</option>
-                      <option value="slashArc">内蔵: 斬撃フラッシュ（全画面 Canvas・約0.75秒・URL 不要）</option>
-                    </select>
-                  </label>
-                </div>
-                {config.attack.rouletteEffectEnabled &&
-                  (config.attack.rouletteEffectVisual ?? 'webm') === 'webm' && (
-                    <div className="settings-row">
-                      <label>
-                        WebM URL:
-                        <input
-                          type="text"
-                          value={config.attack.rouletteEffectVideoUrl}
-                          onChange={(e) => {
-                            const url = e.target.value;
-                            if (isValidUrl(url)) {
-                              setConfig({
-                                ...config,
-                                attack: {
-                                  ...config.attack,
-                                  rouletteEffectVideoUrl: url,
-                                },
-                              });
-                            } else {
-                              setMessage(
-                                "無効なURLです。http://、https://、または相対パスを入力してください。",
-                              );
-                              setTimeout(() => setMessage(null), 3000);
-                            }
-                          }}
-                          placeholder="例: src/images/roulette.webm または https://..."
-                        />
-                      </label>
-                    </div>
-                  )}
                 <h4 className="settings-subsection-title">合わせ技（入力ルール・視聴者リワードと共通）</h4>
                 <p className="settings-hint">
                   ヒット後の入力チャレンジの<strong>制限時間</strong>と、目標文字列の<strong>先頭接頭辞</strong>です。チャット等からの攻撃でも同じルールが使われます。チャレンジのON/OFFはオーバーレイ右下のコントロールからも切り替えられます。
@@ -3532,24 +3240,10 @@ export const OverlaySettings = forwardRef<
                     </>
                   )}
                 </div>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.heal.effectEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          heal: {
-                            ...config.heal,
-                            effectEnabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    回復エフェクトを表示
-                  </label>
-                </div>
+                <p className="settings-hint">
+                  <strong>回復効果音</strong>は「効果音」タブ、
+                  <strong>視覚エフェクト</strong>（パーティクル・フィルター・WebM）は「エフェクト」タブで設定します。
+                </p>
                 <div className="settings-row">
                   <label>
                     <input
@@ -3568,78 +3262,6 @@ export const OverlaySettings = forwardRef<
                     HPが0のときも通常回復を許可する
                   </label>
                 </div>
-                <p className="settings-hint">
-                  <strong>回復効果音</strong>は「効果音」タブで設定します。
-                </p>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.heal.filterEffectEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          heal: {
-                            ...config.heal,
-                            filterEffectEnabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    回復時のフィルターエフェクトを有効にする
-                  </label>
-                </div>
-                <h4 className="settings-subsection-title">回復エフェクト（WebM）</h4>
-                <p className="settings-hint">
-                  回復時に中央へ重ねる透過 WebM です。上の「回復エフェクトを表示」（パーティクル）とは別です。
-                </p>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.heal.overlayEffectEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          heal: {
-                            ...config.heal,
-                            overlayEffectEnabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    回復オーバーレイエフェクトを有効にする
-                  </label>
-                </div>
-                {config.heal.overlayEffectEnabled && (
-                  <div className="settings-row">
-                    <label>
-                      WebM URL:
-                      <input
-                        type="text"
-                        value={config.heal.overlayEffectVideoUrl}
-                        onChange={(e) => {
-                          const url = e.target.value;
-                          if (isValidUrl(url)) {
-                            setConfig({
-                              ...config,
-                              heal: {
-                                ...config.heal,
-                                overlayEffectVideoUrl: url,
-                              },
-                            });
-                          } else {
-                            setMessage(
-                              "無効なURLです。http://、https://、または相対パスを入力してください。",
-                            );
-                            setTimeout(() => setMessage(null), 3000);
-                          }
-                        }}
-                        placeholder="例: src/images/heal.webm または https://..."
-                      />
-                    </label>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -3923,60 +3545,9 @@ export const OverlaySettings = forwardRef<
                   </label>
                 </div>
                 <p className="settings-hint">
-                  <strong>蘇生（リトライ）効果音</strong>
-                  は「効果音」タブで設定します。
+                  <strong>蘇生（リトライ）効果音</strong>は「効果音」タブ、
+                  <strong>視覚エフェクト</strong>（WebM オーバーレイ）は「エフェクト」タブで設定します。
                 </p>
-                <h4 className="settings-subsection-title">蘇生エフェクト（WebM）</h4>
-                <p className="settings-hint">
-                  リトライ・全回復・全員全回復などで HP を最大まで戻したときに中央へ重ねる透過 WebM です。
-                </p>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.retry.overlayEffectEnabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          retry: {
-                            ...config.retry,
-                            overlayEffectEnabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    蘇生オーバーレイエフェクトを有効にする
-                  </label>
-                </div>
-                {config.retry.overlayEffectEnabled && (
-                  <div className="settings-row">
-                    <label>
-                      WebM URL:
-                      <input
-                        type="text"
-                        value={config.retry.overlayEffectVideoUrl}
-                        onChange={(e) => {
-                          const url = e.target.value;
-                          if (isValidUrl(url)) {
-                            setConfig({
-                              ...config,
-                              retry: {
-                                ...config.retry,
-                                overlayEffectVideoUrl: url,
-                              },
-                            });
-                          } else {
-                            setMessage(
-                              "無効なURLです。http://、https://、または相対パスを入力してください。",
-                            );
-                            setTimeout(() => setMessage(null), 3000);
-                          }
-                        }}
-                        placeholder="例: src/images/revive.webm または https://..."
-                      />
-                    </label>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -4157,229 +3728,10 @@ export const OverlaySettings = forwardRef<
                     </label>
                   </div>
                 )}
-                <h4 className="settings-subsection-title">色味フィルター（ダメージ／回復）</h4>
                 <p className="settings-hint">
-                  ダメージ時・回復時に画面へ掛けるフィルター（sepia / hue / saturate / brightness / contrast）です。
-                  「攻撃/回復のフィルターON」が有効なときだけ反映されます。
+                  ダメージ時・回復時の<strong>色味フィルター</strong>（sepia / hue / saturate 等）は
+                  <strong>「エフェクト」</strong>タブで設定します。
                 </p>
-                <div className="settings-grid-2col">
-                  <div>
-                    <p className="settings-hint"><strong>ダメージ時</strong></p>
-                    <div className="settings-row">
-                      <label>
-                        Sepia（0〜1）: {config.damageEffectFilter.sepia}
-                        <input
-                          type="range"
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          value={config.damageEffectFilter.sepia}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              damageEffectFilter: {
-                                ...config.damageEffectFilter,
-                                sepia: Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        Hue rotate（-360〜360）: {config.damageEffectFilter.hueRotate}°
-                        <input
-                          type="range"
-                          min={-360}
-                          max={360}
-                          step={1}
-                          value={config.damageEffectFilter.hueRotate}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              damageEffectFilter: {
-                                ...config.damageEffectFilter,
-                                hueRotate: Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        Saturate（0〜2）: {config.damageEffectFilter.saturate}
-                        <input
-                          type="range"
-                          min={0}
-                          max={2}
-                          step={0.01}
-                          value={config.damageEffectFilter.saturate}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              damageEffectFilter: {
-                                ...config.damageEffectFilter,
-                                saturate: Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        Brightness（0〜2）: {config.damageEffectFilter.brightness}
-                        <input
-                          type="range"
-                          min={0}
-                          max={2}
-                          step={0.01}
-                          value={config.damageEffectFilter.brightness}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              damageEffectFilter: {
-                                ...config.damageEffectFilter,
-                                brightness: Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        Contrast（0〜2）: {config.damageEffectFilter.contrast}
-                        <input
-                          type="range"
-                          min={0}
-                          max={2}
-                          step={0.01}
-                          value={config.damageEffectFilter.contrast}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              damageEffectFilter: {
-                                ...config.damageEffectFilter,
-                                contrast: Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="settings-hint"><strong>回復時</strong></p>
-                    <div className="settings-row">
-                      <label>
-                        Sepia（0〜1）: {config.healEffectFilter.sepia}
-                        <input
-                          type="range"
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          value={config.healEffectFilter.sepia}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              healEffectFilter: {
-                                ...config.healEffectFilter,
-                                sepia: Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        Hue rotate（-360〜360）: {config.healEffectFilter.hueRotate}°
-                        <input
-                          type="range"
-                          min={-360}
-                          max={360}
-                          step={1}
-                          value={config.healEffectFilter.hueRotate}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              healEffectFilter: {
-                                ...config.healEffectFilter,
-                                hueRotate: Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        Saturate（0〜2）: {config.healEffectFilter.saturate}
-                        <input
-                          type="range"
-                          min={0}
-                          max={2}
-                          step={0.01}
-                          value={config.healEffectFilter.saturate}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              healEffectFilter: {
-                                ...config.healEffectFilter,
-                                saturate: Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        Brightness（0〜2）: {config.healEffectFilter.brightness}
-                        <input
-                          type="range"
-                          min={0}
-                          max={2}
-                          step={0.01}
-                          value={config.healEffectFilter.brightness}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              healEffectFilter: {
-                                ...config.healEffectFilter,
-                                brightness: Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="settings-row">
-                      <label>
-                        Contrast（0〜2）: {config.healEffectFilter.contrast}
-                        <input
-                          type="range"
-                          min={0}
-                          max={2}
-                          step={0.01}
-                          value={config.healEffectFilter.contrast}
-                          onChange={(e) =>
-                            setConfig({
-                              ...config,
-                              healEffectFilter: {
-                                ...config.healEffectFilter,
-                                contrast: Number(e.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </div>
                 <h4 className="settings-subsection-title">ゲージ上の数字とラベル</h4>
                 <div className="settings-row">
                   <label>
@@ -5301,108 +4653,8 @@ export const OverlaySettings = forwardRef<
                   に配置）または <code>https://...</code>
                 </p>
                 <p className="settings-hint">
-                  <strong>HP0時の効果音</strong>は「効果音」タブで設定します。
-                </p>
-                <h4 className="settings-subsection-title">動画（WebM）</h4>
-                <div className="settings-row">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.zeroHpEffect.enabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          zeroHpEffect: {
-                            ...config.zeroHpEffect,
-                            enabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    HPが0になったら動画エフェクトを表示
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    動画 URL（透過WebM推奨）:
-                    <input
-                      type="text"
-                      value={config.zeroHpEffect.videoUrl}
-                      onChange={(e) => {
-                        const url = e.target.value;
-                        if (isValidUrl(url)) {
-                          setConfig({
-                            ...config,
-                            zeroHpEffect: {
-                              ...config.zeroHpEffect,
-                              videoUrl: url,
-                            },
-                          });
-                        } else {
-                          setMessage(
-                            "無効なURLです。http://、https://、または相対パスを入力してください。",
-                          );
-                          setTimeout(() => setMessage(null), 3000);
-                        }
-                      }}
-                      placeholder="動画のURLを入力"
-                    />
-                  </label>
-                </div>
-                <div className="settings-row">
-                  <label>
-                    表示時間（ミリ秒）:
-                    <input
-                      type="text"
-                      value={
-                        inputValues["zeroHpEffect.duration"] ??
-                        String(config.zeroHpEffect.duration)
-                      }
-                      onChange={(e) => {
-                        setInputValues((prev) => ({
-                          ...prev,
-                          "zeroHpEffect.duration": e.target.value,
-                        }));
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.trim();
-                        if (value === "" || isNaN(parseInt(value))) {
-                          setConfig({
-                            ...config,
-                            zeroHpEffect: {
-                              ...config.zeroHpEffect,
-                              duration: 2000,
-                            },
-                          });
-                          setInputValues((prev) => {
-                            const next = { ...prev };
-                            delete next["zeroHpEffect.duration"];
-                            return next;
-                          });
-                        } else {
-                          const num = parseInt(value);
-                          if (!isNaN(num)) {
-                            setConfig({
-                              ...config,
-                              zeroHpEffect: {
-                                ...config.zeroHpEffect,
-                                duration: Math.max(100, num),
-                              },
-                            });
-                            setInputValues((prev) => {
-                              const next = { ...prev };
-                              delete next["zeroHpEffect.duration"];
-                              return next;
-                            });
-                          }
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                <p className="settings-hint">
-                  例: <code>src/images/bakuhatsu.gif</code>（public/images
-                  に配置）または <code>https://...</code>
+                  <strong>HP0時の効果音</strong>は「効果音」タブ、
+                  <strong>動画（WebM）エフェクト</strong>は「エフェクト」タブで設定します。
                 </p>
               </div>
             )}
@@ -8726,6 +7978,25 @@ export const OverlaySettings = forwardRef<
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === "channelPoints" && (
+        <OverlaySettingsChannelPointsTab
+          config={config}
+          setConfig={setConfig}
+          inputValues={inputValues}
+          setInputValues={setInputValues}
+        />
+      )}
+
+      {activeTab === "effects" && (
+        <OverlaySettingsEffectsTab
+          config={config}
+          setConfig={setConfig}
+          inputValues={inputValues}
+          setInputValues={setInputValues}
+          setMessage={setMessage}
+        />
       )}
 
       {activeTab === "sounds" && (
