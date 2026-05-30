@@ -169,7 +169,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       })
       if (error) {
-        billingLog('warn', 'Supabase OTP sign-in failed', error.message, error.status)
+        billingLog('warn', 'Supabase OTP sign-in failed', {
+          message: error.message,
+          status: error.status,
+        })
         if (isOtpRateLimitError(error.message, error.status)) {
           startOtpCooldownAfterRateLimit()
         }

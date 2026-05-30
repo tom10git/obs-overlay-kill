@@ -8,10 +8,22 @@ export type UserProfile = {
 const DISPLAY_NAME_MIN = 1
 const DISPLAY_NAME_MAX = 32
 
+type GraphemeSegmenter = {
+  segment(input: string): Iterable<{ segment: string }>
+}
+
 /** 表示名の文字数（絵文字などは grapheme 単位） */
 function displayNameLength(value: string): number {
-  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
-    const seg = new Intl.Segmenter('ja', { granularity: 'grapheme' })
+  const Segmenter = (
+    Intl as unknown as {
+      Segmenter?: new (
+        locale: string,
+        options: { granularity: 'grapheme' },
+      ) => GraphemeSegmenter
+    }
+  ).Segmenter
+  if (typeof Segmenter === 'function') {
+    const seg = new Segmenter('ja', { granularity: 'grapheme' })
     return [...seg.segment(value)].length
   }
   return [...value].length

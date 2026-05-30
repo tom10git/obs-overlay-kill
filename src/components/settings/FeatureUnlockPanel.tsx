@@ -26,7 +26,6 @@ export function FeatureUnlockPanel() {
     saveDisplayName,
     signOut,
     magicLinkError,
-    clearMagicLinkError,
   } = useAuth()
   const {
     state,
