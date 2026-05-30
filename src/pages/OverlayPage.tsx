@@ -73,6 +73,7 @@ import {
 } from '../utils/messageTemplate'
 import type { TwitchChatMessage } from '../types/twitch'
 import { DEFAULT_GAUGE_SHAPE, getDefaultConfig, saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
+import { TestPanelTwitchEnv } from '../components/test/TestPanelTwitchEnv'
 import { OverlaySettings, type OverlaySettingsHandle } from '../components/settings/OverlaySettings'
 import { FeatureUnlockPanel } from '../components/settings/FeatureUnlockPanel'
 import { useFeatureUnlock } from '../context/FeatureUnlockContext'
@@ -84,6 +85,7 @@ import { glowTextStyleFromHex } from '../utils/glowTextStyle'
 import { pickBleedVariantParams } from '../utils/pickBleedVariantParams'
 import { playDotDebuffTickSound } from '../utils/playDotDebuffTickSound'
 import { obsGlowSource, obsMoveSource, obsShakeSource } from '../utils/obsWebSocketEffects'
+import { consumePendingSettingsTab } from '../utils/pendingSettingsTab'
 import './OverlayPage.css'
 
 /** テストパネル既定の上端（.test-drawer-toggle: top 16px + 高さ 46px + 下余白 12px） */
@@ -455,7 +457,11 @@ export function OverlayPage() {
   type TestPanelSection = null | 'settings' | 'billing'
   const [testPanelSection, setTestPanelSection] = useState<TestPanelSection>(() => {
     if (typeof window !== 'undefined') {
-      const v = new URLSearchParams(window.location.search).get('openSettings')
+      const params = new URLSearchParams(window.location.search)
+      const tab =
+        params.get('settingsTab') ?? consumePendingSettingsTab()
+      if (tab === 'billing') return 'billing'
+      const v = params.get('openSettings')
       if (v === '1' || v === 'true') return 'settings'
       if (v === '0' || v === 'false') return null
     }
@@ -4360,7 +4366,7 @@ export function OverlayPage() {
         <div className="overlay-warning">
           <p>注意: Twitchユーザー情報を取得できません。</p>
           <p>
-            `VITE_TWITCH_USERNAME` を設定するか、オーバーレイの「設定」からテストモードを有効にしてください。
+            <code>.env</code> の <code>VITE_TWITCH_USERNAME</code> を設定するか、オーバーレイの「設定」からテストモードを有効にしてください。
           </p>
         </div>
       )}
@@ -4931,6 +4937,7 @@ export function OverlayPage() {
                       </div>
                     </div>
                   </div>
+                  <TestPanelTwitchEnv />
                   {testPanelSection === 'settings' && config && (
                     <div className="test-settings-panel test-settings-panel--embedded">
                       <div className="test-settings-embedded-toolbar test-settings-embedded-toolbar--compact">

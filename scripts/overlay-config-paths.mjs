@@ -4,6 +4,7 @@
 
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
+import { removeFileWithRetry, sleepMs, stopRunningOverlayExe } from './release-exe-windows.mjs'
 
 const DEV_PATH_RE = /(?:^|[/\\])(src[/\\](?:sounds|images)[/\\].+)$/i
 /** %LOCALAPPDATA%\OBS-Overlay-Kill\data\...（ユーザー名・ドライブ非依存） */
@@ -166,13 +167,6 @@ function tryResolveFromRawString(raw, ctx) {
   return null
 }
 
-function sleepMs(ms) {
-  const end = Date.now() + ms
-  while (Date.now() < end) {
-    /* spin */
-  }
-}
-
 function overlayAssetAlreadyCopied(src, dest) {
   if (!isExistingFile(dest)) return false
   try {
@@ -184,25 +178,74 @@ function overlayAssetAlreadyCopied(src, dest) {
   }
 }
 
+function sleepMsLocal(ms) {
+  sleepMs(ms)
+}
+
+function copyErrorHint(src, dest) {
+  return (
+    `素材コピーに失敗しました: ${dest}\n` +
+    '  ・OBS-Overlay-Kill.exe（黒いコンソール）を終了する\n' +
+    '  ・エクスプローラーで build\\pkg-dist または AppData\\OBS-Overlay-Kill\\data を開いていないか確認\n' +
+    '  ・ウイルス対策のスキャンが終わってから再実行\n' +
+    `  ・元ファイル: ${src}`
+  )
+}
+
+function copyFileViaBuffer(src, dest) {
+  writeFileSync(dest, readFileSync(src))
+}
+
+function pathHasNonAscii(filePath) {
+  return /[^\u0000-\u007f]/.test(filePath)
+}
+
+function isRetriableCopyError(err) {
+  if (!err) return false
+  if (err.code === 'EBUSY' || err.code === 'EPERM' || err.code === 'EACCES') return true
+  // Windows + 日本語名などで copyFileSync が UNKNOWN (-4094) になることがある
+  return process.platform === 'win32' && err.code === 'UNKNOWN'
+}
+
 function copyFileSafe(src, dest) {
   mkdirSync(dirname(dest), { recursive: true })
   if (overlayAssetAlreadyCopied(src, dest)) return
 
-  const maxRetries = process.platform === 'win32' ? 20 : 5
-  const retryDelay = process.platform === 'win32' ? 200 : 50
+  const maxRetries = process.platform === 'win32' ? 25 : 5
+  const retryDelay = process.platform === 'win32' ? 250 : 50
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      copyFileSync(src, dest)
-      return
-    } catch (err) {
-      const retriable =
-        err &&
-        (err.code === 'EBUSY' || err.code === 'EPERM' || err.code === 'EACCES')
-      if (!retriable || attempt >= maxRetries - 1) throw err
-      sleepMs(retryDelay)
-    }
+  const copyAttempts = []
+  if (process.platform === 'win32' && pathHasNonAscii(`${src}${dest}`)) {
+    copyAttempts.push(() => copyFileViaBuffer(src, dest))
+    copyAttempts.push(() => copyFileSync(src, dest))
+  } else {
+    copyAttempts.push(() => copyFileSync(src, dest))
+    copyAttempts.push(() => copyFileViaBuffer(src, dest))
   }
+
+  const tryCopy = (copyFn) => {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (existsSync(dest)) {
+          removeFileWithRetry(dest, { killBeforeRetry: 2 })
+        }
+        copyFn()
+        return true
+      } catch (err) {
+        if (!isRetriableCopyError(err)) return false
+        if (attempt === 2 || attempt === 10) stopRunningOverlayExe()
+        if (attempt >= maxRetries - 1) return false
+        sleepMsLocal(retryDelay)
+      }
+    }
+    return false
+  }
+
+  for (const copyFn of copyAttempts) {
+    if (tryCopy(copyFn)) return
+  }
+
+  throw new Error(copyErrorHint(src, dest))
 }
 
 function countTreeFiles(dir) {

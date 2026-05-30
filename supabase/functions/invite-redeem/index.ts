@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
 
     if (!result.ok) {
       console.warn('[billing] invite redeem', result.log, { userId: user.id })
-      return jsonResponse(req,{ error: 'redeem_failed' }, 403)
+      return jsonResponse(req, { error: result.code }, 403)
     }
 
     return jsonResponse(req,{ ok: true })

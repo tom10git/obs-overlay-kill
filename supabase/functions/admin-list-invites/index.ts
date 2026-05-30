@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     const { data, error } = await admin
       .from('invite_tokens')
       .select(
-        'id, feature_id, allowed_email, allowed_user_id, label, note, expires_at, revoked_at, max_redemptions, redemption_count, redeemed_by, redeemed_at, bind_on_first_redeem, created_at',
+        'id, feature_id, allowed_email_hash, allowed_user_id, label, note, expires_at, revoked_at, max_redemptions, redemption_count, redeemed_by, redeemed_at, bind_on_first_redeem, created_at',
       )
       .order('created_at', { ascending: false })
       .limit(500)
@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const invites = (data ?? []).map((row) => ({
       id: row.id,
       featureId: row.feature_id,
-      allowedEmail: row.allowed_email,
+      emailBound: Boolean(row.allowed_email_hash),
       allowedUserId: row.allowed_user_id,
       label: row.label,
       note: row.note,

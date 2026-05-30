@@ -1,4 +1,5 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { hashInviteEmail } from './email-hash.ts'
 import { grantInviteEntitlements } from './entitlements.ts'
 import type { BillingTarget } from './features.ts'
 
@@ -44,8 +45,6 @@ export async function redeemInviteToken(
     return { ok: false, code: 'USED', log: 'Invite token exhausted' }
   }
 
-  const emailNorm = params.userEmail?.trim().toLowerCase()
-
   if (row.allowed_user_id && row.allowed_user_id !== params.userId) {
     return {
       ok: false,
@@ -54,13 +53,21 @@ export async function redeemInviteToken(
     }
   }
 
-  if (row.allowed_email) {
-    const allowed = row.allowed_email.trim().toLowerCase()
-    if (!emailNorm || emailNorm !== allowed) {
+  // 本人確認は Supabase Auth（JWT の email）のみ。平文メールは DB に無い
+  if (row.allowed_email_hash) {
+    if (!params.userEmail?.trim()) {
       return {
         ok: false,
         code: 'EMAIL_MISMATCH',
-        log: 'Invite email does not match signed-in user',
+        log: 'Signed-in user has no email on JWT',
+      }
+    }
+    const userHash = await hashInviteEmail(params.userEmail)
+    if (userHash !== row.allowed_email_hash) {
+      return {
+        ok: false,
+        code: 'EMAIL_MISMATCH',
+        log: 'Invite email hash does not match signed-in user',
       }
     }
   }

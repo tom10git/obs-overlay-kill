@@ -18,6 +18,20 @@
 
 ---
 
+## 機能解放の流れ（配信者向け）
+
+| 段階 | 内容 |
+|------|------|
+| **① ログイン / アカウント登録** | **ログイン** … 登録済みメールのみ。**新規登録** … メール + ユーザー名 → 届いたリンク |
+| **②-A 月額（Stripe）** | 機能ごと、または **全機能パック** を契約。個別契約中でも **全機能パックへ切り替え** 可能（個別は Stripe 上で自動解約） |
+| **②-B 招待コード** | 管理者から token を受け取り、① と同じメールでログインしたうえで入力。**サブスク不要・無期限** |
+
+- 未解放の PRO 設定は `PremiumGate` でロックされる  
+- 管理者の `billing-invites.json` の **label** は管理用メモのみ（ユーザー名とは別）  
+- `create-invites` は **メールを送らない**（token は手渡し）
+
+---
+
 ## あなたがやること・やらなくていいこと
 
 ### やること（ざっくり 4 つ）
@@ -49,7 +63,10 @@
 3. パソコン上の次のファイルを **上から順に** 開き、中身をすべてコピーして SQL 画面に貼り付け → **Run**  
    - `supabase/migrations/20260321000000_billing.sql`  
    - `supabase/migrations/20260321000001_twitch_credentials.sql`  
-   - `supabase/migrations/20260321000002_invites_perpetual_multi.sql`  
+   - `supabase/migrations/20260321000002_invites_perpetual_multi.sql`
+   - `supabase/migrations/20260330000000_invite_email_hash.sql`
+   - `supabase/migrations/20260330000001_invite_unique_active_email.sql`（同一メールの重複招待を整理・防止）
+   - `supabase/migrations/20260330000002_profiles_display_name.sql`（ユーザー名）  
 4. エラーが出なければ OK（表ができた状態）
 
 ### 配信ソフト用の 2 つの番号をメモ
@@ -80,6 +97,8 @@ http://localhost:5173/overlay
 ```
 
 （exe 配布は **4173**、`npm run dev` は **5173**。本番 URL が決まったらそれも追加）
+
+ログインリンクは **`/overlay` のみ**（クエリなし）に飛びます。`?settingsTab=billing` などは Redirect URLs に登録しないでください（一致しないとリンクが壊れます）。課金タブはログイン後にアプリ側で自動で開きます。
 
 ---
 
@@ -181,10 +200,10 @@ scripts\deploy-billing-functions.bat
 
 ### コードに書く内容（1 人分）
 
-| 項目 | 例 | 説明 |
-|------|-----|------|
-| 機能 | `all` | 全部使える（下の表参照） |
-| メール | `tarou@gmail.com` | **その人が課金タブでログインするメールと同じ** |
+| 項目 | JSON のキー | 例 | 説明 |
+|------|-------------|-----|------|
+| 機能 | **`featureId`** | `all` | 解放する機能（メールではない。下の表参照） |
+| メール | **`allowedEmail`** | `tarou@gmail.com` | **その人が課金タブでログインするメールと同じ** |
 | 無期限 | はい | 期限なし |
 | メモ | `太郎さん` | 自分用メモ（配信者には見えない） |
 
@@ -218,7 +237,8 @@ Invoke-RestMethod -Uri $url -Method Post `
 ```
 
 画面に出てきた **`token`** をコピー → 太郎さんに **チャットや DM でだけ**渡す。  
-もう一度同じコードは見られません（台帳には暗号化して保存）。
+もう一度同じコードは見られません（台帳には暗号化して保存）。  
+**この API は Supabase Auth のメールを送りません**（`allowedEmail` は照合用の DB 登録のみ）。
 
 ### やり方 B：複数人まとめて
 
@@ -272,6 +292,8 @@ scripts\create-invites.bat scripts\billing-invites.json
 
 4. できた `created-invites-日時.json`（プロジェクト直下）を開く → 各人の **token** をそれぞれ渡す
 
+**同じ `allowedEmail` で再実行しても新しい token は作られません**（`skipped` に入るだけ）。初回に出力した `created-invites-*.json` を保管してください。意図的に作り直す場合は、先に `admin-revoke-invite` で古い招待を無効化します。
+
 ### 登録したコードを見る・止める
 
 一覧を見る（コードの文字列そのものは出ません）:
@@ -294,19 +316,26 @@ Invoke-RestMethod -Uri "https://xxxxx.supabase.co/functions/v1/admin-revoke-invi
 ## 配信者側の流れ（あなたが教えること）
 
 ```
-① 配信ソフトの「課金」タブを開く
-② メールアドレスを入れて「リンクを送信」→ メールのリンクでログイン
-③ どちらか:
-   ・月額で使う → Stripe の支払いボタン
-   ・無料招待 → あなたからもらった code（token）を入力して「適用」
-④ 「利用中」になれば PRO 設定が使える
+① 課金タブ → 「ログイン」または「新規登録」→ メールのリンクを開く
+② どちらか:
+   ・月額 → 個別機能 or 全機能パック（個別契約中なら「全機能パックに切り替え」）
+   ・招待 → 管理者からもらった token を入力（サブスク不要・無期限）
+③ 「利用中」になれば PRO 設定が使える
 ```
 
-**注意:** コードをもらったメールと、ログインするメールは **同じ** にしてください。
+**注意:** コードをもらったメールと、ログインするメールは **同じ** にしてください。  
+ログインは **Supabase がメールに送るリンク**で本人確認します（DB からメールを読んでログインする仕組みではありません）。招待に紐づくメールは DB 上はハッシュのみ保存されます。
 
 ---
 
 ## よくある質問
+
+**Q. ログインで `email rate limit exceeded` と出る**  
+A. Supabase 組み込みメールの **送信上限** に達しています（テストで連打するとすぐ起きます）。**30〜60 分待ってから 1 回だけ**「リンクを送信」してください。連打しても届きません。  
+管理者向け: Supabase Dashboard → **Authentication** → **Rate Limits**（プランにより変更可）。本番運用では **Custom SMTP**（Resend / SendGrid 等）の設定を推奨。診断: `node scripts/test-otp.mjs`（`.env` 設定後）。
+
+**Q. create-invites を実行すると Supabase から招待メールが届く？**  
+A. **いいえ。** `admin-create-invites` は `invite_tokens` 表に行を追加するだけです。Auth のメールが届くのは、配信者がアプリの課金タブで **「リンクを送信」**（マジックリンク）を押したときだけです。`create-invites` の再実行で既存ユーザーにメールが飛ぶ処理はありません（重複登録もスキップされます）。
 
 **Q. 表に自分でデータを入れる？**  
 A. 基本いいえ。招待コードだけ「発行ツール」で登録。あとは自動です。

@@ -11,6 +11,7 @@ import {
   OVERLAY_EXE_NEW_NAME,
   OVERLAY_EXE_OLD_NAME,
   stopRunningOverlayExe,
+  sleepMs,
 } from './release-exe-windows.mjs'
 import {
   copyOverlayBundledAssets,
@@ -117,6 +118,10 @@ const configSource = loadBundledConfigSource(userDataDir)
 
 if (userDataDir && existsSync(userDataDir)) {
   console.log(`2b) AppData / 設定参照から素材を同梱: ${userDataDir}`)
+  if (process.platform === 'win32') {
+    stopRunningOverlayExe()
+    sleepMs(400)
+  }
 } else if (process.platform === 'win32') {
   console.warn(
     '   ! %LOCALAPPDATA%\\OBS-Overlay-Kill\\data が見つかりません。public/config とリポジトリ src/ から同梱します。',

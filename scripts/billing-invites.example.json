@@ -1,4 +1,5 @@
 {
+  "_comment": "featureId=解放する機能(all等)。メールは allowedEmail に書く（featureId ではない）",
   "invites": [
     {
       "featureId": "all",

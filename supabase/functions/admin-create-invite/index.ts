@@ -64,7 +64,11 @@ Deno.serve(async (req) => {
       return jsonResponse(req,{ error: result.error }, 500)
     }
 
-    return jsonResponse(req,result)
+    if ('skipped' in result) {
+      return jsonResponse(req, result)
+    }
+
+    return jsonResponse(req, result)
   } catch (e) {
     console.error('[billing] admin-create-invite', e)
     return jsonResponse(req,{ error: 'internal' }, 500)

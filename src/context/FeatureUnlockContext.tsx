@@ -20,6 +20,7 @@ import {
   startStripeCheckout,
   type BillingTarget,
   type EntitlementsResponse,
+  type InviteRedeemError,
 } from '../lib/billingApi'
 import { useAuth } from './AuthContext'
 import { billingLog } from '../utils/billingLog'
@@ -43,6 +44,7 @@ type FeatureUnlockContextValue = {
   startCheckout: (target: BillingTarget) => Promise<{ ok: boolean; message: string }>
   openBillingPortal: () => Promise<{ ok: boolean; message: string }>
   canOfferBundleSubscription: boolean
+  canUpgradeToBundleSubscription: boolean
   canOfferIndividualSubscription: (id: PremiumFeatureId) => boolean
   hasActiveStripeSubscription: (id: PremiumFeatureId) => boolean
 }
@@ -72,7 +74,7 @@ function applyEntitlements(data: EntitlementsResponse): FeatureUnlockView {
 }
 
 export function FeatureUnlockProvider({ children }: { children: ReactNode }) {
-  const { session, configured: authConfigured } = useAuth()
+  const { session, configured: authConfigured, registrationComplete } = useAuth()
   const billingConfigured = authConfigured
   const devAll = isDevUnlockAllEnabled()
 
@@ -139,26 +141,56 @@ export function FeatureUnlockProvider({ children }: { children: ReactNode }) {
     [devAll, state.allUnlocked, state.features],
   )
 
+  const inviteRedeemMessage = (error?: InviteRedeemError): string => {
+    switch (error) {
+      case 'EMAIL_MISMATCH':
+        return 'ログイン中のメールが、この招待コードに紐づいたメールと一致しません。マジックリンクでログインしたメールと、管理者が登録した allowedEmail を同じにしてください。'
+      case 'INVALID':
+        return '招待コードが見つかりません。created-invites-*.json の token をそのまま貼ってください（メールアドレスではありません）。'
+      case 'USED':
+      case 'ALREADY_REDEEMED':
+        return 'この招待コードは既に使用済みです。'
+      case 'REVOKED':
+        return 'この招待コードは無効化されています。'
+      case 'EXPIRED':
+        return 'この招待コードは期限切れです。'
+      default:
+        return 'コードを適用できませんでした。'
+    }
+  }
+
   const redeemInvite = useCallback(
     async (token: string) => {
       if (!session) {
-        return { ok: false, message: 'ログインしてください。' }
+        return { ok: false, message: '先にアカウント登録（メール・ユーザー名）を完了してください。' }
       }
-      const ok = await redeemInviteToken(session, token)
-      if (!ok) {
-        billingLog('warn', 'Invite redeem rejected')
-        return { ok: false, message: 'コードを適用できませんでした。' }
+      if (!registrationComplete) {
+        return {
+          ok: false,
+          message: 'ユーザー名の登録が未完了です。上の「ユーザー名を保存」を押してください。',
+        }
+      }
+      const result = await redeemInviteToken(session, token)
+      if (!result.ok) {
+        billingLog('warn', 'Invite redeem rejected', result.error)
+        return { ok: false, message: inviteRedeemMessage(result.error) }
       }
       await refreshEntitlements()
       return { ok: true, message: '反映しました。' }
     },
-    [session, refreshEntitlements],
+    [session, registrationComplete, refreshEntitlements],
   )
 
   const startCheckout = useCallback(
     async (target: BillingTarget) => {
       if (!session) {
-        return { ok: false, message: 'ログインしてください。' }
+        return { ok: false, message: '先にアカウント登録（メール・ユーザー名）を完了してください。' }
+      }
+      if (!registrationComplete) {
+        return {
+          ok: false,
+          message: 'ユーザー名の登録が未完了です。上の「ユーザー名を保存」を押してください。',
+        }
       }
       const result = await startStripeCheckout(session, target)
       if (result.alreadySubscribed) {
@@ -174,20 +206,23 @@ export function FeatureUnlockProvider({ children }: { children: ReactNode }) {
       }
       return { ok: true, message: '' }
     },
-    [session, refreshEntitlements],
+    [session, registrationComplete, refreshEntitlements],
   )
 
-  const openBillingPortal = useCallback(async () => {
-    if (!session) {
-      return { ok: false, message: 'ログインしてください。' }
-    }
-    const ok = await openStripePortal(session)
-    if (!ok) {
-      billingLog('warn', 'Stripe portal open failed')
-      return { ok: false, message: '契約管理を開けませんでした。' }
-    }
-    return { ok: true, message: '' }
-  }, [session])
+  const openBillingPortal = useCallback(
+    async () => {
+      if (!session) {
+        return { ok: false, message: 'ログインしてください。' }
+      }
+      const ok = await openStripePortal(session)
+      if (!ok) {
+        billingLog('warn', 'Stripe portal open failed')
+        return { ok: false, message: '契約管理を開けませんでした。' }
+      }
+      return { ok: true, message: '' }
+    },
+    [session],
+  )
 
   const hasStripeFor = useCallback(
     (id: PremiumFeatureId) =>
@@ -198,9 +233,17 @@ export function FeatureUnlockProvider({ children }: { children: ReactNode }) {
 
   const canOfferBundle =
     !state.allUnlocked &&
-    !state.hasIndividualStripe &&
     !state.hasBundleStripe &&
-    Boolean(session)
+    !state.hasIndividualStripe &&
+    Boolean(session) &&
+    registrationComplete
+
+  const canUpgradeToBundle =
+    !state.allUnlocked &&
+    !state.hasBundleStripe &&
+    state.hasIndividualStripe &&
+    Boolean(session) &&
+    registrationComplete
 
   const canOfferIndividual = useCallback(
     (id: PremiumFeatureId) =>
@@ -208,8 +251,9 @@ export function FeatureUnlockProvider({ children }: { children: ReactNode }) {
       !state.hasBundleStripe &&
       !isUnlocked(id) &&
       !hasStripeFor(id) &&
-      Boolean(session),
-    [state.allUnlocked, state.hasBundleStripe, isUnlocked, hasStripeFor, session],
+      Boolean(session) &&
+      registrationComplete,
+    [state.allUnlocked, state.hasBundleStripe, isUnlocked, hasStripeFor, session, registrationComplete],
   )
 
   const value = useMemo(
@@ -222,6 +266,7 @@ export function FeatureUnlockProvider({ children }: { children: ReactNode }) {
       startCheckout,
       openBillingPortal,
       canOfferBundleSubscription: canOfferBundle,
+      canUpgradeToBundleSubscription: canUpgradeToBundle,
       canOfferIndividualSubscription: canOfferIndividual,
       hasActiveStripeSubscription: hasStripeFor,
     }),
@@ -234,6 +279,7 @@ export function FeatureUnlockProvider({ children }: { children: ReactNode }) {
       startCheckout,
       openBillingPortal,
       canOfferBundle,
+      canUpgradeToBundle,
       canOfferIndividual,
       hasStripeFor,
     ],

@@ -43,6 +43,7 @@ import {
   uploadImageToLocalData,
   uploadSoundToLocalData,
 } from "../../utils/overlayLocalAssets";
+import { consumePendingSettingsTab } from "../../utils/pendingSettingsTab";
 import "./OverlaySettings.css";
 
 type SettingsTabId =
@@ -395,7 +396,9 @@ export const OverlaySettings = forwardRef<
 
   useEffect(() => {
     if (!embedded || typeof window === "undefined") return;
-    const t = new URLSearchParams(window.location.search).get("settingsTab");
+    const t =
+      new URLSearchParams(window.location.search).get("settingsTab") ??
+      consumePendingSettingsTab();
     if (
       t === "user" ||
       t === "streamer" ||

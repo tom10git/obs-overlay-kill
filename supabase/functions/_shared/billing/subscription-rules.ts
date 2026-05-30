@@ -62,10 +62,7 @@ export async function canStartStripeCheckout(
   }
 
   if (target === 'all' && active.hasIndividual) {
-    return {
-      allowed: false,
-      log: `Bundle blocked: user has individual subs (${[...active.featureIds].join(',')})`,
-    }
+    return { allowed: true }
   }
 
   if (target !== 'all' && active.hasBundle) {

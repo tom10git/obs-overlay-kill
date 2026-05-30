@@ -18,7 +18,9 @@
 
 - 各配信者は **別の Supabase アカウント**（メール）でログインする
 - 課金・PRO 解放・Stripe 契約はすべて `user_id` 単位で DB に保存（RLS で他人のデータは読めない）
-- 無期限の招待コードは **1 人 1 コード** を `invite_tokens` に登録（`allowed_email` 必須推奨）
+- 無期限の招待コードは **1 人 1 コード** を `invite_tokens` に登録（`allowedEmail` 必須推奨）
+- **メールの本人確認**は Supabase Auth のマジックリンクのみ（メール所有の証明）。第三者は `invite_tokens` を RLS で読めず、平文メールも DB に保存しない（`allowed_email_hash` のみ）
+- 招待コード適用時のメール照合は **`invite-redeem` Edge Function** が JWT の `email` とハッシュを比較（クライアントや anon キーから DB を読んで認証することはできない）
 
 ## いまの推奨構成
 

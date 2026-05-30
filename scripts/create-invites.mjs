@@ -7,6 +7,9 @@
  *   scripts\create-invites.bat
  *
  * 出力: created-invites-<timestamp>.json（平文トークンはこのファイルのみ）
+ *
+ * ※ Supabase Auth からのメール送信は行いません（invite_tokens への DB 登録のみ）。
+ *    ユーザーへの通知は token を手渡し。ログイン用メールは配信者が課金タブで「リンクを送信」したときのみ。
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -107,8 +110,20 @@ async function main() {
 
   const out = resolve(process.cwd(), `created-invites-${Date.now()}.json`)
   writeFileSync(out, JSON.stringify(data, null, 2), 'utf8')
-  console.log(`OK: ${data.created?.length ?? 0} created, ${data.errors?.length ?? 0} errors`)
+  const skipped = data.skipped?.length ?? 0
+  console.log(
+    `OK: ${data.created?.length ?? 0} created, ${skipped} skipped (既存), ${data.errors?.length ?? 0} errors`,
+  )
+  if (skipped > 0) {
+    for (const row of data.skipped ?? []) {
+      const email = row.allowedEmail ?? '(no email)'
+      const reason = row.reason === 'duplicate_in_batch' ? 'JSON内の重複' : 'DBに既存'
+      console.log(`  skip [${reason}] ${email} id=${row.id || '—'}`)
+    }
+    console.log('  既存ユーザーの token は再発行されません。初回の created-invites-*.json を保管してください。')
+  }
   console.log(`Tokens saved to ${out} (keep private)`)
+  console.log('（create-invites は Supabase からメールを送りません。token は DM 等で手渡ししてください）')
   return 0
 }
 

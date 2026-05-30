@@ -95,11 +95,42 @@ export async function openStripePortal(
   return { ok: true }
 }
 
+export type InviteRedeemError =
+  | 'INVALID'
+  | 'REVOKED'
+  | 'EXPIRED'
+  | 'USED'
+  | 'EMAIL_MISMATCH'
+  | 'USER_MISMATCH'
+  | 'ALREADY_REDEEMED'
+  | 'DB'
+  | 'unauthorized'
+  | 'invalid_token'
+  | 'unknown'
+
 export async function redeemInviteToken(
   session: Session | null,
   token: string,
-): Promise<{ ok: boolean }> {
-  if (!session) return { ok: false }
-  const result = await invokeBillingFunction('invite-redeem', session, { token })
-  return { ok: result.ok }
+): Promise<{ ok: boolean; error?: InviteRedeemError }> {
+  if (!session) return { ok: false, error: 'unauthorized' }
+  const result = await invokeBillingFunction<{ error?: string }>('invite-redeem', session, {
+    token,
+  })
+  if (result.ok) return { ok: true }
+  const code = result.data?.error
+  const known: InviteRedeemError[] = [
+    'INVALID',
+    'REVOKED',
+    'EXPIRED',
+    'USED',
+    'EMAIL_MISMATCH',
+    'USER_MISMATCH',
+    'ALREADY_REDEEMED',
+    'DB',
+    'invalid_token',
+  ]
+  if (code && known.includes(code as InviteRedeemError)) {
+    return { ok: false, error: code as InviteRedeemError }
+  }
+  return { ok: false, error: 'unknown' }
 }

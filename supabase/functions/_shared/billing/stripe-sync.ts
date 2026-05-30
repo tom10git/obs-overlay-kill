@@ -1,7 +1,8 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import type Stripe from 'npm:stripe@17.7.0'
+import { PREMIUM_FEATURE_IDS, isBillingTarget } from './features.ts'
 import { syncEntitlementsFromSubscription } from './entitlements.ts'
-import { isBillingTarget } from './features.ts'
+import { getStripe } from '../stripe.ts'
 
 const ACTIVE = new Set(['active', 'trialing', 'past_due'])
 
@@ -17,6 +18,32 @@ function featureIdFromPriceId(priceId: string): string | null {
     if (pid && pid === priceId) return fid
   }
   return null
+}
+
+/** 全機能パック開始時: 個別サブスクリプションを Stripe 上で解約 */
+async function cancelIndividualSubscriptionsOnBundleUpgrade(
+  admin: SupabaseClient,
+  userId: string,
+  keepSubscriptionId: string,
+): Promise<void> {
+  const { data: subs } = await admin
+    .from('stripe_subscriptions')
+    .select('stripe_subscription_id, feature_id, status')
+    .eq('user_id', userId)
+    .in('status', [...ACTIVE])
+
+  const stripe = getStripe()
+  for (const row of subs ?? []) {
+    if (row.stripe_subscription_id === keepSubscriptionId) continue
+    if (row.feature_id === 'all') continue
+    if (!(PREMIUM_FEATURE_IDS as readonly string[]).includes(row.feature_id)) continue
+    try {
+      await stripe.subscriptions.cancel(row.stripe_subscription_id)
+      console.log('[billing] canceled individual sub on bundle upgrade', row.stripe_subscription_id)
+    } catch (e) {
+      console.error('[billing] cancel individual sub failed', row.stripe_subscription_id, e)
+    }
+  }
 }
 
 export async function upsertSubscriptionFromStripe(
@@ -59,6 +86,14 @@ export async function upsertSubscriptionFromStripe(
     active,
     expiresAt: active ? periodEnd : new Date().toISOString(),
   })
+
+  if (active && featureId === 'all') {
+    await cancelIndividualSubscriptionsOnBundleUpgrade(
+      admin,
+      userId,
+      subscription.id,
+    )
+  }
 
   return { ok: true }
 }
