@@ -75,8 +75,6 @@ import type { TwitchChatMessage } from '../types/twitch'
 import { DEFAULT_GAUGE_SHAPE, getDefaultConfig, saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
 import { TestPanelTwitchEnv } from '../components/test/TestPanelTwitchEnv'
 import { OverlaySettings, type OverlaySettingsHandle } from '../components/settings/OverlaySettings'
-import { FeatureUnlockPanel } from '../components/settings/FeatureUnlockPanel'
-import { useFeatureUnlock } from '../context/FeatureUnlockContext'
 import { twitchApi } from '../utils/twitchApi'
 import type { OverlayConfig, AttackConfig, AttackDebuffKind } from '../types/overlay'
 import type { ChannelPointEvent } from '../types/overlay'
@@ -85,7 +83,6 @@ import { glowTextStyleFromHex } from '../utils/glowTextStyle'
 import { pickBleedVariantParams } from '../utils/pickBleedVariantParams'
 import { playDotDebuffTickSound } from '../utils/playDotDebuffTickSound'
 import { obsGlowSource, obsMoveSource, obsShakeSource } from '../utils/obsWebSocketEffects'
-import { consumePendingSettingsTab } from '../utils/pendingSettingsTab'
 import './OverlayPage.css'
 
 /** テストパネル既定の上端（.test-drawer-toggle: top 16px + 高さ 46px + 下余白 12px） */
@@ -454,13 +451,12 @@ export function OverlayPage() {
     import.meta.env.DEV ||
     import.meta.env.PROD ||
     import.meta.env.VITE_OVERLAY_EMBEDDED_SETTINGS_IN_PROD === 'true'
-  type TestPanelSection = null | 'settings' | 'billing'
+  type TestPanelSection = null | 'settings'
   const [testPanelSection, setTestPanelSection] = useState<TestPanelSection>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
-      const tab =
-        params.get('settingsTab') ?? consumePendingSettingsTab()
-      if (tab === 'billing') return 'billing'
+      const tab = params.get('settingsTab')
+      if (tab === 'account') return 'settings'
       const v = params.get('openSettings')
       if (v === '1' || v === 'true') return 'settings'
       if (v === '0' || v === 'false') return null
@@ -906,9 +902,7 @@ export function OverlayPage() {
     },
   })
 
-  const { isUnlocked } = useFeatureUnlock()
-  const pvpRuntimeEnabled =
-    Boolean(config?.pvp?.enabled) && isUnlocked('viewerSettings')
+  const pvpRuntimeEnabled = Boolean(config?.pvp?.enabled)
   const {
     dialogueVisible: sicknessDialogueVisible,
     registerHealStreak,
@@ -4924,16 +4918,6 @@ export function OverlayPage() {
                         >
                           設定
                         </button>
-                        <button
-                          type="button"
-                          className={`test-panel-segment test-panel-segment--billing${testPanelSection === 'billing' ? ' test-panel-segment--on' : ''}`}
-                          onClick={() =>
-                            setTestPanelSection((s) => (s === 'billing' ? null : 'billing'))
-                          }
-                          title="PRO機能の解放（Stripe・招待コード）"
-                        >
-                          課金
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -4954,11 +4938,6 @@ export function OverlayPage() {
                         config={config}
                         onConfigChange={replaceConfig}
                       />
-                    </div>
-                  )}
-                  {testPanelSection === 'billing' && (
-                    <div className="test-settings-panel test-settings-panel--embedded test-settings-panel--billing">
-                      <FeatureUnlockPanel />
                     </div>
                   )}
                   {testPanelSection === null && (

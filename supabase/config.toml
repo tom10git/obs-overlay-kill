@@ -1,32 +1,5 @@
 # Supabase local / deploy config (CLI)
 # https://supabase.com/docs/guides/functions
 
-[functions.stripe-checkout]
-verify_jwt = true
-
-[functions.stripe-portal]
-verify_jwt = true
-
-[functions.stripe-confirm-checkout]
-verify_jwt = true
-
-[functions.invite-redeem]
-verify_jwt = true
-
-[functions.admin-create-invite]
-verify_jwt = false
-
-[functions.admin-create-invites]
-verify_jwt = false
-
-[functions.admin-list-invites]
-verify_jwt = false
-
-[functions.admin-revoke-invite]
-verify_jwt = false
-
-[functions.stripe-webhook]
-verify_jwt = false
-
 [functions.twitch-oauth]
 verify_jwt = true

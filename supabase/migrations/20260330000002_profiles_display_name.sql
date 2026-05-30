@@ -1,6 +1,6 @@
--- 配信者が課金タブで入力する表示名（管理者の招待 label とは別）
+-- profiles.display_name（将来の Supabase Auth 連携用・現行 UI では未使用）
 
 alter table public.profiles
   add column if not exists display_name text;
 
-comment on column public.profiles.display_name is 'ユーザー登録時に入力。課金・招待コード適用の前提';
+comment on column public.profiles.display_name is 'ユーザー登録時に入力（表示名）';

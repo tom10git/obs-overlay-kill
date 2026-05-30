@@ -80,7 +80,7 @@ class AuthConfigManager {
 
     if (serverOAuth && tokenAppSecret) {
       logger.warn(
-        '⚠️ Twitch Client Secret が .env (VITE_) にあります。配布ビルドでは漏洩します。Supabase secrets + 課金タブログイン後の OAuth を推奨します（docs/SECURITY.md）',
+        '⚠️ Twitch Client Secret が .env (VITE_) にあります。配布ビルドでは漏洩します。ローカル開発専用にしてください（docs/SECURITY.md）',
       )
     }
 

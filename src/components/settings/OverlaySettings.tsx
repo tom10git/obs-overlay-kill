@@ -34,16 +34,12 @@ import type {
 } from "../../types/overlay";
 import { COMBO_TECHNIQUE_PREFIX } from "../../constants/comboTechnique";
 import { OverlaySettingsSoundTab } from "./OverlaySettingsSoundTab";
-import { FeatureUnlockPanel } from "./FeatureUnlockPanel";
-import { PremiumGate } from "./PremiumGate";
-import { PremiumLabel } from "../ui/PremiumLabel";
 import { SettingsHint } from "../ui/SettingsHint";
 import {
   shouldUseLocalDataApi,
   uploadImageToLocalData,
   uploadSoundToLocalData,
 } from "../../utils/overlayLocalAssets";
-import { consumePendingSettingsTab } from "../../utils/pendingSettingsTab";
 import "./OverlaySettings.css";
 
 type SettingsTabId =
@@ -51,8 +47,7 @@ type SettingsTabId =
   | "user"
   | "autoReply"
   | "probabilities"
-  | "sounds"
-  | "billing";
+  | "sounds";
 
 const GAUGE_SHAPE_FIELD_META: {
   shapeKey: keyof GaugeShapeConfig;
@@ -171,8 +166,7 @@ export const OverlaySettings = forwardRef<
       env === "autoReply" ||
       env === "streamer" ||
       env === "sounds" ||
-      env === "probabilities" ||
-      env === "billing"
+      env === "probabilities"
     )
       return env;
     return "streamer";
@@ -396,16 +390,13 @@ export const OverlaySettings = forwardRef<
 
   useEffect(() => {
     if (!embedded || typeof window === "undefined") return;
-    const t =
-      new URLSearchParams(window.location.search).get("settingsTab") ??
-      consumePendingSettingsTab();
+    const t = new URLSearchParams(window.location.search).get("settingsTab");
     if (
       t === "user" ||
       t === "streamer" ||
       t === "autoReply" ||
       t === "sounds" ||
-      t === "probabilities" ||
-      t === "billing"
+      t === "probabilities"
     ) {
       setActiveTab(t as SettingsTabId);
     }
@@ -610,7 +601,7 @@ export const OverlaySettings = forwardRef<
           <p className="overlay-settings-desc">
             <SettingsHint
               label="この画面で設定を完結"
-              tip="JSONを直接編集せず、タブごとに項目を変更し「保存」で反映できます。PRO項目は課金タブから解放してください。"
+              tip="JSONを直接編集せず、タブごとに項目を変更し「保存」で反映できます。"
             />
           </p>
         </header>
@@ -637,25 +628,25 @@ export const OverlaySettings = forwardRef<
           type="button"
           className={`settings-tab ${activeTab === "user" ? "settings-tab-active" : ""}`}
           onClick={() => setActiveTab("user")}
-          title={embedded ? "視聴者対人・PvP（PRO）" : undefined}
+          title={embedded ? "視聴者対人・PvP" : undefined}
         >
-          {embedded ? "対人" : "対人（PRO）"}
+          {embedded ? "対人" : "対人"}
         </button>
         <button
           type="button"
           className={`settings-tab ${activeTab === "autoReply" ? "settings-tab-active" : ""}`}
           onClick={() => setActiveTab("autoReply")}
-          title={embedded ? "チャット自動返信（PRO）" : undefined}
+          title={embedded ? "チャット自動返信" : undefined}
         >
-          {embedded ? "返信" : "返信（PRO）"}
+          {embedded ? "返信" : "返信"}
         </button>
         <button
           type="button"
           className={`settings-tab ${activeTab === "probabilities" ? "settings-tab-active" : ""}`}
           onClick={() => setActiveTab("probabilities")}
-          title={embedded ? "確率・抽選（PRO）" : undefined}
+          title={embedded ? "確率・抽選" : undefined}
         >
-          {embedded ? "確率" : "確率（PRO）"}
+          {embedded ? "確率" : "確率"}
         </button>
         <button
           type="button"
@@ -664,16 +655,7 @@ export const OverlaySettings = forwardRef<
           title={embedded ? "効果音（SE）一覧" : "効果音・SEのまとめ"}
         >
           {embedded ? "音" : "効果音"}
-        </button>
-        <button
-          type="button"
-          className={`settings-tab settings-tab--billing ${activeTab === "billing" ? "settings-tab-active" : ""}`}
-          onClick={() => setActiveTab("billing")}
-          title="サブスク・招待コード"
-        >
-          {embedded ? "課金" : "課金・解放"}
-        </button>
-      </div>
+        </button>      </div>
 
       {activeTab === "streamer" && (
         <div className="settings-tab-panel">
@@ -687,13 +669,13 @@ export const OverlaySettings = forwardRef<
               </span>
               <SettingsHint
                 label="配信者HP・ゲージ"
-                tip="最大HP・本数・位置・ルーレット見た目。位置の数値はPRO「表示位置」機能です。"
+                tip="最大HP・本数・位置・ルーレット見た目。位置の数値は「表示位置」です。"
               />
             </h3>
             {expandedSections.hp && (
               <div className="settings-section-content">
                 <p className="settings-section-intro settings-section-intro--compact">
-                  HPの数値・本数はここ。攻撃ダメージは「攻撃」、リワードは「攻撃」内のPRO欄です。
+                  HPの数値・本数はここ。攻撃ダメージは「攻撃」、リワードは「攻撃」内の詳細欄です。
                 </p>
                 <h4 className="settings-subsection-title">HPの数値・ゲージ本数</h4>
                 <div className="settings-row">
@@ -829,9 +811,8 @@ export const OverlaySettings = forwardRef<
                     />
                   </label>
                 </div>
-                <PremiumGate featureId="layoutFine" title="ゲージの位置・サイズ">
-                <h4 className="settings-subsection-title">
-                  <PremiumLabel>ゲージの位置（画面中央基準）</PremiumLabel>
+                                <h4 className="settings-subsection-title">
+                  ゲージの位置（画面中央基準）
                 </h4>
                 <div className="settings-row">
                   <label>
@@ -1016,8 +997,7 @@ export const OverlaySettings = forwardRef<
                 <p className="settings-hint settings-hint--compact">
                   ゲージ枠の横幅・縦幅（合わせ技・ルーレットも追随）。
                 </p>
-                </PremiumGate>
-                <h4 className="settings-subsection-title">追加攻撃ルーレット（見た目・ゲージ周り）</h4>
+                                <h4 className="settings-subsection-title">追加攻撃ルーレット（見た目・ゲージ周り）</h4>
                 <p className="settings-hint" style={{ marginTop: 0 }}>
                   ルーレットの<strong>抽選（表示確率・成功確率）</strong>は<strong>「確率・抽選」</strong>タブの「追加攻撃ルーレット（オーバーレイからの攻撃のみ）」です。
                 </p>
@@ -1125,8 +1105,7 @@ export const OverlaySettings = forwardRef<
                 <p className="settings-hint settings-hint--compact">
                   スピン中パネル全体のスケール（成功後の帯上技名とは別）。
                 </p>
-                <PremiumGate featureId="layoutFine" title="ルーレット表示位置">
-                <div className="settings-row">
+                                <div className="settings-row">
                   <label>
                     ルーレット表示位置 X（px）:
                     <input
@@ -1219,8 +1198,7 @@ export const OverlaySettings = forwardRef<
                 <p className="settings-hint settings-hint--compact">
                   ゲージ位置に追従したうえでのずらし（右・下が正）。
                 </p>
-                </PremiumGate>
-              </div>
+                              </div>
             )}
           </div>
 
@@ -1297,7 +1275,7 @@ export const OverlaySettings = forwardRef<
                   カスタムリワード連携（無料）
                 </h4>
                 <p className="settings-hint settings-hint--compact">
-                  Twitchのカスタムリワード（チャンネルポイント）設定です。課金対象外です。視聴者向けリワードはPvP
+                  Twitchのカスタムリワード（チャンネルポイント）設定です。視聴者向けリワードはPvP
                   ON時、下の欄または「対人」タブからも編集できます。
                 </p>
                 <div className="settings-row">
@@ -6721,8 +6699,7 @@ export const OverlaySettings = forwardRef<
 
       {activeTab === "user" && (
         <div className="settings-tab-panel">
-          <PremiumGate featureId="viewerSettings">
-          <div className="settings-section">
+                    <div className="settings-section">
             <h3
               className="settings-section-header"
               onClick={() => toggleSection("pvp")}
@@ -6730,7 +6707,7 @@ export const OverlaySettings = forwardRef<
               <span className="accordion-icon">
                 {expandedSections.pvp ? "▼" : "▶"}
               </span>
-              <PremiumLabel>PvP・視聴者対人</PremiumLabel>
+              PvP・視聴者対人
             </h3>
             {expandedSections.pvp && (
               <div className="settings-section-content">
@@ -8663,20 +8640,11 @@ export const OverlaySettings = forwardRef<
               </div>
             )}
           </div>
-          </PremiumGate>
-        </div>
+                  </div>
       )}
-
-      {activeTab === "billing" && (
-        <div className="settings-tab-panel settings-tab-panel--billing">
-          <FeatureUnlockPanel />
-        </div>
-      )}
-
       {activeTab === "autoReply" && (
         <div className="settings-tab-panel">
-          <PremiumGate featureId="autoReply">
-          <div className="settings-tabs settings-tabs--sub">
+                    <div className="settings-tabs settings-tabs--sub">
             <button
               type="button"
               className={`settings-tab ${autoReplySubTab === "streamer" ? "settings-tab-active" : ""}`}
@@ -8999,16 +8967,14 @@ export const OverlaySettings = forwardRef<
               </div>
             </div>
           )}
-          </PremiumGate>
-        </div>
+                  </div>
       )}
 
       {activeTab === "probabilities" && (
         <div className="settings-tab-panel">
-          <PremiumGate featureId="probabilities">
-          <div className="settings-section">
+                    <div className="settings-section">
             <h3>
-              <PremiumLabel>確率・抽選</PremiumLabel>
+              確率・抽選
             </h3>
             <p className="settings-section-intro">
               技名・テスト用ルーレットに加え、<strong>リワード／チャット攻撃</strong>のミス・クリティカル・出血・食いしばり、
@@ -9868,8 +9834,7 @@ export const OverlaySettings = forwardRef<
               </button>
             </div>
           </div>
-          </PremiumGate>
-        </div>
+                  </div>
       )}
 
       {activeTab === "sounds" && (

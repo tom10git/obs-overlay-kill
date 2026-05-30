@@ -45,7 +45,7 @@ function tokenRuntimeNote(
   effectiveValue: string | undefined,
 ): string | undefined {
   if (storageValue) {
-    return '実行時: 課金タブ OAuth（localStorage）'
+    return '実行時: OAuth（localStorage）'
   }
   if (envValue && effectiveValue === envValue) {
     return '実行時: .env'

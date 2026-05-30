@@ -7,9 +7,8 @@ React + TypeScript + Vite で構築されたプロジェクトです。Twitch AP
 ## まずどれを読めばいい？
 
 - **一般ユーザー（配布 exe を使うだけ）**: [`docs/README-USER.md`](docs/README-USER.md)
-- **開発者（clone / 開発 / ビルド / 課金基盤）**: [`docs/README-DEVELOPERS.md`](docs/README-DEVELOPERS.md)
+- **開発者（clone / 開発 / ビルド）**: [`docs/README-DEVELOPERS.md`](docs/README-DEVELOPERS.md)
 - **配布物に同梱するテキスト版**: [`docs/README-配布.txt`](docs/README-配布.txt)
-- **課金（Supabase/Stripe）**: [`docs/BILLING.md`](docs/BILLING.md)
 - **秘密情報・運用**: [`docs/SECURITY.md`](docs/SECURITY.md)
 
 > ルートの `README.md` は “入口” に寄せ、詳細手順は上記へ分割しています。
@@ -48,5 +47,4 @@ React + TypeScript + Vite で構築されたプロジェクトです。Twitch AP
 
 - 一般ユーザー: [`docs/README-USER.md`](docs/README-USER.md)
 - 開発者: [`docs/README-DEVELOPERS.md`](docs/README-DEVELOPERS.md)
-- 課金: [`docs/BILLING.md`](docs/BILLING.md)
 - セキュリティ: [`docs/SECURITY.md`](docs/SECURITY.md)

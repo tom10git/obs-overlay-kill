@@ -143,7 +143,7 @@ export function useChannelPointCustomRewardRedemptions(options: UseChannelPointC
         logger.error(
           '[channel-points] OAuth ユーザーアクセストークンを検証できませんでした。' +
             ' /overlay だけがユーザートークンを使います。' +
-            ` 今開いている ${typeof window !== 'undefined' ? window.location.origin : ''} の課金タブで Supabase ログインと Twitch OAuth を行ってください（4173 の exe と 5173 の dev は別）。`,
+            ` 今開いている ${typeof window !== 'undefined' ? window.location.origin : ''} の .env にトークンを設定してください（4173 の exe と 5173 の dev は別）。`,
         )
       } else {
         if (info.userId !== broadcasterId) {

@@ -45,7 +45,7 @@ export function OAuthCallbackPage() {
         if (!session) {
           setStatus('error')
           setErrorMessage(
-            '先にオーバーレイの「課金」タブで Supabase にログインしてから、Twitch 認証をやり直してください。',
+            'Supabase セッションがありません。OAuth は .env 方式（get-oauth-token.bat）を使うか、Supabase Auth で別途ログインが必要です。',
           )
           return
         }
@@ -69,7 +69,7 @@ export function OAuthCallbackPage() {
 
       setStatus('error')
       setErrorMessage(
-        `Supabase が未設定です。${TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT} / 課金タブのログイン、または docs/SECURITY.md のレガシー手順を確認してください。` +
+        `Supabase が未設定です。${TWITCH_TOKEN_APP_CLIENT_ID_ENV_HINT} / docs/SECURITY.md の .env 手順（get-oauth-token.bat 等）を確認してください。` +
           `（レガシーでは ${TWITCH_TOKEN_APP_CLIENT_SECRET_ENV_HINT} が必要です）`,
       )
     }

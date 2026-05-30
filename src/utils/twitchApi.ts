@@ -270,11 +270,10 @@ class TwitchApiClient {
   }
 
   private overlayAuthHint(): string {
-    const origin =
-      typeof window !== 'undefined' ? window.location.origin : 'http://localhost:4173'
     return (
-      `「${origin}/overlay」の課金タブで Supabase にログインし、同じ URL（${origin}）で Twitch OAuth を完了してください。` +
-      ' exe (:4173) と npm run dev (:5173) はログイン・トークンが別です。'
+      '.env に VITE_TWITCH_ACCESS_TOKEN と VITE_TWITCH_REFRESH_TOKEN を設定するか、' +
+      'scripts/get-oauth-token.bat で取得してください（docs/SECURITY.md）。' +
+      ' exe (:4173) と npm run dev (:5173) は別トークンです。'
     )
   }
 
@@ -322,7 +321,13 @@ class TwitchApiClient {
    */
   private async refreshUserAccessToken(): Promise<string> {
     if (isSupabaseConfigured()) {
-      return this.refreshUserAccessTokenViaSupabase()
+      const supabase = getSupabaseClient()
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          return this.refreshUserAccessTokenViaSupabase()
+        }
+      }
     }
 
     let refreshToken = getTwitchRefreshToken()
@@ -331,7 +336,7 @@ class TwitchApiClient {
 
     if (!refreshToken) {
       throw new Error(
-        'Twitch リフレッシュトークンがありません。課金タブで Supabase にログイン後、OAuth するか DB に import してください。',
+        'Twitch リフレッシュトークンがありません。.env に VITE_TWITCH_REFRESH_TOKEN を設定するか、get-oauth-token.bat で取得してください。',
       )
     }
 

@@ -1,5 +1,4 @@
 import { useCallback } from 'react'
-import { useFeatureUnlock } from '../context/FeatureUnlockContext'
 import { logger } from '../lib/logger'
 import { twitchChat } from '../utils/twitchChat'
 import { twitchApi } from '../utils/twitchApi'
@@ -10,9 +9,7 @@ import { twitchApi } from '../utils/twitchApi'
  * - 不可時は Helix API 送信へフォールバック
  */
 export function useAutoReply(channelName: string, broadcasterUserId?: string) {
-  const { isUnlocked } = useFeatureUnlock()
   return useCallback((message: string, errorLabel: string) => {
-    if (!isUnlocked('autoReply')) return
     if (!message.trim()) return
     if (twitchChat.canSend()) {
       twitchChat.say(channelName, message)
@@ -23,5 +20,5 @@ export function useAutoReply(channelName: string, broadcasterUserId?: string) {
         logger.error(errorLabel, err)
       })
     }
-  }, [channelName, broadcasterUserId, isUnlocked])
+  }, [channelName, broadcasterUserId])
 }

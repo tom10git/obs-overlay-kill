@@ -19,7 +19,7 @@ export function allowedOrigins(): string[] {
   return [...new Set([...configuredOrigins(), ...LOCAL_DEV_ORIGINS])]
 }
 
-/** Primary origin (Stripe return URL など) */
+/** Primary origin (OAuth リダイレクト等) */
 export function overlayOrigin(): string {
   return configuredOrigins()[0] ?? 'http://localhost:5173'
 }
@@ -34,7 +34,7 @@ export function corsHeaders(req: Request): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': resolveCorsOrigin(req),
     'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type, x-billing-admin-secret',
+      'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   }
 }

@@ -829,20 +829,11 @@
   background: rgba(120, 150, 255, 0.22) !important;
 }
 
-.settings-tab--billing {
-  color: rgba(255, 213, 79, 0.85) !important;
-}
-
 .settings-section-intro--compact,
 .settings-hint--compact {
   font-size: 0.72rem;
   line-height: 1.4;
   margin: 0.25rem 0 0.5rem;
-}
-
-.settings-tab-panel--billing {
-  padding-top: 0.15rem;
-  border-bottom: none !important;
 }
 
 .overlay-settings--embedded .settings-tabs--sub {
