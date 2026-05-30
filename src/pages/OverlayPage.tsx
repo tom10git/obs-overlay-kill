@@ -70,7 +70,7 @@ import type { TwitchChatMessage } from '../types/twitch'
 import { DEFAULT_GAUGE_SHAPE, getDefaultConfig, saveOverlayConfig, validateAndSanitizeConfig } from '../utils/overlayConfig'
 import { OverlaySettings, type OverlaySettingsHandle } from '../components/settings/OverlaySettings'
 import { twitchApi } from '../utils/twitchApi'
-import type { OverlayConfig, AttackConfig, AttackDebuffKind } from '../types/overlay'
+import type { OverlayConfig, AttackConfig, AttackDebuffKind, ComboRouletteOverlayVisual } from '../types/overlay'
 import type { ChannelPointEvent } from '../types/overlay'
 import { logger } from '../lib/logger'
 import { glowTextStyleFromHex } from '../utils/glowTextStyle'
@@ -1494,57 +1494,93 @@ export function OverlayPage() {
     [config, reduceHPTracked, tryObsEffect, playAttackSound]
   )
 
+  const fireOverlayVisualBurst = useCallback(
+    (opts: { enabled: boolean; visual?: ComboRouletteOverlayVisual; videoUrl?: string }) => {
+      if (!opts.enabled) return
+      const id = allocEffectKey()
+      const vis = opts.visual ?? 'webm'
+      if (vis === 'slashArc') {
+        enqueueSlashArc(id, 'default')
+        return
+      }
+      if (vis === 'glassCanvas') {
+        setAttackEffectBursts((prev) => prev.concat({ id, mode: 'glassCanvas', playbackKey: id }))
+        return
+      }
+      const url = (opts.videoUrl ?? '').trim()
+      if (!url) return
+      setAttackEffectBursts((prev) => prev.concat({ id, mode: 'webm', videoUrl: url }))
+    },
+    [allocEffectKey, enqueueSlashArc]
+  )
+
   const fireAttackEffectBurst = useCallback(
     (kind: 'normal' | 'combo' | 'roulette') => {
       const a = config?.attack
       if (!a) return
-      const id = allocEffectKey()
       if (kind === 'normal') {
-        if (!a.attackEffectEnabled) return
-        const vis = a.attackEffectVisual ?? 'webm'
-        if (vis === 'slashArc') {
-          enqueueSlashArc(id, 'default')
-          return
-        }
-        if (vis === 'glassCanvas') {
-          setAttackEffectBursts((prev) => prev.concat({ id, mode: 'glassCanvas', playbackKey: id }))
-          return
-        }
-        if (!a.attackEffectVideoUrl.trim()) return
-        setAttackEffectBursts((prev) => prev.concat({ id, mode: 'webm', videoUrl: a.attackEffectVideoUrl.trim() }))
+        fireOverlayVisualBurst({
+          enabled: a.attackEffectEnabled,
+          visual: a.attackEffectVisual,
+          videoUrl: a.attackEffectVideoUrl,
+        })
         return
       }
       if (kind === 'combo') {
-        if (!a.comboTechniqueEffectEnabled) return
-        const vis = a.comboTechniqueEffectVisual ?? 'webm'
-        if (vis === 'slashArc') {
-          enqueueSlashArc(id, 'default')
-          return
-        }
-        if (vis === 'glassCanvas') {
-          setAttackEffectBursts((prev) => prev.concat({ id, mode: 'glassCanvas', playbackKey: id }))
-          return
-        }
-        const url = a.comboTechniqueEffectVideoUrl.trim()
-        if (!url) return
-        setAttackEffectBursts((prev) => prev.concat({ id, mode: 'webm', videoUrl: url }))
+        fireOverlayVisualBurst({
+          enabled: a.comboTechniqueEffectEnabled,
+          visual: a.comboTechniqueEffectVisual,
+          videoUrl: a.comboTechniqueEffectVideoUrl,
+        })
         return
       }
-      if (!a.rouletteEffectEnabled) return
-      const visR = a.rouletteEffectVisual ?? 'webm'
-      if (visR === 'slashArc') {
-        enqueueSlashArc(id, 'default')
-        return
-      }
-      if (visR === 'glassCanvas') {
-        setAttackEffectBursts((prev) => prev.concat({ id, mode: 'glassCanvas', playbackKey: id }))
-        return
-      }
-      const url = a.rouletteEffectVideoUrl.trim()
+      fireOverlayVisualBurst({
+        enabled: a.rouletteEffectEnabled,
+        visual: a.rouletteEffectVisual,
+        videoUrl: a.rouletteEffectVideoUrl,
+      })
+    },
+    [config?.attack, fireOverlayVisualBurst]
+  )
+
+  const fireWebmOverlayBurst = useCallback(
+    (enabled: boolean, videoUrl: string) => {
+      if (!enabled) return
+      const url = videoUrl.trim()
       if (!url) return
+      const id = allocEffectKey()
       setAttackEffectBursts((prev) => prev.concat({ id, mode: 'webm', videoUrl: url }))
     },
-    [allocEffectKey, config?.attack]
+    [allocEffectKey]
+  )
+
+  const fireHealOverlayEffect = useCallback(() => {
+    const h = config?.heal
+    if (!h) return
+    fireWebmOverlayBurst(h.overlayEffectEnabled, h.overlayEffectVideoUrl)
+  }, [config?.heal, fireWebmOverlayBurst])
+
+  const fireRetryOverlayEffect = useCallback(() => {
+    const r = config?.retry
+    if (!r) return
+    fireWebmOverlayBurst(r.overlayEffectEnabled, r.overlayEffectVideoUrl)
+  }, [config?.retry, fireWebmOverlayBurst])
+
+  const fireDebuffOverlayEffect = useCallback(
+    (kind: AttackDebuffKind) => {
+      const a = config?.attack
+      if (!a) return
+      if (kind === 'poison') {
+        fireWebmOverlayBurst(a.dotPoisonEffectEnabled, a.dotPoisonEffectVideoUrl)
+        return
+      }
+      if (kind === 'burn') {
+        fireWebmOverlayBurst(a.dotBurnEffectEnabled, a.dotBurnEffectVideoUrl)
+        return
+      }
+      fireWebmOverlayBurst(a.dotBleedEffectEnabled, a.dotBleedEffectVideoUrl)
+    },
+    [config?.attack, fireWebmOverlayBurst]
   )
 
   const fireTechniqueEffectBurst = useCallback(
@@ -2203,6 +2239,7 @@ export function OverlayPage() {
               // DOTが付与された攻撃では、攻撃SEを種別で置き換える（設定があれば）
               if (!isFinishingMove) {
                 fireAttackEffectBurst('normal')
+                fireDebuffOverlayEffect(dotDebuffKind)
                 if (dotDebuffKind === 'poison') {
                   const played = config.attack.dotPoisonAttackSoundEnabled && !!config.attack.dotPoisonAttackSoundUrl?.trim()
                   if (played) playDotPoisonAttackSound()
@@ -2336,6 +2373,7 @@ export function OverlayPage() {
                 }, 1500)
 
                 if (config.heal?.effectEnabled) showHealEffect()
+                fireHealOverlayEffect()
                 if (config.heal?.soundEnabled) playHealSound()
               }
             }, durationMs)
@@ -2386,6 +2424,7 @@ export function OverlayPage() {
       runPvpCounterAfterAttack,
       applyStreamerOverkillHit,
       fireAttackEffectBurst,
+      fireDebuffOverlayEffect,
     ]
   )
 
@@ -2431,6 +2470,7 @@ export function OverlayPage() {
         if (config.heal.effectEnabled) {
           showHealEffect()
         }
+        fireHealOverlayEffect()
         // OBS WebSocket: 回復演出（ソースレイヤー操作）
         if (config.obsWebSocket.enabled && config.obsWebSocket.sourceName.trim() && config.obsWebSocket.effects.healGlowEnabled) {
           const eff = config.obsWebSocket.effects
@@ -2451,7 +2491,7 @@ export function OverlayPage() {
         }
       }
     },
-    [config, currentHP, maxHP, increaseHP, registerHealStreak, showHealEffect, playHealSound, sendAutoReply, tryObsEffect, user?.id]
+    [config, currentHP, maxHP, increaseHP, registerHealStreak, showHealEffect, fireHealOverlayEffect, playHealSound, sendAutoReply, tryObsEffect, user?.id]
   )
 
   // テストモードかどうか
@@ -2656,6 +2696,7 @@ export function OverlayPage() {
         // DOTが付与された攻撃では、命中エフェクトと攻撃SE（種別で置き換え可）
         if (!isFinishingMove) {
           fireAttackEffectBurst('normal')
+          fireDebuffOverlayEffect(dotDebuffKind)
           if (dotDebuffKind === 'poison') {
             const played = config.attack.dotPoisonAttackSoundEnabled && !!config.attack.dotPoisonAttackSoundUrl?.trim()
             if (played) playDotPoisonAttackSound()
@@ -2775,6 +2816,7 @@ export function OverlayPage() {
             }, 1500)
 
             if (config.heal?.effectEnabled) showHealEffect()
+            fireHealOverlayEffect()
             if (config.heal?.soundEnabled) playHealSound()
           }
         }, durationMs)
@@ -2819,6 +2861,8 @@ export function OverlayPage() {
     tryObsEffect,
     applyStreamerOverkillHit,
     fireAttackEffectBurst,
+    fireDebuffOverlayEffect,
+    fireHealOverlayEffect,
   ])
 
   const handleTestFinishingMove = useCallback(() => {
@@ -2880,6 +2924,8 @@ export function OverlayPage() {
       const bleedDuration = fmBleedParams.durationSec * 1000
       const bleedTickColor = fmBleedParams.damageColor
       const dotDebuffKind = fmBleedParams.debuffKind
+
+      fireDebuffOverlayEffect(dotDebuffKind)
 
       bleedIdRef.current += 1
       const bleedId = bleedIdRef.current
@@ -2951,6 +2997,7 @@ export function OverlayPage() {
     stopRepeat,
     username,
     tryObsEffect,
+    fireDebuffOverlayEffect,
   ])
 
   const handleTestHeal = useCallback(() => {
@@ -2993,6 +3040,7 @@ export function OverlayPage() {
     if (config.heal.effectEnabled) {
       showHealEffect()
     }
+    fireHealOverlayEffect()
     // 回復効果音を再生
     if (config.heal.soundEnabled) {
       playHealSound()
@@ -3003,18 +3051,19 @@ export function OverlayPage() {
         obsGlowSource(config.obsWebSocket, eff.healGlowScale, eff.healGlowDurationMs)
       )
     }
-  }, [config, isTestMode, currentHP, maxHP, increaseHP, registerHealStreak, showHealEffect, playHealSound, tryObsEffect])
+  }, [config, isTestMode, currentHP, maxHP, increaseHP, registerHealStreak, showHealEffect, fireHealOverlayEffect, playHealSound, tryObsEffect])
 
   const handleTestReset = useCallback(() => {
     if (!isTestMode || !config) return
     // 現在のHPが最大HPの場合は何もしない
     if (currentHP >= maxHP) return
     resetStreamerHp()
+    fireRetryOverlayEffect()
     // 蘇生効果音を再生
     if (config.retry.soundEnabled) {
       playRetrySound()
     }
-  }, [isTestMode, config, currentHP, maxHP, resetStreamerHp, playRetrySound])
+  }, [isTestMode, config, currentHP, maxHP, resetStreamerHp, fireRetryOverlayEffect, playRetrySound])
 
   // テストモード用のバフ付与ハンドラ（即時に ref を更新し、チャット送信は任意でログ用）
   const handleTestStrengthBuff = useCallback(() => {
@@ -3745,6 +3794,7 @@ export function OverlayPage() {
           resetStreamerHp()
           getViewerUserIds().forEach((id) => setViewerHP(id, viewerMaxHP))
           if (config.heal.effectEnabled) showHealEffect()
+          fireRetryOverlayEffect()
           if (config.retry.soundEnabled) playRetrySound()
         }
       }
@@ -3764,6 +3814,7 @@ export function OverlayPage() {
           commandMatched = true
           resetStreamerHp()
           if (config.heal.effectEnabled) showHealEffect()
+          fireRetryOverlayEffect()
           if (config.retry.soundEnabled) playRetrySound()
         }
       }
@@ -3800,6 +3851,7 @@ export function OverlayPage() {
             increaseHP(healAmount)
             registerKawaiiSouniHealProgressRef.current()
             if (config.heal.effectEnabled) showHealEffect()
+            fireHealOverlayEffect()
             if (config.retry.soundEnabled) playRetrySound()
             // 回復時自動返信（攻撃コマンドと同様）。{username} は配信者なので「配信者」に置換
             if (config.heal.autoReplyEnabled && config.heal.autoReplyMessageTemplate?.trim()) {
@@ -3834,6 +3886,7 @@ export function OverlayPage() {
           }
           // HP最大でも「コマンドは有効」にしたいので、効果音/演出は常に実行（設定ON時）
           if (config.heal.effectEnabled) showHealEffect()
+          fireRetryOverlayEffect()
           if (config.retry.soundEnabled) playRetrySound()
         }
       }
@@ -3844,7 +3897,7 @@ export function OverlayPage() {
         idsArray.slice(0, 250).forEach((id) => processedChatMessagesRef.current.delete(id))
       }
     })
-  }, [chatMessages, config, isTestMode, chatChannel, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, showHealEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice, activateKonamiStreamerBuff])
+  }, [chatMessages, config, isTestMode, chatChannel, user?.id, handleAttackEvent, handleHealEvent, chatConnected, currentHP, resetStreamerHp, maxHP, increaseHP, registerHealStreak, showHealEffect, fireHealOverlayEffect, fireRetryOverlayEffect, showFinishingMoveEffect, playRetrySound, playStrengthBuffSound, applyViewerDamage, getViewerHP, getViewerHPCurrent, getViewerUserIds, ensureViewerHP, sendAutoReply, sendPvpBlockedMessage, setViewerHP, viewerMaxHP, applyComboTechniqueInputSlice, activateKonamiStreamerBuff])
 
   // body要素にoverflow:hiddenを適用
   useEffect(() => {
@@ -4650,6 +4703,7 @@ export function OverlayPage() {
                               resetStreamerHp()
                               getViewerUserIds().forEach((id) => setViewerHP(id, viewerMaxHP))
                               if (config.heal.effectEnabled) showHealEffect()
+                              fireRetryOverlayEffect()
                               if (config.retry.soundEnabled) playRetrySound()
                             }
                             startRepeat(triggerResetAll, 200)

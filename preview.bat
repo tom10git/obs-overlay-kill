@@ -26,7 +26,7 @@ REM node_modulesが存在するか確認
 if not exist "node_modules\" (
     echo [警告] node_modules が見つかりません。
     echo [情報] 依存関係をインストールしています...
-    call npm install
+    call npm ci
     if errorlevel 1 (
         echo [エラー] 依存関係のインストールに失敗しました。
         pause

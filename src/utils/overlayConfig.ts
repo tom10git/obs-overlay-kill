@@ -60,6 +60,19 @@ function sanitizeComboRouletteVisual(raw: unknown): ComboRouletteOverlayVisual {
   return 'webm'
 }
 
+function sanitizeOverlayWebmEffect(
+  src: Record<string, unknown>,
+  prefix: string,
+): { enabled: boolean; videoUrl: string } {
+  return {
+    enabled: typeof src[`${prefix}Enabled`] === 'boolean' ? (src[`${prefix}Enabled`] as boolean) : false,
+    videoUrl:
+      typeof src[`${prefix}VideoUrl`] === 'string' && isValidUrl(src[`${prefix}VideoUrl`] as string)
+        ? (src[`${prefix}VideoUrl`] as string)
+        : '',
+  }
+}
+
 function sanitizeTestPanelSimulation(
   simRaw: unknown,
   legacyTest?: Record<string, unknown>,
@@ -161,6 +174,12 @@ const DEFAULT_CONFIG: OverlayConfig = {
     dotBurnAttackSoundEnabled: false,
     dotBurnAttackSoundUrl: '',
     dotBurnAttackSoundVolume: 0.7,
+    dotBleedEffectEnabled: false,
+    dotBleedEffectVideoUrl: '',
+    dotPoisonEffectEnabled: false,
+    dotPoisonEffectVideoUrl: '',
+    dotBurnEffectEnabled: false,
+    dotBurnEffectVideoUrl: '',
     soundEnabled: false,
     soundUrl: '',
     soundVolume: 0.7,
@@ -223,6 +242,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundUrl: '',
     soundVolume: 0.7,
     filterEffectEnabled: true,
+    overlayEffectEnabled: false,
+    overlayEffectVideoUrl: '',
     healWhenZeroEnabled: true,
     autoReplyEnabled: false,
     autoReplyMessageTemplate: '配信者の残りHP: {hp}/{max}',
@@ -243,6 +264,8 @@ const DEFAULT_CONFIG: OverlayConfig = {
     soundEnabled: false,
     soundUrl: '',
     soundVolume: 0.7,
+    overlayEffectEnabled: false,
+    overlayEffectVideoUrl: '',
   },
   animation: {
     duration: 500,
@@ -316,6 +339,12 @@ const DEFAULT_CONFIG: OverlayConfig = {
       dotBurnAttackSoundEnabled: false,
       dotBurnAttackSoundUrl: '',
       dotBurnAttackSoundVolume: 0.7,
+      dotBleedEffectEnabled: false,
+      dotBleedEffectVideoUrl: '',
+      dotPoisonEffectEnabled: false,
+      dotPoisonEffectVideoUrl: '',
+      dotBurnEffectEnabled: false,
+      dotBurnEffectVideoUrl: '',
       soundEnabled: false,
       soundUrl: '',
       soundVolume: 0.7,
@@ -458,6 +487,12 @@ const DEFAULT_CONFIG: OverlayConfig = {
       dotBurnAttackSoundEnabled: false,
       dotBurnAttackSoundUrl: '',
       dotBurnAttackSoundVolume: 0.7,
+      dotBleedEffectEnabled: false,
+      dotBleedEffectVideoUrl: '',
+      dotPoisonEffectEnabled: false,
+      dotPoisonEffectVideoUrl: '',
+      dotBurnEffectEnabled: false,
+      dotBurnEffectVideoUrl: '',
       soundEnabled: false,
       soundUrl: '',
       soundVolume: 0.7,
@@ -961,6 +996,19 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     dotBurnAttackSoundVolume: isInRange(Number(attackConfig.dotBurnAttackSoundVolume), 0, 1)
       ? Number(attackConfig.dotBurnAttackSoundVolume) || 0.7
       : 0.7,
+    ...(() => {
+      const bleed = sanitizeOverlayWebmEffect(attackConfig, 'dotBleedEffect')
+      const poison = sanitizeOverlayWebmEffect(attackConfig, 'dotPoisonEffect')
+      const burn = sanitizeOverlayWebmEffect(attackConfig, 'dotBurnEffect')
+      return {
+        dotBleedEffectEnabled: bleed.enabled,
+        dotBleedEffectVideoUrl: bleed.videoUrl,
+        dotPoisonEffectEnabled: poison.enabled,
+        dotPoisonEffectVideoUrl: poison.videoUrl,
+        dotBurnEffectEnabled: burn.enabled,
+        dotBurnEffectVideoUrl: burn.videoUrl,
+      }
+    })(),
     soundEnabled: typeof attackConfig.soundEnabled === 'boolean' ? attackConfig.soundEnabled : false,
     soundUrl:
       typeof attackConfig.soundUrl === 'string' && isValidUrl(attackConfig.soundUrl)
@@ -1177,6 +1225,13 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
       ? Number(healConfig.soundVolume) || 0.7
       : 0.7,
     filterEffectEnabled: typeof healConfig.filterEffectEnabled === 'boolean' ? healConfig.filterEffectEnabled : true,
+    ...(() => {
+      const fx = sanitizeOverlayWebmEffect(healConfig, 'overlayEffect')
+      return {
+        overlayEffectEnabled: fx.enabled,
+        overlayEffectVideoUrl: fx.videoUrl,
+      }
+    })(),
     healWhenZeroEnabled: typeof healConfig.healWhenZeroEnabled === 'boolean' ? healConfig.healWhenZeroEnabled : true,
     autoReplyEnabled: typeof healConfig.autoReplyEnabled === 'boolean' ? healConfig.autoReplyEnabled : false,
     autoReplyMessageTemplate: typeof healConfig.autoReplyMessageTemplate === 'string' ? healConfig.autoReplyMessageTemplate : '配信者の残りHP: {hp}/{max}',
@@ -1217,6 +1272,13 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     soundVolume: isInRange(Number(retryConfig.soundVolume), 0, 1)
       ? Number(retryConfig.soundVolume) || 0.7
       : 0.7,
+    ...(() => {
+      const fx = sanitizeOverlayWebmEffect(retryConfig, 'overlayEffect')
+      return {
+        overlayEffectEnabled: fx.enabled,
+        overlayEffectVideoUrl: fx.videoUrl,
+      }
+    })(),
   }
 
   // アニメーション設定の検証
@@ -1599,6 +1661,19 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     dotBurnAttackSoundEnabled: typeof sa.dotBurnAttackSoundEnabled === 'boolean' ? sa.dotBurnAttackSoundEnabled : false,
     dotBurnAttackSoundUrl: typeof sa.dotBurnAttackSoundUrl === 'string' ? sa.dotBurnAttackSoundUrl : '',
     dotBurnAttackSoundVolume: isInRange(Number(sa.dotBurnAttackSoundVolume), 0, 1) ? Number(sa.dotBurnAttackSoundVolume) || 0.7 : 0.7,
+    ...(() => {
+      const bleed = sanitizeOverlayWebmEffect(sa, 'dotBleedEffect')
+      const poison = sanitizeOverlayWebmEffect(sa, 'dotPoisonEffect')
+      const burn = sanitizeOverlayWebmEffect(sa, 'dotBurnEffect')
+      return {
+        dotBleedEffectEnabled: bleed.enabled,
+        dotBleedEffectVideoUrl: bleed.videoUrl,
+        dotPoisonEffectEnabled: poison.enabled,
+        dotPoisonEffectVideoUrl: poison.videoUrl,
+        dotBurnEffectEnabled: burn.enabled,
+        dotBurnEffectVideoUrl: burn.videoUrl,
+      }
+    })(),
     soundEnabled: typeof sa.soundEnabled === 'boolean' ? sa.soundEnabled : false,
     soundUrl: typeof sa.soundUrl === 'string' ? sa.soundUrl : '',
     soundVolume: isInRange(Number(sa.soundVolume), 0, 1) ? Number(sa.soundVolume) || 0.7 : 0.7,
@@ -1791,6 +1866,19 @@ export function validateAndSanitizeConfig(config: unknown): OverlayConfig {
     dotBurnAttackSoundEnabled: typeof vva.dotBurnAttackSoundEnabled === 'boolean' ? vva.dotBurnAttackSoundEnabled : false,
     dotBurnAttackSoundUrl: typeof vva.dotBurnAttackSoundUrl === 'string' ? vva.dotBurnAttackSoundUrl : '',
     dotBurnAttackSoundVolume: isInRange(Number(vva.dotBurnAttackSoundVolume), 0, 1) ? Number(vva.dotBurnAttackSoundVolume) || 0.7 : 0.7,
+    ...(() => {
+      const bleed = sanitizeOverlayWebmEffect(vva, 'dotBleedEffect')
+      const poison = sanitizeOverlayWebmEffect(vva, 'dotPoisonEffect')
+      const burn = sanitizeOverlayWebmEffect(vva, 'dotBurnEffect')
+      return {
+        dotBleedEffectEnabled: bleed.enabled,
+        dotBleedEffectVideoUrl: bleed.videoUrl,
+        dotPoisonEffectEnabled: poison.enabled,
+        dotPoisonEffectVideoUrl: poison.videoUrl,
+        dotBurnEffectEnabled: burn.enabled,
+        dotBurnEffectVideoUrl: burn.videoUrl,
+      }
+    })(),
     soundEnabled: typeof vva.soundEnabled === 'boolean' ? vva.soundEnabled : false,
     soundUrl: typeof vva.soundUrl === 'string' ? vva.soundUrl : '',
     soundVolume: isInRange(Number(vva.soundVolume), 0, 1) ? Number(vva.soundVolume) || 0.7 : 0.7,

@@ -116,17 +116,23 @@ if exist ".env" (
     )
 )
 
-REM 依存関係をインストール（package.jsonに記載されているもののみ）
+REM 依存関係をインストール（package-lock.json のみ・.npmrc のサプライチェーン対策を適用）
 echo [情報] 依存関係をインストール中...
-echo [情報] package.jsonに記載されている依存関係のみをインストールします...
-echo [情報] 注意: optional dependencies を省くと Vite/rolldown の Windows ネイティブ依存が欠けてビルド失敗する場合があります。
-call npm install
+echo [情報] package-lock.json に固定された依存のみをインストールします（npm ci）...
+echo [情報] 注意: optional dependencies を省くと Vite の Windows ネイティブ依存が欠けてビルド失敗する場合があります。
+if not exist "package-lock.json" (
+    echo [エラー] package-lock.json が見つかりません。リポジトリ一式を取得してください。
+    pause
+    exit /b 1
+)
+call npm ci
 
 if errorlevel 1 (
     echo [エラー] 依存関係のインストールに失敗しました。
     echo [情報] ネットワーク接続を確認するか、npm のキャッシュをクリアしてください。
     echo [情報] キャッシュクリア: npm cache clean --force
-    echo [情報] 再試行: npm install
+    echo [情報] 再試行: npm ci
+    echo [情報] npm は 11.10 以上を推奨（min-release-age 用）。npm --version で確認してください。
     pause
     exit /b 1
 )

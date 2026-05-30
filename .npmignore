@@ -1,0 +1,5 @@
+# npm pack 時に配布しない（誤公開・ローカル pack 用）
+*
+!dist/**
+!LICENSE
+!README.md

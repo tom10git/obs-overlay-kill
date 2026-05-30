@@ -125,6 +125,15 @@ export interface AttackConfig {
   dotBurnAttackSoundEnabled: boolean
   dotBurnAttackSoundUrl: string
   dotBurnAttackSoundVolume: number
+  /** 出血DOT 付与時の中央オーバーレイエフェクト（透過 WebM） */
+  dotBleedEffectEnabled: boolean
+  dotBleedEffectVideoUrl: string
+  /** 毒DOT 付与時の中央オーバーレイエフェクト（透過 WebM） */
+  dotPoisonEffectEnabled: boolean
+  dotPoisonEffectVideoUrl: string
+  /** 炎DOT 付与時の中央オーバーレイエフェクト（透過 WebM） */
+  dotBurnEffectEnabled: boolean
+  dotBurnEffectVideoUrl: string
   soundEnabled: boolean // 攻撃効果音の有効/無効
   soundUrl: string // 攻撃効果音のURL
   soundVolume: number // 攻撃効果音の音量（0-1）
@@ -253,6 +262,9 @@ export interface HealConfig {
   soundUrl: string // 回復効果音のURL
   soundVolume: number // 回復効果音の音量（0-1）
   filterEffectEnabled: boolean // 回復時のフィルターエフェクトの有効/無効
+  /** 回復時の中央オーバーレイエフェクト（透過 WebM） */
+  overlayEffectEnabled: boolean
+  overlayEffectVideoUrl: string
   healWhenZeroEnabled: boolean // HPが0のときも通常回復を許可する
   /** 回復カスタムテキスト一致時にチャットへ自動返信する */
   autoReplyEnabled: boolean
@@ -286,6 +298,9 @@ export interface RetryConfig {
   soundEnabled: boolean // 蘇生効果音の有効/無効
   soundUrl: string // 蘇生効果音のURL
   soundVolume: number // 蘇生効果音の音量（0-1）
+  /** 蘇生（リトライ等）時の中央オーバーレイエフェクト（透過 WebM） */
+  overlayEffectEnabled: boolean
+  overlayEffectVideoUrl: string
 }
 
 export interface AnimationConfig {

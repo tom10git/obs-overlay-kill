@@ -1997,6 +1997,79 @@ export const OverlaySettings = forwardRef<
                     </div>
                   </div>
                 )}
+                <h4 className="settings-subsection-title">デバフ付与エフェクト（WebM）</h4>
+                <p className="settings-hint">
+                  出血・毒・炎の DOT が付与されたときに中央へ重ねる透過 WebM です。種類ごとに設定できます。
+                </p>
+                {(
+                  [
+                    {
+                      label: "出血",
+                      enabledKey: "dotBleedEffectEnabled" as const,
+                      urlKey: "dotBleedEffectVideoUrl" as const,
+                    },
+                    {
+                      label: "毒",
+                      enabledKey: "dotPoisonEffectEnabled" as const,
+                      urlKey: "dotPoisonEffectVideoUrl" as const,
+                    },
+                    {
+                      label: "炎",
+                      enabledKey: "dotBurnEffectEnabled" as const,
+                      urlKey: "dotBurnEffectVideoUrl" as const,
+                    },
+                  ] as const
+                ).map(({ label, enabledKey, urlKey }) => (
+                  <div key={enabledKey} className="settings-debuff-effect-block">
+                    <div className="settings-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={config.attack[enabledKey]}
+                          onChange={(e) =>
+                            setConfig({
+                              ...config,
+                              attack: {
+                                ...config.attack,
+                                [enabledKey]: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                        {label} DOT 付与エフェクトを有効にする
+                      </label>
+                    </div>
+                    {config.attack[enabledKey] && (
+                      <div className="settings-row">
+                        <label>
+                          WebM URL:
+                          <input
+                            type="text"
+                            value={config.attack[urlKey]}
+                            onChange={(e) => {
+                              const url = e.target.value;
+                              if (isValidUrl(url)) {
+                                setConfig({
+                                  ...config,
+                                  attack: {
+                                    ...config.attack,
+                                    [urlKey]: url,
+                                  },
+                                });
+                              } else {
+                                setMessage(
+                                  "無効なURLです。http://、https://、または相対パスを入力してください。",
+                                );
+                                setTimeout(() => setMessage(null), 3000);
+                              }
+                            }}
+                            placeholder="例: src/images/debuff.webm または https://..."
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                ))}
                 <p className="settings-hint" style={{ marginTop: "0.35rem" }}>
                   攻撃・ミス・出血・DOT などの<strong>効果音</strong>
                   は上部の「効果音」タブで設定します。
@@ -3516,6 +3589,57 @@ export const OverlaySettings = forwardRef<
                     回復時のフィルターエフェクトを有効にする
                   </label>
                 </div>
+                <h4 className="settings-subsection-title">回復エフェクト（WebM）</h4>
+                <p className="settings-hint">
+                  回復時に中央へ重ねる透過 WebM です。上の「回復エフェクトを表示」（パーティクル）とは別です。
+                </p>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.heal.overlayEffectEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          heal: {
+                            ...config.heal,
+                            overlayEffectEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    回復オーバーレイエフェクトを有効にする
+                  </label>
+                </div>
+                {config.heal.overlayEffectEnabled && (
+                  <div className="settings-row">
+                    <label>
+                      WebM URL:
+                      <input
+                        type="text"
+                        value={config.heal.overlayEffectVideoUrl}
+                        onChange={(e) => {
+                          const url = e.target.value;
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              heal: {
+                                ...config.heal,
+                                overlayEffectVideoUrl: url,
+                              },
+                            });
+                          } else {
+                            setMessage(
+                              "無効なURLです。http://、https://、または相対パスを入力してください。",
+                            );
+                            setTimeout(() => setMessage(null), 3000);
+                          }
+                        }}
+                        placeholder="例: src/images/heal.webm または https://..."
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -3802,6 +3926,57 @@ export const OverlaySettings = forwardRef<
                   <strong>蘇生（リトライ）効果音</strong>
                   は「効果音」タブで設定します。
                 </p>
+                <h4 className="settings-subsection-title">蘇生エフェクト（WebM）</h4>
+                <p className="settings-hint">
+                  リトライ・全回復・全員全回復などで HP を最大まで戻したときに中央へ重ねる透過 WebM です。
+                </p>
+                <div className="settings-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={config.retry.overlayEffectEnabled}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          retry: {
+                            ...config.retry,
+                            overlayEffectEnabled: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    蘇生オーバーレイエフェクトを有効にする
+                  </label>
+                </div>
+                {config.retry.overlayEffectEnabled && (
+                  <div className="settings-row">
+                    <label>
+                      WebM URL:
+                      <input
+                        type="text"
+                        value={config.retry.overlayEffectVideoUrl}
+                        onChange={(e) => {
+                          const url = e.target.value;
+                          if (isValidUrl(url)) {
+                            setConfig({
+                              ...config,
+                              retry: {
+                                ...config.retry,
+                                overlayEffectVideoUrl: url,
+                              },
+                            });
+                          } else {
+                            setMessage(
+                              "無効なURLです。http://、https://、または相対パスを入力してください。",
+                            );
+                            setTimeout(() => setMessage(null), 3000);
+                          }
+                        }}
+                        placeholder="例: src/images/revive.webm または https://..."
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
             )}
           </div>
